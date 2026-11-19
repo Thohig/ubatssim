@@ -14,11 +14,11 @@ En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i 
 src/sim/      Ren fysik. Inga beroenden på Three.js, DOM eller andra lager.
 src/control/  Order (typad union), orderkö, svensk kommandoparser, autopilot (PID), controller.
 src/render/   Three.js. Läser bara simuleringens tillstånd och skriver aldrig till det.
-src/ui/       Instrumentpanel, kommandokonsol, tangentbord, inmatningsläge, logg.
+src/ui/       Instrumentpanel, kommandokonsol, tangentbord, pekkontroller (touch.ts), inmatningsläge, logg.
 src/main.ts   Fast tidsstegsloop: ackumulator, 100 Hz, tak på antal steg per bildruta.
 ```
 - **Simulering:** deterministisk. Samma starttillstånd och samma order ger exakt samma resultat. Använd aldrig `Math.random()` eller väggklocka i `src/sim`.
-- **Order:** alla styrkommandon, från både tangentbord och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid.
+- **Order:** alla styrkommandon, från tangentbord, pekknappar och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid.
 - **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln.
 
 ## Fysikkonventioner

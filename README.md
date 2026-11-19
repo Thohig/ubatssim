@@ -24,6 +24,8 @@ npm run build    # typkontroll och produktionsbygge
 | Enter eller / | Öppna kommandokonsolen |
 | Esc | Tillbaka till styrning |
 
+På mobil och surfplatta finns knappar på skärmen för roder, djuproder och fart. Håll in en knapp för att upprepa. Knappen `>_` öppnar konsolen.
+
 Exempel på konsolkommandon: `djup 120`, `kurs 270`, `fart 8 knop`, `roder sb 15`, `djuproder ned 10`, `fyll huvudballast`, `blås huvudballast`, `trimma för 200`, `autopilot av`.
 
 ## Fysik
