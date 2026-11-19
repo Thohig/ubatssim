@@ -40,6 +40,10 @@ const FREE_STARTS: Record<FreeStart, { initial: InitialConditions; text: string 
   surface: { initial: {}, text: 'Ubåten ligger i ytläge.' },
   periscope: { initial: { depth: 18, speed: 4 * KN, designTrim: true }, text: 'Ubåten går på periskopdjup, 18 m.' },
   deep: { initial: { depth: 100, speed: 8 * KN, designTrim: true }, text: 'Ubåten går på 100 m djup, under språngskiktet.' },
+  archipelago: {
+    initial: { east: 2560, heading: (20 * Math.PI) / 180 },
+    text: 'Ubåten ligger i ytläge i ett sund i skärgården. Sundet slingrar sig mot nordost. Håll koll på "Under köl".',
+  },
 };
 
 let settings: Settings = loadSettings();
@@ -75,15 +79,16 @@ function newSession(initial: InitialConditions, scenario: Scenario | null, intro
     if (p.status !== 'running') window.setTimeout(() => endScenario(), 1500);
   });
   view.resetCamera();
+  view.setWaypoint(scenario?.waypoint ?? null);
   return s;
 }
 
 /** Background session shown behind the main menu: cruising on autopilot. */
 function demoSession(): Session {
-  const s = newSession({ depth: 20, speed: 5 * KN, designTrim: true, heading: 0.6 }, null, '');
+  // Surfaced off the archipelago, heading north along the coast.
+  const s = newSession({ east: 1700, speed: 5 * KN }, null, '');
   for (const o of [
-    { kind: 'setDepth', depth: 20 },
-    { kind: 'setHeading', heading: 35 },
+    { kind: 'setHeading', heading: 0 },
     { kind: 'setSpeed', knots: 5 },
   ] as const)
     s.ctrl.submit(o, 'console');

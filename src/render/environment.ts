@@ -1,17 +1,15 @@
 /**
- * Visual surroundings: sea bed, water surface, drifting particles and
+ * Visual surroundings: terrain, water surface, drifting particles and
  * depth-dependent fog/colour, so that motion is visible.
  */
 import * as THREE from 'three';
-import { seabedDepth } from '../sim/environment';
+import { createTerrain } from './terrain';
 
 export interface SeaEnvironment {
   update(subNed: [number, number, number], camera: THREE.Camera, t: number): void;
   setParticles(on: boolean): void;
 }
 
-const SEABED_SIZE = 3000;
-const SEABED_SEG = 150;
 const PARTICLE_BOX = 160;
 const PARTICLE_COUNT = 4000;
 
@@ -23,27 +21,7 @@ export function createEnvironment(scene: THREE.Scene): SeaEnvironment {
   scene.fog = new THREE.FogExp2(surfaceColor.getHex(), 0.006);
   scene.background = surfaceColor.clone();
 
-  // Sea bed: a grid that is re-centred (in whole cells) under the submarine.
-  const bedGeo = new THREE.PlaneGeometry(SEABED_SIZE, SEABED_SIZE, SEABED_SEG, SEABED_SEG);
-  bedGeo.rotateX(-Math.PI / 2);
-  const bedMat = new THREE.MeshStandardMaterial({ color: 0x6b6450, roughness: 1, flatShading: true });
-  const bed = new THREE.Mesh(bedGeo, bedMat);
-  scene.add(bed);
-  const cell = SEABED_SIZE / SEABED_SEG;
-  let bedCentre: [number, number] | null = null;
-  const rebuildBed = (cn: number, ce: number) => {
-    const pos = bedGeo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      // three x = east, three z = −north
-      pos.setY(i, -seabedDepth(cn - z, ce + x));
-    }
-    pos.needsUpdate = true;
-    bedGeo.computeVertexNormals();
-    bed.position.set(ce, 0, -cn);
-    bedCentre = [cn, ce];
-  };
+  const terrain = createTerrain(scene);
 
   // Water surface, visible from above and below.
   const surfMat = new THREE.MeshStandardMaterial({
@@ -54,7 +32,7 @@ export function createEnvironment(scene: THREE.Scene): SeaEnvironment {
     roughness: 0.3,
     metalness: 0.1,
   });
-  const surface = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000, 1, 1), surfMat);
+  const surface = new THREE.Mesh(new THREE.PlaneGeometry(12000, 12000, 1, 1), surfMat);
   surface.rotation.x = -Math.PI / 2;
   scene.add(surface);
 
@@ -82,10 +60,7 @@ export function createEnvironment(scene: THREE.Scene): SeaEnvironment {
       particlesOn = on;
     },
     update(sub, camera, t) {
-      const [n, e] = sub;
-      const cn = Math.round(n / cell) * cell;
-      const ce = Math.round(e / cell) * cell;
-      if (!bedCentre || Math.abs(cn - bedCentre[0]) > 300 || Math.abs(ce - bedCentre[1]) > 300) rebuildBed(cn, ce);
+      terrain.update(sub[0], sub[1]);
 
       surface.position.x = camera.position.x;
       surface.position.z = camera.position.z;

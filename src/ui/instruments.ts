@@ -30,6 +30,7 @@ export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Teleme
     ${row('Fart (knop)', 'speed', true, 'speedSet', 'apSpeed')}
     ${row('Kurs (°)', 'heading', true, 'headingSet', 'apHeading')}
     ${row('Stampvinkel (°)', 'pitch')}
+    ${row('Under köl (m)', 'keel')}
     <div class="inst-sep"></div>
     ${row('Roder', 'rudder')}
     ${centredBar('rudderBar')}
@@ -99,6 +100,8 @@ export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Teleme
     ap('apSpeed', ctrl.ap.speed);
     ap('apHeading', ctrl.ap.heading);
     set('pitch', signed(t.pitch * DEG));
+    set('keel', t.grounded ? 'GRUND!' : f(Math.max(0, t.depthUnderKeel), 1));
+    refs['keel']?.classList.toggle('alarm', t.grounded || t.depthUnderKeel < 5);
     set('roll', signed(t.roll * DEG));
     const rud = t.rudder * DEG;
     set('rudder', `${rud > 0.5 ? 'SB ' : rud < -0.5 ? 'BB ' : ''}${f(Math.abs(rud), 1)} (${signed(t.rudderCmd * DEG, 0)})`);

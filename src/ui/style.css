@@ -191,7 +191,9 @@ legend { color: var(--muted); padding: 0 4px; }
 @media (max-width: 760px) {
   .mode { right: 56px; }
   /* Below the compact instrument panel, above the 3D view's centre. */
-  #objective { top: calc(300px + env(safe-area-inset-top)); left: 8px; right: 8px; width: auto; transform: none; font-size: 12px; padding: 6px 10px; }
+  #objective { top: calc(322px + env(safe-area-inset-top)); left: 8px; right: 8px; width: auto; transform: none; font-size: 12px; padding: 6px 10px; }
   .menu-card { padding: 18px; }
   .menu-title { font-size: 28px; }
 }
+.inst-value.alarm { color: var(--error); font-weight: 700; }
+.obj-nav { color: var(--warn); font-size: 12px; margin-top: 2px; }

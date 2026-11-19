@@ -17,6 +17,16 @@ import { addedMassMatrix, hullDamping } from './hydrodynamics';
 import { buildHull, type HullGeometry } from './hull';
 import { airForFill, updateMainBallast, type AirState } from './airSystem';
 import { finForce } from './controlSurfaces';
+import { contactForces, hullContactPoints, type ContactResult, type GroundDepth } from './contact';
+import { seabedDepth } from './terrain';
+import { TerrainGrid } from './terrainGrid';
+
+/** Shared terrain cache for the default archipelago ground. */
+let defaultGround: TerrainGrid | null = null;
+export function archipelagoGround(): GroundDepth {
+  defaultGround ??= new TerrainGrid(seabedDepth);
+  return defaultGround.depth;
+}
 import { restoringForces, type HydrostaticResult } from './hydrostatics';
 import { computeMassProperties, type DryMass } from './massProperties';
 import { mat3Diag, mat3MulVec, type MatN } from './math/mat';
@@ -64,6 +74,11 @@ export interface InitialConditions {
   designTrim?: boolean;
   /** Override the fill fraction of individual trim/compensating tanks (by id), applied after designTrim. */
   tankFills?: Record<string, number>;
+  /** Start position [m] north and east of the origin. */
+  north?: number;
+  east?: number;
+  /** Ground model (sea bed depth at north/east). Defaults to the archipelago terrain. */
+  ground?: GroundDepth;
 }
 
 /**
@@ -129,6 +144,12 @@ export interface Telemetry {
   submergedFraction: number;
   trimRemaining: number;
   compRemaining: number;
+  /** True while any part of the hull touches the ground. */
+  grounded: boolean;
+  /** Sea bed depth below the boat [m] (negative over land). */
+  seabedDepth: number;
+  /** Echo sounder: water depth below the keel [m]. */
+  depthUnderKeel: number;
 }
 
 export class Simulation {
@@ -137,6 +158,8 @@ export class Simulation {
   readonly dry: DryMass;
   readonly tankDefs: readonly TankDef[];
   readonly MA: MatN;
+  readonly ground: GroundDepth;
+  readonly contactPoints: Vec3[];
 
   t = 0;
   y: Float64Array = new Float64Array(STATE_SIZE);
@@ -155,6 +178,8 @@ export class Simulation {
 
   constructor(init: InitialConditions = {}, cfg: SubmarineConfig = SUBMARINE) {
     this.cfg = cfg;
+    this.ground = init.ground ?? archipelagoGround();
+    this.contactPoints = hullContactPoints(cfg);
     this.hull = buildHull(cfg.hull);
     this.dry = deriveDryMass(cfg, this.hull);
     this.tankDefs = cfg.tanks;
@@ -177,6 +202,8 @@ export class Simulation {
     this.y[IDX.QUAT] = 1;
     const q = quatFromEuler(0, 0, init.heading ?? 0);
     this.y.set(q, IDX.QUAT);
+    this.y[0] = init.north ?? 0;
+    this.y[1] = init.east ?? 0;
     this.y[2] = init.depth ?? 0;
     this.setMainBallastFill(mbtFill);
     if (init.depth === undefined) this.y[2] = this.floatingDepth();
@@ -244,7 +271,14 @@ export class Simulation {
   }
 
   /** Total generalized external force on the hull in body frame at state y. */
-  externalForces(y: Float64Array): { tau: Float64Array; hydrostatics: HydrostaticResult; propThrust: number; propTorque: number; motorTorque: number } {
+  externalForces(y: Float64Array): {
+    tau: Float64Array;
+    hydrostatics: HydrostaticResult;
+    contact: ContactResult;
+    propThrust: number;
+    propTorque: number;
+    motorTorque: number;
+  } {
     const cfg = this.cfg;
     const pos = getPos(y);
     const R = quatToMat3(getQuat(y));
@@ -265,12 +299,18 @@ export class Simulation {
     const prop = propellerForces(cfg.propulsion, y[IDX_SHAFT]!, nu[0]!, this.commands.rps, rho);
     tau[0]! += prop.thrust;
     tau[3]! -= prop.torque; // reaction torque on the hull
-    return { tau, hydrostatics: hs, propThrust: prop.thrust, propTorque: prop.torque, motorTorque: prop.motorTorque };
+    const contact = contactForces(this.contactPoints, pos, R, nu, this.ground, cfg.contact);
+    add(contact.tau);
+    return { tau, hydrostatics: hs, contact, propThrust: prop.thrust, propTorque: prop.torque, motorTorque: prop.motorTorque };
   }
+
+  /** Number of hull points touching the ground at the last force evaluation. */
+  groundContacts = 0;
 
   private derivative(y: Float64Array): Float64Array {
     const out = new Float64Array(STATE_SIZE);
     const ext = this.externalForces(y);
+    this.groundContacts = ext.contact.points;
     this.body.derivative(y, ext.tau, out);
     out[IDX_SHAFT] = (ext.motorTorque - ext.propTorque) / (2 * Math.PI * this.cfg.propulsion.shaftInertia);
     return out;
@@ -387,6 +427,23 @@ export class Simulation {
     return 0.5 * (lo + hi);
   }
 
+  /** Position, attitude and velocities only (no force evaluation). Cheap enough to call every step. */
+  kinematics(): { depth: number; depthRate: number; pitch: number; heading: number; u: number; q: number; r: number } {
+    const R = quatToMat3(getQuat(this.y));
+    const [, pitch, yaw] = quatToEuler(getQuat(this.y));
+    const nu = this.y.subarray(IDX.NU, IDX.NU + 6);
+    const vWorld = mat3MulVec(R, [nu[0]!, nu[1]!, nu[2]!]);
+    return {
+      depth: this.y[2]!,
+      depthRate: vWorld[2],
+      pitch,
+      heading: (yaw + 2 * Math.PI) % (2 * Math.PI),
+      u: nu[0]!,
+      q: nu[4]!,
+      r: nu[5]!,
+    };
+  }
+
   telemetry(): Telemetry {
     const ext = this.externalForces(this.y);
     this.lastHydrostatics = ext.hydrostatics;
@@ -430,6 +487,9 @@ export class Simulation {
       submergedFraction: ext.hydrostatics.submergedFraction,
       trimRemaining: this.trimRemaining,
       compRemaining: this.compRemaining,
+      grounded: ext.contact.points > 0,
+      seabedDepth: this.ground(pos[0], pos[1]),
+      depthUnderKeel: this.ground(pos[0], pos[1]) - (pos[2] + this.cfg.hull.radius),
     };
   }
 

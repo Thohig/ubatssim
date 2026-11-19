@@ -94,7 +94,7 @@ export class Controller {
       this.addLog(acknowledgement(order), 'ack', source);
     }
     const sim = this.sim;
-    const tel = sim.telemetry();
+    const tel = sim.kinematics();
     const input: AutopilotInput = {
       depth: tel.depth,
       depthRate: tel.depthRate,
@@ -123,7 +123,15 @@ export class Controller {
     sim.commands.rps = this.rpsCmd;
 
     sim.step();
+
+    const grounded = sim.groundContacts > 0;
+    if (grounded && !this.grounded) {
+      this.addLog(`Grundstötning! Fart ${(Math.abs(sim.y[7]!) / KNOT).toFixed(1).replace('.', ',')} knop.`, 'error');
+    }
+    this.grounded = grounded;
   }
+
+  private grounded = false;
 
   private apply(o: Order): void {
     const sim = this.sim;

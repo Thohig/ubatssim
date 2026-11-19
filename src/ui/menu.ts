@@ -7,7 +7,7 @@ import { SCENARIOS, type Scenario } from '../control/scenarios';
 import { formatSimTime } from '../control/controller';
 import { loadBestTimes, type Settings } from './settings';
 
-export type FreeStart = 'surface' | 'periscope' | 'deep';
+export type FreeStart = 'surface' | 'periscope' | 'deep' | 'archipelago';
 
 export interface MenuHandlers {
   startFree(start: FreeStart): void;
@@ -145,7 +145,8 @@ export class Menu {
           <h2 class="menu-title small">Fritt spel</h2>
           <p class="menu-sub">Välj var du vill börja.</p>
           <div class="menu-list">
-            <button class="menu-btn choice" data-action="free" data-arg="surface"><b>Ytläge</b><span>Stilla vid ytan med tom huvudballast.</span></button>
+            <button class="menu-btn choice" data-action="free" data-arg="surface"><b>Ytläge</b><span>Stilla vid ytan på öppet hav, skärgården 2 km österut.</span></button>
+            <button class="menu-btn choice" data-action="free" data-arg="archipelago"><b>Skärgården</b><span>I ytläge i ett smalt sund mellan kobbar och skär.</span></button>
             <button class="menu-btn choice" data-action="free" data-arg="periscope"><b>Periskopdjup</b><span>18 m, 4 knop, neutralt trimmad.</span></button>
             <button class="menu-btn choice" data-action="free" data-arg="deep"><b>Djupt vatten</b><span>100 m, 8 knop, under språngskiktet.</span></button>
           </div>

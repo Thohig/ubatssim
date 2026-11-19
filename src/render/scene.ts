@@ -29,6 +29,8 @@ export interface SceneView {
   /** Slow automatic orbit, used behind the menu. */
   setAutoRotate(on: boolean): void;
   setParticles(on: boolean): void;
+  /** Show a yellow buoy at [north, east], or hide it with null. */
+  setWaypoint(wp: [number, number] | null): void;
 }
 
 export function createScene(container: HTMLElement, cfg: SubmarineConfig): SceneView {
@@ -56,6 +58,19 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
   scene.add(model.root);
   const env = createEnvironment(scene);
 
+  // Waypoint buoy: yellow spar buoy with a top mark, visible above and below water.
+  const buoy = new THREE.Group();
+  const buoyMat = new THREE.MeshStandardMaterial({ color: 0xffcc22, emissive: 0x332200, roughness: 0.6 });
+  const spar = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 9, 16), buoyMat);
+  spar.position.y = 1.5;
+  const mark = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2, 16), buoyMat);
+  mark.position.y = 7;
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 40, 4), new THREE.MeshBasicMaterial({ color: 0x333333 }));
+  chain.position.y = -23;
+  buoy.add(spar, mark, chain);
+  buoy.visible = false;
+  scene.add(buoy);
+
   const subPos = new THREE.Vector3();
   const lastTarget = new THREE.Vector3();
   let initialised = false;
@@ -81,6 +96,10 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     },
     setParticles(on) {
       env.setParticles(on);
+    },
+    setWaypoint(wp) {
+      buoy.visible = wp !== null;
+      if (wp) nedToThree([wp[0], wp[1], 0], buoy.position);
     },
     render(state) {
       nedToThree(state.position, subPos);

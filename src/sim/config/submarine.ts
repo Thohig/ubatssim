@@ -231,6 +231,18 @@ export const SUBMARINE = {
     },
   ] satisfies FinDef[],
 
+  /** Hull–ground contact (grounding). Penalty method; values chosen for ~0.1 m penetration at rest. */
+  contact: {
+    /** Normal stiffness per contact point [N/m]. */
+    stiffness: 2.0e7,
+    /** Normal damping per contact point [N s/m]. */
+    damping: 2.0e6,
+    /** Coulomb friction coefficient, steel on rock/mud. APPROX. */
+    friction: 0.4,
+    /** Sliding speed below which friction is smoothed [m/s]. */
+    frictionSmoothing: 0.1,
+  },
+
   actuators: {
     /** Max deflection [rad] and slew rate [rad/s]. ~4°/s is typical of hydraulic planes. APPROX. */
     rudderMax: (30 * Math.PI) / 180,

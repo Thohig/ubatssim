@@ -36,6 +36,16 @@ export interface Scenario {
   failure?: (t: Telemetry, c: Controller) => string | null;
   /** Optional overall time limit [s]. */
   timeLimit?: number;
+  /** Optional target position [north, east] in metres, shown as a buoy. */
+  waypoint?: [number, number];
+}
+
+/** Distance [m] and true bearing [deg] from the boat to the scenario waypoint. */
+export function waypointInfo(t: Telemetry, wp: [number, number]): { distance: number; bearing: number } {
+  const dn = wp[0] - t.position[0];
+  const de = wp[1] - t.position[1];
+  const bearing = ((Math.atan2(de, dn) * 180) / Math.PI + 360) % 360;
+  return { distance: Math.hypot(dn, de), bearing };
 }
 
 const mbt = (t: Telemetry) => t.tanks.filter((x) => x.kind === 'mainBallast');
@@ -121,11 +131,27 @@ export const SCENARIOS: Scenario[] = [
     failure: (t) => (t.depth > 250 ? 'Ubåten gick för djupt (250 m).' : null),
   },
   {
+    id: 'sound-transit',
+    title: 'Genom sundet',
+    description: 'Ta ubåten i ytläge norrut genom ett smalt sund i skärgården till den gula bojen, utan att gå på grund. Håll koll på ekolodet (Under köl).',
+    difficulty: 'medel',
+    initial: { east: 2560, heading: (20 * Math.PI) / 180 },
+    waypoint: [1200, 2848],
+    autopilotAllowed: true,
+    objectives: [
+      {
+        text: 'Gå genom sundet till den gula bojen',
+        hint: 'Skriv "fart 4 knop" och styr med ←/→ eller "kurs <grader>". Sundet slingrar sig mot nordost.',
+        check: (t) => waypointInfo(t, [1200, 2848]).distance < 60,
+      },
+    ],
+  },
+  {
     id: 'emergency-blow',
     title: 'Nödblåsning',
     description: 'Kompenseringstanken har vattenfyllts på 200 m och ubåten är flera ton för tung. Ta dig till ytan innan den når krossdjupet 300 m.',
     difficulty: 'svår',
-    initial: { depth: 200, speed: 4 * KN, tankFills: { comp: 1 } },
+    initial: { depth: 200, speed: 4 * KN, tankFills: { comp: 1 }, east: -3000 },
     autopilotAllowed: true,
     objectives: [
       {
@@ -186,11 +212,15 @@ export class ScenarioRunner {
     };
   }
 
+  private tick = 0;
+
+  /** Call after every simulation step; objectives are evaluated every 10th step (10 Hz). */
   update(): void {
     if (this.status !== 'running') return;
+    if (this.tick++ % 10 !== 0) return;
     const c = this.ctrl;
     const t = c.sim.telemetry();
-    const fail = this.scenario.failure?.(t, c) ?? null;
+    const fail = (t.grounded ? 'Ubåten gick på grund.' : null) ?? this.scenario.failure?.(t, c) ?? null;
     if (fail || (this.scenario.timeLimit !== undefined && t.t > this.scenario.timeLimit)) {
       this.finish('failed', fail ?? 'Tiden tog slut.');
       return;

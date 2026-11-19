@@ -28,6 +28,10 @@ På mobil och surfplatta finns knappar på skärmen för roder, djuproder och fa
 
 Exempel på konsolkommandon: `djup 120`, `kurs 270`, `fart 8 knop`, `roder sb 15`, `djuproder ned 10`, `fyll huvudballast`, `blås huvudballast`, `trimma för 200`, `autopilot av`.
 
+## Miljön
+
+Ubåten börjar på öppet hav (280–375 m djup) väster om en skärgård i Bohusläns stil. Där finns rundade granithällar, kobbar och skär, öar upp till ~50 m höjd och smala sund som följer berggrundens nord–sydliga sprickdalar. Terrängen ingår i fysiken: ubåten kan gå på grund, och ekolodet visar djupet under kölen.
+
 ## Fysik
 
 Rörelseekvationerna följer Fossens modell för undervattensfarkoster med 6 frihetsgrader. De integreras med RK4 och ett fast tidssteg på 100 Hz. Alla parametrar finns samlade, med källa och enhet, i `src/sim/config/`.

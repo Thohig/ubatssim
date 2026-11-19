@@ -17,9 +17,6 @@ export const ENVIRONMENT = {
   thermoclineDeltaRho: 0.8,
   thermoclineTop: 40,
   thermoclineBottom: 70,
-  /** Mean sea bed depth [m] and terrain relief amplitude [m]. Illustrative. */
-  seabedMeanDepth: 280,
-  seabedRelief: 110,
   /** Air temperature used for isothermal gas law [K]. */
   airTemperature: 283.15,
   /** Specific gas constant of dry air [J/(kg K)]. */

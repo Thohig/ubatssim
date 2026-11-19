@@ -26,6 +26,7 @@ src/main.ts   Fast tidsstegsloop: ackumulator, 100 Hz, tak på antal steg per bi
 - **Koordinater:** NED i världen och FRD i kroppen, enligt Fossen. Orienteringen är en quaternion. Bara `src/render/coords.ts` översätter till Three.js-koordinater (Y uppåt).
 - **Modell:** Fossens rörelseekvation (M_RB + M_A)ν̇ + C(ν)ν + D(ν)ν + g(η) = τ, löst med RK4 och dt = 0,01 s.
 - **Tankar och avdelningar:** beskrivs som data (id, position, form, volym, fyllnadsgrad). Massa och tyngdpunkt härleds från dem. Strukturen används senare av genomskärningsvyn och får inte förenklas bort.
+- **Terräng:** `src/sim/terrain.ts` är en deterministisk höjdfunktion (hav i väster, skärgård i öster) med parametrar i `config/terrain.ts`. Simuleringen läser den via ett cachat rutnät (`terrainGrid.ts`), och grundstötning hanteras i `contact.ts`. Renderingen använder samma funktion, så det man ser är det man kan krocka med.
 - **Parametrar:** alla ligger i `src/sim/config/` med kommentar om källa och enhet. Värden som inte är kontrollerade mot källan märks `// APPROX`.
 - **3D-modellen:** byggs i separata lager (yttre skrov, tryckskrov, tankar, roder) så att ett klippningsplan kan läggas till senare.
 
