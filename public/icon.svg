@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <title>Ubåtssim</title>
+  <clipPath id="r"><rect width="128" height="128" rx="28"/></clipPath>
+  <g clip-path="url(#r)">
+  <rect width="128" height="62" fill="#7fb6d4"/>
+  <rect y="62" width="128" height="66" fill="#1c5a78"/>
+  <path d="M0 62 Q20 44 38 52 Q52 40 70 54 L70 62 Z" fill="#a38e84"/>
+  <path d="M84 62 Q96 50 110 56 Q120 52 128 58 L128 62 Z" fill="#8d7a71"/>
+  <rect x="0" y="61" width="128" height="3" fill="#1d1b1a"/>
+  <ellipse cx="64" cy="84" rx="40" ry="9" fill="#0a1218"/>
+  <rect x="58" y="66" width="14" height="14" rx="4" fill="#0a1218"/>
+  <rect x="64" y="54" width="2.5" height="14" fill="#0a1218"/>
+  <path d="M28 84 L15 76 L15 92 Z" fill="#0a1218"/>
+  </g>
+</svg>

@@ -28,6 +28,8 @@ Startmenyn har fyra val:
 | **Inställningar** | Tidskomprimering ×1/×2/×4, autopilot tillåten i fritt spel, pekknappar (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna sparas i webbläsaren. |
 | **Hjälp** | Kontroller, alla konsolkommandon och tips. |
 
+På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
+
 Under spelet pausar du med ☰-knappen eller Esc. Pausmenyn har Fortsätt, Starta om, Inställningar, Hjälp och Huvudmeny. Spelet pausas också automatiskt när fliken döljs.
 
 ## Styrning
@@ -172,6 +174,8 @@ src/
   main.ts     Spellägen (meny, spel, paus) och tidsstegsloopen.
 tests/        Vitest.
 docs/         Fördjupande dokumentation.
+public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
+assets/       Källfil för ikonen utan rundade hörn (används för att rendera PNG-filerna).
 ```
 
 ## Publicering
