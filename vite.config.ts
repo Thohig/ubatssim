@@ -7,5 +7,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // Physics tests simulate minutes of sim time; CI runners are slower than dev machines.
+    testTimeout: 60000,
   },
 });
