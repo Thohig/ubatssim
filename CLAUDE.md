@@ -1,10 +1,10 @@
 # CLAUDE.md – Ubåtssim
 
-En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`).
+En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`). Användardokumentationen finns i `README.md`, och fysikmodellen beskrivs i `docs/fysikmodell.md`.
 
 ## Kommandon
-- `npm run dev`: utvecklingsserver.
-- `npm test`: Vitest. Fysiktesterna körs utan grafik.
+- `npm run dev`: utvecklingsserver på http://localhost:5173/ubatssim/ (observera sökvägen).
+- `npm test`: Vitest. Fysiktesterna körs utan grafik. `testTimeout` är 60 s eftersom testerna simulerar minuter av spelets tid och CI-maskinerna är långsamma.
 - `npm run lint`: ESLint. Kontrollerar bland annat lagergränserna.
 - `npm run build`: `tsc --noEmit` och Vite-bygge till `dist/`.
 - **Publicering:** en push till `main` kör `.github/workflows/deploy.yml` (lint → test → build → GitHub Pages). Pages-källan är "GitHub Actions".
@@ -12,31 +12,46 @@ En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i 
 ## Arkitektur
 ```
 src/sim/      Ren fysik. Inga beroenden på Three.js, DOM eller andra lager.
-src/control/  Order (typad union), orderkö, svensk kommandoparser, autopilot (PID), controller.
+  config/     submarine.ts, environment.ts, terrain.ts – alla parametrar (SI, källa per värde).
+  math/       vec3, mat (Mat3, MatN, LU), quat.
+  rigidBody   M_RB, Kirchhoff-Coriolis, RigidBody (13 tillstånd).
+  hull, hydrostatics, tanks, massProperties, airSystem, hydrodynamics,
+  controlSurfaces, propulsion, contact, terrain, terrainGrid, environment, rk4
+  simulation  Simulation: äger allt tillstånd och stegar 100 Hz.
+src/control/  orders (Order-union + kvitton), orderQueue, parser (svenska), autopilot (PID),
+              controller (kö → börvärden → autopilot → ställdon → sim.step), scenarios.
 src/render/   Three.js. Läser bara simuleringens tillstånd och skriver aldrig till det.
-src/ui/       Instrumentpanel, kommandokonsol, tangentbord, pekkontroller (touch.ts), inmatningsläge, logg.
-src/main.ts   Fast tidsstegsloop: ackumulator, 100 Hz, tak på antal steg per bildruta.
+              coords (NED↔Three), submarineModel (lager), terrain, environment, scene.
+src/ui/       menu, instruments, console, log, keyboard, touch, inputMode, objective, settings.
+src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsstegsloopen.
 ```
-- **Simulering:** deterministisk. Samma starttillstånd och samma order ger exakt samma resultat. Använd aldrig `Math.random()` eller väggklocka i `src/sim`.
-- **Order:** alla styrkommandon, från tangentbord, pekknappar och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid.
-- **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln.
+- **Simulering:** deterministisk. Samma starttillstånd och samma order ger exakt samma resultat. Använd aldrig `Math.random()` eller väggklocka i `src/sim` eller `src/control`.
+- **Order:** alla styrkommandon, från tangentbord, pekknappar och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid. Nya kommandon kräver tre saker: en ny variant i `Order`, ett kvitto i `acknowledgement()` och ett fall i `Controller.apply()`. Läggs kommandot till i parsern, ska `HELP_TEXT` och README uppdateras.
+- **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln. `Controller.options.autopilotAllowed = false` spärrar djup- och kursautopiloten (fartautopiloten tillåts).
+- **Sessioner:** `main.ts` skapar en ny `Simulation` och `Controller` per spelstart. Indata-bindningarna får kontrollern via en getter som returnerar `null` när inget spel pågår. Bakom menyn kör en demo-session.
+- **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid, villkor för misslyckande, tidsgräns och boj. `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska (`tests/scenarios.test.ts`, `tests/terrain.test.ts`).
+- **Prestanda:** `Simulation.telemetry()` gör en full kraftberäkning. Använd `kinematics()` när bara läge och hastighet behövs, till exempel i autopiloten.
 
 ## Fysikkonventioner
-- **Enheter:** SI överallt i `src/sim`. Konvertering till knop och grader sker bara i UI-lagret (`src/sim/units.ts`).
-- **Koordinater:** NED i världen och FRD i kroppen, enligt Fossen. Orienteringen är en quaternion. Bara `src/render/coords.ts` översätter till Three.js-koordinater (Y uppåt).
-- **Modell:** Fossens rörelseekvation (M_RB + M_A)ν̇ + C(ν)ν + D(ν)ν + g(η) = τ, löst med RK4 och dt = 0,01 s.
+- **Enheter:** SI överallt i `src/sim`. Knop och grader används bara i order, UI och kvitton (`src/sim/units.ts`).
+- **Koordinater:** NED i världen och FRD i kroppen, enligt Fossen. Kroppens origo ligger midskepps på skrovets centrumlinje. Orienteringen är en quaternion. Bara `src/render/coords.ts` översätter till Three.js-koordinater (Y uppåt).
+- **Modell:** (M_RB + M_A)ν̇ + C_RB(ν)ν = τ, där τ innehåller återförande krafter, dämpning, fenor, propeller och kontakt. C_A tas inte med separat, eftersom de hydrodynamiska koefficienterna redan innehåller Munk-momentet (se docs/fysikmodell.md). RK4 med dt = 0,01 s. Massegenskaperna fryses under ett tidssteg.
+- **Tecken:** positivt roder = styrbord (kursen ökar). Positivt djuproder = dyk (fören ned). Negativ stampvinkel = fören ned.
 - **Tankar och avdelningar:** beskrivs som data (id, position, form, volym, fyllnadsgrad). Massa och tyngdpunkt härleds från dem. Strukturen används senare av genomskärningsvyn och får inte förenklas bort.
-- **Terräng:** `src/sim/terrain.ts` är en deterministisk höjdfunktion (hav i väster, skärgård i öster) med parametrar i `config/terrain.ts`. Simuleringen läser den via ett cachat rutnät (`terrainGrid.ts`), och grundstötning hanteras i `contact.ts`. Renderingen använder samma funktion, så det man ser är det man kan krocka med.
+- **Konstruktionsläget:** torrvikt och torr tyngdpunkt härleds så att ubåten är neutral och plan på 25 m med full huvudballast och tankarna på `designFill`. Kompenseringstanken startar 0,6 m³ tyngre (`initialFill`), alltså trimmad tung för dykning.
+- **Terräng:** `src/sim/terrain.ts` är en deterministisk höjdfunktion (hav i väster, Bohusläns skärgård från ~2 km öster om origo) med parametrar i `config/terrain.ts`. Simuleringen läser den via ett cachat rutnät med 4 m upplösning (`terrainGrid.ts`). Grundstötning hanteras i `contact.ts`. Renderingen använder samma funktion, så det man ser är det man kan krocka med. Ändras terrängen, måste farleden i "Genom sundet" (scenario och test) kontrolleras igen.
 - **Parametrar:** alla ligger i `src/sim/config/` med kommentar om källa och enhet. Värden som inte är kontrollerade mot källan märks `// APPROX`.
-- **3D-modellen:** byggs i separata lager (yttre skrov, tryckskrov, tankar, roder) så att ett klippningsplan kan läggas till senare.
+- **3D-modellen:** byggs i separata lager (yttre skrov, tryckskrov, tankar, avdelningar, utrustning) med egna material, så att ett klippningsplan för genomskärningsvyn kan läggas till senare. `renderer.localClippingEnabled` är redan på.
 
 ## Kodkonventioner
 - Identifierare och kommentarer skrivs på engelska. UI-texter, konsolkommandon och dokumentation på svenska.
 - `strict` TypeScript med `noUncheckedIndexedAccess`.
 - Ny fysik ska ha Vitest-tester i `tests/`.
+- `localStorage` används bara för inställningar och bästa tider, alltid inom try/catch (`src/ui/settings.ts`).
+- Pekskärm: `body.touch` styr pekknapparna. Konsolens textfält ska ha teckenstorlek ≥ 16 px på iOS, annars zoomar Safari.
 
 ## Integritetsregler
-- Inga absoluta lokala sökvägar, användarnamn, e-postadresser eller annan personlig information i kod, kommentarer, README eller CLAUDE.md.
+- Inga absoluta lokala sökvägar, användarnamn, e-postadresser eller annan personlig information i kod, kommentarer, README, docs eller CLAUDE.md.
 - Ingen `author` eller annan personlig information i `package.json`.
 - Commits görs med GitHub noreply-adressen (`...@users.noreply.github.com`). Kontrollera `git config user.email` innan commit.
 - Ingen `Co-Authored-By`-rad i commit-meddelanden.
