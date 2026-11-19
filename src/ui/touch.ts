@@ -20,7 +20,12 @@ const REPEAT_INTERVAL = 350;
  * objects as the keyboard, with source 'touch'. Holding a rudder, planes or
  * speed button repeats it.
  */
-export function bindTouchControls(root: HTMLElement, ctrl: Controller, mode: InputModeState, openConsole: () => void): void {
+export function bindTouchControls(
+  root: HTMLElement,
+  getCtrl: () => Controller | null,
+  mode: InputModeState,
+  openConsole: () => void,
+): void {
   const groups: { name: string; buttons: TouchButton[] }[] = [
     {
       name: 'Roder',
@@ -65,7 +70,7 @@ export function bindTouchControls(root: HTMLElement, ctrl: Controller, mode: Inp
   }
 
   function fire(b: TouchButton): void {
-    if (b.order) ctrl.submit(b.order, 'touch');
+    if (b.order) getCtrl()?.submit(b.order, 'touch');
     b.action?.();
   }
 

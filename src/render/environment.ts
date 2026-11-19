@@ -7,6 +7,7 @@ import { seabedDepth } from '../sim/environment';
 
 export interface SeaEnvironment {
   update(subNed: [number, number, number], camera: THREE.Camera, t: number): void;
+  setParticles(on: boolean): void;
 }
 
 const SEABED_SIZE = 3000;
@@ -75,7 +76,11 @@ export function createEnvironment(scene: THREE.Scene): SeaEnvironment {
   const fog = scene.fog as THREE.FogExp2;
   const bg = scene.background as THREE.Color;
 
+  let particlesOn = true;
   return {
+    setParticles(on) {
+      particlesOn = on;
+    },
     update(sub, camera, t) {
       const [n, e] = sub;
       const cn = Math.round(n / cell) * cell;
@@ -96,7 +101,7 @@ export function createEnvironment(scene: THREE.Scene): SeaEnvironment {
         pos[j + 2] = c.z - half + ((((base[j + 2]! - c.z) % PARTICLE_BOX) + PARTICLE_BOX) % PARTICLE_BOX);
       }
       (pGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-      particles.visible = c.y < 0;
+      particles.visible = particlesOn && c.y < 0;
 
       // Fog and colour by camera depth.
       const depth = -c.y;

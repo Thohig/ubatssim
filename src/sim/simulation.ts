@@ -62,6 +62,8 @@ export interface InitialConditions {
   mainBallastFill?: number;
   /** Start trim and compensating tanks at their design fill (exactly neutral at the design depth). */
   designTrim?: boolean;
+  /** Override the fill fraction of individual trim/compensating tanks (by id), applied after designTrim. */
+  tankFills?: Record<string, number>;
 }
 
 /**
@@ -161,6 +163,12 @@ export class Simulation {
     if (init.designTrim) {
       cfg.tanks.forEach((def, i) => {
         if (def.kind !== 'mainBallast') this.tanks[i]!.water = def.volume * (def.designFill ?? def.initialFill);
+      });
+    }
+    if (init.tankFills) {
+      cfg.tanks.forEach((def, i) => {
+        const fill = init.tankFills![def.id];
+        if (fill !== undefined && def.kind !== 'mainBallast') this.tanks[i]!.water = def.volume * Math.min(1, Math.max(0, fill));
       });
     }
     this.air = { bottlePV: cfg.air.bottlePressure * cfg.air.bottleVolume };

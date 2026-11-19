@@ -12,6 +12,8 @@
     <div id="app"></div>
     <div id="hud">
       <div id="mode" class="mode steer">STYRNING</div>
+      <button id="menu-btn" type="button" title="Paus och meny (Esc)" aria-label="Paus och meny">☰</button>
+      <div id="objective" class="panel" hidden></div>
       <aside id="instruments" class="panel"></aside>
       <section id="log" class="panel"></section>
       <form id="console" class="panel" autocomplete="off">
@@ -20,6 +22,7 @@
       </form>
       <div id="touch" class="touch-controls"></div>
     </div>
+    <div id="menu" hidden></div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

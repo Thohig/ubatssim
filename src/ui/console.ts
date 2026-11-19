@@ -3,7 +3,7 @@ import type { Controller } from '../control/controller';
 import type { InputModeState } from './inputMode';
 
 /** Command console: Enter submits, ↑/↓ browse history, Esc returns to steering. */
-export function bindConsole(form: HTMLFormElement, input: HTMLInputElement, ctrl: Controller, mode: InputModeState): () => void {
+export function bindConsole(form: HTMLFormElement, input: HTMLInputElement, getCtrl: () => Controller | null, mode: InputModeState): () => void {
   const history: string[] = [];
   let hIndex = 0;
   let draft = '';
@@ -33,6 +33,8 @@ export function bindConsole(form: HTMLFormElement, input: HTMLInputElement, ctrl
     hIndex = history.length;
     draft = '';
     input.value = '';
+    const ctrl = getCtrl();
+    if (!ctrl) return;
     const r = parseCommand(text);
     if (!r.ok) {
       ctrl.addLog(`${text} – ${r.error}`, 'error', 'console');

@@ -69,12 +69,27 @@ export class Controller {
     for (const fn of this.listeners) fn(e);
   }
 
+  /** Game rules set by the menu/scenario. */
+  options = {
+    /** When false, depth and heading autopilots cannot be engaged (speed control stays available). */
+    autopilotAllowed: true,
+  };
+
   submit(order: Order, source: OrderSource): void {
     this.queue.push(order, source);
   }
 
+  /** True if the order would engage a depth or heading autopilot. */
+  private engagesSteeringAutopilot(o: Order): boolean {
+    return o.kind === 'setDepth' || o.kind === 'setHeading' || (o.kind === 'autopilot' && o.on && o.axis !== 'speed');
+  }
+
   step(): void {
     for (const { order, source } of this.queue.drain()) {
+      if (!this.options.autopilotAllowed && this.engagesSteeringAutopilot(order)) {
+        this.addLog('Autopilot för djup och kurs är inte tillåten här. Styr med roder och djuproder.', 'error', source);
+        continue;
+      }
       this.apply(order);
       this.addLog(acknowledgement(order), 'ack', source);
     }

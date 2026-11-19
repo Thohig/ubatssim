@@ -2,7 +2,9 @@ import { formatSimTime, type Controller, type LogEntry } from '../control/contro
 
 const MAX_VISIBLE = 14;
 
+/** Shows a controller's log in `el`; call again with a new controller to switch (clears the panel). */
 export function bindLog(el: HTMLElement, ctrl: Controller): void {
+  el.innerHTML = '';
   const add = (e: LogEntry) => {
     const div = document.createElement('div');
     div.className = `log-entry ${e.kind}`;

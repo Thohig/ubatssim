@@ -24,6 +24,11 @@ export interface SceneView {
   controls: OrbitControls;
   model: SubmarineModel;
   render(state: RenderState): void;
+  /** Place the camera at its default offset on the next render. */
+  resetCamera(): void;
+  /** Slow automatic orbit, used behind the menu. */
+  setAutoRotate(on: boolean): void;
+  setParticles(on: boolean): void;
 }
 
 export function createScene(container: HTMLElement, cfg: SubmarineConfig): SceneView {
@@ -67,6 +72,16 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     renderer,
     controls,
     model,
+    resetCamera() {
+      initialised = false;
+    },
+    setAutoRotate(on) {
+      controls.autoRotate = on;
+      controls.autoRotateSpeed = 0.6;
+    },
+    setParticles(on) {
+      env.setParticles(on);
+    },
     render(state) {
       nedToThree(state.position, subPos);
       model.root.position.copy(subPos);
