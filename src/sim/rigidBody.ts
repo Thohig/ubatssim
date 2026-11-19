@@ -11,10 +11,9 @@
  * y starboard, z down). The body origin CO is on the hull centre line at
  * midships; the centre of gravity CG is given relative to CO.
  */
-import { LU, MatN, type Mat3 } from './math/mat';
+import { LU, MatN, mat3MulVec, type Mat3 } from './math/mat';
 import { quatDerivative, quatToMat3, type Quat } from './math/quat';
 import { cross, type Vec3 } from './math/vec3';
-import { mat3MulVec } from './math/mat';
 
 /** Layout of the rigid-body part of the state vector. */
 export const IDX = {
@@ -97,7 +96,16 @@ export type BodyForce = (t: number, y: Float64Array) => ArrayLike<number>;
  */
 export class RigidBody {
   private readonly lu: LU;
-  constructor(readonly M: MatN) {
+  /**
+   * @param M         total inertia matrix (M_RB + M_A)
+   * @param Mcoriolis matrix used for C(ν)ν. Defaults to M. Pass M_RB alone when
+   *                  the hydrodynamic coefficients already contain the
+   *                  added-mass Coriolis/Munk terms (captive-model data).
+   */
+  constructor(
+    readonly M: MatN,
+    readonly Mcoriolis: MatN = M,
+  ) {
     this.lu = new LU(M);
   }
 
@@ -115,7 +123,7 @@ export class RigidBody {
     out[4] = qd[1];
     out[5] = qd[2];
     out[6] = qd[3];
-    const Cnu = coriolisTimesNu(this.M, nu);
+    const Cnu = coriolisTimesNu(this.Mcoriolis, nu);
     const rhs = new Float64Array(6);
     for (let i = 0; i < 6; i++) rhs[i] = tau[i]! - Cnu[i]!;
     const nuDot = this.lu.solve(rhs);
