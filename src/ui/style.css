@@ -1,0 +1,14 @@
+:root {
+  --panel-bg: rgba(6, 18, 28, 0.78);
+  --panel-border: rgba(120, 200, 230, 0.25);
+  --text: #cfe8f2;
+  --muted: #7fa3b3;
+  --accent: #5fd3ff;
+  --warn: #ffb347;
+  --error: #ff6b6b;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; color: var(--text); }
+#app { position: fixed; inset: 0; }
+#app canvas { display: block; }
