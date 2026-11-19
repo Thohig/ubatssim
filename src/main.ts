@@ -8,6 +8,7 @@ import { InputModeState, bindModeIndicator } from './ui/inputMode';
 import { createInstruments } from './ui/instruments';
 import { bindKeyboard } from './ui/keyboard';
 import { bindLog } from './ui/log';
+import { bindTouchControls, isTouchDevice } from './ui/touch';
 
 const el = <T extends HTMLElement>(id: string) => {
   const n = document.getElementById(id);
@@ -19,13 +20,24 @@ const sim = new Simulation();
 const ctrl = new Controller(sim);
 const view = createScene(el('app'), sim.cfg);
 
+const touch = isTouchDevice();
+document.body.classList.toggle('touch', touch);
+const consoleInput = el<HTMLInputElement>('console-input');
+if (touch) consoleInput.placeholder = 'Skriv kommando, t.ex. "djup 120" eller "hjälp"';
+
 const mode = new InputModeState();
-bindModeIndicator(el('mode'), mode);
-const openConsole = bindConsole(el<HTMLFormElement>('console'), el<HTMLInputElement>('console-input'), ctrl, mode);
+bindModeIndicator(el('mode'), mode, touch);
+const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, ctrl, mode);
 bindKeyboard(ctrl, mode, openConsole);
+if (touch) bindTouchControls(el('touch'), ctrl, mode, openConsole);
 bindLog(el('log'), ctrl);
 const updateInstruments = createInstruments(el('instruments'), ctrl);
-ctrl.addLog('Ubåten ligger i ytläge. Skriv "hjälp" i konsolen för kommandon.', 'info');
+ctrl.addLog(
+  touch
+    ? 'Ubåten ligger i ytläge. Tryck >_ och skriv "hjälp" för kommandon.'
+    : 'Ubåten ligger i ytläge. Skriv "hjälp" i konsolen för kommandon.',
+  'info',
+);
 
 /** Max simulation steps per animation frame (guards against spiral of death). */
 const MAX_STEPS_PER_FRAME = 25;

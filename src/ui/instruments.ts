@@ -27,31 +27,40 @@ export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Teleme
     <div class="inst-row"><span class="inst-label">Tid</span><span data-k="time"></span></div>
     <div class="inst-sep"></div>
     ${row('Djup (m)', 'depth', true, 'depthSet', 'apDepth')}
-    ${row('Djupändring (m/min)', 'depthRate')}
     ${row('Fart (knop)', 'speed', true, 'speedSet', 'apSpeed')}
     ${row('Kurs (°)', 'heading', true, 'headingSet', 'apHeading')}
-    <div class="inst-sep"></div>
     ${row('Stampvinkel (°)', 'pitch')}
-    ${row('Krängning (°)', 'roll')}
     <div class="inst-sep"></div>
     ${row('Roder', 'rudder')}
     ${centredBar('rudderBar')}
     ${row('Djuproder', 'planes')}
     ${centredBar('planesBar')}
-    ${row('Varv (rpm)', 'rpm')}
-    ${row('Axeleffekt (kW)', 'power')}
-    <div class="inst-sep"></div>
-    <div class="inst-label">Tankar</div>
-    ${sim.tankDefs
-      .map(
-        (d) => `<div class="tank-name"><span>${d.name}</span><span><span class="flags" data-k="flags_${d.id}"></span> <span data-k="tankv_${d.id}"></span></span></div>
-        <div class="bar" data-k="tank_${d.id}"><div class="fill"></div></div>`,
-      )
-      .join('')}
-    <div class="tank-name"><span>HP-luft (bar)</span><span data-k="air"></span></div>
-    <div class="bar" data-k="airBar"><div class="fill"></div></div>
-    ${row('Flytkraftsöverskott (kg)', 'net')}
+    <div class="inst-more">
+      ${row('Djupändring (m/min)', 'depthRate')}
+      ${row('Krängning (°)', 'roll')}
+      ${row('Varv (rpm)', 'rpm')}
+      ${row('Axeleffekt (kW)', 'power')}
+      <div class="inst-sep"></div>
+      <div class="inst-label">Tankar</div>
+      ${sim.tankDefs
+        .map(
+          (d) => `<div class="tank-name"><span>${d.name}</span><span><span class="flags" data-k="flags_${d.id}"></span> <span data-k="tankv_${d.id}"></span></span></div>
+          <div class="bar" data-k="tank_${d.id}"><div class="fill"></div></div>`,
+        )
+        .join('')}
+      <div class="tank-name"><span>HP-luft (bar)</span><span data-k="air"></span></div>
+      <div class="bar" data-k="airBar"><div class="fill"></div></div>
+      ${row('Flytkraftsöverskott (kg)', 'net')}
+    </div>
+    <button type="button" class="inst-toggle" aria-expanded="false">Mer ▾</button>
   `;
+  // On narrow screens the panel starts compact; the button shows the rest.
+  const toggle = el.querySelector<HTMLButtonElement>('.inst-toggle')!;
+  toggle.addEventListener('click', () => {
+    const expanded = el.classList.toggle('expanded');
+    toggle.textContent = expanded ? 'Mindre ▴' : 'Mer ▾';
+    toggle.setAttribute('aria-expanded', String(expanded));
+  });
   const refs: Refs = {};
   el.querySelectorAll<HTMLElement>('[data-k]').forEach((n) => (refs[n.dataset.k!] = n));
   const set = (k: string, text: string) => {

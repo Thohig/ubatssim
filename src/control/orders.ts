@@ -4,7 +4,7 @@
  * simulation step. Angles are in degrees and speeds in knots here (the
  * operator's units); the controller converts to SI.
  */
-export type OrderSource = 'keyboard' | 'console';
+export type OrderSource = 'keyboard' | 'touch' | 'console';
 
 export type TankGroup = 'all' | 'fwd' | 'aft';
 export type AutopilotAxis = 'all' | 'depth' | 'heading' | 'speed';

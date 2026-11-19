@@ -2,7 +2,9 @@
 <html lang="sv">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#02121c" />
     <title>Ubåtssim</title>
     <link rel="stylesheet" href="./src/ui/style.css" />
   </head>
@@ -14,8 +16,9 @@
       <section id="log" class="panel"></section>
       <form id="console" class="panel" autocomplete="off">
         <span class="prompt">&gt;</span>
-        <input id="console-input" type="text" spellcheck="false" placeholder="Enter eller / öppnar konsolen – skriv &quot;hjälp&quot;" />
+        <input id="console-input" type="text" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send" placeholder="Enter eller / öppnar konsolen – skriv &quot;hjälp&quot;" />
       </form>
+      <div id="touch" class="touch-controls"></div>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

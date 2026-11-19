@@ -20,9 +20,13 @@ export class InputModeState {
   }
 }
 
-export function bindModeIndicator(el: HTMLElement, state: InputModeState): void {
+export function bindModeIndicator(el: HTMLElement, state: InputModeState, touch = false): void {
   const render = (m: InputMode) => {
     el.className = `mode ${m}`;
+    if (touch) {
+      el.innerHTML = m === 'steer' ? 'STYRNING<small>&gt;_ = konsol</small>' : 'KONSOL<small>tryck på en styrknapp för att stänga</small>';
+      return;
+    }
     el.innerHTML =
       m === 'steer'
         ? 'STYRNING<small>pilar styr · Enter eller / = konsol</small>'

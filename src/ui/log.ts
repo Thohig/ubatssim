@@ -10,10 +10,10 @@ export function bindLog(el: HTMLElement, ctrl: Controller): void {
     time.className = 'time';
     time.textContent = `[${formatSimTime(e.t)}]`;
     div.append(time, document.createTextNode(e.text));
-    if (e.source === 'keyboard') {
+    if (e.source === 'keyboard' || e.source === 'touch') {
       const src = document.createElement('span');
       src.className = 'src';
-      src.textContent = 'tgb';
+      src.textContent = e.source === 'keyboard' ? 'tgb' : 'pek';
       div.append(src);
     }
     el.append(div);
