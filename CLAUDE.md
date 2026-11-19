@@ -7,6 +7,8 @@ En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i 
 - `npm test`: Vitest. Fysiktesterna körs utan grafik. `testTimeout` är 60 s eftersom testerna simulerar minuter av spelets tid och CI-maskinerna är långsamma.
 - `npm run lint`: ESLint. Kontrollerar bland annat lagergränserna.
 - `npm run build`: `tsc --noEmit` och Vite-bygge till `dist/`.
+- `scripts/make-mac-launcher.sh [mapp]`: bygger `Ubåtssim.app` (standard `~/Projekt`), som öppnar GitHub Pages-sidan med spelets ikon. Kör det igen om ikonen eller adressen ändras.
+- **Ikoner:** källan för appikoner är `assets/icon-square.svg` (kantfylld, utan rundade hörn). `public/icon.svg` är flikikonen med rundade hörn. PNG-filerna i `public/` renderas från källan med `qlmanage -t -s <px>`. Ändras ikonen, ska båda SVG-filerna och alla PNG-filer uppdateras.
 - **Publicering:** en push till `main` kör `.github/workflows/deploy.yml` (lint → test → build → GitHub Pages). Pages-källan är "GitHub Actions".
 
 ## Arkitektur

@@ -15,6 +15,7 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 - [Fysik i korthet](#fysik-i-korthet)
 - [Utveckling](#utveckling)
 - [Projektstruktur](#projektstruktur)
+- [Genväg på Mac](#genväg-på-mac)
 - [Publicering](#publicering)
 
 ## Spelet
@@ -175,8 +176,31 @@ src/
 tests/        Vitest.
 docs/         Fördjupande dokumentation.
 public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
+scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet.
 assets/       Källfil för ikonen utan rundade hörn (används för att rendera PNG-filerna).
 ```
+
+## Genväg på Mac
+
+`scripts/make-mac-launcher.sh` bygger `Ubåtssim.app`, ett litet macOS-program med spelets ikon som öppnar https://thohig.github.io/ubatssim/ i standardwebbläsaren. Programmet kan läggas i Dock.
+
+```bash
+scripts/make-mac-launcher.sh
+```
+
+Utan argument hamnar appen i `~/Projekt`. Ange en annan mapp som argument om du vill ha den någon annanstans:
+
+```bash
+scripts/make-mac-launcher.sh ~/Applications
+```
+
+Skriptet använder bara verktyg som följer med macOS:
+- `qlmanage` renderar ikonen från `assets/icon-square.svg`.
+- `iconutil` bygger `.icns`-filen.
+- `osacompile` bygger appen av en enrads-AppleScript.
+- `codesign` signerar appen ad hoc.
+
+Kör skriptet igen om ikonen eller adressen ändras. Det ersätter då den gamla appen.
 
 ## Publicering
 
