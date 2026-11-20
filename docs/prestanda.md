@@ -16,7 +16,7 @@ En bild får ta 16,7 ms vid 60 bilder per sekund. Fördelningen på en mellankla
 | Grafik (JavaScript) | ≤ 6 ms | 3–5 ms, längsta bild ≤ 8 ms |
 | Gränssnitt och ljud | ≤ 1 ms i snitt | ~1–2 ms var 100:e ms |
 
-`npm run bench` på en vanlig dator ska ge högst ~200 µs per tidssteg i alla lägen. Med tidskomprimering ×4 körs fyra gånger fler tidssteg. Blir det för mycket, begränsar `MAX_STEPS_PER_FRAME` i `main.ts` antalet steg per bild: simuleringen går då långsammare än vald komprimering i stället för att hacka.
+`npm run bench` på en vanlig dator ska ge högst ~200 µs per tidssteg i alla lägen. Med tidskomprimering ×4 körs fyra gånger fler tidssteg. Blir det för mycket, begränsar `maxStepsPerFrame` i `FixedStepLoop` (`src/game/loop.ts`) antalet steg per bild: simuleringen går då långsammare än vald komprimering i stället för att hacka.
 
 ## Mätningar och åtgärder
 
