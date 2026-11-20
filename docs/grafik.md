@@ -88,7 +88,7 @@ En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller so
 
 ## Loggboken (`src/ui/log.ts`)
 
-Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil under statusraden, liggande mellan statusraden och Vyer ▾). Loggen har ingen bakgrund, bara text med skugga.
+Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil under statusraden, liggande mellan statusraden och Vyer ▾). Loggen har ingen bakgrund, bara text med skugga. Målrutan (`src/ui/objective.ts`, en komponent) är en rad som fälls ut med tipset och listan över målen vid ett tryck eller O (10 s) och av sig själv när målet eller tipset ändras (6 s). Tiden räknas bara medan spelet går, så den fälls inte ihop bakom en meny.
 
 - **En ny rad** får klassen `live` och lever enligt `lineLife(kind, text)`: kvitton 4 s, information 6 s, varningar och fel 10 s, plus lästid för långa rader (25 tecken per sekund över 60). Då får den `fading`, och opaciteten går till 0 med en CSS-övergång (1 s, fel 2 s). Därefter tas `live` bort och raden döljs. Högst `LIVE_LINES` (3) rader är levande: en ny skjuter ut den äldsta. Tiderna går på väggklockan, eftersom loggen är gränssnitt.
 - **Historiken och konsolen** är en ruta: ett tryck på loggen, på **›_ Logg** eller Enter öppnar konsolen (`#console` ligger i `#top-center` direkt under `#log`), och då visas historiken (`#log.expanded`, de 14 senaste raderna, rullad till den nyaste) med skrivraden under. Esc eller ett tryck utanför stänger.

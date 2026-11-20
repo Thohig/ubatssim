@@ -37,11 +37,6 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 
 ## Mindre idéer
 
-- **Torpedernas egen fara:** en torped som söker kan i dag inte vända mot ubåten själv. En verklig torped har skydd mot det (ett förbjudet område runt ubåten), men en runt-gående torped vore spännande.
 - **Kortare långa tester:** testerna går nu på alla kärnor (~2,5 min). Mer tid går bara att vinna genom att simulera mindre, till exempel med mål närmare starten i testerna.
 - **Ändra djupet utan fart:** vid mycket låg fart kan trimassistenten pumpa ut eller ta in vatten, så att ubåten stiger eller sjunker utan djuprodren (som när en ubåt "svävar"). Det går långsamt med pumparnas 6 l/s.
-- **Ljud i ljudlöst läge på iPhone:** Web Audio tystnar när ljudlös-knappen är på. Från iOS 17 kan `navigator.audioSession.type = 'playback'` låta ljudet höras ändå.
-- **Prova mobilvyn på en riktig telefon:** den är bara provad i webbläsarens telefonläge.
 - **Telegrafen:** steget från Halv fram (8 knop) till Full fram (19 knop) är stort. Halv fram kan höjas till 10–12 knop, eller så kan ett läge till läggas in.
-- **Prestanda i genomskärningen:** mät med `?perf` på en telefon med riktigt grafikkort (testmiljön ritar i mjukvara). Om det behövs: färre genomskinliga ytor och enklare cylindrar (se `docs/prestanda.md`).
-- **Ubåtens storlek:** 60 m räcker för alla avdelningar, eftersom verkliga ubåtar av samma storlek har samma indelning. Blir det trångt kan tryckskrovet förlängas något (41 → ~45 m) utan att den yttre formen ändras. En större ubåtsklass är ett eget arbete: fysikens värden, testerna och farlederna i scenarierna måste ses över.

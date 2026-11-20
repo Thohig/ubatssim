@@ -5,6 +5,7 @@
  * game state.
  */
 import type { CrewSystem } from '../control/crew';
+import type { Scenario } from '../control/scenarios';
 import type { Settings } from './settings';
 import type { ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
@@ -25,14 +26,17 @@ export interface MenuHandlers {
   crewChange(system: CrewSystem | 'all', crew: boolean): void;
   /** The introduction was dismissed. */
   introDone(): void;
+  /** The scenario briefing was dismissed ("Till sjöss"). */
+  briefingDone(): void;
 }
 
 
 export class Menu {
   private screen: Screen = 'main';
-  /** Where "Tillbaka" goes from settings/help: the main or the pause menu. */
-  private base: 'main' | 'pause' = 'main';
+  /** Where "Tillbaka" goes from settings/help/crew: the main or the pause menu, or the briefing. */
+  private base: 'main' | 'pause' | 'briefing' = 'main';
   private result: ResultInfo | null = null;
+  private briefing: Scenario | null = null;
   private pauseInfo: PauseInfo = { duties: null, locks: {} };
   /** Free play: chosen area and light/visibility. */
   private area: AreaId = 'westCoast';
@@ -65,7 +69,7 @@ export class Menu {
   }
 
   show(screen: Screen): void {
-    if (screen === 'main' || screen === 'pause') this.base = screen;
+    if (screen === 'main' || screen === 'pause' || screen === 'briefing') this.base = screen;
     this.screen = screen;
     this.root.hidden = false;
     this.root.dataset.screen = screen;
@@ -73,6 +77,7 @@ export class Menu {
       settings: this.settings,
       pauseInfo: this.pauseInfo,
       result: this.result,
+      briefing: this.briefing,
       area: this.area,
       conditions: this.conditions,
       sea: this.sea,
@@ -85,6 +90,17 @@ export class Menu {
     this.result = r;
     this.show('result');
     this.base = 'main';
+  }
+
+  /** The scenario's briefing before it starts (call `setPauseInfo` first: it shows who handles what). */
+  showBriefing(s: Scenario): void {
+    this.briefing = s;
+    this.show('briefing');
+  }
+
+  /** Back to where the current screen was opened from (Esc, "Tillbaka"). */
+  back(): void {
+    this.show(this.base);
   }
 
   /** Call before `show('pause')`. */
@@ -107,7 +123,7 @@ export class Menu {
         this.show(arg as Screen);
         break;
       case 'back':
-        this.show(this.base);
+        this.back();
         break;
       case 'area':
         this.area = arg as AreaId;
@@ -135,6 +151,9 @@ export class Menu {
       }
       case 'introDone':
         this.h.introDone();
+        break;
+      case 'briefingDone':
+        this.h.briefingDone();
         break;
     }
   }

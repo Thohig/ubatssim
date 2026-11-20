@@ -13,7 +13,7 @@ import type { AreaId } from '../sim/config/areas';
 import { html, type SafeHtml } from './dom';
 import type { Settings } from './settings';
 
-export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro';
+export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'briefing';
 
 /** What the pause menu and ☰ → Besättning need to know about the running game. */
 export interface PauseInfo {
@@ -45,6 +45,8 @@ export interface MenuState {
   settings: Settings;
   pauseInfo: PauseInfo;
   result: ResultInfo | null;
+  /** The scenario about to start (the briefing); null otherwise. */
+  briefing: Scenario | null;
   /** Free play: chosen area, light/visibility and sea state. */
   area: AreaId;
   conditions: ConditionsId;
@@ -105,17 +107,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <button class="menu-btn secondary" data-action="nav" data-arg="free">‹ Tillbaka</button>`;
   },
   scenarios: () => {
-    const meta = (s: Scenario) => {
-      const parts: string[] = lockText(s.locks);
-      const area = s.initial.area ?? 'westCoast';
-      if (area !== 'westCoast') parts.unshift(AREA_INFO[area].title);
-      if (s.conditions === 'night') parts.unshift('Natt');
-      if (s.conditions === 'fog') parts.unshift('Dimma');
-      if (s.initial.sea === 'rough') parts.unshift('Grov sjö');
-      if (s.initial.sea === 'moderate') parts.unshift('Måttlig sjö');
-      parts.push(`${s.objectives.length} mål`);
-      return parts.join(' · ');
-    };
+    const meta = (s: Scenario) => [...scenarioConditions(s), `${s.objectives.length} mål`].join(' · ');
     const cards = SCENARIOS.map(
       (s) => html`
       <button class="menu-btn choice scenario" data-action="scenario" data-arg="${s.id}">
@@ -201,6 +193,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>K / H</td><td colspan="2">Sjökortet / sonaren</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
           <tr><td>L</td><td colspan="2">Visa / dölj loggboken (knappen Logg). Dold visar den bara fel en kort stund.</td></tr>
+          <tr><td>O</td><td colspan="2">Visa / fäll ihop målrutan i ett scenario (tipset och alla mål)</td></tr>
         </table>
         <h3>Vyer</h3>
         <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan i panelen Ballast.</p>
@@ -285,6 +278,27 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </div>
       ${back}`;
   },
+  briefing: (m) => {
+    const s = m.briefing;
+    if (!s) return html`<h2 class="menu-title small">Uppdrag</h2>${back}`;
+    const limit = s.timeLimit !== undefined ? `Tidsgräns ${Math.round(s.timeLimit / 60)} min` : null;
+    const meta = [...scenarioConditions(s), ...(limit ? [limit] : [])].join(' · ');
+    const goals = s.objectives.map(
+      (o) => html`<li>${o.text}${o.holdSeconds ? html` <span class="hold">(håll ${o.holdSeconds} s)</span>` : ''}</li>`,
+    );
+    return html`
+      <h2 class="menu-title small">${s.title} <span class="badge ${s.difficulty}">${s.difficulty}</span></h2>
+      <p class="menu-sub">${s.description}</p>
+      <h3 class="briefing-head">Mål</h3>
+      <ol class="briefing-goals">${goals}</ol>
+      ${meta ? html`<p class="menu-note">${meta}</p>` : ''}
+      <p class="menu-note">${crewSummary(m.pauseInfo.duties)} Målen finns överst på skärmen under spelet: tryck på dem för tipsen och hela listan.</p>
+      <div class="menu-list">
+        <button class="menu-btn primary" data-action="briefingDone">Till sjöss</button>
+        <button class="menu-btn" data-action="nav" data-arg="crew">Besättning</button>
+        <button class="menu-btn secondary" data-action="main">Avbryt</button>
+      </div>`;
+  },
   result: (m) => {
     const r = m.result!;
     return html`
@@ -300,6 +314,18 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </div>`;
   },
 };
+
+/** Area, light, sea state and locks of a scenario, for the list and the briefing. */
+function scenarioConditions(s: Scenario): string[] {
+  const parts: string[] = lockText(s.locks);
+  const area = s.initial.area ?? 'westCoast';
+  if (area !== 'westCoast') parts.unshift(AREA_INFO[area].title);
+  if (s.conditions === 'night') parts.unshift('Natt');
+  if (s.conditions === 'fog') parts.unshift('Dimma');
+  if (s.initial.sea === 'rough') parts.unshift('Grov sjö');
+  if (s.initial.sea === 'moderate') parts.unshift('Måttlig sjö');
+  return parts;
+}
 
 /** The pause menu's line on who handles what. */
 function crewSummary(d: CrewDuties | null): string {

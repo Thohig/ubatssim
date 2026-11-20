@@ -138,6 +138,7 @@ Piltangenterna följer Auto / Hand.
 | K / H | Sjökortet / sonaren | Samma |
 | M | Ljud av / på | Samma |
 | L | Visa / dölj loggboken | Samma |
+| O | Visa / fäll ihop målrutan (scenarier) | Samma |
 
 När konsolen är öppen visar lägesindikatorn överst **KONSOL**, och ↑/↓ bläddrar i kommandohistoriken. På mobil ersätts instrumentpanelen av statusraden (se [Mobil](#mobil)).
 
@@ -313,6 +314,10 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 | Nattanfall | svår | Natt: gör en sonarkontakt till mål, byt kurs så att bäringarna ger avstånd, och sänk fartyget. |
 | Jagad | svår | En korvett anfaller. Gå djupt och tyst och klara dig tills den tappar dig eller har slut på sjunkbomber. |
 | Konvojen | svår | Sänk ett lastfartyg med en korvett som eskort, och ta dig sedan undan eskorten. |
+
+Innan ett scenario börjar visar **genomgången** uppdraget, alla mål i ordning (med hålltid), förhållandena, tidsgränsen och vem som sköter vad. Därifrån kan du ändra besättningen innan du trycker **Till sjöss**. Starta om hoppar över genomgången.
+
+Under spelet är **målrutan** överst i mitten en enda rad: målets nummer, målet, hålltiden och bojens avstånd och bäring. Ett tryck på den, eller O, visar tipset och hela listan med avklarade mål (✓). Rutan öppnas också av sig själv i 6 s när ett nytt mål börjar eller tipset ändras (när du tar över eller lämnar systemet målet gäller), och fälls sedan ihop igen. Öppnad med ett tryck fälls den ihop efter 10 s.
 
 Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, tar in mer än 120 m³ vatten eller skrovet kollapsar. Ledtrådarna anpassas efter vem som sköter systemet målet gäller. I Trimövning sköter du djupet (Hand) och trimmet själv, och i Nödblåsning finns inget skyddsnät. Allt annat väljer du.
 

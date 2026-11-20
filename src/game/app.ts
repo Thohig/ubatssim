@@ -21,7 +21,7 @@ import { createInstruments, layoutKey } from '../ui/instruments';
 import { bindKeyboard } from '../ui/keyboard';
 import { bindLog, bindLogToggle } from '../ui/log';
 import { Menu } from '../ui/menu';
-import { updateObjective } from '../ui/objective';
+import { createObjective } from '../ui/objective';
 import { createPerfMeter } from '../ui/perfMeter';
 import { createStatusBar } from '../ui/statusBar';
 import { createNavPanel } from '../ui/navPanel';
@@ -54,7 +54,7 @@ export function startApp(): void {
   const hud = el('hud');
   const logEl = el('log');
   const instrumentsEl = el('instruments');
-  const objectiveEl = el('objective');
+  const objective = createObjective(el('objective'));
   // Phones: the status bar replaces the instrument panel; a tap shows the whole panel (style.css, body.inst-open).
   const statusEl = el<HTMLButtonElement>('status');
   const setInstrumentsOpen = (open: boolean) => {
@@ -121,7 +121,7 @@ export function startApp(): void {
       },
       startScenario(id) {
         const sc = SCENARIOS.find((s) => s.id === id);
-        if (sc) startGame(new GameSession(scenarioSpec(sc, HELP_HINT)));
+        if (sc) startGame(new GameSession(scenarioSpec(sc, HELP_HINT)), true);
       },
       resume() {
         flow.go('playing');
@@ -145,13 +145,26 @@ export function startApp(): void {
         menu.show('crew');
       },
       introDone: finishIntro,
+      briefingDone: afterBriefing,
     },
     settings,
   );
 
-  function startGame(s: GameSession): void {
+  /** Starts a session; a new scenario first shows its briefing (not on "Starta om"). */
+  function startGame(s: GameSession, briefing = false): void {
     session = attach(s);
     mode.set('steer');
+    if (briefing && s.scenario) {
+      flow.go('paused');
+      menu.setPauseInfo(pauseInfo());
+      menu.showBriefing(s.scenario);
+      return;
+    }
+    afterBriefing();
+  }
+
+  /** After the briefing (or without one): the introduction the first time, then the game. */
+  function afterBriefing(): void {
     if (!settings.crewIntroSeen) {
       flow.go('paused');
       menu.show('intro');
@@ -286,6 +299,10 @@ export function startApp(): void {
       nav.toggle(e.key.toLowerCase() === 'k' ? 'chart' : 'sonar');
       return;
     }
+    if ((e.key === 'o' || e.key === 'O') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (session.runner) objective.toggle();
+      return;
+    }
     if ((e.key === 'l' || e.key === 'L') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       logSwitch.toggle();
       return;
@@ -306,12 +323,15 @@ export function startApp(): void {
     } else if (state === 'paused' && menu.current === 'intro') {
       e.preventDefault();
       finishIntro();
+    } else if (state === 'paused' && menu.current === 'briefing') {
+      e.preventDefault();
+      afterBriefing();
     } else if (state === 'paused' && (menu.current === 'pause' || !menu.visible)) {
       e.preventDefault();
       flow.go('playing');
     } else if (menu.visible && menu.current !== 'main' && menu.current !== 'pause' && menu.current !== 'result') {
       e.preventDefault();
-      menu.show(state === 'paused' ? 'pause' : 'main');
+      menu.back();
     }
   });
   document.addEventListener('visibilitychange', () => {
@@ -452,7 +472,7 @@ export function startApp(): void {
       nav.update({ ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
       if (views.mode === 'cutaway') sampleCutaway(s);
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
-      updateObjective(objectiveEl, s.runner);
+      objective.update(s.runner, flow.state === 'playing' ? Math.min(1, (now - lastUi) / 1000) : 0);
       lastUi = now;
     }
     perf.mark('ui');

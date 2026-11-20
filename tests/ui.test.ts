@@ -11,6 +11,8 @@ import { SCREENS, handledText, type MenuState, type Screen } from '../src/ui/men
 import { CREW_SYSTEMS, type CrewDuties } from '../src/control/crew';
 import { DEFAULT_SETTINGS } from '../src/ui/settings';
 import { bindLog } from '../src/ui/log';
+import { OBJECTIVE_SHOW, OBJECTIVE_TAP_SHOW, createObjective } from '../src/ui/objective';
+import { ScenarioRunner } from '../src/control/scenarios';
 
 describe('dom helpers', () => {
   it('html escapes inserted values, but not nested html or raw', () => {
@@ -34,6 +36,7 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   settings: { ...DEFAULT_SETTINGS },
   pauseInfo: { duties: allCrew(), locks: {} },
   result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312, selfHandled: ['trim', 'safetyNet'] },
+  briefing: SCENARIOS.find((s) => s.id === 'trim-drill')!,
   area: 'westCoast',
   conditions: 'day',
   sea: 'calm',
@@ -107,6 +110,7 @@ describe('menu screens', () => {
         settingsChanged: (s) => calls.push(`settings ${s.timeScale}`),
         crewChange: (system, crew) => calls.push(`crew ${system} ${crew}`),
         introDone: () => calls.push('intro'),
+        briefingDone: () => calls.push('briefing'),
       },
       { ...DEFAULT_SETTINGS },
     );
@@ -121,6 +125,31 @@ describe('menu screens', () => {
     menu.show('crew');
     (root.querySelector('[data-arg="trim:0"]') as HTMLElement).click();
     expect(calls).toEqual(['free fjord sea fog calm', 'crew trim false']);
+  });
+
+  it('the briefing lists every objective; Besättning comes back to it, Till sjöss starts', () => {
+    const root = document.createElement('div');
+    const calls: string[] = [];
+    const noop = () => {};
+    const menu = new Menu(
+      root,
+      { startFree: noop, startScenario: noop, resume: noop, restart: noop, toMainMenu: () => calls.push('main'), settingsChanged: noop, crewChange: noop, introDone: noop, briefingDone: () => calls.push('briefing') },
+      { ...DEFAULT_SETTINGS },
+    );
+    const sc = SCENARIOS.find((s) => s.id === 'trim-drill')!;
+    menu.setPauseInfo({ duties: allCrew({ depth: false, trim: false }), locks: sc.locks ?? {} });
+    menu.showBriefing(sc);
+    expect(root.querySelector('h2')!.textContent).toMatch(sc.title);
+    const goals = [...root.querySelectorAll('.briefing-goals li')].map((li) => li.textContent ?? '');
+    expect(goals).toHaveLength(sc.objectives.length);
+    sc.objectives.forEach((o, i) => expect(goals[i]).toMatch(o.text));
+    expect(root.textContent).toMatch(/Du sköter djup och trim själv/);
+    (root.querySelector('[data-arg="crew"]') as HTMLElement).click();
+    expect(menu.current).toBe('crew');
+    (root.querySelector('[data-action="back"]') as HTMLElement).click();
+    expect(menu.current).toBe('briefing');
+    (root.querySelector('[data-action="briefingDone"]') as HTMLElement).click();
+    expect(calls).toEqual(['briefing']);
   });
 });
 
@@ -177,5 +206,63 @@ describe('log history', () => {
     const text = [...el.children].map((c) => c.textContent ?? '');
     expect(text.some((t) => t.includes('Före hjälpen'))).toBe(true);
     expect(text.some((t) => t.includes(HELP_TEXT[0]!))).toBe(true);
+  });
+});
+
+describe('objective box', () => {
+  const setup = () => {
+    const sc = SCENARIOS.find((s) => s.id === 'first-dive')!;
+    const ctrl = new Controller(new Simulation(sc.initial));
+    ctrl.crewTakesAll();
+    const runner = new ScenarioRunner(sc, ctrl);
+    const box = createObjective(document.createElement('div'));
+    return { sc, ctrl, runner, box };
+  };
+
+  it('opens for a new objective, folds by itself, and opens again on a tap', () => {
+    const { sc, runner, box } = setup();
+    box.update(null, 0);
+    expect(box.el.hidden).toBe(true);
+    box.update(runner, 0);
+    expect(box.el.hidden).toBe(false);
+    expect(box.expanded).toBe(true);
+    expect(box.el.querySelector('.obj-step')!.textContent).toBe(`1/${sc.objectives.length}`);
+    expect(box.el.querySelector('.obj-text')!.textContent).toBe(sc.objectives[0]!.text);
+    expect(box.el.querySelectorAll('.obj-list li')).toHaveLength(sc.objectives.length);
+    // Paused (dt = 0): stays open behind the menu.
+    for (let i = 0; i < 100; i++) box.update(runner, 0);
+    expect(box.expanded).toBe(true);
+    for (let i = 0; i < OBJECTIVE_SHOW * 10 + 1; i++) box.update(runner, 0.1);
+    expect(box.expanded).toBe(false);
+    expect(box.el.classList.contains('expanded')).toBe(false);
+    box.el.querySelector<HTMLButtonElement>('.obj-head')!.click();
+    expect(box.expanded).toBe(true);
+    expect(box.el.querySelector('.obj-head')!.getAttribute('aria-expanded')).toBe('true');
+    for (let i = 0; i < OBJECTIVE_TAP_SHOW * 10 + 1; i++) box.update(runner, 0.1);
+    expect(box.expanded).toBe(false);
+    box.toggle();
+    box.toggle();
+    expect(box.expanded).toBe(false);
+  });
+
+  it('opens again when the objective changes or its hint does, and marks the done ones', () => {
+    const { sc, ctrl, runner, box } = setup();
+    box.update(runner, 0);
+    box.update(runner, OBJECTIVE_SHOW + 1);
+    expect(box.expanded).toBe(false);
+    // The hint follows who handles the objective's system.
+    // The first objective's hint follows who handles the ballast.
+    ctrl.submit({ kind: 'crew', system: 'ballast', crew: false }, 'touch');
+    ctrl.step();
+    box.update(runner, 0.1);
+    expect(box.expanded).toBe(true);
+    expect(box.el.querySelector('.obj-hint')!.textContent).toBe(sc.objectives[0]!.hint);
+    box.update(runner, OBJECTIVE_SHOW + 1);
+    // Pretend the first objective is met: the runner moves on.
+    (runner as unknown as { index: number }).index = 1;
+    box.update(runner, 0.1);
+    expect(box.expanded).toBe(true);
+    expect(box.el.querySelector('.obj-list li.done')!.textContent).toBe(`✓ ${sc.objectives[0]!.text}`);
+    expect(box.el.querySelector('.obj-list li.current')!.textContent).toBe(sc.objectives[1]!.text);
   });
 });
