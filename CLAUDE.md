@@ -34,9 +34,13 @@ src/render/   Three.js. Läser bara simuleringens tillstånd och skriver aldrig 
               environment, waveShader (vågor på grafikkortet), vessels, scene.
 src/audio/    Web Audio, syntetiserat. levels (ren: telemetri → ljudnivåer), engine (ljudgraf),
               voice (talsyntes), director (kopplar ihop). Läser simuleringen, skriver aldrig.
-src/ui/       menu, instruments, console, log, keyboard, touch, inputMode, objective, settings,
-              views (yttre/brygga/periskop), viewOverlay (kompassband, periskopmask).
-src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsstegsloopen.
+src/ui/       dom (html-mallar med escaping, h(), Component), menu + menuScreens (en funktion per
+              skärm), instruments (komponenter, layout per spelläge som data), console, log,
+              keyboard, touch, inputMode, objective, settings, views, viewOverlay, perfMeter.
+src/game/     session (GameSession: simulering, kontroll, scenario, trafik, omstart), flow
+              (GameFlow: menu | playing | paused | ended och tillåtna övergångar), loop
+              (FixedStepLoop), wiring (session → ljud och overlay), app (kopplingen till DOM).
+src/main.ts   Bara uppstart (startApp).
 ```
 - **Simulering:** deterministisk. Samma starttillstånd och samma order ger exakt samma resultat. Använd aldrig `Math.random()` eller väggklocka i `src/sim` eller `src/control`.
 - **Order:** alla styrkommandon, från tangentbord, pekknappar och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid. Nya kommandon kräver tre saker: en ny variant i `Order`, ett kvitto i `acknowledgement()` och en post i orderregistret `Controller.ORDERS` (`apply`, och vid behov `refuse` och `steering`). TypeScript kräver en post för varje ordertyp. Läggs kommandot till i parsern, ska `HELP_TEXT` och README uppdateras.
@@ -51,7 +55,9 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
 - **Vyer:** vyn är spelarens tillstånd, inte simuleringens. Periskopet (`periskop upp|ned`) och bryggan (`klart bryggan`, `bemanna bryggan`) styrs med order. Bryggvyn kräver bemannad brygga, periskopvyn en hissad mast. `Simulation.bodyPointDepth()` räknar djup under den lokala vågytan.
 - **Havsområden:** terräng, vatten och ström i `src/sim/config/areas.ts`, spelinnehåll (namn, startlägen, fyrar) i `src/control/areas.ts`. `InitialConditions.area` och `.sea` väljer område och sjögång. Ljus och sikt (`ConditionsId`) är bara grafik. Ubåtens fasta barlast härleds med områdets vatten.
 - **Ljud:** `soundLevels()` är en ren funktion och testas i `tests/audio.test.ts`. Engångsljud och uppläsning styrs av loggraderna (`cueFor`, `speechFor`). Ljud får använda `Math.random()`, eftersom det inte påverkar simuleringen. Ljudet startar först vid ett användartryck och är tyst utanför `playing`.
-- **Sessioner:** `main.ts` skapar en ny `Simulation` och `Controller` per spelstart. Indata-bindningarna får kontrollern via en getter som returnerar `null` när inget spel pågår. Bakom menyn kör en demo-session.
+- **Sessioner:** `GameSession` (src/game/session.ts) skapar en ny `Simulation` och `Controller` per spelstart och vet hur den startas om. Den har ingen DOM och testas i `tests/game.test.ts`. `app.ts` kopplar sessionen till vyer, ljud och meny. Indata-bindningarna får kontrollern via en getter som returnerar `null` när inget spel pågår. Bakom menyn kör en demo-session.
+- **Spelflödet:** byt spelläge bara via `GameFlow.go()`. Otillåtna övergångar vägras.
+- **Gränssnittet:** HTML byggs med `html` från `src/ui/dom.ts`, som escapar allt som infogas. Använd aldrig vanliga mallsträngar till `innerHTML`. Nya instrument är en post i `INSTRUMENTS` och ett id i `LAYOUT` (instruments.ts), nya menyskärmar en funktion i `SCREENS` (menuScreens.ts). Gränssnittstester körs med happy-dom (`// @vitest-environment happy-dom`, se `tests/ui.test.ts`).
 - **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid (och `hintSimplified` för förenklat läge), villkor för misslyckande, tidsgräns, boj, tillåtna spellägen (`modes`) och om skyddsnätet är på (`safetyNet`). `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska, i varje spelläge det tillåter (`tests/long/`).
 - **Prestanda:** `Simulation.telemetry()` gör en full kraftberäkning, men sparar den per tillstånd (`y`, tid, massegenskaper, ställdon, varvtalskommando), så flera anrop mellan två tidssteg kostar nästan inget. Ändra därför aldrig `sim.y` på plats efter konstruktionen: ersätt hela vektorn. Använd `kinematics()` när bara läge och hastighet behövs, till exempel i autopiloten och i orderregistret. Håll budgeten i `docs/prestanda.md`. Mät med `npm run bench` och `?perf` före och efter ändringar i fysik eller grafik.
 - **Optimeringar ska vara exakta** eller ha ett test som jämför mot den enkla beräkningen: kontaktgenvägen mot `contactForces` utan `shallowestIn`, och vågshadern (`elevationFromPacked`) mot `waveElevation`.

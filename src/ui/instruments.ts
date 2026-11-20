@@ -1,148 +1,212 @@
+/**
+ * Instrument panel. Every instrument is a small component (created once,
+ * updated ten times a second), and the panel's layout per game mode is
+ * data (`LAYOUT`): which instruments in the main panel, which under "Mer".
+ * Adding an instrument = one entry in `INSTRUMENTS` and its id in `LAYOUT`.
+ */
 import { formatSimTime, type Controller } from '../control/controller';
+import type { GameMode } from '../control/gameMode';
 import type { Telemetry } from '../sim/simulation';
+import { h, type Component } from './dom';
 
 const DEG = 180 / Math.PI;
 const KN = 3600 / 1852;
 
 const f = (v: number, d = 0) => v.toFixed(d).replace('.', ',').replace('-0,0', '0,0');
 const signed = (v: number, d = 1) => (v > 0 ? '+' : '') + f(v, d);
-
-interface Refs {
-  [k: string]: HTMLElement;
-}
-
-function row(label: string, key: string, big = false, setKey?: string, apKey?: string): string {
-  return `<div class="inst-row"><span class="inst-label">${label}${apKey ? `<span class="ap" data-k="${apKey}">AP</span>` : ''}</span>
-    <span><span class="inst-value${big ? ' big' : ''}" data-k="${key}"></span>${setKey ? `<span class="inst-set" data-k="${setKey}"></span>` : ''}</span></div>`;
-}
-
-function centredBar(key: string): string {
-  return `<div class="bar center" data-k="${key}"><div class="zero"></div><div class="fill"></div><div class="mark"></div></div>`;
-}
+const deg3 = (rad: number) => String(Math.round(((rad * DEG) % 360 + 360) % 360) % 360).padStart(3, '0');
 
 /** Net buoyancy within this is shown as "Neutral" in the simplified panel [kg]. */
 const TRIM_NEUTRAL_KG = 100;
 
+type Instrument = Component<Telemetry>;
+
+interface RowOptions {
+  big?: boolean;
+  /** Autopilot target shown after the value (e.g. "→ 32"). */
+  setpoint?: (c: Controller) => string;
+  /** Autopilot badge (realistic panel only). */
+  ap?: (c: Controller) => boolean;
+  /** CSS classes switched on by the reading (e.g. alarm). */
+  classes?: (t: Telemetry) => Record<string, boolean>;
+}
+
+/** A label and a value, optionally with an autopilot target and badge. */
+function row(label: string, value: (t: Telemetry, c: Controller) => string, c: Controller, o: RowOptions = {}): Instrument {
+  const badge = o.ap ? h('span', { class: 'ap' }, 'AP') : null;
+  const val = h('span', { class: o.big ? 'inst-value big' : 'inst-value' });
+  const set = o.setpoint ? h('span', { class: 'inst-set' }) : null;
+  const el = h('div', { class: 'inst-row' }, h('span', { class: 'inst-label' }, label, badge), h('span', null, val, set));
+  return {
+    el,
+    update(t) {
+      const v = value(t, c);
+      if (val.textContent !== v) val.textContent = v;
+      if (set && o.setpoint) {
+        const s = o.setpoint(c);
+        if (set.textContent !== s) set.textContent = s;
+      }
+      if (badge && o.ap) badge.classList.toggle('on', o.ap(c));
+      if (o.classes) for (const [k, on] of Object.entries(o.classes(t))) val.classList.toggle(k, on);
+    },
+  };
+}
+
+/** Rudder or planes: angle and command, with a centred bar and a command mark. */
+function surface(label: string, side: [string, string], c: Controller, angle: (t: Telemetry) => number, cmd: (t: Telemetry) => number, max: number): Instrument {
+  const r = row(label, (t) => {
+    const a = angle(t) * DEG;
+    return `${a > 0.5 ? `${side[0]} ` : a < -0.5 ? `${side[1]} ` : ''}${f(Math.abs(a), 1)} (${signed(cmd(t) * DEG, 0)})`;
+  }, c);
+  const fill = h('div', { class: 'fill' });
+  const mark = h('div', { class: 'mark' });
+  const bar = h('div', { class: 'bar center' }, h('div', { class: 'zero' }), fill, mark);
+  const maxDeg = max * DEG;
+  return {
+    el: h('div', null, r.el, bar),
+    update(t) {
+      r.update(t);
+      const v = Math.max(-1, Math.min(1, (angle(t) * DEG) / maxDeg));
+      fill.style.left = v >= 0 ? '50%' : `${50 + v * 50}%`;
+      fill.style.width = `${Math.abs(v) * 50}%`;
+      mark.style.left = `calc(${50 + Math.max(-1, Math.min(1, (cmd(t) * DEG) / maxDeg)) * 50}% - 1px)`;
+    },
+  };
+}
+
+/** A named level with a bar (tanks, HP air). */
+function level(name: string, text: (t: Telemetry) => string, frac: (t: Telemetry) => number, flags?: (t: Telemetry) => string): Instrument {
+  const flagEl = flags ? h('span', { class: 'flags' }) : null;
+  const val = h('span');
+  const fill = h('div', { class: 'fill' });
+  return {
+    el: h('div', null, h('div', { class: 'tank-name' }, h('span', null, name), h('span', null, flagEl, flagEl ? ' ' : null, val)), h('div', { class: 'bar' }, fill)),
+    update(t) {
+      const v = text(t);
+      if (val.textContent !== v) val.textContent = v;
+      if (flagEl && flags) flagEl.textContent = flags(t);
+      fill.style.width = `${Math.max(0, Math.min(1, frac(t))) * 100}%`;
+    },
+  };
+}
+
+const separator = (): Instrument => ({ el: h('div', { class: 'inst-sep' }), update() {} });
+
+const trimState = (t: Telemetry) => {
+  const kg = t.netBuoyancy / 9.80665;
+  return t.submergedFraction <= 0.999 ? 'surface' : kg < -TRIM_NEUTRAL_KG ? 'heavy' : kg > TRIM_NEUTRAL_KG ? 'light' : 'neutral';
+};
+
+/** Every instrument, by id. */
+const INSTRUMENTS: Record<string, (c: Controller, simple: boolean) => Instrument> = {
+  sep: () => separator(),
+  time: () => {
+    const v = h('span');
+    return {
+      el: h('div', { class: 'inst-row' }, h('span', { class: 'inst-label' }, 'Tid'), v),
+      update(t) {
+        v.textContent = formatSimTime(t.t);
+      },
+    };
+  },
+  depth: (c, simple) =>
+    row('Djup (m)', (t) => f(t.depth, 1), c, {
+      big: true,
+      setpoint: (k) => (k.ap.depth ? (k.surfaceHold ? '→ yta' : `→ ${f(k.setpoints.depth)}`) : ''),
+      ap: simple ? undefined : (k) => k.ap.depth,
+    }),
+  speed: (c, simple) =>
+    row('Fart (knop)', (t) => f(t.u * KN, 1), c, {
+      big: true,
+      setpoint: (k) => (k.ap.speed ? `→ ${f(k.setpoints.speed, 1)}` : ''),
+      ap: simple ? undefined : (k) => k.ap.speed,
+    }),
+  heading: (c, simple) =>
+    row('Kurs (°)', (t) => deg3(t.heading), c, {
+      big: true,
+      setpoint: (k) => (k.ap.heading ? `→ ${String(Math.round(k.setpoints.heading) % 360).padStart(3, '0')}` : ''),
+      ap: simple ? undefined : (k) => k.ap.heading,
+    }),
+  keel: (c, simple) =>
+    row('Under köl (m)', (t) => (t.grounded ? 'GRUND!' : f(Math.max(0, t.depthUnderKeel), 1)), c, {
+      big: simple,
+      classes: (t) => ({ alarm: t.grounded || t.depthUnderKeel < 5 }),
+    }),
+  trim: (c) =>
+    row('Trim', (t) => ({ surface: 'Ytläge', heavy: 'Tung', light: 'Lätt', neutral: 'Neutral' })[trimState(t)], c, {
+      classes: (t) => ({ 'trim-heavy': trimState(t) === 'heavy', 'trim-light': trimState(t) === 'light' }),
+    }),
+  pitch: (c) => row('Stampvinkel (°)', (t) => signed(t.pitch * DEG), c),
+  rudder: (c) => surface('Roder', ['SB', 'BB'], c, (t) => t.rudder, (t) => t.rudderCmd, c.sim.cfg.actuators.rudderMax),
+  planes: (c) => surface('Djuproder', ['NED', 'UPP'], c, (t) => t.sternPlanes, (t) => t.sternPlanesCmd, c.sim.cfg.actuators.planesMax),
+  depthRate: (c) => row('Djupändring (m/min)', (t) => signed(t.depthRate * 60, 1), c),
+  sog: (c) => row('Över grund (knop, °)', (t) => `${f(t.speedOverGround * KN, 1)} ${deg3(t.courseOverGround)}`, c),
+  current: (c) =>
+    row('Ström (knop, mot °)', (t) => {
+      const cs = Math.hypot(t.current[0], t.current[1]);
+      return cs < 0.01 ? '–' : `${f(cs * KN, 1)} ${deg3(Math.atan2(t.current[1], t.current[0]))}`;
+    }, c),
+  roll: (c) => row('Krängning (°)', (t) => signed(t.roll * DEG), c),
+  rpm: (c) => row('Varv (rpm)', (t) => `${f(t.rps * 60)} (${f(t.rpsCmd * 60)})`, c),
+  power: (c) => row('Axeleffekt (kW)', (t) => f(t.shaftPower / 1000), c),
+  tanks: (c) => {
+    const items = c.sim.tankDefs.map((d, i) =>
+      level(
+        d.name,
+        (t) => {
+          const tk = t.tanks[i]!;
+          return tk.volume >= 50 ? `${f(tk.fill * 100)} %` : `${f(tk.water * 1000)} l`;
+        },
+        (t) => t.tanks[i]!.fill,
+        (t) => (t.tanks[i]!.blowOpen ? 'BLÅS' : t.tanks[i]!.ventOpen ? 'VENT' : ''),
+      ),
+    );
+    return {
+      el: h('div', null, h('div', { class: 'inst-label' }, 'Tankar'), ...items.map((x) => x.el)),
+      update(t) {
+        for (const x of items) x.update(t);
+      },
+    };
+  },
+  air: (c) => level('HP-luft (bar)', (t) => f(t.airPressure / 1e5), (t) => t.airPressure / c.sim.cfg.air.bottlePressure),
+  net: (c) => row('Flytkraftsöverskott (kg)', (t) => signed(t.netBuoyancy / 9.80665, 0), c),
+};
+
 /**
- * Instrument panel: depth, speed, heading, attitude, control surfaces, tanks,
- * HP air. The layout follows the controller's game mode at creation; create
- * it again after a mode switch. The simplified panel leads with the targets,
- * the water under the keel and a trim indicator, and keeps rudder and planes
- * under "Mer".
+ * The panel per game mode: the simplified panel leads with the targets, the
+ * water under the keel and the trim, and keeps rudder and planes under "Mer".
+ */
+export const LAYOUT: Record<GameMode, { main: string[]; more: string[] }> = {
+  simplified: {
+    main: ['time', 'sep', 'depth', 'speed', 'heading', 'keel', 'trim', 'sep'],
+    more: ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'tanks', 'air', 'net'],
+  },
+  realistic: {
+    main: ['time', 'sep', 'depth', 'speed', 'heading', 'pitch', 'keel', 'sep', 'rudder', 'planes'],
+    more: ['depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'tanks', 'air', 'net'],
+  },
+};
+
+/**
+ * Builds the panel for the controller's game mode (create it again after a
+ * mode switch) and returns its update function.
  */
 export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Telemetry) => void {
-  const sim = ctrl.sim;
   const simple = ctrl.options.mode === 'simplified';
-  const surfaces = `
-    ${row('Roder', 'rudder')}
-    ${centredBar('rudderBar')}
-    ${row('Djuproder', 'planes')}
-    ${centredBar('planesBar')}`;
-  el.innerHTML = `
-    <div class="inst-row"><span class="inst-label">Tid</span><span data-k="time"></span></div>
-    <div class="inst-sep"></div>
-    ${row('Djup (m)', 'depth', true, 'depthSet', simple ? undefined : 'apDepth')}
-    ${row('Fart (knop)', 'speed', true, 'speedSet', simple ? undefined : 'apSpeed')}
-    ${row('Kurs (°)', 'heading', true, 'headingSet', simple ? undefined : 'apHeading')}
-    ${simple ? row('Under köl (m)', 'keel', true) + row('Trim', 'trim') : row('Stampvinkel (°)', 'pitch') + row('Under köl (m)', 'keel')}
-    <div class="inst-sep"></div>
-    ${simple ? '' : surfaces}
-    <div class="inst-more">
-      ${simple ? row('Stampvinkel (°)', 'pitch') + surfaces + '<div class="inst-sep"></div>' : ''}
-      ${row('Djupändring (m/min)', 'depthRate')}
-      ${row('Över grund (knop, °)', 'sog')}
-      ${row('Ström (knop, mot °)', 'current')}
-      ${row('Krängning (°)', 'roll')}
-      ${row('Varv (rpm)', 'rpm')}
-      ${row('Axeleffekt (kW)', 'power')}
-      <div class="inst-sep"></div>
-      <div class="inst-label">Tankar</div>
-      ${sim.tankDefs
-        .map(
-          (d) => `<div class="tank-name"><span>${d.name}</span><span><span class="flags" data-k="flags_${d.id}"></span> <span data-k="tankv_${d.id}"></span></span></div>
-          <div class="bar" data-k="tank_${d.id}"><div class="fill"></div></div>`,
-        )
-        .join('')}
-      <div class="tank-name"><span>HP-luft (bar)</span><span data-k="air"></span></div>
-      <div class="bar" data-k="airBar"><div class="fill"></div></div>
-      ${row('Flytkraftsöverskott (kg)', 'net')}
-    </div>
-    <button type="button" class="inst-toggle" aria-expanded="false">Mer ▾</button>
-  `;
+  const layout = LAYOUT[ctrl.options.mode];
+  const make = (id: string) => INSTRUMENTS[id]!(ctrl, simple);
+  const main = layout.main.map(make);
+  const more = layout.more.map(make);
   // On narrow screens the panel starts compact; the button shows the rest.
-  const toggle = el.querySelector<HTMLButtonElement>('.inst-toggle')!;
+  const toggle = h('button', { type: 'button', class: 'inst-toggle', 'aria-expanded': 'false' }, 'Mer ▾');
   toggle.addEventListener('click', () => {
     const expanded = el.classList.toggle('expanded');
     toggle.textContent = expanded ? 'Mindre ▴' : 'Mer ▾';
     toggle.setAttribute('aria-expanded', String(expanded));
   });
-  const refs: Refs = {};
-  el.querySelectorAll<HTMLElement>('[data-k]').forEach((n) => (refs[n.dataset.k!] = n));
-  const set = (k: string, text: string) => {
-    const n = refs[k];
-    if (n && n.textContent !== text) n.textContent = text;
-  };
-  const bar = (k: string, frac: number) => {
-    const fill = refs[k]?.querySelector<HTMLElement>('.fill');
-    if (fill) fill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
-  };
-  const centred = (k: string, value: number, cmd: number, max: number) => {
-    const b = refs[k];
-    if (!b) return;
-    const fill = b.querySelector<HTMLElement>('.fill')!;
-    const mark = b.querySelector<HTMLElement>('.mark')!;
-    const v = Math.max(-1, Math.min(1, value / max));
-    fill.style.left = v >= 0 ? '50%' : `${50 + v * 50}%`;
-    fill.style.width = `${Math.abs(v) * 50}%`;
-    mark.style.left = `calc(${50 + Math.max(-1, Math.min(1, cmd / max)) * 50}% - 1px)`;
-  };
-  const ap = (k: string, on: boolean) => refs[k]?.classList.toggle('on', on);
-  const maxR = sim.cfg.actuators.rudderMax * DEG;
-  const maxP = sim.cfg.actuators.planesMax * DEG;
-  const airMax = sim.cfg.air.bottlePressure;
-
+  el.replaceChildren(...main.map((x) => x.el), h('div', { class: 'inst-more' }, ...more.map((x) => x.el)), toggle);
+  const all = [...main, ...more];
   return (t) => {
-    set('time', formatSimTime(t.t));
-    set('depth', f(t.depth, 1));
-    set('depthSet', ctrl.ap.depth ? (ctrl.surfaceHold ? '→ yta' : `→ ${f(ctrl.setpoints.depth)}`) : '');
-    set('depthRate', signed(t.depthRate * 60, 1));
-    set('speed', f(t.u * KN, 1));
-    set('speedSet', ctrl.ap.speed ? `→ ${f(ctrl.setpoints.speed, 1)}` : '');
-    set('heading', String(Math.round(t.heading * DEG) % 360).padStart(3, '0'));
-    set('sog', `${f(t.speedOverGround * KN, 1)} ${String(Math.round(t.courseOverGround * DEG) % 360).padStart(3, '0')}`);
-    const cs = Math.hypot(t.current[0], t.current[1]);
-    set('current', cs < 0.01 ? '–' : `${f(cs * KN, 1)} ${String(Math.round(((Math.atan2(t.current[1], t.current[0]) * DEG) + 360) % 360)).padStart(3, '0')}`);
-    set('headingSet', ctrl.ap.heading ? `→ ${String(Math.round(ctrl.setpoints.heading) % 360).padStart(3, '0')}` : '');
-    ap('apDepth', ctrl.ap.depth);
-    ap('apSpeed', ctrl.ap.speed);
-    ap('apHeading', ctrl.ap.heading);
-    set('pitch', signed(t.pitch * DEG));
-    set('keel', t.grounded ? 'GRUND!' : f(Math.max(0, t.depthUnderKeel), 1));
-    refs['keel']?.classList.toggle('alarm', t.grounded || t.depthUnderKeel < 5);
-    set('roll', signed(t.roll * DEG));
-    const rud = t.rudder * DEG;
-    set('rudder', `${rud > 0.5 ? 'SB ' : rud < -0.5 ? 'BB ' : ''}${f(Math.abs(rud), 1)} (${signed(t.rudderCmd * DEG, 0)})`);
-    centred('rudderBar', rud, t.rudderCmd * DEG, maxR);
-    const pl = t.sternPlanes * DEG;
-    set('planes', `${pl > 0.5 ? 'NED ' : pl < -0.5 ? 'UPP ' : ''}${f(Math.abs(pl), 1)} (${signed(t.sternPlanesCmd * DEG, 0)})`);
-    centred('planesBar', pl, t.sternPlanesCmd * DEG, maxP);
-    set('rpm', `${f(t.rps * 60)} (${f(t.rpsCmd * 60)})`);
-    set('power', f(t.shaftPower / 1000));
-    for (const tk of t.tanks) {
-      bar(`tank_${tk.id}`, tk.fill);
-      set(`tankv_${tk.id}`, tk.volume >= 50 ? `${f(tk.fill * 100)} %` : `${f(tk.water * 1000)} l`);
-      set(`flags_${tk.id}`, tk.blowOpen ? 'BLÅS' : tk.ventOpen ? 'VENT' : '');
-    }
-    set('air', f(t.airPressure / 1e5));
-    bar('airBar', t.airPressure / airMax);
-    const netKg = t.netBuoyancy / 9.80665;
-    set('net', signed(netKg, 0));
-    if (refs['trim']) {
-      const submerged = t.submergedFraction > 0.999;
-      const state = !submerged ? 'surface' : netKg < -TRIM_NEUTRAL_KG ? 'heavy' : netKg > TRIM_NEUTRAL_KG ? 'light' : 'neutral';
-      set('trim', state === 'surface' ? 'Ytläge' : state === 'heavy' ? 'Tung' : state === 'light' ? 'Lätt' : 'Neutral');
-      refs['trim'].classList.toggle('trim-heavy', state === 'heavy');
-      refs['trim'].classList.toggle('trim-light', state === 'light');
-    }
+    for (const x of all) x.update(t);
   };
 }

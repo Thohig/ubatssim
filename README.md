@@ -261,7 +261,8 @@ Testerna täcker bland annat:
 - strömmen (drift, fart genom vattnet och över grund) och vågorna (signifikant våghöjd, rörelser i ytläge, lågtrycksblåsaren)
 - periskopet, bryggan och vyerna
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
-- fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt.
+- fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
+- spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom).
 
 ## Projektstruktur
 
@@ -277,8 +278,9 @@ src/
   render/     Three.js: ubåtsmodell i lager, terräng, vågor, fyrar, ljus och dimma, kameravyer.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
   ui/         Meny, instrumentpanel, konsol, logg, tangentbord, pekknappar, inställningar,
-              vyer och deras overlay (kompassband, periskop).
-  main.ts     Spellägen (meny, spel, paus) och tidsstegsloopen.
+              vyer och deras overlay (kompassband, periskop). HTML byggs med mallar som escapar.
+  game/       Spelsessioner, spellägen (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
+  main.ts     Uppstart.
 tests/        Vitest.
 docs/         Fördjupande dokumentation: fysikmodellen, grafiken, ljudet och prestandan.
 public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.

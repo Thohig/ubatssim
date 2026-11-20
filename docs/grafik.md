@@ -8,7 +8,7 @@ Grafiken är medvetet enkel. Realismen ligger i simuleringen. Det finns inga tex
 
 - **Fysiken** räknar i fasta steg om 0,01 s (100 Hz).
 - **Grafiken** ritas en gång per skärmuppdatering, normalt 60 gånger i sekunden.
-- **Loopen i `main.ts`:**
+- **Loopen** (`FixedStepLoop` i `src/game/loop.ts`, anropad från `src/game/app.ts`):
   1. lägger verklig tid × tidskomprimering i en ackumulator,
   2. kör de hela fysiksteg som har hunnit bli aktuella,
   3. skickar ett `RenderState` till renderingen: läge, orientering, roder- och djuproderutslag, propellervinkel och periskopets höjd.
@@ -66,9 +66,9 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
 | **Periskopet** | I periskophuvudet. Vrids med ←/→ eller genom att dra. Förstoring 1,5× (synfält 32°) eller 6× (8°). Över 6 knop skakar bilden. |
 
 - **Vyval:** vyn är spelarens tillstånd, inte simuleringens. `ViewState` håller vy, blickriktning, periskopets riktning och förstoring.
-- **Automatiskt byte:** `main.ts` öppnar periskopvyn när masten är uppe och lämnar en vy som inte längre finns, till exempel när bryggan utryms.
+- **Automatiskt byte:** `src/game/app.ts` öppnar periskopvyn när masten är uppe och lämnar en vy som inte längre finns, till exempel när bryggan utryms.
 - **Overlay** (`viewOverlay.ts`): hårkors, periskopmask, bäringsskala och bryggans kompassband ritas i 2D på en egen canvas ovanpå 3D-bilden och under panelerna. Bojens riktning visas som en gul markering på bandet.
 
 ## Gränssnittet
 
-Instrumentpanel, logg, konsol, menyer och pekknappar är vanlig HTML och CSS ovanpå 3D-bilden (`src/ui/`, `style.css`). På smala skärmar blir panelen kompakt, och i vyerna ombord krymper loggen så att bilden syns.
+Instrumentpanel, logg, konsol, menyer och pekknappar är vanlig HTML och CSS ovanpå 3D-bilden (`src/ui/`, `style.css`). HTML byggs med mallen `html` i `src/ui/dom.ts`, som escapar allt som infogas. Varje instrument är en liten komponent, och vilka instrument som visas i varje spelläge står som data i `LAYOUT`. Menyskärmarna är en funktion var i `menuScreens.ts`. På smala skärmar blir panelen kompakt, och i vyerna ombord krymper loggen så att bilden syns.
