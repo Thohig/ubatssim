@@ -323,7 +323,7 @@ src/
   game/       Spelsessioner, spelflödet (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
   main.ts     Uppstart.
 tests/        Vitest.
-docs/         Fördjupande dokumentation: fysikmodellen, grafiken, ljudet och prestandan.
+docs/         Fördjupande dokumentation: fysikmodellen, grafiken, ljudet, prestandan och idéer (ideer.md).
 public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
 scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet.
 assets/       Källfil för ikonen utan rundade hörn (används för att rendera PNG-filerna).

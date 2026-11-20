@@ -1,6 +1,6 @@
 # CLAUDE.md – Ubåtssim
 
-En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`). Användardokumentationen finns i `README.md`, fysikmodellen beskrivs i `docs/fysikmodell.md`, grafiken i `docs/grafik.md`, ljudet i `docs/ljud.md` och prestandan och dess budget i `docs/prestanda.md`.
+En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`). Användardokumentationen finns i `README.md`, fysikmodellen beskrivs i `docs/fysikmodell.md`, grafiken i `docs/grafik.md`, ljudet i `docs/ljud.md`, prestandan och dess budget i `docs/prestanda.md` och idéer om vad som kan göras härnäst i `docs/ideer.md`.
 
 ## Kommandon
 - `npm run dev`: utvecklingsserver på http://localhost:5173/ubatssim/ (observera sökvägen).
