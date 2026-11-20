@@ -11,10 +11,10 @@
  *   physics, the crew or a scenario changes: then run this file, copy the new
  *   values printed by the failing test and say so in the commit message.
  *   An optimisation must not change them (CLAUDE.md, "Optimeringar ska vara exakta").
- *   Math.sin, Math.exp and the like may differ in the last bit between
- *   versions of V8, and a long simulation makes that visible: the reference
- *   holds for the Node major version it was recorded with (as CI runs) and
- *   is skipped on others.
+ *   Floating point may differ in the last bit between platforms (macOS on
+ *   ARM and Linux on x64 give different hashes after a minute, with the same
+ *   Node), and a long simulation makes that visible: there is one reference
+ *   per platform, and the test is skipped on a platform without one.
  */
 import { describe, expect, it } from 'vitest';
 import type { Order } from '../../src/control/orders';
@@ -85,9 +85,12 @@ function run(): string[] {
   return out;
 }
 
-/** Update deliberately (see the comment at the top). `node`: the major version it holds for (CI runs it). */
-const REFERENCE = { node: 26, hashes: ['37069895', '107cdda3', 'd4575163', '2beaea92'] };
-const NODE = Number(process.versions.node.split('.')[0]);
+/** Update deliberately (see the comment at the top), per platform: `linux-x64` is what CI runs. */
+const REFERENCE: Record<string, string[]> = {
+  'darwin-arm64': ['37069895', '107cdda3', 'd4575163', '2beaea92'],
+  'linux-x64': ['37069895', '2de66bab', '8c4666d9', '5ebcb5f7'],
+};
+const PLATFORM = `${process.platform}-${process.arch}`;
 
 describe('determinism', () => {
   const first = run();
@@ -96,7 +99,7 @@ describe('determinism', () => {
     expect(run()).toEqual(first);
   });
 
-  it.skipIf(NODE !== REFERENCE.node)(`the state matches the reference on Node ${REFERENCE.node} (changes only when the simulation is meant to)`, () => {
-    expect(first, `new reference: ${JSON.stringify(first)}`).toEqual(REFERENCE.hashes);
+  it.skipIf(!REFERENCE[PLATFORM])(`the state matches the reference for ${PLATFORM} (changes only when the simulation is meant to)`, () => {
+    expect(first, `new reference for ${PLATFORM}: ${JSON.stringify(first)}`).toEqual(REFERENCE[PLATFORM]);
   });
 });

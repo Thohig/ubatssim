@@ -21,7 +21,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          # The determinism test's reference hashes are recorded with this major version.
           node-version: 26
           cache: npm
       - run: npm ci
