@@ -1,6 +1,6 @@
 # CLAUDE.md – Ubåtssim
 
-En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`). Användardokumentationen finns i `README.md`, fysikmodellen beskrivs i `docs/fysikmodell.md` och grafiken i `docs/grafik.md`.
+En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`). Användardokumentationen finns i `README.md`, fysikmodellen beskrivs i `docs/fysikmodell.md`, grafiken i `docs/grafik.md` och ljudet i `docs/ljud.md`.
 
 ## Kommandon
 - `npm run dev`: utvecklingsserver på http://localhost:5173/ubatssim/ (observera sökvägen).
@@ -26,6 +26,8 @@ src/control/  orders (Order-union + kvitton), orderQueue, parser (svenska), auto
               gameMode, trimAssist (trimassistent och skyddsnät), areas (startlägen, fyrar, väder), scenarios.
 src/render/   Three.js. Läser bara simuleringens tillstånd och skriver aldrig till det.
               coords (NED↔Three), submarineModel (lager), terrain, environment, scene.
+src/audio/    Web Audio, syntetiserat. levels (ren: telemetri → ljudnivåer), engine (ljudgraf),
+              voice (talsyntes), director (kopplar ihop). Läser simuleringen, skriver aldrig.
 src/ui/       menu, instruments, console, log, keyboard, touch, inputMode, objective, settings,
               views (yttre/brygga/periskop), viewOverlay (kompassband, periskopmask).
 src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsstegsloopen.
@@ -40,6 +42,7 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
   - Valt läge sparas i inställningarna. Standard är förenklad simulering.
 - **Vyer:** vyn är spelarens tillstånd, inte simuleringens. Periskopet (`periskop upp|ned`) och bryggan (`klart bryggan`, `bemanna bryggan`) styrs med order. Bryggvyn kräver bemannad brygga, periskopvyn en hissad mast. `Simulation.bodyPointDepth()` räknar djup under den lokala vågytan.
 - **Havsområden:** terräng, vatten och ström i `src/sim/config/areas.ts`, spelinnehåll (namn, startlägen, fyrar) i `src/control/areas.ts`. `InitialConditions.area` och `.sea` väljer område och sjögång. Ljus och sikt (`ConditionsId`) är bara grafik. Ubåtens fasta barlast härleds med områdets vatten.
+- **Ljud:** `soundLevels()` är en ren funktion och testas i `tests/audio.test.ts`. Engångsljud och uppläsning styrs av loggraderna (`cueFor`, `speechFor`). Ljud får använda `Math.random()`, eftersom det inte påverkar simuleringen. Ljudet startar först vid ett användartryck och är tyst utanför `playing`.
 - **Sessioner:** `main.ts` skapar en ny `Simulation` och `Controller` per spelstart. Indata-bindningarna får kontrollern via en getter som returnerar `null` när inget spel pågår. Bakom menyn kör en demo-session.
 - **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid (och `hintSimplified` för förenklat läge), villkor för misslyckande, tidsgräns, boj, tillåtna spellägen (`modes`) och om skyddsnätet är på (`safetyNet`). `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska (`tests/scenarios.test.ts`, `tests/terrain.test.ts`), i varje spelläge det tillåter (`tests/gameModes.test.ts`).
 - **Prestanda:** `Simulation.telemetry()` gör en full kraftberäkning. Använd `kinematics()` när bara läge och hastighet behövs, till exempel i autopiloten.
@@ -60,7 +63,7 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
 - Identifierare och kommentarer skrivs på engelska. UI-texter, konsolkommandon och dokumentation på svenska.
 - `strict` TypeScript med `noUncheckedIndexedAccess`.
 - Ny fysik ska ha Vitest-tester i `tests/`.
-- `localStorage` används bara för inställningar (inklusive spelläge), alltid inom try/catch (`src/ui/settings.ts`). Bästa tider sparas inte längre.
+- `localStorage` används bara för inställningar (inklusive spelläge och ljud), alltid inom try/catch (`src/ui/settings.ts`). Bästa tider sparas inte längre.
 - Pekskärm: `body.touch` styr pekknapparna. Konsolens textfält ska ha teckenstorlek ≥ 16 px på iOS, annars zoomar Safari.
 
 ## Integritetsregler

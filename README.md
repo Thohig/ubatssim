@@ -14,6 +14,7 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 - [Instrumentpanelen](#instrumentpanelen)
 - [Scenarier](#scenarier)
 - [Havsområden och väder](#havsområden-och-väder)
+- [Ljud](#ljud)
 - [Fysik i korthet](#fysik-i-korthet)
 - [Utveckling](#utveckling)
 - [Projektstruktur](#projektstruktur)
@@ -28,7 +29,7 @@ På startsidan väljer du spelläge, **förenklad** eller **realistisk simulerin
 |---|---|
 | **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
-| **Inställningar** | Tidskomprimering ×1/×2/×4, autopilot tillåten i fritt spel (realistisk simulering), pekknappar (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna och valt spelläge sparas i webbläsaren. |
+| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order), autopilot tillåten i fritt spel (realistisk simulering), pekknappar (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna och valt spelläge sparas i webbläsaren. |
 | **Hjälp** | Kontroller, alla konsolkommandon och tips. |
 
 På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
@@ -77,6 +78,7 @@ Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik
 | Shift + ↑ / ↓ | Fart ±1 knop (sätter fartautopiloten) | Samma |
 | Enter eller / | Öppna kommandokonsolen | Samma |
 | Esc | Lämna konsolen eller en vy, eller pausa | Samma |
+| M | Ljud av / på | Samma |
 
 Lägesindikatorn överst visar om piltangenterna styr ubåten (**STYRNING**) eller konsolen (**KONSOL**). I konsolen bläddrar ↑/↓ i kommandohistoriken.
 
@@ -177,6 +179,18 @@ Ett scenario misslyckas om ubåten går på grund. Ledtrådarna anpassas efter s
 
 Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är det man kan krocka med.
 
+## Ljud
+
+Allt ljud syntetiseras i webbläsaren och följer simuleringen:
+
+- **Ubåten:** elmotorn och propellern följer varvtalet, strömningsbruset farten och kavitationen hörs vid högt varv nära ytan. Rodren surrar när de rör sig, och skrovet knakar när trycket ändras.
+- **System:** ventilering, vatten som strömmar in, blåsning, pumpar, periskopets motor och lågtrycksblåsaren hörs medan de arbetar.
+- **Larm och signaler:** grundstötning, ekolodets pip när det är mindre än 10 m under kölen, krossdjupet, vatten över bryggan, nödblåsning, klara mål och uppdragets resultat.
+- **Omgivningen:** vind och vågor efter sjögången, måsar på dagen nära land och mistlur i dimma. Under vattnet låter ljudet utifrån dovt.
+- **Röst:** spelarens order, larm och klara mål kan läsas upp med en svensk röst. Det slås på i inställningarna.
+
+Ljudet startar vid första tryck, eftersom webbläsare kräver det, och är tyst i menyer och paus. Mer om ljudet finns i [docs/ljud.md](docs/ljud.md).
+
 ## Fysik i korthet
 
 - **Rörelser:** 6 frihetsgrader enligt Fossens rörelseekvationer för undervattensfarkoster. Orienteringen är en quaternion, och integrationen sker med RK4 och ett fast tidssteg på 100 Hz. Simuleringen är deterministisk.
@@ -191,7 +205,7 @@ Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är
 
 Ubåten är en generisk modern dieselelektrisk ubåt: 60 m lång, 6,2 m bred, ~1 530 t i undervattensläge. Den gör ~19 knop vid 2,9 MW och 240 rpm.
 
-En utförlig beskrivning med ekvationer, källor och förenklingar finns i [docs/fysikmodell.md](docs/fysikmodell.md). Hur grafiken fungerar beskrivs i [docs/grafik.md](docs/grafik.md). Alla parametrar finns samlade, med källa och enhet, i `src/sim/config/`.
+En utförlig beskrivning med ekvationer, källor och förenklingar finns i [docs/fysikmodell.md](docs/fysikmodell.md). Hur grafiken fungerar beskrivs i [docs/grafik.md](docs/grafik.md) och ljudet i [docs/ljud.md](docs/ljud.md). Alla parametrar finns samlade, med källa och enhet, i `src/sim/config/`.
 
 ## Utveckling
 
@@ -234,7 +248,8 @@ Testerna täcker bland annat:
 - terrängen, grundstötning och navigering genom sundet
 - havsområdena: att trycket är integralen av densiteten, saltsprångskiktet, sötvattnet i fjorden, fjordens tröskel och att alla startlägen och fyrar ligger rätt
 - strömmen (drift, fart genom vattnet och över grund) och vågorna (signifikant våghöjd, rörelser i ytläge, lågtrycksblåsaren)
-- periskopet, bryggan och vyerna.
+- periskopet, bryggan och vyerna
+- ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp.
 
 ## Projektstruktur
 
@@ -246,11 +261,12 @@ src/
   control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, spellägen,
               trimassistent och skyddsnät, havsområdenas startlägen och fyrar, scenarier.
   render/     Three.js: ubåtsmodell i lager, terräng, vågor, fyrar, ljus och dimma, kameravyer.
+  audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
   ui/         Meny, instrumentpanel, konsol, logg, tangentbord, pekknappar, inställningar,
               vyer och deras overlay (kompassband, periskop).
   main.ts     Spellägen (meny, spel, paus) och tidsstegsloopen.
 tests/        Vitest.
-docs/         Fördjupande dokumentation: fysikmodellen och grafiken.
+docs/         Fördjupande dokumentation: fysikmodellen, grafiken och ljudet.
 public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
 scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet.
 assets/       Källfil för ikonen utan rundade hörn (används för att rendera PNG-filerna).

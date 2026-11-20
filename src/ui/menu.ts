@@ -151,6 +151,10 @@ export class Menu {
     if (name === 'autopilot') s.autopilot = value === 'true';
     if (name === 'touch') s.touch = value as Settings['touch'];
     if (name === 'particles') s.particles = value === 'true';
+    if (name === 'volume') s.volume = Number(value) / 100;
+    if (name === 'soundEffects') s.soundEffects = value === 'true';
+    if (name === 'soundAmbience') s.soundAmbience = value === 'true';
+    if (name === 'voice') s.voice = value === 'true';
     this.settings = s;
     this.h.settingsChanged(s);
     if (name === 'mode') this.show(this.screen); // re-render the scenario notes and help
@@ -263,6 +267,13 @@ export class Menu {
           <fieldset><legend>Pekknappar</legend>
             ${radio('touch', 'auto', 'Automatiskt', s.touch === 'auto')}${radio('touch', 'on', 'Alltid', s.touch === 'on')}${radio('touch', 'off', 'Aldrig', s.touch === 'off')}
           </fieldset>
+          <fieldset><legend>Ljud</legend>
+            <label class="opt">Volym <input type="range" name="volume" min="0" max="100" step="5" value="${Math.round(s.volume * 100)}"/></label><br/>
+            <label class="opt"><input type="checkbox" name="soundEffects" ${s.soundEffects ? 'checked' : ''}/> Maskiner och larm</label>
+            <label class="opt"><input type="checkbox" name="soundAmbience" ${s.soundAmbience ? 'checked' : ''}/> Hav, vind och måsar</label>
+            <label class="opt"><input type="checkbox" name="voice" ${s.voice ? 'checked' : ''}/> Uppläsning av order (svensk röst)</label>
+            <p class="menu-note">M stänger av och sätter på ljudet under spelet.</p>
+          </fieldset>
           <fieldset><legend>Grafik</legend>
             <label class="opt"><input type="checkbox" name="particles" ${s.particles ? 'checked' : ''}/> Svävande partiklar</label>
           </fieldset>
@@ -293,12 +304,15 @@ export class Menu {
               <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
               <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
               <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
-              <tr><td>Esc</td><td colspan="2">Lämna konsolen, eller pausa</td></tr>
+              <tr><td>Esc</td><td colspan="2">Lämna konsolen eller en vy, eller pausa</td></tr>
+              <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
             </table>
             <h3>Vyer</h3>
             <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker: skriv <code>klart bryggan</code> i realistisk simulering. I förenklad simulering sköts det automatiskt.</p>
             <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
             <p>Knapparna Vy, Per, Zoom och Brg under ☰ gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+            <h3>Ljud</h3>
+            <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar.</p>
             <h3>Havsområden och väder</h3>
             <p>I fritt spel väljer du havsområde, ljus och sikt (dag, natt, dimma) och sjögång. Ubåtens fasta barlast är anpassad för området, men skikten i vattnet skiljer sig:</p>
             <ul>

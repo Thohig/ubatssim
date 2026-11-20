@@ -137,7 +137,8 @@ const wrap = (a: number) => {
 export function cycleView(ctrl: Controller, views: ViewState, source: OrderSource): void {
   const available = availableViews(ctrl);
   const sim = ctrl.sim;
-  const canMan = sim.bodyPointDepth(sim.cfg.bridge.deck) < -0.5;
+  // Not while diving: the vents are open.
+  const canMan = sim.bodyPointDepth(sim.cfg.bridge.deck) < -0.5 && !sim.tanks.some((t) => t.ventOpen);
   if (views.mode === 'external' && !available.bridge && canMan && ctrl.options.mode === 'simplified') {
     ctrl.submit({ kind: 'bridge', manned: true }, source);
     views.set('bridge');

@@ -14,7 +14,7 @@ export default tseslint.config(
         {
           patterns: [
             { group: ['three', 'three/*'], message: 'src/sim must not depend on Three.js.' },
-            { group: ['**/render/**', '**/ui/**', '**/control/**'], message: 'src/sim must not import from other layers.' },
+            { group: ['**/render/**', '**/ui/**', '**/control/**', '**/audio/**'], message: 'src/sim must not import from other layers.' },
           ],
         },
       ],

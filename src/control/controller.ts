@@ -83,6 +83,9 @@ export class Controller {
     if (o.kind === 'bridge' && o.manned && this.sim.bodyPointDepth(this.sim.cfg.bridge.deck) > -BRIDGE_FREEBOARD) {
       return 'Bryggan är under vatten. Gå till ytläge först.';
     }
+    if (o.kind === 'bridge' && o.manned && this.sim.tanks.some((t) => t.ventOpen)) {
+      return 'Ubåten dyker: ventilerna till huvudballasten är öppna.';
+    }
     return null;
   }
 

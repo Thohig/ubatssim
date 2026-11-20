@@ -54,3 +54,20 @@ describe('views', () => {
     expect(fast.mode === 'periscope' && fast.shake).toBeGreaterThan(0);
   });
 });
+
+describe('the bridge during a dive', () => {
+  it('is not manned again while the vents are open', () => {
+    const c = new Controller(new Simulation());
+    c.setMode('simplified');
+    c.submit({ kind: 'dive' }, 'keyboard');
+    c.step();
+    expect(c.bridgeManned).toBe(false);
+    const v = new ViewState();
+    cycleView(c, v, 'keyboard');
+    c.submit({ kind: 'bridge', manned: true }, 'console');
+    c.step();
+    expect(c.bridgeManned).toBe(false);
+    expect(v.mode).not.toBe('bridge');
+    expect(c.log.some((e) => e.kind === 'error' && /ventilerna/.test(e.text))).toBe(true);
+  });
+});

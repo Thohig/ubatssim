@@ -17,6 +17,11 @@ export interface Settings {
   particles: boolean;
   /** The simplified mode's introduction has been shown. */
   introSeen: boolean;
+  /** Sound: master volume 0…1, machinery and alarms, surroundings, spoken acknowledgements. */
+  volume: number;
+  soundEffects: boolean;
+  soundAmbience: boolean;
+  voice: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +31,10 @@ export const DEFAULT_SETTINGS: Settings = {
   touch: 'auto',
   particles: true,
   introSeen: false,
+  volume: 0.6,
+  soundEffects: true,
+  soundAmbience: true,
+  voice: false,
 };
 
 const KEY = 'ubatssim.settings';
@@ -43,6 +52,10 @@ export function loadSettings(): Settings {
       touch: s.touch === 'on' || s.touch === 'off' ? s.touch : 'auto',
       particles: s.particles !== false,
       introSeen: s.introSeen === true,
+      volume: typeof s.volume === 'number' && s.volume >= 0 && s.volume <= 1 ? s.volume : DEFAULT_SETTINGS.volume,
+      soundEffects: s.soundEffects !== false,
+      soundAmbience: s.soundAmbience !== false,
+      voice: s.voice === true,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

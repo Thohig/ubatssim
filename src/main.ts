@@ -19,6 +19,7 @@ import { loadSettings, saveSettings, type Settings } from './ui/settings';
 import { bindTouchControls, isTouchDevice } from './ui/touch';
 import { createViewOverlay } from './ui/viewOverlay';
 import { ViewState, availableViews, bindViewButtons, bindViewPointer } from './ui/views';
+import { AudioDirector } from './audio/director';
 
 const el = <T extends HTMLElement>(id: string) => {
   const n = document.getElementById(id);
@@ -41,7 +42,12 @@ interface Session {
   restart: () => Session;
   propellerAngle: number;
   updateInstruments: ReturnType<typeof createInstruments>;
+  conditions: ConditionsId;
 }
+
+const audio = new AudioDirector();
+// Browsers start sound only after a user gesture.
+for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => audio.unlock(), { capture: true });
 
 let settings: Settings = loadSettings();
 let state: GameState = 'menu';
@@ -78,7 +84,13 @@ function newSession(
     restart: () => newSession(initial, scenario, intro, ctrl.options.mode, conditions),
     propellerAngle: 0,
     updateInstruments: createInstruments(instrumentsEl, ctrl),
+    conditions,
   };
+  ctrl.onLog((e) => audio.onLog(e.text, e.kind, e.source));
+  runner?.onChange((p) => {
+    if (p.status !== 'running') audio.onScenarioEnd(p.status === 'completed');
+  });
+  audio.reset(sim.y[2]!, sim.actuators.periscope);
   if (mode === 'realistic' && !ctrl.options.autopilotAllowed) ctrl.addLog('Autopilot för djup och kurs är avstängd.', 'info');
   ctrl.addLog(touch ? 'Tryck >_ och skriv "hjälp" för kommandon.' : 'Skriv "hjälp" i konsolen för kommandon.', 'info');
   runner?.onChange((p) => {
@@ -191,6 +203,7 @@ function endScenario(): void {
 
 function setState(s: GameState): void {
   state = s;
+  audio.setRunning(s === 'playing');
   const inGame = s === 'playing' || s === 'paused' || s === 'ended';
   hud.hidden = !inGame;
   view.setAutoRotate(s === 'menu');
@@ -223,6 +236,11 @@ bindTouchControls(el('touch'), activeCtrl, mode, openConsole);
 el('menu-btn').addEventListener('click', pause);
 
 window.addEventListener('keydown', (e) => {
+  if ((e.key === 'm' || e.key === 'M') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    const muted = audio.engine.toggleMute();
+    session.ctrl.addLog(muted ? 'Ljudet är avstängt (M).' : 'Ljudet är på (M).', 'info');
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (state === 'playing' && mode.current === 'steer' && views.mode !== 'external') {
     e.preventDefault();
@@ -253,6 +271,7 @@ function applySettings(): void {
     : 'Enter eller / öppnar konsolen – skriv "hjälp"';
   bindModeIndicator(el('mode'), mode, touch, views);
   view.setParticles(settings.particles);
+  audio.apply({ volume: settings.volume, effects: settings.soundEffects, ambience: settings.soundAmbience, voice: settings.voice });
 }
 
 // --------------------------------------------------------------------- views
@@ -332,7 +351,18 @@ function frame(now: number): void {
   drawOverlay(overlayState());
 
   if (now - lastUi > 100 && !hud.hidden) {
-    session.updateInstruments(sim.telemetry());
+    const t = sim.telemetry();
+    session.updateInstruments(t);
+    audio.update({
+      t,
+      maxPower: sim.cfg.propulsion.maxPower,
+      lpBlower: sim.commands.lpBlower,
+      view: views.mode,
+      cameraUnderwater: view.cameraDepth() > 0,
+      conditions: session.conditions,
+      seaHs: sim.sea.hs,
+      coastal: sim.areaId !== 'atlantic',
+    });
     updateObjective(objectiveEl, session.runner);
     lastUi = now;
   }
