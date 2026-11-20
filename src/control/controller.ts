@@ -26,6 +26,12 @@ const DIVE_TARGET_DEPTH = 5;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
 const SURFACE_HOLD_DEPTH = 6;
 const KNOT = 1852 / 3600;
+/** Speed [knots] at which the planes can change the depth, and seconds stalled before the crew says so. */
+const PLANES_SPEED = 4;
+const STALL_TIME = 30;
+const STALL_HINT_EVERY = 120;
+/** Within this of the depth target [m] the boost ends. */
+const DEPTH_REACHED = 2;
 /** The crew starts the diesels below this state of charge and stops them at the second. */
 const CHARGE_START = 0.95;
 const CHARGE_STOP = 0.99;
@@ -263,8 +269,10 @@ export class Controller {
 
     const { maxRps, maxRpsAstern } = sim.cfg.propulsion;
     let target: number;
+    this.watchDepthStall(tel);
     if (this.ap.speed) {
-      const v = this.setpoints.speed * KNOT;
+      // While the crew lifts the boat with too little speed for the planes, the engine gives at least `PLANES_SPEED`.
+      const v = (this.depthBoost ? Math.max(this.setpoints.speed, PLANES_SPEED) : this.setpoints.speed) * KNOT;
       target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT, -maxRpsAstern, maxRps);
     } else {
       target = this.manual.rpm / 60;
@@ -321,6 +329,40 @@ export class Controller {
   }
 
   private grounded = false;
+
+  /** Seconds the depth autopilot has had the planes hard over without the depth changing. */
+  private stalled = 0;
+  private lastStallHint = -Infinity;
+  /** The engine runs at least `PLANES_SPEED` until the depth target is reached (the crew handles the speed). */
+  depthBoost = false;
+
+  /**
+   * The planes' lift grows with the speed squared: at 3 knots they cannot
+   * lift or push the boat far. When the depth autopilot has held the planes
+   * hard over for `STALL_TIME` seconds without the depth changing, it says
+   * so; if the crew handles the speed too, the engine goes up to
+   * `PLANES_SPEED` until the depth is reached and then back to the
+   * player's speed.
+   */
+  private watchDepthStall(k: Kinematics): void {
+    const sim = this.sim;
+    const err = this.setpoints.depth - k.depth;
+    if (this.depthBoost && (!this.ap.depth || !this.ap.speed || Math.abs(err) < DEPTH_REACHED)) {
+      this.depthBoost = false;
+      if (this.ap.speed) this.addLog(`Djupet nått. Maskinen går tillbaka till ${this.setpoints.speed.toString().replace('.', ',')} knop.`, 'info');
+    }
+    const hardOver = Math.abs(sim.commands.sternPlanes) >= this.autopilot.tuning.pitch.maxPlanes - 1 * DEG;
+    const stuck = this.ap.depth && !this.surfaceHold && Math.abs(err) > 3 && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
+    this.stalled = stuck ? this.stalled + DT : 0;
+    if (this.stalled < STALL_TIME || this.depthBoost) return;
+    if (this.ap.speed && this.setpoints.speed >= 0 && this.setpoints.speed < PLANES_SPEED) {
+      this.depthBoost = true;
+      this.addLog(`Djuprodren orkar inte vid den här farten. Maskinen ökar till ${PLANES_SPEED} knop tills djupet är nått.`, 'info');
+    } else if (sim.t - this.lastStallHint > STALL_HINT_EVERY) {
+      this.lastStallHint = sim.t;
+      this.addLog(`Djuprodren orkar inte vid den här farten. Öka till minst ${PLANES_SPEED} knop.`, 'error');
+    }
+  }
 
   /** Torpedo hits, ships sinking and depth charges, for the log; a launch is heard by the corvettes. */
   private watchWorld(): void {

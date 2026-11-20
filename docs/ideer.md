@@ -39,7 +39,7 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 
 - **Torpedernas egen fara:** en torped som söker kan i dag inte vända mot ubåten själv. En verklig torped har skydd mot det (ett förbjudet område runt ubåten), men en runt-gående torped vore spännande.
 - **Långa tester:** `npm run test:all` tar nu ~5 min. Scenariotesterna kan köras parallellt i fler trådar, eller kortas med mindre avstånd.
-- **Djupstyraren nära ytan:** sedan integralzonen minskades till 1,5 m svänger den över högst ~1,5 m vid stigning till periskopdjup. Vid 3 knop orkar djuprodren ändå inte lyfta ubåten från 40 m. Ett tips eller en lägsta fart för djupstyraren på periskopdjup vore bra.
+- **Ändra djupet utan fart:** vid mycket låg fart kan trimassistenten pumpa ut eller ta in vatten, så att ubåten stiger eller sjunker utan djuprodren (som när en ubåt "svävar"). Det går långsamt med pumparnas 6 l/s.
 - **Ljud i ljudlöst läge på iPhone:** Web Audio tystnar när ljudlös-knappen är på. Från iOS 17 kan `navigator.audioSession.type = 'playback'` låta ljudet höras ändå.
 - **Prova mobilvyn på en riktig telefon:** den är bara provad i webbläsarens telefonläge.
 - **Telegrafen:** steget från Halv fram (8 knop) till Full fram (19 knop) är stort. Halv fram kan höjas till 10–12 knop, eller så kan ett läge till läggas in.

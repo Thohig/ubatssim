@@ -58,6 +58,7 @@ Det finns ett spel och en ubåt. För varje system väljer du om **besättningen
 
 - **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾**, **Fart ▾** och **El ▾** (på mobil under **System ▾**). Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
 - **Order tar över:** en manuell order tar över systemet den gäller, också i konsolen. `roder sb 10` sätter kursen på Hand, `trimma för 200` avlöser trimassistenten, `fyll hb` ger dig ballasten och `diesel start` laddningen. Ett djup- eller kursmål och telegrafen lämnar axeln till besättningen igen.
+- **Djuprodren behöver fart:** deras kraft växer med farten i kvadrat, så vid 3 knop orkar de knappt ändra djupet. Har djuprodret legat i fullt utslag i 30 s utan att djupet ändrats, säger djupstyraren till. Sköter besättningen farten ökar maskinen till 4 knop tills djupet är nått och går sedan tillbaka till din fart. Sköter du farten själv får du ett besked att öka till minst 4 knop.
 - **Utan ryck:** tar du över djup eller kurs ligger rodren kvar där autopiloten hade dem. Lämnar du tillbaka dem sätts målen till nuvarande djup och kurs.
 - **Instrumentpanelen** följer valen: tar du över kursen visas rodret, trimmet flytkraft och tankar, ballasten HP-luften, laddningen dieslarna, snorkeln och elförbrukningen.
 - **Första gången** visas en kort introduktion.
