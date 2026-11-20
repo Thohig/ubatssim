@@ -21,7 +21,7 @@
  *
  * Changes are `crew` orders (queued, acknowledged, refused by a scenario's
  * locks). Manual orders take a system over implicitly (a rudder order takes
- * the heading, a trim order the trim), see `Controller.ORDERS`.
+ * the heading, a trim order the trim), see `ORDERS` in orderRegistry.ts.
  */
 
 export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'charging' | 'fireControl' | 'safetyNet';

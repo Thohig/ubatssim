@@ -7,20 +7,18 @@
 import type { Simulation } from '../sim/simulation';
 import { DT } from '../sim/simulation';
 import { Autopilot, type AutopilotInput } from './autopilot';
-import { AXES, CREW_SYSTEMS, LOCK_TEXT, isAxis, type CrewDuties, type CrewLocks, type CrewSystem } from './crew';
+import { CREW_SYSTEMS, LOCK_TEXT, isAxis, type CrewDuties, type CrewLocks, type CrewSystem } from './crew';
 import { OrderQueue } from './orderQueue';
-import { acknowledgement, type Order, type OrderKind, type OrderOf, type OrderSource, type TankGroup } from './orders';
-import { LIMITS } from './parser';
+import { acknowledgement, type Order, type OrderSource } from './orders';
+import { BRIDGE_FREEBOARD, ORDERS, type Kinematics, type OrderRule } from './orderRegistry';
+import { CHARGE_STOP, PlantWatch } from './plantWatch';
 import { TrimAssist } from './trimAssist';
 import { Sonar } from './sonar';
-import { FireControl, type Target } from './fireControl';
+import { FireControl } from './fireControl';
 import { Hunter } from './hunter';
-import { WEAPONS } from '../sim/config/weapons';
 import { World } from '../sim/world';
 
 const DEG = Math.PI / 180;
-/** The bridge deck must be at least this far above the water to man it [m]. */
-const BRIDGE_FREEBOARD = 0.5;
 /** Depth targets from this depth [m] need flooded main ballast. */
 const DIVE_TARGET_DEPTH = 5;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
@@ -37,14 +35,8 @@ const STALL_MIN_ERROR = 1;
 /** The boost ends when the depth has been within this of the target [m] for `DEPTH_SETTLE` seconds (not just passed through it). */
 const DEPTH_REACHED = 0.5;
 const DEPTH_SETTLE = 30;
-/** The crew starts the diesels below this state of charge and stops them at the second. */
+/** The crew starts the diesels below this state of charge (and stops them at `CHARGE_STOP`, plantWatch.ts). */
 const CHARGE_START = 0.95;
-const CHARGE_STOP = 0.99;
-/** Battery warnings at these states of charge (the last: empty). */
-const BATTERY_WARNINGS = [0.3, 0.15, 0.05, 0.005] as const;
-/** Water inside the hull [m^3, ~tonnes] that calls for blowing (and the safety net blows). */
-const FLOOD_WARNING = 15;
-const LEAK_CAUSE = { grounding: 'grundstötning', collision: 'kollision', depth: 'under krossdjupet', charge: 'sjunkbomb' } as const;
 
 export type LogKind = 'ack' | 'error' | 'info';
 
@@ -71,21 +63,6 @@ export interface AutopilotState {
   speed: boolean;
 }
 
-type Kinematics = ReturnType<Simulation['kinematics']>;
-
-/** How one kind of order is handled (see `Controller.ORDERS`). */
-interface OrderRule<O extends Order> {
-  apply(c: Controller, o: O, k: Kinematics): void;
-  /**
-   * Who handles which system after the order (true = the crew): a rudder
-   * order takes the heading over, a depth target hands the depth to the
-   * crew. Checked against the scenario's locks; ballast and trim are switched
-   * here (the axes by `apply`). Ignored for the crew's own orders ('assist').
-   */
-  effects?: (o: O, c: Controller) => Partial<CrewDuties>;
-  /** A message if the order cannot be carried out now. */
-  refuse?: (c: Controller, o: O) => string | null;
-}
 
 /** Logged when a manual order takes a system over from the crew. */
 const TAKEN_OVER: Partial<Record<CrewSystem, string>> = {
@@ -104,6 +81,8 @@ export class Controller {
   readonly fire: FireControl = new FireControl(this);
   /** The corvettes' hunt for the boat. */
   readonly hunter: Hunter = new Hunter(this);
+  /** Logs what the plant does on its own (plantWatch.ts). */
+  readonly plant: PlantWatch = new PlantWatch(this);
   /** Torpedoes fired and hits this game (for the result). */
   torpedoesFired = 0;
   hits = 0;
@@ -111,7 +90,8 @@ export class Controller {
   blasts: { id: number; kind: 'hit' | 'charge'; at: [number, number, number]; distance: number }[] = [];
   private nextBlast = 1;
   /** Lines logged right after the current order's acknowledgement. */
-  private afterAck: string[] = [];
+  /** @internal For the order registry (orderRegistry.ts). */
+  afterAck: string[] = [];
   readonly log: LogEntry[] = [];
   private listeners: ((e: LogEntry) => void)[] = [];
 
@@ -120,7 +100,8 @@ export class Controller {
   ap: AutopilotState = { depth: false, heading: false, speed: false };
   /** Manual commands in operator units: degrees and rpm. */
   manual = { rudder: 0, planes: 0, rpm: 0 };
-  private rpsCmd = 0;
+  /** @internal For the order registry (orderRegistry.ts). */
+  rpsCmd = 0;
 
   /** The submarine and the other vessels; `step()` advances all of them. */
   readonly world: World;
@@ -138,7 +119,7 @@ export class Controller {
 
   /** Why an order cannot be carried out now, or null. */
   private refusal(o: Order, source: OrderSource): string | null {
-    const rule = Controller.ORDERS[o.kind] as OrderRule<Order>;
+    const rule = ORDERS[o.kind] as OrderRule<Order>;
     if (source !== 'assist') {
       for (const [s, crew] of Object.entries(rule.effects?.(o, this) ?? {}) as [CrewSystem, boolean][]) {
         const lock = this.options.locks[s];
@@ -187,7 +168,7 @@ export class Controller {
     const d = this.duties();
     for (const { order, source } of this.queue.peek()) {
       if (source === 'assist') continue;
-      const rule = Controller.ORDERS[order.kind] as OrderRule<Order>;
+      const rule = ORDERS[order.kind] as OrderRule<Order>;
       Object.assign(d, rule.effects?.(order, this) ?? {});
     }
     return d;
@@ -203,8 +184,9 @@ export class Controller {
   }
 
   /** Switches a system without a jump in the commands (an autopilot axis takes over or hands over as "autopilot på/av"). */
-  private setDuty(s: CrewSystem, crew: boolean): void {
-    if (isAxis(s)) Controller.ORDERS.autopilot.apply(this, { kind: 'autopilot', axis: s, on: crew }, this.sim.kinematics());
+  /** @internal For the order registry (orderRegistry.ts). */
+  setDuty(s: CrewSystem, crew: boolean): void {
+    if (isAxis(s)) ORDERS.autopilot.apply(this, { kind: 'autopilot', axis: s, on: crew }, this.sim.kinematics());
     else this.options.crew[s] = crew;
   }
 
@@ -229,7 +211,8 @@ export class Controller {
   } | null = null;
 
   /** Main ballast vents shut automatically once the tanks are full (after "dyk"). */
-  private shutVentsWhenFull = false;
+  /** @internal For the order registry (orderRegistry.ts). */
+  shutVentsWhenFull = false;
 
   submit(order: Order, source: OrderSource): void {
     this.queue.push(order, source);
@@ -303,7 +286,7 @@ export class Controller {
     }
 
     this.world.step();
-    this.watchPlant();
+    this.plant.update();
     this.watchWorld();
     this.sonar.update();
     this.hunter.update();
@@ -434,394 +417,18 @@ export class Controller {
     return true;
   }
 
-  /** Battery warnings already given (state of charge thresholds), and what the diesels did last step. */
-  private batteryWarned = new Set<number>();
-  private dieselWasRunning = false;
-  private floodWarned = false;
-  /** Log a hint after the next acknowledgement: the diesels were ordered on without air. */
-  private dieselNeedsAir = false;
 
-  /**
-   * Reports what the plant did on its own: the diesels starting and
-   * stopping, the battery running low, leaks, sealing and pumping out. The
-   * safety net blows the main ballast when the boat takes in much water.
-   */
-  private watchPlant(): void {
-    const sim = this.sim;
-    const el = sim.systems.electrics;
-    if (this.dieselNeedsAir) {
-      this.dieselNeedsAir = false;
-      if (!el.dieselRunning) this.addLog('Dieslarna startar när snorkeln är uppe eller ubåten ligger i ytläge.', 'info');
-    }
-    if (el.dieselRunning !== this.dieselWasRunning) {
-      if (el.dieselRunning) this.addLog('Dieslarna går. Batteriet laddas.', 'info');
-      else if (sim.commands.diesel && el.starved > 0) this.addLog('Dieslarna har stannat: luftintaget är under vatten.', 'error');
-      else if (sim.commands.diesel) this.addLog('Dieslarna har stannat: maskinrummet tar in vatten.', 'error');
-      else if (el.soc >= CHARGE_STOP) this.addLog('Batteriet är laddat. Dieslarna stoppade.', 'info');
-      else this.addLog('Dieslarna stoppade.', 'info');
-      this.dieselWasRunning = el.dieselRunning;
-    }
-    for (const level of BATTERY_WARNINGS) {
-      if (el.soc < level && !this.batteryWarned.has(level)) {
-        this.batteryWarned.add(level);
-        const pct = Math.round(level * 100);
-        if (level === 0.005) this.addLog('Batteriet är tomt. Motorn får bara det dieslarna ger.', 'error');
-        else this.addLog(`Batteriet är under ${pct} %. Snorkla eller gå till ytläge och ladda.`, level <= 0.1 ? 'error' : 'info');
-      } else if (el.soc > level + 0.05) this.batteryWarned.delete(level);
-    }
-
-    const fl = sim.systems.flooding;
-    for (const ev of fl.drainEvents()) {
-      const name = fl.compartments.find((x) => x.id === ev.compartment)?.name.toLowerCase() ?? ev.compartment;
-      if (ev.kind === 'leak') this.addLog(`Läckage i ${name}${ev.cause ? ` (${LEAK_CAUSE[ev.cause]})` : ''}! Länspumpen går. Gå grundare, så tätar besättningen fortare än vattnet kommer in.`, 'error');
-      else if (ev.kind === 'sealed') this.addLog(`Läckan i ${name} är tätad.`, 'info');
-      else if (ev.kind === 'pumpedOut') this.addLog(`${name[0]!.toUpperCase()}${name.slice(1)} är länsat.`, 'info');
-      else this.addLog('Skrovet kollapsade!', 'error');
-    }
-    const water = fl.water;
-    if (water > FLOOD_WARNING && !this.floodWarned) {
-      this.floodWarned = true;
-      this.addLog(`Ubåten har tagit in ${Math.round(water)} ton vatten. Blås huvudballasten och gå upp.`, 'error');
-      // The safety net blows for the surface (as a crew would), unless the tanks already blow.
-      if (this.options.crew.safetyNet && !sim.tanks.some((t) => t.blowOpen)) {
-        this.addLog('Assistent: nödblåsning! Ubåten tar in vatten.', 'error', 'assist');
-        this.submit({ kind: 'surface' }, 'assist');
-        if (this.ap.speed && this.setpoints.speed < 8) this.submit({ kind: 'setSpeed', knots: 8 }, 'assist');
-      }
-    } else if (water < FLOOD_WARNING / 2) this.floodWarned = false;
-  }
-
-  /**
-   * The order registry: for every kind of order, what it does (`apply`),
-   * when it is refused (`refuse`, a message) and whether it engages the depth
-   * or heading autopilot (`steering`, refused where those are not allowed).
-   * TypeScript refuses to compile if an order kind is missing. The
-   * acknowledgement texts are in orders.ts.
-   */
-  private static readonly ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
-    setDepth: {
-      effects: () => ({ depth: true }),
-      apply: (c, o) => {
-        if (!c.ap.depth) c.resetDepthLoops();
-        c.setpoints.depth = o.depth;
-        c.ap.depth = true;
-        c.checkBallastForDepth();
-      },
-    },
-    setHeading: {
-      effects: () => ({ heading: true }),
-      apply: (c, o) => {
-        if (!c.ap.heading) c.autopilot.headingPid.reset();
-        c.setpoints.heading = o.heading;
-        c.ap.heading = true;
-      },
-    },
-    setSpeed: {
-      effects: () => ({ speed: true }),
-      apply: (c, o) => {
-        c.setpoints.speed = o.knots;
-        c.ap.speed = true;
-      },
-    },
-    adjustSpeed: {
-      effects: () => ({ speed: true }),
-      apply: (c, o, k) => {
-        const base = c.ap.speed ? c.setpoints.speed : Math.round(k.u / KNOT);
-        c.setpoints.speed = Math.max(LIMITS.minSpeed, Math.min(LIMITS.maxSpeed, base + o.deltaKnots));
-        c.ap.speed = true;
-      },
-    },
-    setRpm: {
-      effects: () => ({ speed: false }),
-      apply: (c, o) => {
-        c.manual.rpm = o.rpm;
-        c.ap.speed = false;
-      },
-    },
-    rudder: {
-      effects: () => ({ heading: false }),
-      apply: (c, o) => {
-        const sim = c.sim;
-        const current = c.ap.heading ? sim.commands.rudder / DEG : c.manual.rudder;
-        const max = Math.round(sim.cfg.actuators.rudderMax / DEG);
-        c.manual.rudder = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
-        c.ap.heading = false;
-      },
-    },
-    planes: {
-      effects: () => ({ depth: false }),
-      apply: (c, o) => {
-        const sim = c.sim;
-        const current = c.ap.depth ? sim.commands.sternPlanes / DEG : c.manual.planes;
-        const max = Math.round(sim.cfg.actuators.planesMax / DEG);
-        c.manual.planes = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
-        c.ap.depth = false;
-      },
-    },
-    mainBallast: {
-      effects: () => ({ ballast: false }),
-      refuse: (c, o) => (o.action === 'flood' ? c.refuseDiveWithBridgeManned() : null),
-      apply: (c, o) => {
-        const sim = c.sim;
-        c.shutVentsWhenFull = false;
-        const ids = groupIds(o.group);
-        if (o.action === 'flood') sim.setVents(true, ids);
-        else if (o.action === 'blow') sim.setBlow(true, ids);
-        else {
-          sim.setVents(false, ids);
-          sim.setBlow(false, ids);
-        }
-      },
-    },
-    trim: {
-      effects: () => ({ trim: false }),
-      apply: (c, o) => {
-        c.sim.requestTrimTransfer(o.litres / 1000);
-      },
-    },
-    compensate: {
-      effects: () => ({ trim: false }),
-      apply: (c, o) => {
-        c.sim.requestCompensation(o.litres / 1000);
-      },
-    },
-    autopilot: {
-      effects: (o) => Object.fromEntries((o.axis === 'all' ? AXES : [o.axis]).map((a) => [a, o.on])),
-      apply: (c, o, k) => {
-        const sim = c.sim;
-        const axes = o.axis === 'all' ? (['depth', 'heading', 'speed'] as const) : ([o.axis] as const);
-        for (const axis of axes) {
-          if (o.on && !c.ap[axis]) {
-            if (axis === 'depth') {
-              c.setpoints.depth = Math.round(k.depth);
-              c.resetDepthLoops();
-            } else if (axis === 'heading') {
-              c.setpoints.heading = Math.round(k.heading / DEG) % 360;
-              c.autopilot.headingPid.reset();
-            } else {
-              c.setpoints.speed = Math.round(k.u / KNOT);
-              c.autopilot.speedPid.reset();
-            }
-          }
-          if (!o.on) {
-            // Hand over without a jump: keep the last automatic command.
-            if (axis === 'depth' && c.ap.depth) c.manual.planes = Math.round(sim.commands.sternPlanes / DEG);
-            if (axis === 'heading' && c.ap.heading) c.manual.rudder = Math.round(sim.commands.rudder / DEG);
-            if (axis === 'speed' && c.ap.speed) c.manual.rpm = Math.round(c.rpsCmd * 60);
-          }
-          c.ap[axis] = o.on;
-        }
-      },
-    },
-    adjustDepth: {
-      effects: () => ({ depth: true }),
-      apply: (c, o, k) => {
-        const base = c.ap.depth ? c.setpoints.depth : Math.round(k.depth);
-        if (!c.ap.depth) c.resetDepthLoops();
-        let depth = Math.max(0, Math.min(LIMITS.maxDepth, base + o.deltaMetres));
-        if (c.options.crew.safetyNet && o.deltaMetres > 0) {
-          // Shallow water: never deeper than the safety limit (or the present target, if already below it).
-          depth = Math.min(depth, Math.max(base, c.assist.depthLimit()));
-        }
-        c.setpoints.depth = depth;
-        c.ap.depth = true;
-        c.checkBallastForDepth();
-      },
-    },
-    adjustHeading: {
-      effects: () => ({ heading: true }),
-      apply: (c, o, k) => {
-        const base = c.ap.heading ? c.setpoints.heading : Math.round(k.heading / DEG);
-        if (!c.ap.heading) c.autopilot.headingPid.reset();
-        c.setpoints.heading = (((base + o.deltaDegrees) % 360) + 360) % 360;
-        c.ap.heading = true;
-      },
-    },
-    holdCourse: {
-      effects: () => ({ depth: true, heading: true }),
-      apply: (c, _o, k) => {
-        c.setpoints.depth = Math.round(k.depth);
-        c.setpoints.heading = Math.round(k.heading / DEG) % 360;
-        c.resetDepthLoops();
-        c.autopilot.headingPid.reset();
-        c.ap.depth = true;
-        c.ap.heading = true;
-      },
-    },
-    dive: {
-      refuse: (c) => c.refuseDiveWithBridgeManned(),
-      apply: (c) => {
-        c.sim.setVents(true);
-        c.shutVentsWhenFull = true;
-      },
-    },
-    surface: {
-      apply: (c) => {
-        c.sim.setBlow(true);
-        c.shutVentsWhenFull = false;
-        if (c.ap.depth) c.setpoints.depth = 0;
-      },
-    },
-    periscope: {
-      apply: (c, o) => {
-        c.sim.commands.periscopeUp = o.up;
-      },
-    },
-    snorkel: {
-      apply: (c, o) => {
-        c.sim.commands.snorkelUp = o.up;
-      },
-    },
-    markTarget: {
-      refuse: (c, o) => {
-        if (o.label) {
-          const label = o.label.toUpperCase();
-          if (label.startsWith('M')) return c.fire.targets.some((t) => t.label === label) ? null : `Inget mål ${label}.`;
-          const k = c.sonar.contacts.find((x) => x.label === label);
-          return k ? null : `Ingen sonarkontakt ${label}.`;
-        }
-        // Through the periscope or from the bridge: a vessel in the cross hair.
-        const r = c.fire.findInSight(((o.bearing ?? 0) * Math.PI) / 180);
-        return typeof r === 'string' ? r : null;
-      },
-      apply: (c, o) => {
-        if (!o.label) {
-          const t = c.fire.markInSight(((o.bearing ?? 0) * Math.PI) / 180);
-          if (t) c.afterAck.push(`${t.label} är ${t.name}.`);
-          return;
-        }
-        const label = o.label.toUpperCase();
-        if (label.startsWith('M')) {
-          c.fire.current = label;
-          return;
-        }
-        const k = c.sonar.contacts.find((x) => x.label === label)!;
-        const v = c.world.vessels.find((x) => x.def.id === k.vesselId)!;
-        const t = c.fire.targetFor(v);
-        c.fire.observe(t, { bearing: (k.bearing * Math.PI) / 180, sigma: Math.PI / 180 });
-        c.afterAck.push(`${t.label} är ${k.label}. Eldledningen följer bäringarna.`);
-      },
-    },
-    rangeTarget: {
-      refuse: (c, o) => {
-        const t = c.fire.target;
-        if (!t) return 'Inget mål. Markera målet först (Mål).';
-        if (o.range !== undefined) return null;
-        const v = c.fire.vessel(t);
-        const seen = c.fire.inSight().find((x) => x.vessel === v);
-        if (!seen) return 'Målet syns inte: hissa periskopet eller bemanna bryggan.';
-        if (o.bearing !== undefined && Math.abs(((((o.bearing * Math.PI) / 180 - seen.bearing) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) > (3 * Math.PI) / 180) {
-          return 'Målet är inte i hårkorset.';
-        }
-        return null;
-      },
-      apply: (c, o) => {
-        const t = c.fire.target!;
-        if (o.range !== undefined) {
-          const b = t.solution ? Math.atan2(t.solution.position[1] - c.sim.y[1]!, t.solution.position[0] - c.sim.y[0]!) : t.obs.at(-1)?.bearing ?? 0;
-          c.fire.observe(t, { bearing: b, sigma: (5 * Math.PI) / 180, range: o.range, rangeError: 0.08 });
-          return;
-        }
-        const v = c.fire.vessel(t)!;
-        const seen = c.fire.inSight().find((x) => x.vessel === v)!;
-        const m = c.fire.stadimeter(v, seen.range, o.magnification === undefined ? 0 : o.magnification);
-        c.fire.observe(t, { bearing: seen.bearing, sigma: (0.3 * Math.PI) / 180, range: m.range, rangeError: m.error });
-        c.afterAck.push(`${t.label}: avstånd ${Math.round(m.range / 10) * 10} m.`);
-      },
-    },
-    setSpread: {
-      refuse: (_c, o) => (o.count >= 1 && o.count <= 3 ? null : 'Spridningen är 1, 2 eller 3 torpeder.'),
-      apply: (c, o) => {
-        c.fire.spread = o.count;
-      },
-    },
-    fireTorpedo: {
-      refuse: (c, o) => {
-        const t = c.fire.target;
-        if (!t) return 'Inget mål. Markera målet först (Mål).';
-        if (!t.solution) return `Ingen lösning på ${t.label} ännu.`;
-        if (o.tube !== undefined && !c.fire.tubes[o.tube - 1]?.loaded) return `Tub ${o.tube} är inte laddad.`;
-        if (!c.fire.tubes.some((x) => x.loaded)) return 'Alla tuber är tomma. Omladdning pågår.';
-        const aim = c.fire.aim();
-        if (!aim) return `Torpeden hinner inte ikapp ${t.label}.`;
-        if (aim.distance > WEAPONS.torpedo.range - 200) return `${t.label} är utom räckhåll (${(aim.distance / 1000).toFixed(1).replace('.', ',')} km).`;
-        return null;
-      },
-      apply: (c, o) => {
-        const fire = c.fire;
-        const t = fire.target as Target;
-        const aim = fire.aim()!;
-        const tubes = fire.tubes.map((x, i) => ({ x, i })).filter(({ x }) => x.loaded);
-        const first = o.tube !== undefined ? tubes.findIndex(({ i }) => i === o.tube! - 1) : 0;
-        const salvo = [...tubes.slice(first), ...tubes.slice(0, first)].slice(0, fire.spread);
-        const spread = (WEAPONS.spreadAngle * Math.PI) / 180;
-        salvo.forEach(({ x, i }, k) => {
-          x.loaded = false;
-          const offset = (k - (salvo.length - 1) / 2) * spread;
-          const torpedo = c.world.launch({
-            course: (aim.course + offset + 2 * Math.PI) % (2 * Math.PI),
-            depth: aim.depth,
-            seekAfter: Math.max(WEAPONS.torpedo.arming, aim.distance - WEAPONS.torpedo.seekBefore),
-          });
-          c.torpedoesFired++;
-          const deg = String(Math.round(((aim.course + offset) * 180) / Math.PI + 360) % 360).padStart(3, '0');
-          const run = Math.round(aim.time);
-          c.afterAck.push(`Torped ${torpedo.state.id} gick från tub ${i + 1} mot ${t.label}: kurs ${deg}°, gångtid ${Math.floor(run / 60)} min ${run % 60} s.`);
-        });
-      },
-    },
-    diesel: {
-      effects: () => ({ charging: false }),
-      refuse: (c, o) =>
-        o.on && c.sim.systems.flooding.fill('engine') > c.sim.cfg.damage.disableFill ? 'Maskinrummet är vattenfyllt. Dieslarna kan inte startas.' : null,
-      apply: (c, o) => {
-        c.sim.commands.diesel = o.on;
-        if (o.on && !c.sim.systems.electrics.airAtInduction()) c.dieselNeedsAir = true;
-      },
-    },
-    bridge: {
-      refuse: (c, o) => {
-        if (!o.manned) return null;
-        if (c.sim.bodyPointDepth(c.sim.cfg.bridge.deck) > -BRIDGE_FREEBOARD) return 'Bryggan är under vatten. Gå till ytläge först.';
-        if (c.sim.tanks.some((t) => t.ventOpen)) return 'Ubåten dyker: ventilerna till huvudballasten är öppna.';
-        return null;
-      },
-      apply: (c, o) => {
-        c.bridgeManned = o.manned;
-      },
-    },
-    crew: {
-      // 'all' leaves locked systems as they are.
-      effects: (o, c) =>
-        Object.fromEntries((o.system === 'all' ? CREW_SYSTEMS.filter((x) => c.options.locks[x] === undefined) : [o.system]).map((x) => [x, o.crew])),
-      apply: (c, o) => {
-        const systems = o.system === 'all' ? CREW_SYSTEMS.filter((x) => c.options.locks[x] === undefined) : [o.system];
-        for (const x of systems) c.setDuty(x, o.crew);
-      },
-    },
-    reportBearing: {
-      apply: (c, o) => {
-        const sim = c.sim;
-        // Something can be seen from a raised periscope above the water or from the bridge.
-        const lookout = c.bridgeManned || (sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0);
-        const contacts: Record<string, number> = {};
-        for (const k of c.world.contacts()) contacts[k.vessel.def.id] = (k.bearing * 180) / Math.PI;
-        c.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout, contacts };
-        if (!lookout) c.addLog('Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.', 'error');
-      },
-    },
-  };
 
   /** Applies an order (already checked by `refusal`). */
   private apply(o: Order): void {
-    const rule = Controller.ORDERS[o.kind] as OrderRule<Order>;
+    const rule = ORDERS[o.kind] as OrderRule<Order>;
     rule.apply(this, o, this.sim.kinematics());
   }
 
   /** Switches ballast, trim and safety net as a player's order implies (the axes switch in `apply`). */
   private applyEffects(o: Order): void {
     if (o.kind === 'crew') return;
-    const rule = Controller.ORDERS[o.kind] as OrderRule<Order>;
+    const rule = ORDERS[o.kind] as OrderRule<Order>;
     for (const [s, crew] of Object.entries(rule.effects?.(o, this) ?? {}) as [CrewSystem, boolean][]) {
       if (isAxis(s) || this.options.crew[s] === crew) continue;
       this.options.crew[s] = crew;
@@ -831,7 +438,8 @@ export class Controller {
   }
 
   /** Flooding with the bridge manned: the crew clears the bridge; a player handling the ballast is refused. */
-  private refuseDiveWithBridgeManned(): string | null {
+  /** @internal For the order registry (orderRegistry.ts). */
+  refuseDiveWithBridgeManned(): string | null {
     if (!this.bridgeManned) return null;
     if (this.options.crew.ballast) {
       this.bridgeManned = false;
@@ -865,7 +473,8 @@ export class Controller {
    * a few tonnes. The crew starts the dive (as "dyk" does); a player handling
    * the ballast is reminded.
    */
-  private checkBallastForDepth(): void {
+  /** @internal For the order registry (orderRegistry.ts). */
+  checkBallastForDepth(): void {
     const sim = this.sim;
     if (this.setpoints.depth < DIVE_TARGET_DEPTH) {
       this.checkBallastForSurface();
@@ -909,12 +518,10 @@ export class Controller {
     }
   }
 
-  private resetDepthLoops(): void {
+  /** @internal For the order registry (orderRegistry.ts). */
+  resetDepthLoops(): void {
     this.autopilot.depthPid.reset();
     this.autopilot.pitchPid.reset();
   }
 }
 
-function groupIds(g: TankGroup): string[] | undefined {
-  return g === 'fwd' ? ['mbt_fwd'] : g === 'aft' ? ['mbt_aft'] : undefined;
-}

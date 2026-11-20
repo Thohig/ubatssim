@@ -450,17 +450,17 @@ src/
               el (batteri och dieslar) och läckage.
               world/vessel: världen med ubåten, andra farkoster, torpeder och sjunkbomber. acoustics: sonarekvationen.
     math/     Vektorer, matriser (LU), quaternioner.
-  control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, besättningen (crew),
+  control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller med orderregistret (orderRegistry) och maskinens händelser (plantWatch), besättningen (crew),
               trimassistent och skyddsnät, sonaren och upptäckten, eldledningen (målrörelseanalys, tuber),
               korvetternas jakt, havsområdenas startlägen och fyrar, scenarier.
   render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, terräng, vågor,
               fyrar, ljus och dimma, vattnet per område, bubblor, kölvatten, plym och avgaser, kameravyer.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
-  ui/         Meny, instrumentpanel, statusrad (mobil), konsol, logg, tangentbord, skärmkontroller (helm) och knappar, inställningar,
+  ui/         Meny, instrumentpanel, statusrad (mobil), konsol, logg, tangentbord, skärmkontroller (helm/) och knappar, inställningar,
               vyer och deras overlay (kompassband, periskop), sjökort och sonar. HTML byggs med mallar som escapar.
   game/       Spelsessioner, spelflödet (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
   main.ts     Uppstart.
-tests/        Vitest.
+tests/        Vitest. tests/long/ de långa, tests/e2e/ Playwright i en riktig webbläsare.
 docs/         Fördjupande dokumentation: fysikmodellen, grafiken, ljudet, prestandan och idéer (ideer.md).
 public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
 scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet.
