@@ -276,3 +276,31 @@ describe('scenarios in the simplified simulation', () => {
     expect(runner.status).toBe('completed');
   });
 });
+
+describe('depth target with empty main ballast', () => {
+  it('simplified: starts the dive and reaches the depth', () => {
+    const { c, sim, run, send } = game({ area: 'atlantic', sea: 'moderate' }, 'simplified');
+    send({ kind: 'setSpeed', knots: 10 });
+    send({ kind: 'setDepth', depth: 32 });
+    run(1);
+    expect(c.bridgeManned).toBe(false);
+    expect(c.log.some((e) => /fylls för dykning/.test(e.text))).toBe(true);
+    run(300);
+    expect(Math.abs(sim.y[2]! - 32)).toBeLessThan(3);
+  });
+
+  it('simplified: a target near the surface does not flood', () => {
+    const { sim, run, send } = game({}, 'simplified');
+    send({ kind: 'adjustDepth', deltaMetres: 2 });
+    run(1);
+    expect(sim.tanks.some((t) => t.ventOpen)).toBe(false);
+  });
+
+  it('realistic: reminds the player instead', () => {
+    const { c, sim, run, send } = game({}, 'realistic');
+    send({ kind: 'setDepth', depth: 32 });
+    run(1);
+    expect(sim.tanks.some((t) => t.ventOpen)).toBe(false);
+    expect(c.log.some((e) => e.kind === 'error' && /Huvudballasten är tom/.test(e.text))).toBe(true);
+  });
+});

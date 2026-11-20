@@ -16,6 +16,8 @@ import { TrimAssist } from './trimAssist';
 const DEG = Math.PI / 180;
 /** The bridge deck must be at least this far above the water to man it [m]. */
 const BRIDGE_FREEBOARD = 0.5;
+/** Depth targets from this depth [m] need flooded main ballast. */
+const DIVE_TARGET_DEPTH = 5;
 const KNOT = 1852 / 3600;
 
 export type LogKind = 'ack' | 'error' | 'info';
@@ -236,6 +238,7 @@ export class Controller {
         if (!this.ap.depth) this.resetDepthLoops();
         this.setpoints.depth = o.depth;
         this.ap.depth = true;
+        this.checkBallastForDepth();
         break;
       case 'setHeading':
         if (!this.ap.heading) this.autopilot.headingPid.reset();
@@ -322,6 +325,7 @@ export class Controller {
         }
         this.setpoints.depth = depth;
         this.ap.depth = true;
+        this.checkBallastForDepth();
         break;
       }
       case 'adjustHeading': {
@@ -361,6 +365,38 @@ export class Controller {
         if (!lookout) this.addLog('Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.', 'error');
         break;
       }
+    }
+  }
+
+  /** Sim time of the last "the main ballast is empty" reminder (realistic mode). */
+  private lastBallastHint = -Infinity;
+
+  /**
+   * A depth target below the surface while the main ballast is empty cannot
+   * be reached: the boat has ~200 t of reserve buoyancy and the planes give
+   * a few tonnes. The simplified mode starts the dive (as "dyk" does); the
+   * realistic mode reminds the player.
+   */
+  private checkBallastForDepth(): void {
+    const sim = this.sim;
+    if (this.setpoints.depth < DIVE_TARGET_DEPTH) return;
+    let empty = true;
+    sim.tankDefs.forEach((d, i) => {
+      const s = sim.tanks[i]!;
+      if (d.kind === 'mainBallast' && (s.water / d.volume > 0.5 || s.ventOpen || s.blowOpen)) empty = false;
+    });
+    if (!empty) return;
+    if (this.options.mode === 'simplified') {
+      if (this.bridgeManned) {
+        this.bridgeManned = false;
+        this.addLog('Klart bryggan. Bryggan är utrymd inför dykningen.', 'info');
+      }
+      sim.setVents(true);
+      this.shutVentsWhenFull = true;
+      this.addLog('Huvudballasten fylls för dykning.', 'info');
+    } else if (sim.t - this.lastBallastHint > 10) {
+      this.lastBallastHint = sim.t;
+      this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Ge order "dyk" eller "klart bryggan" och "fyll huvudballast".', 'error');
     }
   }
 
