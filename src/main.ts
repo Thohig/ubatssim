@@ -12,8 +12,6 @@ import { bindKeyboard } from './ui/keyboard';
 import { bindLog } from './ui/log';
 import { Menu } from './ui/menu';
 import { AREA_INFO, type ConditionsId } from './control/areas';
-import { AREAS } from './sim/config/areas';
-import { heightFunction } from './sim/terrain';
 import { updateObjective } from './ui/objective';
 import { loadSettings, saveSettings, type Settings } from './ui/settings';
 import { bindTouchControls, isTouchDevice } from './ui/touch';
@@ -105,7 +103,7 @@ function newSession(
   // Free play and the demo behind the menu have the area's traffic; scenarios bring their own.
   if (!scenario) ctrl.world.add(AREA_INFO[area].traffic);
   view.setVessels(ctrl.world.vessels.map((v) => v.def));
-  view.setArea(heightFunction(AREAS[area].terrain), AREA_INFO[area].lighthouses, conditions, sim.waves);
+  view.setArea(area, AREA_INFO[area].lighthouses, conditions, sim.waves);
   views.set('external');
   lastPeriscope = sim.actuators.periscope;
   return s;

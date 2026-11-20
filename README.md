@@ -161,8 +161,9 @@ Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 4
 | Fyrljuset | medel | Natt: gå i ytläge mot en röd fyr tills den är 700 m bort. |
 | Saltsprånget | svår | Östersjön: dyk genom saltsprångskiktet till 90 m och kompensera för de tonnen ubåten blir lättare. |
 | Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
+| Fartyget | medel | Ta ut bäringen till ett lastfartyg genom periskopet, utan att bli sedd eller komma i vägen för det. |
 
-Ett scenario misslyckas om ubåten går på grund. Ledtrådarna anpassas efter spelläget. Trimövning kräver realistisk simulering.
+Ett scenario misslyckas om ubåten går på grund eller kolliderar med ett fartyg. Ledtrådarna anpassas efter spelläget. Trimövning kräver realistisk simulering.
 
 ## Havsområden och väder
 
@@ -173,6 +174,7 @@ Ett scenario misslyckas om ubåten går på grund. Ledtrådarna anpassas efter s
 | **Fjorden** | En fjord som går norrut mellan 300 m höga berg. Tröskel på 55 m vid mynningen, 380 m djup bassäng innanför. | Sötare ytskikt (1 012 kg/m³) ovanpå atlantvatten under 9 m. | Ytvattnet strömmar ut, 0,4 m/s söderut i de översta metrarna. |
 | **Atlanten** | Djuphav, ~1 800 m. Ingen botten inom räckhåll. | Salt och kallt (1 027 kg/m³). | Nordatlantiska strömmen, 0,3 m/s mot nordost, ända ner till djupet. |
 
+- **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor och fiskebåtar. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas.
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
 - **Ljus och sikt:** dag, natt eller dimma (sikt ~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
 - **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
@@ -233,9 +235,14 @@ npm run lint
 npm run build
 ```
 
+```bash
+npm run bench
+```
+
 - `npm test` kör alla enhetstester med Vitest. Fysiken testas utan grafik.
 - `npm run lint` kör ESLint och kontrollerar bland annat att fysiklagret inte importerar Three.js eller DOM.
 - `npm run build` gör typkontroll och produktionsbygge till `dist/`.
+- `npm run bench` mäter fysikens tid per tidssteg. Lägg till `?perf` i adressen för att se tiden per bild i spelet. Budgeten finns i [docs/prestanda.md](docs/prestanda.md).
 
 Testerna täcker bland annat:
 - RK4:s konvergensordning, bevarad energi och rörelsemängdsmoment och determinism
@@ -249,7 +256,8 @@ Testerna täcker bland annat:
 - havsområdena: att trycket är integralen av densiteten, saltsprångskiktet, sötvattnet i fjorden, fjordens tröskel och att alla startlägen och fyrar ligger rätt
 - strömmen (drift, fart genom vattnet och över grund) och vågorna (signifikant våghöjd, rörelser i ytläge, lågtrycksblåsaren)
 - periskopet, bryggan och vyerna
-- ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp.
+- ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
+- fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt.
 
 ## Projektstruktur
 
@@ -257,6 +265,8 @@ Testerna täcker bland annat:
 src/
   sim/        Fysiken. Ren TypeScript utan Three.js eller DOM, deterministisk.
     config/   Parametrar för ubåt, vatten, havsområden, sjögång och terräng (SI-enheter, källa per värde).
+    systems/  Ubåtens delsystem: ställdon, huvudballast och tryckluft, pumpar, periskopmast.
+              world/vessel: världen med ubåten och andra farkoster.
     math/     Vektorer, matriser (LU), quaternioner.
   control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, spellägen,
               trimassistent och skyddsnät, havsområdenas startlägen och fyrar, scenarier.
@@ -266,7 +276,7 @@ src/
               vyer och deras overlay (kompassband, periskop).
   main.ts     Spellägen (meny, spel, paus) och tidsstegsloopen.
 tests/        Vitest.
-docs/         Fördjupande dokumentation: fysikmodellen, grafiken och ljudet.
+docs/         Fördjupande dokumentation: fysikmodellen, grafiken, ljudet och prestandan.
 public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
 scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet.
 assets/       Källfil för ikonen utan rundade hörn (används för att rendera PNG-filerna).

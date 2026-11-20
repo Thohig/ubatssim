@@ -33,6 +33,7 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Pumpar | Pågående trimning eller kompensering | Jämnt mekaniskt brummande |
 | Periskopet | Masten rör sig | Ett elmotorljud, och ett klonk vid ändläget |
 | Lågtrycksblåsaren | Går när bryggan är bemannad | Ett fläktljud |
+| Andra fartyg | Närmaste fartygets avstånd och bladfrekvens | Ett lågt brus som pulserar i fartygets bladtakt. Hörs inom 4 km, starkast nära och när ubåten är under vattnet |
 | Skrovet | Djupändring, djup och krossdjup | Knakningar och dova smällar. De kommer tätare ju fortare och djupare ubåten går, och oavbrutet under 250 m |
 
 ## Larm och signaler

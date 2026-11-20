@@ -1,12 +1,13 @@
 # CLAUDE.md – Ubåtssim
 
-En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`). Användardokumentationen finns i `README.md`, fysikmodellen beskrivs i `docs/fysikmodell.md`, grafiken i `docs/grafik.md` och ljudet i `docs/ljud.md`.
+En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i simuleringen och grafiken hålls enkel. Projektet använder TypeScript, Vite, Three.js och Vitest och publiceras på GitHub Pages (repo `ubatssim`, `base: '/ubatssim/'`). Användardokumentationen finns i `README.md`, fysikmodellen beskrivs i `docs/fysikmodell.md`, grafiken i `docs/grafik.md`, ljudet i `docs/ljud.md` och prestandan och dess budget i `docs/prestanda.md`.
 
 ## Kommandon
 - `npm run dev`: utvecklingsserver på http://localhost:5173/ubatssim/ (observera sökvägen).
 - `npm test`: Vitest. Fysiktesterna körs utan grafik. `testTimeout` är 60 s eftersom testerna simulerar minuter av spelets tid och CI-maskinerna är långsamma.
 - `npm run lint`: ESLint. Kontrollerar bland annat lagergränserna.
-- `npm run build`: `tsc --noEmit` och Vite-bygge till `dist/`.
+- `npm run build`: `tsc --noEmit` och Vite-bygge till `dist/`. Three.js hamnar i en egen fil, och terrängens Web Worker i en tredje.
+- `npm run bench`: fysikens tid per tidssteg (inte del av `npm test`). `?perf` i adressen visar tid per bild i spelet. Budget i `docs/prestanda.md`.
 - `scripts/make-mac-launcher.sh [mapp]`: bygger `Ubåtssim.app` (standard `~/Projekt`), som öppnar GitHub Pages-sidan med spelets ikon. Kör det igen om ikonen eller adressen ändras.
 - **Ikoner:** källan för appikoner är `assets/icon-square.svg` (kantfylld, utan rundade hörn). `public/icon.svg` är flikikonen med rundade hörn. PNG-filerna i `public/` renderas från källan med `qlmanage -t -s <px>`. Ändras ikonen, ska båda SVG-filerna och alla PNG-filer uppdateras.
 - **Publicering:** en push till `main` kör `.github/workflows/deploy.yml` (lint → test → build → GitHub Pages). Pages-källan är "GitHub Actions".
@@ -20,12 +21,16 @@ src/sim/      Ren fysik. Inga beroenden på Three.js, DOM eller andra lager.
   rigidBody   M_RB, Kirchhoff-Coriolis, RigidBody (13 tillstånd).
   hull, hydrostatics, tanks, massProperties, airSystem, hydrodynamics,
   controlSurfaces, propulsion, contact, terrain, terrainGrid, environment, waves, rk4
-  simulation  Simulation: äger allt tillstånd och stegar 100 Hz.
+  systems/    Delsystem: actuators, mainBallast (och tryckluft), pumps, periscopeMast.
+  simulation  Simulation: spelarens ubåt. Äger tillståndet och delsystemen, stegar 100 Hz.
+  vessel      Andra farkoster: rutt, fart, girhastighet (kinematiska).
+  world       World: ubåten och farkosterna, stegas tillsammans; bäring, avstånd, kollision.
 src/control/  orders (Order-union + kvitton), orderQueue, parser (svenska), autopilot (PID),
               controller (kö → börvärden → autopilot → ställdon → sim.step → assistent),
               gameMode, trimAssist (trimassistent och skyddsnät), areas (startlägen, fyrar, väder), scenarios.
 src/render/   Three.js. Läser bara simuleringens tillstånd och skriver aldrig till det.
-              coords (NED↔Three), submarineModel (lager), terrain, environment, scene.
+              coords (NED↔Three), submarineModel (lager), terrain (+ terrainBuild, terrainWorker),
+              environment, waveShader (vågor på grafikkortet), vessels, scene.
 src/audio/    Web Audio, syntetiserat. levels (ren: telemetri → ljudnivåer), engine (ljudgraf),
               voice (talsyntes), director (kopplar ihop). Läser simuleringen, skriver aldrig.
 src/ui/       menu, instruments, console, log, keyboard, touch, inputMode, objective, settings,
@@ -33,7 +38,9 @@ src/ui/       menu, instruments, console, log, keyboard, touch, inputMode, objec
 src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsstegsloopen.
 ```
 - **Simulering:** deterministisk. Samma starttillstånd och samma order ger exakt samma resultat. Använd aldrig `Math.random()` eller väggklocka i `src/sim` eller `src/control`.
-- **Order:** alla styrkommandon, från tangentbord, pekknappar och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid. Nya kommandon kräver tre saker: en ny variant i `Order`, ett kvitto i `acknowledgement()` och ett fall i `Controller.apply()`. Läggs kommandot till i parsern, ska `HELP_TEXT` och README uppdateras.
+- **Order:** alla styrkommandon, från tangentbord, pekknappar och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid. Nya kommandon kräver tre saker: en ny variant i `Order`, ett kvitto i `acknowledgement()` och en post i orderregistret `Controller.ORDERS` (`apply`, och vid behov `refuse` och `steering`). TypeScript kräver en post för varje ordertyp. Läggs kommandot till i parsern, ska `HELP_TEXT` och README uppdateras.
+- **Delsystem** (`src/sim/systems/`, mönstret i `types.ts`): `update(dt)` en gång per tidssteg och/eller `forces(ctx, tau)` vid varje kraftberäkning, i fast ordning (`Simulation.updateOrder`, `forceOrder`). Nya system (batteri, diesel, läckage) läggs till som delsystem, inte direkt i `Simulation`.
+- **Världen:** `Controller.world` (`World`) stegar ubåten och farkosterna. Fritt spel har områdets trafik (`AREA_INFO[area].traffic`), scenarier sin egen (`Scenario.traffic`). Kollision med ett fartyg gör att ett scenario misslyckas, som grundstötning.
 - **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln. `Controller.options.autopilotAllowed = false` spärrar djup- och kursautopiloten i realistisk simulering (fartautopiloten tillåts).
 - **Spellägen** (`GameMode`: `'simplified' | 'realistic'`) kör samma `Simulation`. Skillnaden ligger bara i `src/control` och `src/ui`:
   - Förenklad simulering bygger på djup- och kursautopiloten. Tangenter och pekknappar ger `adjustDepth`, `adjustHeading`, `holdCourse`, `dive` och `surface`. Ett djupmål ≥ 5 m med tom huvudballast startar dykningen, och ett djupmål < 5 m med fylld huvudballast blåser den (realistiskt läge: en påminnelse i loggen). I ytläge med tom ballast och grunt mål håller djupautopiloten djuprodret i noll (`Controller.surfaceHold`).
@@ -45,7 +52,8 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
 - **Ljud:** `soundLevels()` är en ren funktion och testas i `tests/audio.test.ts`. Engångsljud och uppläsning styrs av loggraderna (`cueFor`, `speechFor`). Ljud får använda `Math.random()`, eftersom det inte påverkar simuleringen. Ljudet startar först vid ett användartryck och är tyst utanför `playing`.
 - **Sessioner:** `main.ts` skapar en ny `Simulation` och `Controller` per spelstart. Indata-bindningarna får kontrollern via en getter som returnerar `null` när inget spel pågår. Bakom menyn kör en demo-session.
 - **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid (och `hintSimplified` för förenklat läge), villkor för misslyckande, tidsgräns, boj, tillåtna spellägen (`modes`) och om skyddsnätet är på (`safetyNet`). `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska (`tests/scenarios.test.ts`, `tests/terrain.test.ts`), i varje spelläge det tillåter (`tests/gameModes.test.ts`).
-- **Prestanda:** `Simulation.telemetry()` gör en full kraftberäkning. Använd `kinematics()` när bara läge och hastighet behövs, till exempel i autopiloten.
+- **Prestanda:** `Simulation.telemetry()` gör en full kraftberäkning. Använd `kinematics()` när bara läge och hastighet behövs, till exempel i autopiloten och i orderregistret. Håll budgeten i `docs/prestanda.md`. Mät med `npm run bench` och `?perf` före och efter ändringar i fysik eller grafik.
+- **Optimeringar ska vara exakta** eller ha ett test som jämför mot den enkla beräkningen: kontaktgenvägen mot `contactForces` utan `shallowestIn`, och vågshadern (`elevationFromPacked`) mot `waveElevation`.
 
 ## Fysikkonventioner
 - **Enheter:** SI överallt i `src/sim`. Knop och grader används bara i order, UI och kvitton (`src/sim/units.ts`).
@@ -55,7 +63,7 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
 - **Tankar och avdelningar:** beskrivs som data (id, position, form, volym, fyllnadsgrad). Massa och tyngdpunkt härleds från dem. Strukturen används senare av genomskärningsvyn och får inte förenklas bort.
 - **Konstruktionsläget:** torrvikt och torr tyngdpunkt härleds så att ubåten är neutral och plan på 25 m med full huvudballast och tankarna på `designFill`. Kompenseringstanken startar 0,6 m³ tyngre (`initialFill`), alltså trimmad tung för dykning.
 - **Terräng:** `src/sim/terrain.ts` har deterministiska höjdfunktioner (skärgård, fjord, djuphav) med parametrar i `config/terrain.ts`. `heightFunction(spec)` väljer funktion per område. Simuleringen läser dem via ett cachat rutnät med 4 m upplösning per område (`terrainGrid.ts`). Grundstötning hanteras i `contact.ts`. Renderingen använder samma funktion, så det man ser är det man kan krocka med. Ändras terrängen, måste farlederna i "Genom sundet", "Fjordinloppet" och "Fyrljuset" (scenario och test), startlägena och fyrarnas platser (`tests/areas.test.ts`) kontrolleras igen.
-- **Ström och vågor:** hydrodynamiska krafter räknas mot vattnet (ν − ν_c). `kinematics().u` och `Telemetry.u` är fart genom vattnet. Vågorna (`waves.ts`) används av hydrostatiken, vyerna och den ritade ytan.
+- **Ström och vågor:** hydrodynamiska krafter räknas mot vattnet (ν − ν_c). `kinematics().u` och `Telemetry.u` är fart genom vattnet. Vågorna (`waves.ts`) används av hydrostatiken, vyerna och den ritade ytan. Den ritade ytan förskjuts på grafikkortet (`waveShader.ts`). Ändras vågformeln, ska shadern och `elevationFromPacked` ändras på samma sätt (testet i `tests/waveShader.test.ts`).
 - **Parametrar:** alla ligger i `src/sim/config/` med kommentar om källa och enhet. Värden som inte är kontrollerade mot källan märks `// APPROX`.
 - **3D-modellen:** byggs i separata lager (yttre skrov, tryckskrov, tankar, avdelningar, utrustning) med egna material, så att ett klippningsplan för genomskärningsvyn kan läggas till senare. `renderer.localClippingEnabled` är redan på.
 

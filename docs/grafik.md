@@ -38,11 +38,12 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - ett svart lavbälte vid vattenlinjen
   - rosagrå granit med fläckar av ljung högre upp.
 - **Flytt:** rutnäten flyttas i hela rutor och byggs om först när ubåten har rört sig en bit (250 m respektive 1 200 m), så att ytan inte "simmar".
+- **Bakgrundstråd:** höjder, normaler och färger byggs i en Web Worker (`terrainWorker.ts`, koden i `terrainBuild.ts`), så att ombyggnaden inte ger ett ryck. Den gamla terrängen visas tills den nya är klar. Det första rutnätet i ett område byggs direkt.
 
 ## Vatten, ljus och väder (`environment.ts`)
 
 - **Vattenytan:**
-  - Ett vågnät på 560 m (112 × 112 rutor) följer kameran. Höjden beräknas varje bild med samma vågfunktion som fysiken (`src/sim/waves.ts`). Vågorna tonar ut mot nätets kant.
+  - Ett vågnät på 560 m (160 × 160 rutor) följer kameran. Grafikkortet förskjuter det i en vertexshader med samma vågsumma som fysiken (`src/render/waveShader.ts`, `src/sim/waves.ts`) och räknar normalerna från vågornas lutning. Fasen vid nätets mitt räknas i dubbel precision varje bild, så att 32-bitarsprecisionen räcker även långt bort. Vågorna tonar ut mot nätets kant.
   - Utanför nätet når en plan ram ut till horisonten.
   - Ytan är halvgenomskinlig och syns både ovanifrån och underifrån.
 - **Under vattnet:**
@@ -54,6 +55,7 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - Lampan blinkar efter simuleringstiden, med fyrens period.
   - Skenet ritas som en glödande sprite utan dimma, så att det syns långt innan land syns på natten.
 - **Bojen** i scenarierna är en gul spirboj med toppmärke.
+- **Fartygen** (`vessels.ts`) är enkla modeller med skrov, överbyggnad och lastluckor. De följer vågytan i höjd och har lanternor i mörker och dimma: topplanterna, babord rött, styrbord grönt och akterlanterna.
 
 ## Kameran och vyerna (`scene.ts`, `src/ui/views.ts`)
 

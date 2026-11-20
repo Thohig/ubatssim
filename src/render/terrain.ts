@@ -1,53 +1,29 @@
 /**
  * Terrain rendering: a detailed patch around the submarine and a coarse
  * far patch out to the horizon, both re-centred in whole cells as the boat
- * moves. Vertex colours follow height and slope: dark mud in deep water,
- * silt and sand in the shallows, the black lichen band at the water line,
- * pink-grey granite above it and patches of heather and juniper in hollows
- * on the higher islands.
+ * moves. The patch data (heights, normals, colours: terrainBuild.ts) is
+ * built in a Web Worker so the game does not stall; the first patch of an
+ * area is built at once on the main thread, and so is everything when
+ * workers are not available.
  */
 import * as THREE from 'three';
-import { fbm, terrainHeight, type HeightFn } from '../sim/terrain';
+import { AREAS, type AreaId } from '../sim/config/areas';
+import { heightFunction, type HeightFn } from '../sim/terrain';
+import { buildPatch, type PatchData, type PatchRequest } from './terrainBuild';
+import type { WorkerRequest } from './terrainWorker';
 
 interface Patch {
   mesh: THREE.Mesh;
   geo: THREE.PlaneGeometry;
+  size: number;
+  segments: number;
   cell: number;
   /** Drop applied to vertices inside the near patch (far patch only). */
   holeHalf: number;
+  /** Centre of the data shown now, and of a build in progress. */
   centre: [number, number] | null;
+  pending: [number, number] | null;
   recentre: number;
-}
-
-const C = {
-  deepMud: new THREE.Color(0x29332f),
-  silt: new THREE.Color(0x4f5a45),
-  sand: new THREE.Color(0x857a5c),
-  wetRock: new THREE.Color(0x2e2a28),
-  lichen: new THREE.Color(0x1d1b1a),
-  granite: new THREE.Color(0xa38e84),
-  graniteLight: new THREE.Color(0xc0aaa0),
-  heather: new THREE.Color(0x5b6143),
-  rockUnder: new THREE.Color(0x5e5650),
-};
-
-const tmp = new THREE.Color();
-
-function colourFor(h: number, slope: number, n: number, e: number, out: THREE.Color): THREE.Color {
-  const vary = fbm(n / 60, e / 60, 2, 991);
-  if (h > 1.2) {
-    out.copy(C.granite).lerp(C.graniteLight, 0.5 + 0.5 * vary);
-    // Vegetation in gentle hollows higher up.
-    if (h > 8 && slope < 0.5 && vary < -0.05) out.lerp(C.heather, Math.min(1, (-vary - 0.05) * 4));
-    return out;
-  }
-  if (h > -0.6) return out.copy(C.lichen).lerp(C.wetRock, (h + 0.6) / 1.8);
-  // Under water: steep faces are rock, flatter areas sediment by depth.
-  const d = -h;
-  if (d < 15) out.copy(C.sand).lerp(C.silt, d / 15);
-  else out.copy(C.silt).lerp(C.deepMud, Math.min(1, (d - 15) / 60));
-  if (slope > 0.35) out.lerp(C.rockUnder, Math.min(1, (slope - 0.35) * 2.5));
-  return out;
 }
 
 function makePatch(size: number, segments: number, holeHalf: number, recentre: number, mat: THREE.Material): Patch {
@@ -56,37 +32,13 @@ function makePatch(size: number, segments: number, holeHalf: number, recentre: n
   geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(geo.attributes.position!.count * 3), 3));
   const mesh = new THREE.Mesh(geo, mat);
   mesh.frustumCulled = false;
-  return { mesh, geo, cell: size / segments, holeHalf, centre: null, recentre };
-}
-
-function rebuild(p: Patch, cn: number, ce: number, height: HeightFn): void {
-  const pos = p.geo.attributes.position as THREE.BufferAttribute;
-  const col = p.geo.attributes.color as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-    // Three: x = east, z = −north.
-    let h = height(cn - z, ce + x);
-    if (p.holeHalf > 0 && Math.abs(x) < p.holeHalf && Math.abs(z) < p.holeHalf) h -= 6;
-    pos.setY(i, h);
-  }
-  pos.needsUpdate = true;
-  p.geo.computeVertexNormals();
-  const nrm = p.geo.attributes.normal as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    const slope = 1 - nrm.getY(i);
-    colourFor(pos.getY(i), slope, cn - pos.getZ(i), ce + pos.getX(i), tmp);
-    col.setXYZ(i, tmp.r, tmp.g, tmp.b);
-  }
-  col.needsUpdate = true;
-  p.mesh.position.set(ce, 0, -cn);
-  p.centre = [cn, ce];
+  return { mesh, geo, size, segments, cell: size / segments, holeHalf, centre: null, pending: null, recentre };
 }
 
 export interface TerrainView {
   update(north: number, east: number): void;
-  /** Switch to another area's height function (rebuilds on the next update). */
-  setHeight(fn: HeightFn): void;
+  /** Switch to another area (rebuilds at once on the next update). */
+  setArea(area: AreaId): void;
 }
 
 export function createTerrain(scene: THREE.Scene): TerrainView {
@@ -95,30 +47,71 @@ export function createTerrain(scene: THREE.Scene): TerrainView {
   const far = makePatch(9000, 150, 760, 1200, mat); // 60 m cells, sunk under the near patch
   scene.add(near.mesh, far.mesh);
 
+  let area: AreaId = 'westCoast';
+  let height: HeightFn = heightFunction(AREAS[area].terrain);
+  let worker: Worker | null = null;
+  try {
+    worker = new Worker(new URL('./terrainWorker.ts', import.meta.url), { type: 'module' });
+  } catch {
+    worker = null; // build on the main thread instead
+  }
+  let nextId = 1;
+  const jobs = new Map<number, { patch: Patch; centre: [number, number]; area: AreaId }>();
+
+  const apply = (p: Patch, d: PatchData, centre: [number, number]) => {
+    const pos = p.geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) pos.setY(i, d.heights[i]!);
+    pos.needsUpdate = true;
+    p.geo.setAttribute('normal', new THREE.BufferAttribute(d.normals, 3));
+    p.geo.setAttribute('color', new THREE.BufferAttribute(d.colors, 3));
+    p.mesh.position.set(centre[1], 0, -centre[0]);
+    p.centre = centre;
+  };
+
+  worker?.addEventListener('message', (ev: MessageEvent<PatchData & { id: number }>) => {
+    const job = jobs.get(ev.data.id);
+    jobs.delete(ev.data.id);
+    if (!job || job.area !== area) return; // stale: another area since
+    if (job.patch.pending && job.patch.pending[0] === job.centre[0] && job.patch.pending[1] === job.centre[1]) job.patch.pending = null;
+    apply(job.patch, ev.data, job.centre);
+  });
+
+  const build = (p: Patch, cn: number, ce: number, now: boolean) => {
+    const req: PatchRequest = { size: p.size, segments: p.segments, holeHalf: p.holeHalf, cn, ce };
+    if (now || !worker) {
+      apply(p, buildPatch(height, req), [cn, ce]);
+      return;
+    }
+    if (p.pending && p.pending[0] === cn && p.pending[1] === ce) return;
+    const id = nextId++;
+    jobs.set(id, { patch: p, centre: [cn, ce], area });
+    p.pending = [cn, ce];
+    worker.postMessage({ ...req, id, area } satisfies WorkerRequest);
+  };
+
   const maybeRebuild = (p: Patch, n: number, e: number) => {
     // Snap to whole cells (of the coarser grid) so vertices do not swim.
     const snap = p.cell * 2;
     const cn = Math.round(n / snap) * snap;
     const ce = Math.round(e / snap) * snap;
-    if (!p.centre || Math.abs(cn - p.centre[0]) > p.recentre || Math.abs(ce - p.centre[1]) > p.recentre) rebuild(p, cn, ce, height);
+    if (!p.centre) build(p, cn, ce, true);
+    else if (Math.abs(cn - p.centre[0]) > p.recentre || Math.abs(ce - p.centre[1]) > p.recentre) build(p, cn, ce, false);
   };
-  let height: HeightFn = terrainHeight;
 
   return {
-    setHeight(fn) {
-      if (fn === height) return;
-      height = fn;
-      near.centre = null;
-      far.centre = null;
+    setArea(a) {
+      if (a === area && near.centre) return;
+      area = a;
+      height = heightFunction(AREAS[a].terrain);
+      near.centre = far.centre = null;
+      near.pending = far.pending = null;
     },
     update(n, e) {
       maybeRebuild(near, n, e);
-      // The far patch must stay aligned with the near patch's hole.
-      if (!far.centre || far.centre[0] !== near.centre![0] || far.centre[1] !== near.centre![1]) {
-        if (!far.centre || Math.abs(near.centre![0] - far.centre[0]) > far.recentre || Math.abs(near.centre![1] - far.centre[1]) > far.recentre) {
-          rebuild(far, near.centre![0], near.centre![1], height);
-        }
-      }
+      // The far patch follows the near patch (its hole must stay under it).
+      const c = near.centre!;
+      if (!far.centre) build(far, c[0], c[1], true);
+      else if (Math.abs(c[0] - far.centre[0]) > far.recentre || Math.abs(c[1] - far.centre[1]) > far.recentre) build(far, c[0], c[1], false);
     },
   };
 }

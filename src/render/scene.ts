@@ -5,7 +5,7 @@ import type { Mat3 } from '../sim/math/mat';
 import type { Vec3 } from '../sim/math/vec3';
 import { bodyToLocal, nedToThree, rotationToThree } from './coords';
 import { createEnvironment, type ConditionsId, type LightMark } from './environment';
-import type { HeightFn } from '../sim/terrain';
+import type { AreaId } from '../sim/config/areas';
 import type { WaveComponent } from '../sim/waves';
 import type { VesselDef, VesselState } from '../sim/vessel';
 import { VesselView } from './vessels';
@@ -56,7 +56,7 @@ export interface SceneView {
   setWaypoint(wp: [number, number] | null): void;
   setView(view: CameraView): void;
   /** Terrain, lighthouses and light/visibility of the sea area. */
-  setArea(height: HeightFn, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
+  setArea(area: AreaId, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
   /** The other vessels to draw (their states come with each render). */
   setVessels(defs: readonly VesselDef[]): void;
   /** Depth of the camera [m], negative above the water (after the last render). */
@@ -165,8 +165,8 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     setView(v) {
       view = v;
     },
-    setArea(height, lighthouses, conditions, waves) {
-      env.setArea(height, lighthouses, conditions, waves);
+    setArea(area, lighthouses, conditions, waves) {
+      env.setArea(area, lighthouses, conditions, waves);
       vesselView.setLights(conditions !== 'day');
     },
     setVessels(defs) {

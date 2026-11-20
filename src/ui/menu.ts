@@ -321,6 +321,7 @@ export class Menu {
               <li><b>Fjorden:</b> sötvatten i ytan som strömmar ut ur fjorden, en grund tröskel vid mynningen och 380 m djupt innanför.</li>
               <li><b>Atlanten:</b> ingen botten inom räckhåll. Krossdjupet 300 m är gränsen.</li>
             </ul>
+            <p>I fritt spel går fartyg i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision loggas, och i ett scenario misslyckas uppdraget.</p>
             <p>Instrumentpanelen visar farten genom vattnet. Under "Mer" finns fart och kurs över grund och strömmen. I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
             <h3>Pekskärm</h3>
             <p>Knapparna längst ner har samma funktioner som tangenterna. I förenklad simulering ändrar ◀ / ▶ kursen och ▲ / ▼ djupet, och Dyk och Yta sköter huvudballasten. Håll in för att upprepa. <code>&gt;_</code> öppnar konsolen och ☰ pausar.</p>

@@ -3,8 +3,10 @@
  * depth-dependent fog/colour, so that motion is visible.
  */
 import * as THREE from 'three';
-import type { HeightFn } from '../sim/terrain';
+import { heightFunction, type HeightFn } from '../sim/terrain';
+import { AREAS, type AreaId } from '../sim/config/areas';
 import { waveElevation, type WaveComponent } from '../sim/waves';
+import { WAVE_GLSL, createPacked, packWaves } from './waveShader';
 import { nedToThree } from './coords';
 import { createTerrain } from './terrain';
 
@@ -47,14 +49,14 @@ export interface SeaEnvironment {
   update(subNed: [number, number, number], camera: THREE.Camera, t: number): void;
   setParticles(on: boolean): void;
   /** Area terrain, lighthouses, light/visibility and the waves. */
-  setArea(height: HeightFn, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
+  setArea(area: AreaId, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
   /** Water surface elevation [m, up] at a Three.js (x, z) point now. */
   surfaceAt(x: number, z: number): number;
 }
 
-/** Wave grid around the camera: size [m] and segments; outside it a flat frame reaches the horizon. */
+/** Wave grid around the camera: size [m] and segments; outside it a flat frame reaches the horizon. The GPU displaces it. */
 const WAVE_SIZE = 560;
-const WAVE_SEGMENTS = 112;
+const WAVE_SEGMENTS = 160;
 const FAR_SIZE = 12000;
 
 /** A large square with a square hole in the middle (the far water). */
@@ -117,13 +119,34 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
   scene.add(surface);
   const waveGeo = new THREE.PlaneGeometry(WAVE_SIZE, WAVE_SIZE, WAVE_SEGMENTS, WAVE_SEGMENTS);
   waveGeo.rotateX(-Math.PI / 2);
-  const waveMesh = new THREE.Mesh(waveGeo, surfMat);
+  // The same material, with the waves added in the vertex shader (waveShader.ts).
+  const waveMat = surfMat.clone();
+  const packed = createPacked();
+  const waveUniforms = {
+    uWaveAmp: { value: packed.amp },
+    uWaveK: { value: packed.k },
+    uWaveDirN: { value: packed.dirN },
+    uWaveDirE: { value: packed.dirE },
+    uWavePhase0: { value: packed.phase0 },
+    uWaveHalf: { value: WAVE_SIZE / 2 },
+  };
+  waveMat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, waveUniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\n${WAVE_GLSL}`)
+      .replace(
+        '#include <beginnormal_vertex>',
+        // Local x = east offset, local z = −north offset from the grid centre.
+        'vec3 seaW = seaWave(-position.z, position.x);\nvec3 objectNormal = normalize(vec3(-seaW.z, 1.0, seaW.y));',
+      )
+      .replace('#include <begin_vertex>', 'vec3 transformed = vec3(position);\ntransformed.y += seaW.x;');
+  };
+  waveMat.customProgramCacheKey = () => 'sea-waves';
+  const waveMesh = new THREE.Mesh(waveGeo, waveMat);
   waveMesh.frustumCulled = false;
   scene.add(waveMesh);
-  const waveBase = Float32Array.from(waveGeo.attributes.position!.array as Float32Array);
   let waves: readonly WaveComponent[] = [];
   let waveTime = 0;
-  let waveFlat = true;
   /** Elevation at a Three point (x = east, z = −north), tapered to zero at the grid edge. */
   const elevation = (x: number, z: number) => (waves.length ? waveElevation(waves, -z, x, waveTime) : 0);
 
@@ -161,14 +184,16 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
     surfaceAt(x, z) {
       return elevation(x, z);
     },
-    setArea(height, lighthouses, conditions, w) {
-      terrain.setHeight(height);
+    setArea(area, lighthouses, conditions, w) {
+      terrain.setArea(area);
+      const height: HeightFn = heightFunction(AREAS[area].terrain);
       waves = w;
       palette = PALETTES[conditions];
       skyColor.setHex(palette.sky);
       surfaceColor.setHex(palette.shallow);
       deepColor.setHex(palette.deep);
       surfMat.color.setHex(palette.surface);
+      waveMat.color.setHex(palette.surface);
       hemi.intensity = palette.hemi;
       sun.intensity = palette.sun;
       lighthouseGroup.clear();
@@ -212,21 +237,8 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
       const gz = Math.round(camera.position.z / cell) * cell;
       waveMesh.position.set(gx, 0, gz);
       surface.position.set(gx, 0, gz);
-      if (waves.length || !waveFlat) {
-        const p = waveGeo.attributes.position as THREE.BufferAttribute;
-        const half = WAVE_SIZE / 2;
-        for (let k = 0; k < p.count; k++) {
-          const lx = waveBase[k * 3]!;
-          const lz = waveBase[k * 3 + 2]!;
-          // Fade to the flat far water over the outer 15 % of the grid.
-          const edge = Math.max(Math.abs(lx), Math.abs(lz)) / half;
-          const fade = edge < 0.85 ? 1 : Math.max(0, (1 - edge) / 0.15);
-          p.setY(k, fade > 0 ? fade * elevation(gx + lx, gz + lz) : 0);
-        }
-        p.needsUpdate = true;
-        waveGeo.computeVertexNormals();
-        waveFlat = waves.length === 0;
-      }
+      // Phases at the grid centre in double precision; the GPU does the rest.
+      packWaves(waves, -gz, gx, t, packed);
 
       // Wrap particles into a box centred on the camera, with slow drift.
       const c = camera.position;

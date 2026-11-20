@@ -20,6 +20,7 @@ export function createPerfMeter(enabled: boolean): PerfMeter {
   document.body.append(el);
   const sum = { sim: 0, render: 0, ui: 0 };
   let frames = 0;
+  let maxRender = 0;
   let stepCount = 0;
   let t = 0;
   let windowStart = performance.now();
@@ -30,6 +31,7 @@ export function createPerfMeter(enabled: boolean): PerfMeter {
     mark(part) {
       const now = performance.now();
       sum[part] += now - t;
+      if (part === 'render') maxRender = Math.max(maxRender, now - t);
       t = now;
     },
     steps(n) {
@@ -41,9 +43,10 @@ export function createPerfMeter(enabled: boolean): PerfMeter {
       if (now - windowStart < 1000) return;
       const f = (x: number) => (x / frames).toFixed(1);
       const perStep = stepCount ? ((sum.sim / stepCount) * 1000).toFixed(0) : '–';
-      el.textContent = `${(frames / ((now - windowStart) / 1000)).toFixed(0)} bilder/s · fysik ${f(sum.sim)} ms (${perStep} µs/steg) · grafik ${f(sum.render)} ms · UI ${f(sum.ui)} ms`;
+      el.textContent = `${(frames / ((now - windowStart) / 1000)).toFixed(0)} bilder/s · fysik ${f(sum.sim)} ms (${perStep} µs/steg) · grafik ${f(sum.render)} ms (max ${maxRender.toFixed(0)}) · UI ${f(sum.ui)} ms`;
       sum.sim = sum.render = sum.ui = 0;
       frames = stepCount = 0;
+      maxRender = 0;
       windowStart = now;
     },
   };
