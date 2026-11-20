@@ -8,6 +8,8 @@ import type { GroundDepth } from './contact';
 
 export class TerrainGrid {
   private tiles = new Map<string, Float32Array>();
+  /** Shallowest depth in each tile (smallest node value; bilinear interpolation never goes below it). */
+  private tileMin = new Map<string, number>();
   private readonly n: number;
 
   /**
@@ -29,7 +31,10 @@ export class TerrainGrid {
     const key = `${tx},${ty}`;
     let t = this.tiles.get(key);
     if (!t) {
-      if (this.tiles.size >= this.maxTiles) this.tiles.clear();
+      if (this.tiles.size >= this.maxTiles) {
+        this.tiles.clear();
+        this.tileMin.clear();
+      }
       t = new Float32Array(this.n * this.n);
       const x0 = tx * this.tileSize * this.cell;
       const y0 = ty * this.tileSize * this.cell;
@@ -37,12 +42,32 @@ export class TerrainGrid {
         for (let i = 0; i < this.n; i++) t[j * this.n + i] = this.source(x0 + i * this.cell, y0 + j * this.cell);
       }
       this.tiles.set(key, t);
+      let min = Infinity;
+      for (let k = 0; k < t.length; k++) min = Math.min(min, t[k]!);
+      this.tileMin.set(key, min);
     }
     return t;
   }
 
-  /** Interpolated depth at (north, east). */
-  readonly depth: GroundDepth = (north, east) => {
+  /** Shallowest sea bed depth in the tiles covering a north/east box. */
+  shallowestIn(n0: number, n1: number, e0: number, e1: number): number {
+    const span = this.tileSize * this.cell;
+    let min = Infinity;
+    for (let tx = Math.floor(n0 / span); tx <= Math.floor(n1 / span); tx++) {
+      for (let ty = Math.floor(e0 / span); ty <= Math.floor(e1 / span); ty++) {
+        this.tile(tx, ty);
+        min = Math.min(min, this.tileMin.get(`${tx},${ty}`)!);
+      }
+    }
+    return min;
+  }
+
+  /** Interpolated depth at (north, east), with `shallowestIn` for the contact model. */
+  readonly depth: GroundDepth = Object.assign((north: number, east: number) => this.interpolate(north, east), {
+    shallowestIn: (n0: number, n1: number, e0: number, e1: number) => this.shallowestIn(n0, n1, e0, e1),
+  });
+
+  private interpolate(north: number, east: number): number {
     const gx = north / this.cell;
     const gy = east / this.cell;
     const ix = Math.floor(gx);
@@ -60,5 +85,5 @@ export class TerrainGrid {
     const c = t[(ly + 1) * n + lx]!;
     const d = t[(ly + 1) * n + lx + 1]!;
     return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
-  };
+  }
 }

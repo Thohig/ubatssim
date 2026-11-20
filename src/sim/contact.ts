@@ -12,7 +12,14 @@ import { hullRadius } from './hull';
 import { mat3MulVec, mat3TransposeMulVec, type Mat3 } from './math/mat';
 import { cross, type Vec3 } from './math/vec3';
 
-export type GroundDepth = (north: number, east: number) => number;
+export type GroundDepth = ((north: number, east: number) => number) & {
+  /**
+   * Optional: a lower bound of the sea bed depth (its shallowest point)
+   * inside a north/east box. Lets the contact model skip boxes where no
+   * hull point can reach the bottom.
+   */
+  shallowestIn?: (n0: number, n1: number, e0: number, e1: number) => number;
+};
 
 export interface ContactResult {
   tau: Float64Array;
@@ -54,6 +61,20 @@ export function contactForces(
   let totalN = 0;
   const vLin: Vec3 = [nu[0]!, nu[1]!, nu[2]!];
   const omega: Vec3 = [nu[3]!, nu[4]!, nu[5]!];
+  // Quick exit (exact): if the shallowest sea bed within reach of the hull is
+  // deeper than the deepest hull point, no point can be in contact.
+  if (ground.shallowestIn) {
+    let reach = 0;
+    let deepest = -Infinity;
+    for (const pb of points) {
+      reach = Math.max(reach, Math.hypot(pb[0], pb[1], pb[2]));
+      deepest = Math.max(deepest, pos[2] + R[6] * pb[0] + R[7] * pb[1] + R[8] * pb[2]);
+    }
+    const margin = reach + 1; // + 1 m for the gradient samples
+    if (ground.shallowestIn(pos[0] - margin, pos[0] + margin, pos[1] - margin, pos[1] + margin) > deepest) {
+      return { tau, points: 0, penetration: 0, normalForce: 0 };
+    }
+  }
   for (const pb of points) {
     const pw = mat3MulVec(R, pb);
     const n = pos[0] + pw[0];

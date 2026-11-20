@@ -20,6 +20,9 @@ import { bindTouchControls, isTouchDevice } from './ui/touch';
 import { createViewOverlay } from './ui/viewOverlay';
 import { ViewState, availableViews, bindViewButtons, bindViewPointer } from './ui/views';
 import { AudioDirector } from './audio/director';
+import { createPerfMeter } from './ui/perfMeter';
+
+const perf = createPerfMeter(new URLSearchParams(location.search).has('perf'));
 
 const el = <T extends HTMLElement>(id: string) => {
   const n = document.getElementById(id);
@@ -321,6 +324,7 @@ let last = performance.now();
 let lastUi = 0;
 
 function frame(now: number): void {
+  perf.begin();
   const elapsed = Math.min(0.25, (now - last) / 1000);
   last = now;
   const running = state === 'playing' || state === 'menu' || state === 'ended';
@@ -337,6 +341,8 @@ function frame(now: number): void {
     steps++;
   }
   if (steps >= maxSteps) acc = 0;
+  perf.steps(steps);
+  perf.mark('sim');
 
   updateViews(elapsed);
   view.render({
@@ -349,6 +355,7 @@ function frame(now: number): void {
     periscope: sim.actuators.periscope,
   });
   drawOverlay(overlayState());
+  perf.mark('render');
 
   if (now - lastUi > 100 && !hud.hidden) {
     const t = sim.telemetry();
@@ -366,6 +373,8 @@ function frame(now: number): void {
     updateObjective(objectiveEl, session.runner);
     lastUi = now;
   }
+  perf.mark('ui');
+  perf.end();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

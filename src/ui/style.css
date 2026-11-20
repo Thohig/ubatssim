@@ -241,3 +241,8 @@ legend { color: var(--muted); padding: 0 4px; }
 @media (max-width: 760px) {
   body.onboard #log { max-height: 12%; opacity: 0.85; }
 }
+
+.perf-meter {
+  position: fixed; left: 50%; bottom: 4px; transform: translateX(-50%); z-index: 50; pointer-events: none;
+  font-size: 11px; color: #ffe08a; background: rgba(0, 0, 0, 0.6); padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+}

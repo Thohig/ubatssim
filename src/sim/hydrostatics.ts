@@ -71,8 +71,8 @@ export function restoringForces(
   cg: Vec3,
   hullCompressibility: number,
   water: WaterProfile = DESIGN_WATER,
-  /** Wave elevation [m, up] at (north, east); the water line follows it slice by slice. */
-  surface?: (north: number, east: number) => number,
+  /** Wave elevation [m, up] at each hull slice (`sliceSurface`); the water line follows it slice by slice. */
+  surface?: ArrayLike<number>,
 ): HydrostaticResult {
   // World "down" expressed in body axes = third row of R.
   const gb: Vec3 = [R[6], R[7], R[8]];
@@ -91,10 +91,11 @@ export function restoringForces(
   let vol = 0;
   let vol0 = 0;
   const mB: Vec3 = [0, 0, 0];
-  for (const sl of hull.slices) {
+  for (let i = 0; i < hull.slices.length; i++) {
+    const sl = hull.slices[i]!;
     // Depth of the slice centre below the local water surface.
     let zc = pos[2] + R[6] * sl.x;
-    if (surface) zc += surface(pos[0] + R[0] * sl.x, pos[1] + R[3] * sl.x);
+    if (surface) zc += surface[i]!;
     vol0 += Math.PI * sl.r * sl.r * sl.dx;
     let area: number;
     let offset: number;
@@ -142,13 +143,14 @@ export function surfaceDamping(
   R: Mat3,
   nuR: ArrayLike<number>,
   c: number,
-  surface?: (north: number, east: number) => number,
+  surface?: ArrayLike<number>,
 ): Float64Array {
   const tau = new Float64Array(6);
   const [u, v, w, , q, r] = [nuR[0]!, nuR[1]!, nuR[2]!, nuR[3]!, nuR[4]!, nuR[5]!];
-  for (const sl of hull.slices) {
+  for (let i = 0; i < hull.slices.length; i++) {
+    const sl = hull.slices[i]!;
     let h = pos[2] + R[6] * sl.x;
-    if (surface) h += surface(pos[0] + R[0] * sl.x, pos[1] + R[3] * sl.x);
+    if (surface) h += surface[i]!;
     if (Math.abs(h) >= sl.r) continue;
     const b = 2 * Math.sqrt(sl.r * sl.r - h * h);
     // Vertical (world) speed of the slice centre: body velocity (u, v + r·x, w − q·x).
@@ -158,4 +160,18 @@ export function surfaceDamping(
     addWrench(tau, f, cross([sl.x, 0, 0], f));
   }
   return tau;
+}
+
+/**
+ * Wave elevation [m, up] at every hull slice for the present position and
+ * attitude, evaluated once and shared by the hydrostatics and the surface
+ * damping of a force evaluation.
+ */
+export function sliceSurface(hull: HullGeometry, pos: Vec3, R: Mat3, surface: (north: number, east: number) => number, out?: Float64Array): Float64Array {
+  const e = out ?? new Float64Array(hull.slices.length);
+  for (let i = 0; i < hull.slices.length; i++) {
+    const x = hull.slices[i]!.x;
+    e[i] = surface(pos[0] + R[0] * x, pos[1] + R[3] * x);
+  }
+  return e;
 }

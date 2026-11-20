@@ -39,7 +39,7 @@ export function areaGround(area: AreaId): GroundDepth {
 
 /** The west coast archipelago (the default area). */
 export const archipelagoGround = (): GroundDepth => areaGround('westCoast');
-import { restoringForces, surfaceDamping, type HydrostaticResult } from './hydrostatics';
+import { restoringForces, sliceSurface, surfaceDamping, type HydrostaticResult } from './hydrostatics';
 import { computeMassProperties, type DryMass } from './massProperties';
 import { mat3Diag, mat3MulVec, type Mat3, type MatN } from './math/mat';
 import { quatFromEuler, quatToEuler, quatToMat3 } from './math/quat';
@@ -206,6 +206,8 @@ export class Simulation {
   readonly current: CurrentDef;
   readonly sea: SeaState;
   readonly waves: readonly WaveComponent[];
+  /** Scratch: wave elevation per hull slice for one force evaluation. */
+  private readonly sliceElev: Float64Array;
   /** Wave elevation [m, up] at (north, east) now; undefined in a calm sea. */
   readonly surface: ((north: number, east: number) => number) | undefined;
   readonly contactPoints: Vec3[];
@@ -233,6 +235,7 @@ export class Simulation {
     this.sea = typeof init.sea === 'object' ? init.sea : SEA_STATES[init.sea ?? 'calm'];
     this.waves = waveComponents(this.sea);
     this.surface = this.waves.length > 0 ? (n, e) => waveElevation(this.waves, n, e, this.t) : undefined;
+    this.sliceElev = new Float64Array(cfg.hull.slices);
     this.ground = init.ground ?? areaGround(this.areaId);
     this.contactPoints = hullContactPoints(cfg);
     this.hull = buildHull(cfg.hull);
@@ -370,10 +373,11 @@ export class Simulation {
     const wxv = cross(w, vc);
     for (let i = 0; i < 3; i++) tau[i]! -= this.MA.get(i, i) * wxv[i]!;
 
-    const hs = restoringForces(this.hull, pos, R, this.massProps.mass, this.massProps.cg, cfg.hull.compressibility, this.water, this.surface);
+    const elev = this.surface ? sliceSurface(this.hull, pos, R, this.surface, this.sliceElev) : undefined;
+    const hs = restoringForces(this.hull, pos, R, this.massProps.mass, this.massProps.cg, cfg.hull.compressibility, this.water, elev);
     add(hs.tau);
     add(hullDamping(cfg, this.hull, nuR, rho));
-    add(surfaceDamping(this.hull, pos, R, nuR, cfg.hydro.surfaceDamping, this.surface));
+    add(surfaceDamping(this.hull, pos, R, nuR, cfg.hydro.surfaceDamping, elev));
     for (const fin of cfg.fins) {
       const delta = fin.actuator === null ? 0 : this.actuators[fin.actuator];
       add(finForce(fin, nuR, delta, rho));
