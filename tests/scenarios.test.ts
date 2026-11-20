@@ -33,20 +33,27 @@ describe('scenarios', () => {
   });
 
   it('"Första dykningen" can be completed with the hinted commands', () => {
-    const { runner, cmd, run } = start('first-dive');
+    const { ctrl, runner, cmd, run } = start('first-dive');
     cmd('fyll huvudballast');
     run(1);
+    expect(runner.progress.index).toBe(0); // refused: the bridge is manned
+    expect(ctrl.log.some((e) => e.kind === 'error' && /klart bryggan/.test(e.text))).toBe(true);
+    cmd('klart bryggan');
+    run(1);
     expect(runner.progress.index).toBe(1);
+    cmd('fyll huvudballast');
+    run(1);
+    expect(runner.progress.index).toBe(2);
     cmd('fart 5 knop');
-    run(60, () => runner.progress.index >= 2);
+    run(60, () => runner.progress.index >= 3);
     cmd('djup 30');
-    run(400, () => runner.progress.index >= 3);
-    expect(runner.progress.index).toBe(3);
+    run(400, () => runner.progress.index >= 4);
+    expect(runner.progress.index).toBe(4);
     const net = runner.ctrl.sim.telemetry().netBuoyancy / 9.80665;
     expect(net).toBeLessThan(-300); // starts heavy: the trim step is real work
     cmd(`kompensera ut ${Math.round(-net)}`);
-    run(400, () => runner.progress.index >= 4);
-    expect(runner.progress.index).toBe(4);
+    run(400, () => runner.progress.index >= 5);
+    expect(runner.progress.index).toBe(5);
     cmd('blås huvudballast');
     cmd('djup 0');
     run(400);

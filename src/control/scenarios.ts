@@ -70,11 +70,17 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'first-dive',
     title: 'Första dykningen',
-    description: 'Guidad övning: fyll huvudballasten, dyk till 30 m, trimma ubåten neutral och gå sedan till ytläge igen.',
+    description: 'Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma ubåten neutral och gå sedan till ytläge igen.',
     difficulty: 'lätt',
     initial: {},
     autopilotAllowed: true,
     objectives: [
+      {
+        text: 'Klara bryggan',
+        hint: 'Skriv "klart bryggan". Ingen får vara kvar på bryggan när ubåten dyker.',
+        hintSimplified: 'Tryck D (eller Dyk). Bryggan utryms automatiskt.',
+        check: (_t, c) => !c.bridgeManned,
+      },
       {
         text: 'Öppna ventilerna till huvudballasten',
         hint: 'Skriv "fyll huvudballast" i konsolen.',

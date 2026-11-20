@@ -2,6 +2,7 @@ import type { Controller } from '../control/controller';
 import { PERISCOPE_DEPTH } from '../control/gameMode';
 import type { OrderSource } from '../control/orders';
 import type { InputModeState } from './inputMode';
+import { cycleView, togglePeriscope, type ViewState } from './views';
 
 /**
  * "Dyk" in the simplified simulation: flood the main ballast and, unless a
@@ -24,8 +25,13 @@ export function submitDive(ctrl: Controller, source: OrderSource): void {
  *   Space  hold present depth and heading  D  dive   S  surface
  * Both:
  *   Shift+↑/↓  speed ±1 knot               Enter or /  open the console
+ *   V  next view   P  periscope up/down   Z  periscope magnification
+ * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
-export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeState, openConsole: () => void): void {
+export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeState, openConsole: () => void, views: ViewState): void {
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') views.trainDir = 0;
+  });
   window.addEventListener('keydown', (e) => {
     if (mode.current !== 'steer') return;
     const ctrl = getCtrl();
@@ -33,7 +39,22 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const simple = ctrl.options.mode === 'simplified';
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (views.mode === 'periscope' && !e.shiftKey && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+      views.trainDir = key === 'ArrowLeft' ? -1 : 1;
+      e.preventDefault();
+      return;
+    }
     switch (key) {
+      case 'v':
+        cycleView(ctrl, views, 'keyboard');
+        break;
+      case 'p':
+        togglePeriscope(ctrl, 'keyboard');
+        break;
+      case 'z':
+        if (views.mode !== 'periscope') return;
+        views.toggleZoom();
+        break;
       case 'ArrowLeft':
         if (simple) ctrl.submit({ kind: 'adjustHeading', deltaDegrees: -10 }, 'keyboard');
         else ctrl.submit({ kind: 'rudder', angle: -5, relative: true }, 'keyboard');

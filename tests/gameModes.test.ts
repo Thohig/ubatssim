@@ -141,6 +141,7 @@ describe('trim assistant', () => {
 
   it('does nothing in the realistic simulation', () => {
     const { c, run, send } = game({}, 'realistic');
+    send({ kind: 'bridge', manned: false });
     send({ kind: 'dive' });
     send({ kind: 'setDepth', depth: 50 });
     send({ kind: 'setSpeed', knots: 6 });
@@ -216,16 +217,17 @@ describe('scenarios in the simplified simulation', () => {
     const { c, runner, run } = start('first-dive');
     dive(c);
     run(1);
-    expect(runner.progress.index).toBe(1);
+    expect(runner.progress.index).toBe(2); // D clears the bridge and opens the vents
+    expect(c.bridgeManned).toBe(false);
     for (let i = 0; i < 5; i++) c.submit({ kind: 'adjustSpeed', deltaKnots: 1 }, 'keyboard');
-    run(90, () => runner.progress.index >= 2);
-    expect(runner.progress.index).toBe(2);
+    run(90, () => runner.progress.index >= 3);
+    expect(runner.progress.index).toBe(3);
     while (c.setpoints.depth < 30) {
       c.submit({ kind: 'adjustDepth', deltaMetres: 5 }, 'keyboard');
       run(0.02);
     }
-    run(1200, () => runner.progress.index >= 4);
-    expect(runner.progress.index).toBe(4);
+    run(1200, () => runner.progress.index >= 5);
+    expect(runner.progress.index).toBe(5);
     c.submit({ kind: 'surface' }, 'keyboard');
     run(400);
     expect(runner.status).toBe('completed');

@@ -101,6 +101,33 @@ export const SUBMARINE = {
   },
 
   /**
+   * Search periscope: a telescopic mast in the sail. Raised, the head is
+   * 15.2 m above the hull centre line, so the boat can look out up to ~14 m
+   * CO depth (keel ~17 m) in a calm sea. APPROX (typical of this class).
+   */
+  periscope: {
+    /** Mast foot at the top of the sail, body frame [m]. */
+    base: [8.6, 0, -7.7] as Vec3,
+    /** Head height above the mast foot when fully raised [m]. */
+    extension: 7.5,
+    /** Time to raise or lower fully [s]. */
+    raiseTime: 8,
+    /** Mast diameter [m] and drag coefficient of a circular cylinder (Re > 5e5). */
+    diameter: 0.35,
+    dragCoefficient: 1.0,
+    /** Speed above which the raised mast vibrates and leaves a visible feather [m/s] (~6 knots). */
+    vibrationSpeed: 3.1,
+  },
+
+  /** The open bridge in the top of the sail. */
+  bridge: {
+    /** Eye point of the officer of the watch, body frame [m]. */
+    eye: [10, 0, -8.6] as Vec3,
+    /** Bridge deck (cockpit floor), body frame [m]; water above it floods the bridge. */
+    deck: [10, 0, -7.4] as Vec3,
+  },
+
+  /**
    * Design condition: the boat is neutrally buoyant and level at this depth
    * with main ballast full and trim/compensating tanks at their initial
    * fill. Dry mass and dry CG are derived from this (as fixed lead ballast

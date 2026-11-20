@@ -23,6 +23,9 @@ export interface SubmarineModel {
   rudderPivot: THREE.Group;
   planesPivot: THREE.Group;
   propeller: THREE.Group;
+  /** Telescopic periscope mast and head; follow the mast extension. */
+  periscopeMast: THREE.Mesh;
+  periscopeHead: THREE.Mesh;
   /** Tank meshes by id, for showing fill levels later. */
   tankMeshes: Map<string, THREE.Mesh>;
 }
@@ -162,6 +165,17 @@ export function buildSubmarineModel(cfg: SubmarineConfig): SubmarineModel {
   const hub = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), materials.propeller);
   propeller.add(hub);
   appendages.add(propeller);
+
+  // Periscope: a mast that slides up out of the sail, with a slightly thicker head.
+  const per = cfg.periscope;
+  const mastGeo = new THREE.CylinderGeometry(per.diameter / 2, per.diameter / 2, 1, 12);
+  mastGeo.translate(0, 0.5, 0); // grows upwards from the foot
+  const periscopeMast = new THREE.Mesh(mastGeo, materials.fins);
+  periscopeMast.position.copy(bodyToLocal(per.base));
+  periscopeMast.visible = false;
+  const periscopeHead = new THREE.Mesh(new THREE.CylinderGeometry(per.diameter * 0.7, per.diameter * 0.7, 0.9, 12), materials.sail);
+  periscopeHead.visible = false;
+  appendages.add(periscopeMast, periscopeHead);
   root.add(appendages);
 
   return {
@@ -171,6 +185,8 @@ export function buildSubmarineModel(cfg: SubmarineConfig): SubmarineModel {
     rudderPivot,
     planesPivot,
     propeller,
+    periscopeMast,
+    periscopeHead,
     tankMeshes,
   };
 }
@@ -180,7 +196,20 @@ export function buildSubmarineModel(cfg: SubmarineConfig): SubmarineModel {
  * Rudder positive = starboard turn = trailing edge to starboard (pushes the stern to port).
  * Planes positive = dive = trailing edge down.
  */
-export function updateSubmarineModel(m: SubmarineModel, rudder: number, planes: number, propellerAngle: number): void {
+export function updateSubmarineModel(
+  m: SubmarineModel,
+  rudder: number,
+  planes: number,
+  propellerAngle: number,
+  periscope = 0,
+  periscopeExtension = 7.5,
+): void {
+  const h = periscope * periscopeExtension;
+  m.periscopeMast.visible = h > 0.05;
+  m.periscopeHead.visible = h > 0.05;
+  m.periscopeMast.scale.y = Math.max(0.01, h);
+  m.periscopeHead.position.copy(m.periscopeMast.position);
+  m.periscopeHead.position.y += h - 0.45;
   // Trailing edge is toward +Z (aft). Rotating about +Y by +a moves +Z toward +X (starboard).
   m.rudderPivot.rotation.y = rudder;
   // Rotating about +X by +a moves +Z toward −Y (down).

@@ -1,3 +1,5 @@
+import type { ViewState } from './views';
+
 export type InputMode = 'steer' | 'console';
 
 /** Tracks whether the arrow keys steer the boat or edit the console. */
@@ -20,18 +22,31 @@ export class InputModeState {
   }
 }
 
-export function bindModeIndicator(el: HTMLElement, state: InputModeState, touch = false): void {
-  const render = (m: InputMode) => {
-    el.className = `mode ${m}`;
+export function bindModeIndicator(el: HTMLElement, state: InputModeState, touch = false, views?: ViewState): void {
+  const render = () => {
+    const m = state.current;
+    const view = views?.mode ?? 'external';
+    el.className = `mode ${m}${m === 'steer' && view !== 'external' ? ` ${view}` : ''}`;
+    if (m === 'steer' && view === 'periscope') {
+      el.innerHTML = touch
+        ? 'PERISKOP<small>dra för att vrida · Vy = byt</small>'
+        : 'PERISKOP<small>←/→ vrider · Z förstoring · Shift+←/→ styr · Esc = yttre vy</small>';
+      return;
+    }
+    if (m === 'steer' && view === 'bridge') {
+      el.innerHTML = touch ? 'BRYGGAN<small>dra för att titta runt</small>' : 'BRYGGAN<small>dra för att titta runt · V byter vy · Esc = yttre vy</small>';
+      return;
+    }
     if (touch) {
       el.innerHTML = m === 'steer' ? 'STYRNING<small>&gt;_ = konsol</small>' : 'KONSOL<small>tryck på en styrknapp för att stänga</small>';
       return;
     }
     el.innerHTML =
       m === 'steer'
-        ? 'STYRNING<small>pilar styr · Enter eller / = konsol</small>'
+        ? 'STYRNING<small>pilar styr · V byter vy · Enter eller / = konsol</small>'
         : 'KONSOL<small>↑/↓ historik · Esc = styrning</small>';
   };
-  render(state.current);
+  render();
   state.onChange(render);
+  views?.onChange(render);
 }

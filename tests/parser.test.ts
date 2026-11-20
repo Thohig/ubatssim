@@ -136,6 +136,7 @@ describe('order queue and controller', () => {
   it('is deterministic for the same order sequence', () => {
     const runOnce = () => {
       const c = new Controller(new Simulation());
+      c.submit(order('klart bryggan'), 'console');
       c.submit(order('fyll huvudballast'), 'console');
       c.submit(order('fart 6'), 'console');
       for (let i = 0; i < 3000; i++) {

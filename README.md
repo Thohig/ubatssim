@@ -25,7 +25,7 @@ På startsidan väljer du spelläge, **förenklad** eller **realistisk simulerin
 
 | Val | Innehåll |
 |---|---|
-| **Fritt spel** | Välj startläge: ytläge på öppet hav, periskopdjup (18 m), djupt vatten (100 m) eller i ett sund i skärgården. |
+| **Fritt spel** | Välj startläge: ytläge på öppet hav, periskopdjup (13 m, kölen på 16 m), djupt vatten (100 m) eller i ett sund i skärgården. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
 | **Inställningar** | Tidskomprimering ×1/×2/×4, autopilot tillåten i fritt spel (realistisk simulering), pekknappar (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna och valt spelläge sparas i webbläsaren. |
 | **Hjälp** | Kontroller, alla konsolkommandon och tips. |
@@ -66,7 +66,7 @@ Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik
 | ← / → | Kurs 10° babord / styrbord | Roder 5° babord / styrbord |
 | ↑ / ↓ | Djup 5 m grundare / djupare | Djuproder 5° upp / ned |
 | Mellanslag | Håll nuvarande kurs och djup | Roder midskepps |
-| D | Dyk (djupmål 18 m om inget djupare mål finns) | – |
+| D | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) | – |
 | S | Ytläge | – |
 | Shift + ↑ / ↓ | Fart ±1 knop (sätter fartautopiloten) | Samma |
 | Enter eller / | Öppna kommandokonsolen | Samma |

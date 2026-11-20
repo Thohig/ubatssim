@@ -19,5 +19,5 @@ export const GAME_MODE_TEXT: Record<GameMode, string> = {
   realistic: 'Du sköter roder, ballast och trim själv.',
 };
 
-/** Depth the simplified "dive" goes to when no deeper target is set [m]. */
-export const PERISCOPE_DEPTH = 18;
+/** Periscope depth (CO depth, keel ~16 m): the simplified "dive" goes here when no deeper target is set [m]. */
+export const PERISCOPE_DEPTH = 13;

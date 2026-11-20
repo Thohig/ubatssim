@@ -35,7 +35,11 @@ export type Order =
   /** Flood all main ballast; the vents shut automatically when the tanks are full. */
   | { kind: 'dive' }
   /** Blow all main ballast; a depth autopilot is sent to the surface. */
-  | { kind: 'surface' };
+  | { kind: 'surface' }
+  /** Raise or lower the search periscope. */
+  | { kind: 'periscope'; up: boolean }
+  /** Man the bridge, or clear it before diving. */
+  | { kind: 'bridge'; manned: boolean };
 
 export interface QueuedOrder {
   order: Order;
@@ -96,5 +100,9 @@ export function acknowledgement(o: Order): string {
       return 'Dyk, ja';
     case 'surface':
       return 'Ytläge, ja';
+    case 'periscope':
+      return `Periskop ${o.up ? 'upp' : 'ned'}, ja`;
+    case 'bridge':
+      return o.manned ? 'Bemanna bryggan, ja' : 'Klart bryggan, ja';
   }
 }

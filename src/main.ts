@@ -14,6 +14,8 @@ import { Menu, type FreeStart } from './ui/menu';
 import { updateObjective } from './ui/objective';
 import { loadSettings, saveSettings, type Settings } from './ui/settings';
 import { bindTouchControls, isTouchDevice } from './ui/touch';
+import { createViewOverlay } from './ui/viewOverlay';
+import { ViewState, availableViews, bindViewButtons, bindViewPointer } from './ui/views';
 
 const el = <T extends HTMLElement>(id: string) => {
   const n = document.getElementById(id);
@@ -40,7 +42,7 @@ interface Session {
 
 const FREE_STARTS: Record<FreeStart, { initial: InitialConditions; text: string }> = {
   surface: { initial: {}, text: 'Ubåten ligger i ytläge.' },
-  periscope: { initial: { depth: 18, speed: 4 * KN, designTrim: true }, text: 'Ubåten går på periskopdjup, 18 m.' },
+  periscope: { initial: { depth: 13, speed: 4 * KN, designTrim: true }, text: 'Ubåten går på periskopdjup, 13 m. Tryck P för att hissa periskopet.' },
   deep: { initial: { depth: 100, speed: 8 * KN, designTrim: true }, text: 'Ubåten går på 100 m djup, under språngskiktet.' },
   archipelago: {
     initial: { east: 2560, heading: (20 * Math.PI) / 180 },
@@ -85,6 +87,8 @@ function newSession(initial: InitialConditions, scenario: Scenario | null, intro
   });
   view.resetCamera();
   view.setWaypoint(scenario?.waypoint ?? null);
+  views.set('external');
+  lastPeriscope = sim.actuators.periscope;
   return s;
 }
 
@@ -203,16 +207,24 @@ function pause(): void {
 
 let touch = false;
 const mode = new InputModeState();
+const views = new ViewState();
+let lastPeriscope = 0;
 const consoleInput = el<HTMLInputElement>('console-input');
 const activeCtrl = () => (state === 'playing' ? session.ctrl : null);
 const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode);
-bindKeyboard(activeCtrl, mode, openConsole);
+bindKeyboard(activeCtrl, mode, openConsole, views);
+bindViewPointer(view.renderer.domElement, views);
+bindViewButtons(el('view-btns'), activeCtrl, views);
+const drawOverlay = createViewOverlay(el<HTMLCanvasElement>('view-overlay'));
 bindTouchControls(el('touch'), activeCtrl, mode, openConsole);
 el('menu-btn').addEventListener('click', pause);
 
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (state === 'playing' && mode.current === 'steer') {
+  if (state === 'playing' && mode.current === 'steer' && views.mode !== 'external') {
+    e.preventDefault();
+    views.set('external');
+  } else if (state === 'playing' && mode.current === 'steer') {
     e.preventDefault();
     pause();
   } else if (state === 'paused' && menu.current === 'intro') {
@@ -236,8 +248,43 @@ function applySettings(): void {
   consoleInput.placeholder = touch
     ? 'Skriv kommando, t.ex. "djup 120" eller "hjälp"'
     : 'Enter eller / öppnar konsolen – skriv "hjälp"';
-  bindModeIndicator(el('mode'), mode, touch);
+  bindModeIndicator(el('mode'), mode, touch, views);
   view.setParticles(settings.particles);
+}
+
+// --------------------------------------------------------------------- views
+
+/** Opens the periscope view when the mast is up, and leaves views that are no longer available. */
+function updateViews(dt: number): void {
+  const { sim, ctrl } = session;
+  const inGame = state !== 'menu';
+  const ext = sim.actuators.periscope;
+  if (inGame && state === 'playing' && lastPeriscope < 0.99 && ext >= 0.99) views.set('periscope');
+  lastPeriscope = ext;
+  // Orders still in the queue may make a view available (e.g. "bemanna bryggan").
+  if (ctrl.queue.length === 0 && !availableViews(ctrl)[views.mode]) {
+    if (views.mode === 'bridge') ctrl.addLog('Bryggan är utrymd. Yttre vy.', 'info');
+    views.set('external');
+  }
+  views.update(dt);
+  view.setView(inGame ? views.camera(sim.y[7]!, sim.cfg.periscope.vibrationSpeed) : { mode: 'external' });
+}
+
+function overlayState() {
+  if (state === 'menu' || views.mode === 'external') return null;
+  const { sim, runner } = session;
+  const k = sim.kinematics();
+  const rel = views.mode === 'bridge' ? views.bridgeYaw : views.periscopeBearing;
+  const wp = runner?.scenario.waypoint;
+  const cam = views.camera(0, Infinity);
+  return {
+    mode: views.mode,
+    bearing: ((k.heading + rel) * 180) / Math.PI,
+    waypointBearing: wp ? ((Math.atan2(wp[1] - sim.y[1]!, wp[0] - sim.y[0]!) * 180) / Math.PI + 360) % 360 : null,
+    zoom: views.zoom,
+    underwater: views.mode === 'periscope' && sim.bodyPointDepth(sim.periscopeHead()) > 0,
+    fov: cam.mode === 'periscope' ? cam.fov : 70,
+  };
 }
 
 // ---------------------------------------------------------------------- loop
@@ -269,6 +316,7 @@ function frame(now: number): void {
   }
   if (steps >= maxSteps) acc = 0;
 
+  updateViews(elapsed);
   view.render({
     t: sim.t,
     position: [sim.y[0]!, sim.y[1]!, sim.y[2]!],
@@ -276,7 +324,9 @@ function frame(now: number): void {
     rudder: sim.actuators.rudder,
     sternPlanes: sim.actuators.sternPlanes,
     propellerAngle: session.propellerAngle,
+    periscope: sim.actuators.periscope,
   });
+  drawOverlay(overlayState());
 
   if (now - lastUi > 100 && !hud.hidden) {
     session.updateInstruments(sim.telemetry());

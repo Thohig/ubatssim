@@ -189,7 +189,7 @@ export class Menu {
           <div class="menu-list">
             <button class="menu-btn choice" data-action="free" data-arg="surface"><b>Ytläge</b><span>Stilla vid ytan på öppet hav, skärgården 2 km österut.</span></button>
             <button class="menu-btn choice" data-action="free" data-arg="archipelago"><b>Skärgården</b><span>I ytläge i ett smalt sund mellan kobbar och skär.</span></button>
-            <button class="menu-btn choice" data-action="free" data-arg="periscope"><b>Periskopdjup</b><span>18 m, 4 knop, neutralt trimmad.</span></button>
+            <button class="menu-btn choice" data-action="free" data-arg="periscope"><b>Periskopdjup</b><span>13 m (kölen på 16 m), 4 knop, neutralt trimmad. Hissa periskopet med P.</span></button>
             <button class="menu-btn choice" data-action="free" data-arg="deep"><b>Djupt vatten</b><span>100 m, 8 knop, under språngskiktet.</span></button>
           </div>
           ${back}`;
@@ -253,12 +253,20 @@ export class Menu {
               <tr><td>← / →</td><td>Kurs 10° babord / styrbord</td><td>Roder 5° babord / styrbord</td></tr>
               <tr><td>↑ / ↓</td><td>Djup 5 m grundare / djupare</td><td>Djuproder 5° upp / ned</td></tr>
               <tr><td>Mellanslag</td><td>Håll kurs och djup</td><td>Roder midskepps</td></tr>
-              <tr><td>D</td><td>Dyk (till 18 m om inget djupare mål finns)</td><td>–</td></tr>
+              <tr><td>D</td><td>Dyk (till periskopdjup, 13 m, om inget djupare mål finns)</td><td>–</td></tr>
               <tr><td>S</td><td>Ytläge</td><td>–</td></tr>
               <tr><td>Shift + ↑ / ↓</td><td colspan="2">Fart ±1 knop</td></tr>
+              <tr><td>V</td><td colspan="2">Byt vy: yttre, bryggan (i ytläge) och periskopet (när det är uppe)</td></tr>
+              <tr><td>P</td><td colspan="2">Periskop upp / ned. Vyn öppnas när masten är uppe.</td></tr>
+              <tr><td>Z</td><td colspan="2">Periskopets förstoring, 1,5× eller 6×</td></tr>
+              <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
               <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
               <tr><td>Esc</td><td colspan="2">Lämna konsolen, eller pausa</td></tr>
             </table>
+            <h3>Vyer</h3>
+            <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker: skriv <code>klart bryggan</code> i realistisk simulering. I förenklad simulering sköts det automatiskt.</p>
+            <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
+            <p>Knapparna Vy, Per och Zoom under ☰ gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
             <h3>Pekskärm</h3>
             <p>Knapparna längst ner har samma funktioner som tangenterna. I förenklad simulering ändrar ◀ / ▶ kursen och ▲ / ▼ djupet, och Dyk och Yta sköter huvudballasten. Håll in för att upprepa. <code>&gt;_</code> öppnar konsolen och ☰ pausar.</p>
             <h3>Kommandon</h3>

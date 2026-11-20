@@ -29,7 +29,7 @@ export function archipelagoGround(): GroundDepth {
 }
 import { restoringForces, type HydrostaticResult } from './hydrostatics';
 import { computeMassProperties, type DryMass } from './massProperties';
-import { mat3Diag, mat3MulVec, type MatN } from './math/mat';
+import { mat3Diag, mat3MulVec, type Mat3, type MatN } from './math/mat';
 import { quatFromEuler, quatToEuler, quatToMat3 } from './math/quat';
 import type { Vec3 } from './math/vec3';
 import { propellerForces } from './propulsion';
@@ -59,6 +59,8 @@ export interface Commands {
   sternPlanes: number;
   /** Shaft speed command [rev/s]. */
   rps: number;
+  /** Raise (true) or lower the periscope. */
+  periscopeUp: boolean;
 }
 
 export interface InitialConditions {
@@ -132,6 +134,12 @@ export interface Telemetry {
   sternPlanesCmd: number;
   rps: number;
   rpsCmd: number;
+  /** Periscope extension 0 (housed) … 1 (raised). */
+  periscope: number;
+  /** World depth of the periscope head [m]; negative = above the water. */
+  periscopeHeadDepth: number;
+  /** World depth of the bridge deck [m]; negative = above the water. */
+  bridgeDeckDepth: number;
   thrust: number;
   shaftPower: number;
   tanks: { id: string; name: string; kind: TankDef['kind']; fill: number; water: number; volume: number; ventOpen: boolean; blowOpen: boolean }[];
@@ -165,8 +173,8 @@ export class Simulation {
   y: Float64Array = new Float64Array(STATE_SIZE);
   tanks: TankState[];
   air: AirState;
-  actuators = { rudder: 0, sternPlanes: 0 };
-  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0 };
+  actuators = { rudder: 0, sternPlanes: 0, periscope: 0 };
+  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false };
   /** Remaining trim transfer [m^3], positive = aft → forward. */
   trimRemaining = 0;
   /** Remaining compensating transfer [m^3], positive = flood from sea. */
@@ -299,9 +307,54 @@ export class Simulation {
     const prop = propellerForces(cfg.propulsion, y[IDX_SHAFT]!, nu[0]!, this.commands.rps, rho);
     tau[0]! += prop.thrust;
     tau[3]! -= prop.torque; // reaction torque on the hull
+    add(this.mastDrag(pos, R, nu));
     const contact = contactForces(this.contactPoints, pos, R, nu, this.ground, cfg.contact);
     add(contact.tau);
     return { tau, hydrostatics: hs, contact, propThrust: prop.thrust, propTorque: prop.torque, motorTorque: prop.motorTorque };
+  }
+
+  /** Body-frame point of the periscope head at the present extension. */
+  periscopeHead(): Vec3 {
+    const p = this.cfg.periscope;
+    return [p.base[0], p.base[1], p.base[2] - p.extension * this.actuators.periscope];
+  }
+
+  /** World depth [m] of a body-frame point. */
+  bodyPointDepth(p: Vec3, y: Float64Array = this.y): number {
+    const R = quatToMat3(getQuat(y));
+    return y[2]! + mat3MulVec(R, p)[2];
+  }
+
+  /**
+   * Drag of the wetted part of the raised periscope mast (circular
+   * cylinder, cross-flow in surge and sway), applied at the middle of the
+   * wetted length.
+   */
+  private mastDrag(pos: Vec3, R: Mat3, nu: Float64Array): Float64Array {
+    const tau = new Float64Array(6);
+    const ext = this.actuators.periscope;
+    if (ext <= 0) return tau;
+    const p = this.cfg.periscope;
+    const base = p.base;
+    const len = p.extension * ext;
+    const depthOf = (z: number) => pos[2] + mat3MulVec(R, [base[0], base[1], z])[2];
+    const dFoot = depthOf(base[2]);
+    const dHead = depthOf(base[2] - len);
+    if (dFoot <= 0) return tau; // the whole mast is in the air
+    const wetFrac = dHead >= 0 ? 1 : dFoot / (dFoot - dHead);
+    const wet = len * wetFrac;
+    const zMid = base[2] - wet / 2;
+    const k = 0.5 * waterDensity(Math.max(0, dFoot)) * p.dragCoefficient * p.diameter * wet;
+    const u = nu[0]! + nu[4]! * zMid; // local surge speed: u + q·z
+    const v = nu[1]! - nu[3]! * zMid + nu[5]! * base[0]; // local sway: v − p·z + r·x
+    const X = -k * u * Math.abs(u);
+    const Y = -k * v * Math.abs(v);
+    tau[0] = X;
+    tau[1] = Y;
+    tau[3] = -zMid * Y; // K = y·Z − z·Y
+    tau[4] = zMid * X; // M = z·X − x·Z
+    tau[5] = base[0] * Y; // N = x·Y − y·X
+    return tau;
   }
 
   /** Number of hull points touching the ground at the last force evaluation. */
@@ -327,6 +380,9 @@ export class Simulation {
     this.actuators.sternPlanes = move(this.actuators.sternPlanes, this.commands.sternPlanes, a.planesMax);
     const p = this.cfg.propulsion;
     this.commands.rps = Math.max(-p.maxRps, Math.min(p.maxRps, this.commands.rps));
+    const mastStep = dt / this.cfg.periscope.raiseTime;
+    const mastTarget = this.commands.periscopeUp ? 1 : 0;
+    this.actuators.periscope += Math.max(-mastStep, Math.min(mastStep, mastTarget - this.actuators.periscope));
   }
 
   private updateTanks(dt: number): void {
@@ -474,6 +530,9 @@ export class Simulation {
       sternPlanesCmd: this.commands.sternPlanes,
       rps: n,
       rpsCmd: this.commands.rps,
+      periscope: this.actuators.periscope,
+      periscopeHeadDepth: this.bodyPointDepth(this.periscopeHead()),
+      bridgeDeckDepth: this.bodyPointDepth(this.cfg.bridge.deck),
       thrust: ext.propThrust,
       shaftPower: 2 * Math.PI * n * ext.propTorque,
       tanks: this.tankDefs.map((def, i) => {

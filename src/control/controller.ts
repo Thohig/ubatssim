@@ -14,6 +14,8 @@ import { LIMITS } from './parser';
 import { TrimAssist } from './trimAssist';
 
 const DEG = Math.PI / 180;
+/** The bridge deck must be at least this far above the water to man it [m]. */
+const BRIDGE_FREEBOARD = 0.5;
 const KNOT = 1852 / 3600;
 
 export type LogKind = 'ack' | 'error' | 'info';
@@ -60,6 +62,26 @@ export class Controller {
     this.setpoints = { depth: Math.round(tel.depth), heading: Math.round(tel.heading / DEG) % 360, speed: 0 };
     this.manual.rpm = (sim.commands.rps * 60);
     this.rpsCmd = sim.commands.rps;
+    this.bridgeManned = sim.bodyPointDepth(sim.cfg.bridge.deck) < -BRIDGE_FREEBOARD;
+  }
+
+  /** Why an order cannot be carried out now, or null. */
+  private refusal(o: Order): string | null {
+    const allowed = this.options.autopilotAllowed || this.options.mode === 'simplified';
+    if (!allowed && this.engagesSteeringAutopilot(o)) return 'Autopilot för djup och kurs är inte tillåten här. Styr med roder och djuproder.';
+    const floods = o.kind === 'dive' || (o.kind === 'mainBallast' && o.action === 'flood');
+    if (floods && this.bridgeManned) {
+      if (this.options.mode === 'simplified') {
+        this.bridgeManned = false;
+        this.addLog('Klart bryggan. Bryggan är utrymd inför dykningen.', 'info');
+        return null;
+      }
+      return 'Bryggan är bemannad. Ge order "klart bryggan" innan ubåten dyker.';
+    }
+    if (o.kind === 'bridge' && o.manned && this.sim.bodyPointDepth(this.sim.cfg.bridge.deck) > -BRIDGE_FREEBOARD) {
+      return 'Bryggan är under vatten. Gå till ytläge först.';
+    }
+    return null;
   }
 
   onLog(fn: (e: LogEntry) => void): void {
@@ -104,6 +126,13 @@ export class Controller {
     }
   }
 
+  /**
+   * Someone is on the open bridge. The boat must not dive with the bridge
+   * manned: the realistic mode refuses to flood, the simplified mode clears
+   * the bridge itself. Starts manned when the bridge is above the water.
+   */
+  bridgeManned: boolean;
+
   /** Main ballast vents shut automatically once the tanks are full (after "dyk"). */
   private shutVentsWhenFull = false;
 
@@ -125,9 +154,9 @@ export class Controller {
 
   step(): void {
     for (const { order, source } of this.queue.drain()) {
-      const allowed = this.options.autopilotAllowed || this.options.mode === 'simplified';
-      if (!allowed && this.engagesSteeringAutopilot(order)) {
-        this.addLog('Autopilot för djup och kurs är inte tillåten här. Styr med roder och djuproder.', 'error', source);
+      const refused = this.refusal(order);
+      if (refused) {
+        this.addLog(refused, 'error', source);
         continue;
       }
       this.apply(order);
@@ -173,6 +202,10 @@ export class Controller {
         this.shutVentsWhenFull = false;
         this.addLog('Huvudballasten är full. Ventilerna stängda.', 'info');
       }
+    }
+    if (this.bridgeManned && sim.bodyPointDepth(sim.cfg.bridge.deck) > 0) {
+      this.bridgeManned = false;
+      this.addLog('Vatten över bryggan! Bryggan är utrymd.', 'error');
     }
     if (this.options.mode === 'simplified') this.assist.step();
 
@@ -304,6 +337,12 @@ export class Controller {
         sim.setBlow(true);
         this.shutVentsWhenFull = false;
         if (this.ap.depth) this.setpoints.depth = 0;
+        break;
+      case 'periscope':
+        sim.commands.periscopeUp = o.up;
+        break;
+      case 'bridge':
+        this.bridgeManned = o.manned;
         break;
     }
   }

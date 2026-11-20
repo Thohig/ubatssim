@@ -71,6 +71,7 @@ describe('autopilot', () => {
 
   it('dives from the surface and levels off at the ordered depth', { timeout: 60000 }, () => {
     const c = new Controller(new Simulation());
+    cmd(c, 'klart bryggan');
     cmd(c, 'fyll huvudballast');
     cmd(c, 'fart 6');
     cmd(c, 'djup 40');

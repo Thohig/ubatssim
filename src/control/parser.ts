@@ -35,6 +35,9 @@ export const HELP_TEXT = [
   'stäng huvudballast [för|akter]  – stäng ventiler och blåsning',
   'dyk                      – fyll huvudballasten, ventilerna stängs när den är full',
   'ytläge                   – blås huvudballasten (djupautopiloten går till 0 m)',
+  'klart bryggan            – utrym bryggan före dykning',
+  'bemanna bryggan          – gå upp på bryggan (i ytläge)',
+  'periskop upp|ned',
   'trimma för|akter <liter> – pumpa mellan trimtankarna',
   'kompensera in|ut <liter> – ta in eller pumpa ut vatten',
   'autopilot på|av [djup|kurs|fart]',
@@ -52,6 +55,9 @@ const COMMANDS: Record<string, string[]> = {
   fyll: ['fyll', 'ventilera'],
   dyk: ['dyk', 'dykning'],
   ytläge: ['ytläge', 'ytlage', 'yta'],
+  klart: ['klart', 'klara', 'utrym'],
+  bemanna: ['bemanna'],
+  periskop: ['periskop', 'per'],
   blås: ['blås', 'blas'],
   stäng: ['stäng', 'stang'],
   trimma: ['trimma', 'trim'],
@@ -198,6 +204,22 @@ export function parseCommand(input: string): ParseResult {
     case 'ytläge':
       if (t.peek() !== undefined) return unexpected(t.peek()!, `inget mer efter "${cmd}"`);
       return ok({ kind: cmd === 'dyk' ? 'dive' : 'surface' });
+
+    case 'klart':
+    case 'bemanna': {
+      const args = t.rest();
+      if (args.length === 0 || !['bryggan', 'brygga', 'bryggen'].includes(args[0]!) || args.length > 1) {
+        return err(`Skriv "${cmd} bryggan".`);
+      }
+      return ok({ kind: 'bridge', manned: cmd === 'bemanna' });
+    }
+
+    case 'periskop': {
+      const args = t.rest();
+      if (args.length === 1 && UP.has(args[0]!)) return ok({ kind: 'periscope', up: true });
+      if (args.length === 1 && (DOWN.has(args[0]!) || args[0] === 'ned')) return ok({ kind: 'periscope', up: false });
+      return err('Skriv "periskop upp" eller "periskop ned".');
+    }
 
     case 'stopp':
       if (t.peek() !== undefined) return unexpected(t.peek()!, 'inget mer efter "stopp"');
