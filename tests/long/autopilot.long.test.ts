@@ -119,4 +119,14 @@ describe('speed autopilot at the shaft limit', () => {
     expect(Math.abs(c.sim.telemetry().u / KN - 8)).toBeLessThan(0.2);
     expect(lowest).toBeGreaterThan(7.6);
   });
+
+  it('full astern runs the shaft at its astern limit and reaches the top speed astern', { timeout: 60000 }, () => {
+    const c = new Controller(new Simulation({ depth: 100, designTrim: true }));
+    cmd(c, 'djup 100');
+    cmd(c, 'back full');
+    for (let i = 0; i < 400 * 100; i++) c.step();
+    const t = c.sim.telemetry();
+    expect(t.rpsCmd).toBeCloseTo(-c.sim.cfg.propulsion.maxRpsAstern, 6);
+    expect(t.u / KN).toBeLessThan(-6.6);
+  });
 });

@@ -126,7 +126,7 @@ describe('orders astern', () => {
     ['backa 2', -2],
     ['back sakta', -2],
     ['back halv', -4],
-    ['back full', -6],
+    ['back full', -7],
     ['back 0', 0],
     ['fart -4', -4],
   ])('parses "%s"', (input, knots) => {
@@ -135,7 +135,7 @@ describe('orders astern', () => {
 
   it('gives clear errors', () => {
     expect(error('back')).toMatch(/Ange en fart back/);
-    expect(error('back 9')).toMatch(/mellan 0 och 6/);
+    expect(error('back 9')).toMatch(/mellan 0 och 7/);
     expect(error('back hlv')).toMatch(/Menade du "halv"/);
     expect(error(`varv -${LIMITS.maxRpmAstern + 10}`)).toMatch(new RegExp(`mellan -${LIMITS.maxRpmAstern} och`));
     expect(LIMITS.maxRpmAstern).toBe(Math.round(P.maxRpsAstern * 60));
@@ -146,12 +146,12 @@ describe('orders astern', () => {
     expect(acknowledgement(order('fart 0'))).toBe('Fart 0 knop, ja');
   });
 
-  it('the speed target goes past zero to 6 knots astern', () => {
+  it('the speed target goes past zero to 7 knots astern (full astern)', () => {
     const c = new Controller(new Simulation({ depth: 50, designTrim: true }));
     c.crewTakesAll();
     for (let i = 0; i < 10; i++) c.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'keyboard');
     c.step();
-    expect(c.setpoints.speed).toBe(-6);
+    expect(c.setpoints.speed).toBe(-7);
   });
 });
 

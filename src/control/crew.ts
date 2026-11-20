@@ -96,10 +96,12 @@ export interface TelegraphBell {
 /**
  * The engine-order telegraph, astern to ahead. Full ahead is the top speed
  * (an order a little beyond it, so the shaft runs at full power). Astern
- * matches "back sakta|halv|full"; full astern is the speed autopilot's limit.
+ * matches "back sakta|halv|full"; full astern is likewise the top speed astern
+ * and the speed autopilot's limit.
  */
 export const TELEGRAPH: readonly TelegraphBell[] = [
-  { knots: -6, label: 'Full', name: 'Full back' },
+  /** The top speed astern (~6.8 knots at 108 rpm): full power astern. */
+  { knots: -7, label: 'Full', name: 'Full back' },
   { knots: -4, label: 'Halv', name: 'Halv back' },
   { knots: -2, label: 'Sakta', name: 'Sakta back' },
   { knots: 0, label: 'Stopp', name: 'Stopp' },

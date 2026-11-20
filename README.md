@@ -76,7 +76,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Kompass** (Auto) | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
 | **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
 | **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. |
-| **Maskintelegraf** | Mitten | Full, Halv och Sakta back (6, 4 och 2 knop), Stopp, och Sakta, Halv och Full fram (4 och 8 knop, och Full fram är toppfarten: 19 knop, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. |
+| **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. |
 | **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. |
 | **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
 | **Ballast ▾** | Mitten | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
@@ -115,7 +115,7 @@ Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att z
 
 Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med `back halv` i konsolen. På Hand går det med negativt varvtal under Fart ▾. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid varje ny fartorder.
 
-- **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop, och det tar några minuter att komma upp i fart.
+- **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop (Full back), och det tar några minuter att komma upp i fart.
 - **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. På Hand får du styra omvänt.
 - **Djupstyraren och rorsmannen** (Auto) vet om att ubåten backar och vänder sina utslag själv. Den byter riktning när farten genom vattnet har passerat ±0,2 m/s och börjar då om från noll. Vid back tillåter den högst 5° stampvinkel, så djupändringar går långsamt.
 - **Skyddsnätet** tittar efter grunt vatten åt det håll ubåten rör sig, alltså akterut vid back. Trimassistenten flyttar inget trimvatten medan ubåten backar.
@@ -145,7 +145,7 @@ Konsolen öppnas med **>_** eller Enter. Den är ett annat sätt att ge order, f
 | `djup <m>` | `djup 120` | Djupautopilot |
 | `kurs <grader>` | `kurs 270` | Kursautopilot |
 | `fart <knop> [knop]` | `fart 8 knop`, `fart stopp` | Fartautopilot |
-| `back <knop>\|sakta\|halv\|full` | `back 3`, `back halv` | Fartautopiloten back: sakta 2, halv 4 och full 6 knop. Samma som `fart -4`. |
+| `back <knop>\|sakta\|halv\|full` | `back 3`, `back halv` | Fartautopiloten back: sakta 2, halv 4 och full 7 knop (toppfarten bakåt). Samma som `fart -4`. |
 | `varv <rpm>` | `varv 120`, `varv -60` | Propellervarv direkt (fartautopiloten kopplas ur). Back högst 108 rpm. |
 | `roder sb\|bb <grader>` | `roder styrbord 15`, `roder midskepps` | Roder |
 | `djuproder ned\|upp <grader>` | `djuproder ned 10`, `djuproder noll` | Djuproder |

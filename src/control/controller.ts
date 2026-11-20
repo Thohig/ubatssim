@@ -318,7 +318,7 @@ export class Controller {
       effects: () => ({ speed: true }),
       apply: (c, o, k) => {
         const base = c.ap.speed ? c.setpoints.speed : Math.round(k.u / KNOT);
-        c.setpoints.speed = Math.max(-6, Math.min(20, base + o.deltaKnots));
+        c.setpoints.speed = Math.max(LIMITS.minSpeed, Math.min(LIMITS.maxSpeed, base + o.deltaKnots));
         c.ap.speed = true;
       },
     },

@@ -18,7 +18,8 @@ export type ParseResult =
 export const LIMITS = {
   maxDepth: 400,
   maxSpeed: 20,
-  minSpeed: -6,
+  /** Full astern: a little beyond the top speed astern (~6.8 knots), so the shaft runs at its astern limit. */
+  minSpeed: -7,
   maxRpm: 240,
   /** Astern shaft speed is limited by the drive [rpm]. */
   maxRpmAstern: Math.round(SUBMARINE.propulsion.maxRpsAstern * 60),
@@ -32,7 +33,7 @@ export const HELP_TEXT = [
   'djup <m>                 – autopilot djup, t.ex. "djup 120"',
   'kurs <grader>            – autopilot kurs, t.ex. "kurs 270"',
   'fart <knop> [knop]       – autopilot fart, t.ex. "fart 8 knop", "fart stopp"',
-  'back <knop>|sakta|halv|full – back 2, 4 eller 6 knop, t.ex. "back 3"',
+  'back <knop>|sakta|halv|full – back 2, 4 eller 7 knop (full = toppfarten), t.ex. "back 3"',
   'varv <rpm>               – propellervarv direkt (fartautopilot av)',
   'roder sb|bb <grader>     – t.ex. "roder styrbord 15", "roder midskepps"',
   'djuproder ned|upp <gr>   – t.ex. "djuproder ned 10", "djuproder noll"',
@@ -121,7 +122,7 @@ function suggest(word: string, candidates: Iterable<string>): string | null {
 }
 
 /** "back sakta|halv|full" [knots astern]. */
-const ASTERN_BELLS: Record<string, number> = { sakta: 2, halv: 4, full: 6 };
+const ASTERN_BELLS: Record<string, number> = { sakta: 2, halv: 4, full: -LIMITS.minSpeed };
 
 /** Words for the crew's systems ("besättning trim", "själv djup"). */
 const CREW_WORDS: Record<string, CrewSystem | 'all'> = {
