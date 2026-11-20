@@ -233,6 +233,21 @@ export class Simulation {
   private massProps!: MassProperties;
   private body!: RigidBody;
   private lastHydrostatics: HydrostaticResult | null = null;
+  /**
+   * The force evaluation behind the last telemetry, with what it depends on.
+   * Instruments, scenario checks, sound and the assistant all ask for
+   * telemetry; between two steps they get the same forces (exact).
+   */
+  private telemetryForces: {
+    y: Float64Array;
+    t: number;
+    mass: MassProperties;
+    rudder: number;
+    planes: number;
+    periscope: number;
+    rps: number;
+    ext: ReturnType<Simulation['externalForces']>;
+  } | null = null;
 
   constructor(init: InitialConditions = {}, cfg: SubmarineConfig = SUBMARINE) {
     this.cfg = cfg;
@@ -541,7 +556,31 @@ export class Simulation {
   }
 
   telemetry(): Telemetry {
-    const ext = this.externalForces(this.y);
+    const a = this.actuators;
+    let c = this.telemetryForces;
+    if (
+      !c ||
+      c.y !== this.y ||
+      c.t !== this.t ||
+      c.mass !== this.massProps ||
+      c.rudder !== a.rudder ||
+      c.planes !== a.sternPlanes ||
+      c.periscope !== a.periscope ||
+      c.rps !== this.commands.rps
+    ) {
+      c = {
+        y: this.y,
+        t: this.t,
+        mass: this.massProps,
+        rudder: a.rudder,
+        planes: a.sternPlanes,
+        periscope: a.periscope,
+        rps: this.commands.rps,
+        ext: this.externalForces(this.y),
+      };
+      this.telemetryForces = c;
+    }
+    const ext = c.ext;
     this.lastHydrostatics = ext.hydrostatics;
     const pos = getPos(this.y);
     const [roll, pitch, yaw] = quatToEuler(getQuat(this.y));
