@@ -18,15 +18,27 @@ import { buildHull, type HullGeometry } from './hull';
 import { airForFill, updateMainBallast, type AirState } from './airSystem';
 import { finForce } from './controlSurfaces';
 import { contactForces, hullContactPoints, type ContactResult, type GroundDepth } from './contact';
-import { seabedDepth } from './terrain';
+import { heightFunction, seabedDepth } from './terrain';
+import { AREAS, type AreaId } from './config/areas';
+import { DESIGN_WATER, type WaterProfile } from './config/waters';
 import { TerrainGrid } from './terrainGrid';
 
 /** Shared terrain cache for the default archipelago ground. */
-let defaultGround: TerrainGrid | null = null;
-export function archipelagoGround(): GroundDepth {
-  defaultGround ??= new TerrainGrid(seabedDepth);
-  return defaultGround.depth;
+const grounds = new Map<AreaId, TerrainGrid>();
+
+/** Cached sea bed of an area (shared by all simulations of that area). */
+export function areaGround(area: AreaId): GroundDepth {
+  let g = grounds.get(area);
+  if (!g) {
+    const h = area === 'westCoast' ? null : heightFunction(AREAS[area].terrain);
+    g = new TerrainGrid(h ? (n, e) => -h(n, e) : seabedDepth);
+    grounds.set(area, g);
+  }
+  return g.depth;
 }
+
+/** The west coast archipelago (the default area). */
+export const archipelagoGround = (): GroundDepth => areaGround('westCoast');
 import { restoringForces, type HydrostaticResult } from './hydrostatics';
 import { computeMassProperties, type DryMass } from './massProperties';
 import { mat3Diag, mat3MulVec, type Mat3, type MatN } from './math/mat';
@@ -74,12 +86,19 @@ export interface InitialConditions {
   mainBallastFill?: number;
   /** Start trim and compensating tanks at their design fill (exactly neutral at the design depth). */
   designTrim?: boolean;
+  /**
+   * Start neutrally buoyant at the start depth: trim tanks at their design
+   * fill, compensating tank adjusted for the water and compression there.
+   */
+  neutral?: boolean;
   /** Override the fill fraction of individual trim/compensating tanks (by id), applied after designTrim. */
   tankFills?: Record<string, number>;
   /** Start position [m] north and east of the origin. */
   north?: number;
   east?: number;
-  /** Ground model (sea bed depth at north/east). Defaults to the archipelago terrain. */
+  /** Sea area (terrain and water). Default: the west coast. */
+  area?: AreaId;
+  /** Ground model (sea bed depth at north/east). Defaults to the area's terrain. */
   ground?: GroundDepth;
 }
 
@@ -88,16 +107,16 @@ export interface InitialConditions {
  * other tanks at their initial fill, level, at the design depth), the boat is
  * neutrally buoyant with CG directly below CB by BG.
  */
-export function deriveDryMass(cfg: SubmarineConfig, hull: HullGeometry): DryMass {
+export function deriveDryMass(cfg: SubmarineConfig, hull: HullGeometry, water: WaterProfile = DESIGN_WATER): DryMass {
   const z = cfg.design.neutralDepth;
-  const hs = restoringForces(hull, [0, 0, z], mat3Diag(1, 1, 1), 0, [0, 0, 0], cfg.hull.compressibility);
+  const hs = restoringForces(hull, [0, 0, z], mat3Diag(1, 1, 1), 0, [0, 0, 0], cfg.hull.compressibility, water);
   const totalMass = hs.buoyancy / E.g;
   const cgTotal: Vec3 = [hs.cb[0], 0, hs.cb[2] + cfg.design.bg];
   let m = totalMass;
   const mom: Vec3 = [totalMass * cgTotal[0], 0, totalMass * cgTotal[2]];
   for (const def of cfg.tanks) {
     const fill = def.kind === 'mainBallast' ? 1 : (def.designFill ?? def.initialFill);
-    const rho = def.kind === 'mainBallast' ? waterDensity(z) : E.rhoSurface;
+    const rho = def.kind === 'mainBallast' ? waterDensity(z, water) : water.rhoSurface;
     const mw = def.volume * fill * rho;
     const h = def.shape.type === 'box' ? def.shape.size[2] : 2 * def.shape.radius;
     const r: Vec3 = [def.position[0], def.position[1], def.position[2] + (h / 2) * (1 - fill)];
@@ -167,6 +186,8 @@ export class Simulation {
   readonly tankDefs: readonly TankDef[];
   readonly MA: MatN;
   readonly ground: GroundDepth;
+  readonly areaId: AreaId;
+  readonly water: WaterProfile;
   readonly contactPoints: Vec3[];
 
   t = 0;
@@ -186,14 +207,17 @@ export class Simulation {
 
   constructor(init: InitialConditions = {}, cfg: SubmarineConfig = SUBMARINE) {
     this.cfg = cfg;
-    this.ground = init.ground ?? archipelagoGround();
+    this.areaId = init.area ?? 'westCoast';
+    this.water = AREAS[this.areaId].water;
+    this.ground = init.ground ?? areaGround(this.areaId);
     this.contactPoints = hullContactPoints(cfg);
     this.hull = buildHull(cfg.hull);
-    this.dry = deriveDryMass(cfg, this.hull);
+    // Fixed ballast adjusted in port for the area's water.
+    this.dry = deriveDryMass(cfg, this.hull, this.water);
     this.tankDefs = cfg.tanks;
-    this.MA = addedMassMatrix(cfg, this.hull, E.rhoSurface, this.dry.inertiaCg[0]);
+    this.MA = addedMassMatrix(cfg, this.hull, this.water.rhoSurface, this.dry.inertiaCg[0]);
     this.tanks = cfg.tanks.map(initialTankState);
-    if (init.designTrim) {
+    if (init.designTrim || init.neutral) {
       cfg.tanks.forEach((def, i) => {
         if (def.kind !== 'mainBallast') this.tanks[i]!.water = def.volume * (def.designFill ?? def.initialFill);
       });
@@ -223,6 +247,20 @@ export class Simulation {
       this.commands.rps = rps;
     }
     this.refreshMass();
+    if (init.neutral) this.trimNeutral();
+  }
+
+  /** Adjusts the compensating tank so that buoyancy equals weight in the present state. */
+  private trimNeutral(): void {
+    const comp = this.tankById('comp');
+    if (!comp) return;
+    for (let i = 0; i < 4; i++) {
+      const R = quatToMat3(getQuat(this.y));
+      const hs = restoringForces(this.hull, getPos(this.y), R, this.massProps.mass, this.massProps.cg, this.cfg.hull.compressibility, this.water);
+      const net = hs.buoyancy - this.massProps.mass * E.g;
+      comp.s.water = Math.min(comp.def.volume, Math.max(0, comp.s.water + net / (E.g * this.water.rhoSurface)));
+      this.refreshMass();
+    }
   }
 
   // ---------------------------------------------------------------- commands
@@ -291,13 +329,13 @@ export class Simulation {
     const pos = getPos(y);
     const R = quatToMat3(getQuat(y));
     const nu = y.subarray(IDX.NU, IDX.NU + 6);
-    const rho = waterDensity(Math.max(0, pos[2]));
+    const rho = waterDensity(Math.max(0, pos[2]), this.water);
     const tau = new Float64Array(6);
     const add = (f: ArrayLike<number>) => {
       for (let i = 0; i < 6; i++) tau[i]! += f[i]!;
     };
 
-    const hs = restoringForces(this.hull, pos, R, this.massProps.mass, this.massProps.cg, cfg.hull.compressibility);
+    const hs = restoringForces(this.hull, pos, R, this.massProps.mass, this.massProps.cg, cfg.hull.compressibility, this.water);
     add(hs.tau);
     add(hullDamping(cfg, this.hull, nu, rho));
     for (const fin of cfg.fins) {
@@ -344,7 +382,7 @@ export class Simulation {
     const wetFrac = dHead >= 0 ? 1 : dFoot / (dFoot - dHead);
     const wet = len * wetFrac;
     const zMid = base[2] - wet / 2;
-    const k = 0.5 * waterDensity(Math.max(0, dFoot)) * p.dragCoefficient * p.diameter * wet;
+    const k = 0.5 * waterDensity(Math.max(0, dFoot), this.water) * p.dragCoefficient * p.diameter * wet;
     const u = nu[0]! + nu[4]! * zMid; // local surge speed: u + q·z
     const v = nu[1]! - nu[3]! * zMid + nu[5]! * base[0]; // local sway: v − p·z + r·x
     const X = -k * u * Math.abs(u);
@@ -390,7 +428,7 @@ export class Simulation {
       const s = this.tanks[i]!;
       if (def.kind !== 'mainBallast') return;
       const d = this.tankWorldDepths(def);
-      updateMainBallast(def, s, this.air, this.cfg.air, d.bottom, d.top, waterDensity(Math.max(0, d.centre)), dt);
+      updateMainBallast(def, s, this.air, this.cfg.air, d.bottom, d.top, waterDensity(Math.max(0, d.centre), this.water), dt, this.water);
     });
 
     const fwd = this.tankById('trim_fwd');
@@ -419,7 +457,7 @@ export class Simulation {
 
   private refreshMass(): void {
     this.massProps = computeMassProperties(this.dry, this.tankDefs, this.tanks, (def) =>
-      def.kind === 'mainBallast' ? waterDensity(Math.max(0, this.tankWorldDepths(def).centre)) : E.rhoSurface,
+      def.kind === 'mainBallast' ? waterDensity(Math.max(0, this.tankWorldDepths(def).centre), this.water) : this.water.rhoSurface,
     );
     const MRB = rigidBodyMassMatrix(this.massProps);
     this.body = new RigidBody(MRB.plus(this.MA), MRB);
@@ -445,7 +483,7 @@ export class Simulation {
       const s = this.tanks[i]!;
       const d = this.tankWorldDepths(def);
       s.water = fill * def.volume;
-      s.airPV = airForFill(def, fill, d.bottom, d.top, waterDensity(Math.max(0, d.centre)));
+      s.airPV = airForFill(def, fill, d.bottom, d.top, waterDensity(Math.max(0, d.centre), this.water), this.water);
     });
     this.refreshMass();
   }
@@ -459,7 +497,7 @@ export class Simulation {
     let hi = this.cfg.hull.radius * 1.5;
     for (let i = 0; i < 60; i++) {
       const mid = 0.5 * (lo + hi);
-      const hs = restoringForces(this.hull, [0, 0, mid], R, 0, [0, 0, 0], this.cfg.hull.compressibility);
+      const hs = restoringForces(this.hull, [0, 0, mid], R, 0, [0, 0, 0], this.cfg.hull.compressibility, this.water);
       if (hs.buoyancy > W) hi = mid;
       else lo = mid;
     }
@@ -469,7 +507,7 @@ export class Simulation {
   /** Steady shaft speed for a forward speed (bisection on surge balance). */
   rpsForSpeed(speed: number): number {
     const p = this.cfg.propulsion;
-    const rho = E.rhoSurface;
+    const rho = this.water.rhoSurface;
     const L = this.cfg.hull.length;
     const drag = -0.5 * rho * L * L * this.cfg.hydro.Xuu * speed * speed - this.cfg.hydro.lowSpeed.Xu * speed;
     let lo = 0;

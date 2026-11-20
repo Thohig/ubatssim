@@ -3,7 +3,7 @@
  * ground relative to sea level (positive up); the sea bed depth is its
  * negative. Pure functions only, so the simulation stays deterministic.
  */
-import { TERRAIN as T } from './config/terrain';
+import { TERRAIN, type ArchipelagoParams, type FjordParams, type OceanParams, type TerrainSpec } from './config/terrain';
 
 /** Integer hash → [0, 1). */
 function hash(ix: number, iy: number, seed: number): number {
@@ -16,7 +16,7 @@ function hash(ix: number, iy: number, seed: number): number {
 const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
 /** 2D gradient noise in roughly [-1, 1]. */
-export function noise2(x: number, y: number, seed: number = T.seed): number {
+export function noise2(x: number, y: number, seed: number = TERRAIN.seed): number {
   const x0 = Math.floor(x);
   const y0 = Math.floor(y);
   const fx = x - x0;
@@ -35,7 +35,7 @@ export function noise2(x: number, y: number, seed: number = T.seed): number {
 }
 
 /** Fractal noise: `octaves` layers, each double frequency and half amplitude. Range ≈ [-1, 1]. */
-export function fbm(x: number, y: number, octaves: number, seed: number = T.seed): number {
+export function fbm(x: number, y: number, octaves: number, seed: number = TERRAIN.seed): number {
   let sum = 0;
   let amp = 0.5;
   let freq = 1;
@@ -54,8 +54,11 @@ const smoothstep = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-/** Ground height relative to sea level [m], positive up, at (north, east) [m]. */
-export function terrainHeight(north: number, east: number): number {
+/** Height function: ground height relative to sea level [m], positive up, at (north, east) [m]. */
+export type HeightFn = (north: number, east: number) => number;
+
+/** Archipelago: open sea in the west, islands, skerries and sounds in the east. */
+export function archipelagoHeight(north: number, east: number, T: ArchipelagoParams = TERRAIN): number {
   // Large-scale shelf: deep in the west, shallow in the archipelago.
   const shelf = smoothstep(T.offshoreEast, T.archipelagoEast, east + 250 * fbm(north / 3000, east / 3000, 2, T.seed + 7));
   let depth = T.offshoreDepth + Math.max(0, T.offshoreEast - east) * T.offshoreSlope;
@@ -95,3 +98,50 @@ export function terrainHeight(north: number, east: number): number {
 
 /** Sea bed depth [m], positive down; negative where there is land. */
 export const seabedDepth = (north: number, east: number): number => -terrainHeight(north, east);
+
+/** The west coast archipelago (the original game area). */
+export const terrainHeight: HeightFn = (north, east) => archipelagoHeight(north, east, TERRAIN);
+
+/** Fjord running north from the coast, with a sill at the mouth (north = 0). */
+export function fjordHeight(north: number, east: number, F: FjordParams): number {
+  const centre = F.meanderAmplitude * Math.sin((2 * Math.PI * north) / F.meanderLength) * smoothstep(-500, 1500, north) + 120 * fbm(north / 2500, 0.5, 2, F.seed + 3);
+  const x = Math.abs(east - centre);
+  // Depth along the fjord: open sea → sill → basin.
+  const s = F.sillLength;
+  const depthAlong =
+    north >= 0
+      ? F.sillDepth + (F.basinDepth - F.sillDepth) * smoothstep(s, 4 * s, north)
+      : F.sillDepth + (F.seaDepth - F.sillDepth) * smoothstep(s, 4 * s, -north);
+  // Cross section: a U-shaped trough between steep mountain sides.
+  const W = F.halfWidth * (1 + 0.15 * fbm(north / 900, 7.5, 2, F.seed + 5));
+  let h: number;
+  if (x < W) {
+    const k = x / W;
+    h = -depthAlong * Math.pow(1 - k * k, 0.45);
+  } else {
+    const rise = smoothstep(0, 1, (x - W) / F.mountainRise);
+    h = F.mountainHeight * rise * (0.75 + 0.25 * fbm(north / 700, east / 700, 3, F.seed + 7)) + 2;
+  }
+  // South of the coast the mountains give way to the open sea.
+  const land = smoothstep(F.coastNorth - 700, F.coastNorth, north);
+  const sea = -F.seaDepth + 15 * fbm(north / 800, east / 800, 3, F.seed + 11);
+  h = sea * (1 - land) + h * land;
+  return h + 2 * fbm(north / 35, east / 35, 2, F.seed + 13);
+}
+
+/** Open ocean: deep and gently undulating. */
+export function oceanHeight(north: number, east: number, O: OceanParams): number {
+  return -O.depth + O.undulation * fbm(north / 4000, east / 4000, 3, O.seed);
+}
+
+/** The height function for a terrain description. */
+export function heightFunction(spec: TerrainSpec): HeightFn {
+  switch (spec.kind) {
+    case 'archipelago':
+      return spec.params === TERRAIN ? terrainHeight : (n, e) => archipelagoHeight(n, e, spec.params);
+    case 'fjord':
+      return (n, e) => fjordHeight(n, e, spec.params);
+    case 'ocean':
+      return (n, e) => oceanHeight(n, e, spec.params);
+  }
+}

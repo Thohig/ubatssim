@@ -8,6 +8,7 @@
  * Water density varies with depth and the hull volume shrinks with pressure.
  */
 import { ENVIRONMENT as E } from './config/environment';
+import { DESIGN_WATER, type WaterProfile } from './config/waters';
 import { pressureAt, waterDensity } from './environment';
 import type { HullGeometry } from './hull';
 import type { Mat3 } from './math/mat';
@@ -69,6 +70,7 @@ export function restoringForces(
   mass: number,
   cg: Vec3,
   hullCompressibility: number,
+  water: WaterProfile = DESIGN_WATER,
 ): HydrostaticResult {
   // World "down" expressed in body axes = third row of R.
   const gb: Vec3 = [R[6], R[7], R[8]];
@@ -103,9 +105,9 @@ export function restoringForces(
     const rz = offset * uz;
     // Depth of the submerged centroid.
     const zCentroid = zc + gb[1] * ry + gb[2] * rz;
-    const p = pressureAt(zCentroid);
+    const p = pressureAt(zCentroid, water);
     const v = area * sl.dx * (1 - hullCompressibility * (p - E.pAtm));
-    const b = waterDensity(zCentroid) * E.g * v;
+    const b = waterDensity(zCentroid, water) * E.g * v;
     vol += v;
     B += b;
     // Buoyancy acts along world up = -gb.

@@ -10,7 +10,10 @@ import { InputModeState, bindModeIndicator } from './ui/inputMode';
 import { createInstruments } from './ui/instruments';
 import { bindKeyboard } from './ui/keyboard';
 import { bindLog } from './ui/log';
-import { Menu, type FreeStart } from './ui/menu';
+import { Menu } from './ui/menu';
+import { AREA_INFO, type ConditionsId } from './control/areas';
+import { AREAS } from './sim/config/areas';
+import { heightFunction } from './sim/terrain';
 import { updateObjective } from './ui/objective';
 import { loadSettings, saveSettings, type Settings } from './ui/settings';
 import { bindTouchControls, isTouchDevice } from './ui/touch';
@@ -40,16 +43,6 @@ interface Session {
   updateInstruments: ReturnType<typeof createInstruments>;
 }
 
-const FREE_STARTS: Record<FreeStart, { initial: InitialConditions; text: string }> = {
-  surface: { initial: {}, text: 'Ubåten ligger i ytläge.' },
-  periscope: { initial: { depth: 13, speed: 4 * KN, designTrim: true }, text: 'Ubåten går på periskopdjup, 13 m. Tryck P för att hissa periskopet.' },
-  deep: { initial: { depth: 100, speed: 8 * KN, designTrim: true }, text: 'Ubåten går på 100 m djup, under språngskiktet.' },
-  archipelago: {
-    initial: { east: 2560, heading: (20 * Math.PI) / 180 },
-    text: 'Ubåten ligger i ytläge i ett sund i skärgården. Sundet slingrar sig mot nordost. Håll koll på "Under köl".',
-  },
-};
-
 let settings: Settings = loadSettings();
 let state: GameState = 'menu';
 let session: Session;
@@ -62,7 +55,13 @@ const instrumentsEl = el('instruments');
 const objectiveEl = el('objective');
 
 /** Game sessions start in `mode`; the demo session behind the menu runs the realistic mode. */
-function newSession(initial: InitialConditions, scenario: Scenario | null, intro: string, mode: GameMode = 'realistic'): Session {
+function newSession(
+  initial: InitialConditions,
+  scenario: Scenario | null,
+  intro: string,
+  mode: GameMode = 'realistic',
+  conditions: ConditionsId = 'day',
+): Session {
   const sim = new Simulation(initial);
   const ctrl = new Controller(sim);
   ctrl.options.autopilotAllowed = settings.autopilot;
@@ -76,7 +75,7 @@ function newSession(initial: InitialConditions, scenario: Scenario | null, intro
     ctrl,
     runner,
     scenario,
-    restart: () => newSession(initial, scenario, intro, ctrl.options.mode),
+    restart: () => newSession(initial, scenario, intro, ctrl.options.mode, conditions),
     propellerAngle: 0,
     updateInstruments: createInstruments(instrumentsEl, ctrl),
   };
@@ -87,6 +86,8 @@ function newSession(initial: InitialConditions, scenario: Scenario | null, intro
   });
   view.resetCamera();
   view.setWaypoint(scenario?.waypoint ?? null);
+  const area = sim.areaId;
+  view.setArea(heightFunction(AREAS[area].terrain), AREA_INFO[area].lighthouses, conditions);
   views.set('external');
   lastPeriscope = sim.actuators.periscope;
   return s;
@@ -109,13 +110,13 @@ function demoSession(): Session {
 const menu = new Menu(
   el('menu'),
   {
-    startFree(start) {
-      const f = FREE_STARTS[start];
-      startGame(newSession(f.initial, null, f.text, settings.mode));
+    startFree(area, start, conditions) {
+      const f = AREA_INFO[area].starts.find((s) => s.id === start);
+      if (f) startGame(newSession(f.initial, null, f.text, settings.mode, conditions));
     },
     startScenario(id) {
       const sc = SCENARIOS.find((s) => s.id === id);
-      if (sc) startGame(newSession(sc.initial, sc, `Scenario: ${sc.title}. ${sc.description}`, scenarioMode(sc, settings.mode)));
+      if (sc) startGame(newSession(sc.initial, sc, `Scenario: ${sc.title}. ${sc.description}`, scenarioMode(sc, settings.mode), sc.conditions ?? 'day'));
     },
     resume() {
       setState('playing');

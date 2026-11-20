@@ -7,7 +7,7 @@
  * on the higher islands.
  */
 import * as THREE from 'three';
-import { fbm, terrainHeight } from '../sim/terrain';
+import { fbm, terrainHeight, type HeightFn } from '../sim/terrain';
 
 interface Patch {
   mesh: THREE.Mesh;
@@ -59,14 +59,14 @@ function makePatch(size: number, segments: number, holeHalf: number, recentre: n
   return { mesh, geo, cell: size / segments, holeHalf, centre: null, recentre };
 }
 
-function rebuild(p: Patch, cn: number, ce: number): void {
+function rebuild(p: Patch, cn: number, ce: number, height: HeightFn): void {
   const pos = p.geo.attributes.position as THREE.BufferAttribute;
   const col = p.geo.attributes.color as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
     // Three: x = east, z = −north.
-    let h = terrainHeight(cn - z, ce + x);
+    let h = height(cn - z, ce + x);
     if (p.holeHalf > 0 && Math.abs(x) < p.holeHalf && Math.abs(z) < p.holeHalf) h -= 6;
     pos.setY(i, h);
   }
@@ -85,6 +85,8 @@ function rebuild(p: Patch, cn: number, ce: number): void {
 
 export interface TerrainView {
   update(north: number, east: number): void;
+  /** Switch to another area's height function (rebuilds on the next update). */
+  setHeight(fn: HeightFn): void;
 }
 
 export function createTerrain(scene: THREE.Scene): TerrainView {
@@ -98,16 +100,23 @@ export function createTerrain(scene: THREE.Scene): TerrainView {
     const snap = p.cell * 2;
     const cn = Math.round(n / snap) * snap;
     const ce = Math.round(e / snap) * snap;
-    if (!p.centre || Math.abs(cn - p.centre[0]) > p.recentre || Math.abs(ce - p.centre[1]) > p.recentre) rebuild(p, cn, ce);
+    if (!p.centre || Math.abs(cn - p.centre[0]) > p.recentre || Math.abs(ce - p.centre[1]) > p.recentre) rebuild(p, cn, ce, height);
   };
+  let height: HeightFn = terrainHeight;
 
   return {
+    setHeight(fn) {
+      if (fn === height) return;
+      height = fn;
+      near.centre = null;
+      far.centre = null;
+    },
     update(n, e) {
       maybeRebuild(near, n, e);
       // The far patch must stay aligned with the near patch's hole.
       if (!far.centre || far.centre[0] !== near.centre![0] || far.centre[1] !== near.centre![1]) {
         if (!far.centre || Math.abs(near.centre![0] - far.centre[0]) > far.recentre || Math.abs(near.centre![1] - far.centre[1]) > far.recentre) {
-          rebuild(far, near.centre![0], near.centre![1]);
+          rebuild(far, near.centre![0], near.centre![1], height);
         }
       }
     },

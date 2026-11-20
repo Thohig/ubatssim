@@ -4,7 +4,8 @@ import type { SubmarineConfig } from '../sim/config/submarine';
 import type { Mat3 } from '../sim/math/mat';
 import type { Vec3 } from '../sim/math/vec3';
 import { bodyToLocal, nedToThree, rotationToThree } from './coords';
-import { createEnvironment } from './environment';
+import { createEnvironment, type ConditionsId, type LightMark } from './environment';
+import type { HeightFn } from '../sim/terrain';
 import { buildSubmarineModel, updateSubmarineModel, type SubmarineModel } from './submarineModel';
 
 export interface RenderState {
@@ -49,6 +50,8 @@ export interface SceneView {
   /** Show a yellow buoy at [north, east], or hide it with null. */
   setWaypoint(wp: [number, number] | null): void;
   setView(view: CameraView): void;
+  /** Terrain, lighthouses and light/visibility of the sea area. */
+  setArea(height: HeightFn, lighthouses: readonly LightMark[], conditions: ConditionsId): void;
   /** Depth of the camera [m], negative above the water (after the last render). */
   cameraDepth(): number;
 }
@@ -69,14 +72,15 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
   controls.minDistance = 15;
   controls.maxDistance = 600;
 
-  scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x1a2a33, 1.4));
+  const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x1a2a33, 1.4);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 1.6);
   sun.position.set(200, 400, 100);
   scene.add(sun);
 
   const model = buildSubmarineModel(cfg);
   scene.add(model.root);
-  const env = createEnvironment(scene);
+  const env = createEnvironment(scene, hemi, sun);
 
   // Waypoint buoy: yellow spar buoy with a top mark, visible above and below water.
   const buoy = new THREE.Group();
@@ -152,6 +156,9 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     },
     setView(v) {
       view = v;
+    },
+    setArea(height, lighthouses, conditions) {
+      env.setArea(height, lighthouses, conditions);
     },
     cameraDepth() {
       return -camera.position.y;

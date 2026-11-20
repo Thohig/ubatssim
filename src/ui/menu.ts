@@ -7,11 +7,11 @@ import { SCENARIOS, scenarioModes, type Scenario } from '../control/scenarios';
 import { formatSimTime } from '../control/controller';
 import { GAME_MODES, GAME_MODE_NAME, GAME_MODE_TEXT, type GameMode } from '../control/gameMode';
 import type { Settings } from './settings';
-
-export type FreeStart = 'surface' | 'periscope' | 'deep' | 'archipelago';
+import { AREA_INFO, AREA_ORDER, CONDITIONS, type ConditionsId } from '../control/areas';
+import type { AreaId } from '../sim/config/areas';
 
 export interface MenuHandlers {
-  startFree(start: FreeStart): void;
+  startFree(area: AreaId, start: string, conditions: ConditionsId): void;
   startScenario(id: string): void;
   resume(): void;
   restart(): void;
@@ -37,7 +37,7 @@ export interface ResultInfo {
   time: number;
 }
 
-type Screen = 'main' | 'free' | 'scenarios' | 'settings' | 'help' | 'pause' | 'result' | 'intro';
+type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'result' | 'intro';
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -48,6 +48,9 @@ export class Menu {
   private base: 'main' | 'pause' = 'main';
   private result: ResultInfo | null = null;
   private pauseInfo: PauseInfo = { mode: 'simplified', canSwitch: true };
+  /** Free play: chosen area and light/visibility. */
+  private area: AreaId = 'westCoast';
+  private conditions: ConditionsId = 'day';
 
   constructor(
     private readonly root: HTMLElement,
@@ -60,7 +63,8 @@ export class Menu {
     });
     root.addEventListener('change', (e) => {
       const input = e.target as HTMLInputElement;
-      if (input.name) this.onSetting(input.name, input.type === 'checkbox' ? String(input.checked) : input.value);
+      if (input.name === 'conditions') this.conditions = input.value as ConditionsId;
+      else if (input.name) this.onSetting(input.name, input.type === 'checkbox' ? String(input.checked) : input.value);
     });
   }
 
@@ -109,8 +113,12 @@ export class Menu {
       case 'back':
         this.show(this.base);
         break;
+      case 'area':
+        this.area = arg as AreaId;
+        this.show('free-area');
+        break;
       case 'free':
-        this.h.startFree(arg as FreeStart);
+        this.h.startFree(this.area, arg!, this.conditions);
         break;
       case 'scenario':
         this.h.startScenario(arg!);
@@ -185,14 +193,25 @@ export class Menu {
       case 'free':
         return `
           <h2 class="menu-title small">Fritt spel</h2>
-          <p class="menu-sub">Välj var du vill börja.</p>
+          <p class="menu-sub">Välj havsområde.</p>
           <div class="menu-list">
-            <button class="menu-btn choice" data-action="free" data-arg="surface"><b>Ytläge</b><span>Stilla vid ytan på öppet hav, skärgården 2 km österut.</span></button>
-            <button class="menu-btn choice" data-action="free" data-arg="archipelago"><b>Skärgården</b><span>I ytläge i ett smalt sund mellan kobbar och skär.</span></button>
-            <button class="menu-btn choice" data-action="free" data-arg="periscope"><b>Periskopdjup</b><span>13 m (kölen på 16 m), 4 knop, neutralt trimmad. Hissa periskopet med P.</span></button>
-            <button class="menu-btn choice" data-action="free" data-arg="deep"><b>Djupt vatten</b><span>100 m, 8 knop, under språngskiktet.</span></button>
+            ${AREA_ORDER.map((id) => `<button class="menu-btn choice" data-action="area" data-arg="${id}"><b>${esc(AREA_INFO[id].title)}</b><span>${esc(AREA_INFO[id].description)}</span></button>`).join('')}
           </div>
           ${back}`;
+
+      case 'free-area': {
+        const a = AREA_INFO[this.area];
+        return `
+          <h2 class="menu-title small">${esc(a.title)}</h2>
+          <fieldset><legend>Ljus och sikt</legend>
+            ${CONDITIONS.map((c) => `<label class="opt"><input type="radio" name="conditions" value="${c.id}" ${this.conditions === c.id ? 'checked' : ''}/> ${esc(c.title)}</label>`).join('')}
+          </fieldset>
+          <p class="menu-sub">Välj var du vill börja.</p>
+          <div class="menu-list">
+            ${a.starts.map((st) => `<button class="menu-btn choice" data-action="free" data-arg="${esc(st.id)}"><b>${esc(st.title)}</b><span>${esc(st.description)}</span></button>`).join('')}
+          </div>
+          <button class="menu-btn secondary" data-action="nav" data-arg="free">‹ Tillbaka</button>`;
+      }
 
       case 'scenarios': {
         const mode = this.settings.mode;
@@ -203,6 +222,10 @@ export class Menu {
           const playedIn = modes.includes(mode) ? mode : modes[0]!;
           if (playedIn === 'realistic' && !s.autopilotAllowed) parts.push('Utan autopilot');
           if (playedIn === 'simplified' && s.safetyNet === false) parts.push('Utan automatisk nödblåsning');
+          const area = s.initial.area ?? 'westCoast';
+          if (area !== 'westCoast') parts.unshift(AREA_INFO[area].title);
+          if (s.conditions === 'night') parts.unshift('Natt');
+          if (s.conditions === 'fog') parts.unshift('Dimma');
           parts.push(`${s.objectives.length} mål`);
           return parts.join(' · ');
         };

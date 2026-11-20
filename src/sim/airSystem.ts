@@ -17,6 +17,7 @@
  */
 import { ENVIRONMENT as E } from './config/environment';
 import type { SubmarineConfig, TankDef } from './config/submarine';
+import { DESIGN_WATER, type WaterProfile } from './config/waters';
 import { pressureAt } from './environment';
 import type { TankState } from './tanks';
 
@@ -57,9 +58,10 @@ export function updateMainBallast(
   zTop: number,
   rho: number,
   dt: number,
+  water: WaterProfile = DESIGN_WATER,
 ): void {
   const H = Math.max(0, zBottom - zTop);
-  const pBottom = Math.max(E.pAtm, pressureAt(zBottom));
+  const pBottom = Math.max(E.pAtm, pressureAt(zBottom, water));
   const rhoGH = rho * E.g * H;
 
   let f = equilibriumFill(s.airPV, def.volume, pBottom, rhoGH);
@@ -76,7 +78,7 @@ export function updateMainBallast(
 
   // Vent: tank → outside at the vent's depth.
   if (s.ventOpen && s.airPV > 0) {
-    const pOut = pressureAt(zTop);
+    const pOut = pressureAt(zTop, water);
     const dp = pAir - pOut;
     if (dp > 0) {
       const rhoAir = pAir / (E.airGasConstant * E.airTemperature);
@@ -97,9 +99,16 @@ export function updateMainBallast(
 }
 
 /** Air content that corresponds to a given fill fraction at the given depths. */
-export function airForFill(def: TankDef, fill: number, zBottom: number, zTop: number, rho: number): number {
+export function airForFill(
+  def: TankDef,
+  fill: number,
+  zBottom: number,
+  zTop: number,
+  rho: number,
+  water: WaterProfile = DESIGN_WATER,
+): number {
   const H = Math.max(0, zBottom - zTop);
-  const pBottom = Math.max(E.pAtm, pressureAt(zBottom));
+  const pBottom = Math.max(E.pAtm, pressureAt(zBottom, water));
   const pAir = pBottom - rho * E.g * H * fill;
   return pAir * (1 - fill) * def.volume;
 }

@@ -169,7 +169,7 @@ export class TrimAssist {
     if (sim.compRemaining !== 0 || sim.t - this.compIdleSince < ASSIST.settleTime) return;
     if (Math.abs(this.netFiltered) < ASSIST.deadbandKg) return;
     // Light (positive) → take water in. Compensating water has surface density.
-    const litres = this.netFiltered / (ENVIRONMENT.rhoSurface / 1000);
+    const litres = this.netFiltered / (sim.water.rhoSurface / 1000);
     const portion = Math.sign(litres) * Math.min(ASSIST.maxPortionLitres, Math.round(Math.abs(litres) / 10) * 10);
     if (portion === 0) return;
     ctrl.submit({ kind: 'compensate', litres: portion }, 'assist');
@@ -191,7 +191,7 @@ export class TrimAssist {
     if (!fin || !fwd || !aft) return;
     // Pitch moment the planes supply on average, and the water transfer that gives the same moment.
     // Positive planes push the bow down: the boat is stern-heavy, so water goes forward.
-    const rho = ENVIRONMENT.rhoSurface;
+    const rho = sim.water.rhoSurface;
     const planesMoment = 0.5 * rho * speed * speed * fin.area * fin.liftSlope * mean * Math.abs(fin.position[0]);
     const arm = fwd.position[0] - aft.position[0];
     const litres = (ASSIST.trimGain * planesMoment) / (rho * ENVIRONMENT.g * arm) * 1000;

@@ -8,6 +8,7 @@ import { ENVIRONMENT } from '../sim/config/environment';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
 import { GAME_MODES, type GameMode } from './gameMode';
+import type { ConditionsId } from './areas';
 
 const G = ENVIRONMENT.g;
 const KN = 1852 / 3600;
@@ -45,6 +46,8 @@ export interface Scenario {
   timeLimit?: number;
   /** Optional target position [north, east] in metres, shown as a buoy. */
   waypoint?: [number, number];
+  /** Light and visibility (default: day). The sea area is `initial.area`. */
+  conditions?: ConditionsId;
 }
 
 /** Distance [m] and true bearing [deg] from the boat to the scenario waypoint. */
