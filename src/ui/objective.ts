@@ -20,7 +20,7 @@ export function updateObjective(el: HTMLElement, runner: ScenarioRunner | null):
     const w = waypointInfo(runner.ctrl.sim.telemetry(), wp);
     nav = `<div class="obj-nav">Bojen: ${Math.round(w.distance)} m, bäring ${String(Math.round(w.bearing) % 360).padStart(3, '0')}°</div>`;
   }
-  const html = `<div class="obj-title"><span class="obj-step">Mål ${p.index + 1}/${p.total}</span> ${escapeHtml(obj.text)}${hold}</div><div class="obj-hint">${escapeHtml(obj.hint)}</div>${nav}`;
+  const html = `<div class="obj-title"><span class="obj-step">Mål ${p.index + 1}/${p.total}</span> ${escapeHtml(obj.text)}${hold}</div><div class="obj-hint">${escapeHtml(runner.ctrl.options.mode === 'simplified' ? (obj.hintSimplified ?? obj.hint) : obj.hint)}</div>${nav}`;
   if (el.innerHTML !== html) el.innerHTML = html;
 }
 

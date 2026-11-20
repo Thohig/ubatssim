@@ -21,7 +21,8 @@ src/sim/      Ren fysik. Inga beroenden på Three.js, DOM eller andra lager.
   controlSurfaces, propulsion, contact, terrain, terrainGrid, environment, rk4
   simulation  Simulation: äger allt tillstånd och stegar 100 Hz.
 src/control/  orders (Order-union + kvitton), orderQueue, parser (svenska), autopilot (PID),
-              controller (kö → börvärden → autopilot → ställdon → sim.step), scenarios.
+              controller (kö → börvärden → autopilot → ställdon → sim.step → assistent),
+              gameMode, trimAssist (trimassistent och skyddsnät), scenarios.
 src/render/   Three.js. Läser bara simuleringens tillstånd och skriver aldrig till det.
               coords (NED↔Three), submarineModel (lager), terrain, environment, scene.
 src/ui/       menu, instruments, console, log, keyboard, touch, inputMode, objective, settings.
@@ -29,9 +30,14 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
 ```
 - **Simulering:** deterministisk. Samma starttillstånd och samma order ger exakt samma resultat. Använd aldrig `Math.random()` eller väggklocka i `src/sim` eller `src/control`.
 - **Order:** alla styrkommandon, från tangentbord, pekknappar och konsol, blir `Order`-objekt i `OrderQueue`. Kön verkställs i början av nästa tidssteg, och varje order kvitteras i loggen med simuleringstid. Nya kommandon kräver tre saker: en ny variant i `Order`, ett kvitto i `acknowledgement()` och ett fall i `Controller.apply()`. Läggs kommandot till i parsern, ska `HELP_TEXT` och README uppdateras.
-- **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln. `Controller.options.autopilotAllowed = false` spärrar djup- och kursautopiloten (fartautopiloten tillåts).
+- **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln. `Controller.options.autopilotAllowed = false` spärrar djup- och kursautopiloten i realistisk simulering (fartautopiloten tillåts).
+- **Spellägen** (`GameMode`: `'simplified' | 'realistic'`) kör samma `Simulation`. Skillnaden ligger bara i `src/control` och `src/ui`:
+  - Förenklad simulering bygger på djup- och kursautopiloten. Tangenter och pekknappar ger `adjustDepth`, `adjustHeading`, `holdCourse`, `dive` och `surface`.
+  - `TrimAssist` körs efter `sim.step()` i förenklat läge och ger vanliga order med källan `'assist'` (kompensering, trim, nödblåsning). Den ändrar aldrig simuleringens tillstånd direkt och är deterministisk. Undantaget är djupbörvärdet, som skyddsnätet begränsar på grunt vatten.
+  - Byt läge med `Controller.setMode()`, som tar över utan ryck. `Controller` startar i realistiskt läge, så befintliga tester påverkas inte.
+  - Valt läge sparas i inställningarna. Standard är förenklad simulering.
 - **Sessioner:** `main.ts` skapar en ny `Simulation` och `Controller` per spelstart. Indata-bindningarna får kontrollern via en getter som returnerar `null` när inget spel pågår. Bakom menyn kör en demo-session.
-- **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid, villkor för misslyckande, tidsgräns och boj. `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska (`tests/scenarios.test.ts`, `tests/terrain.test.ts`).
+- **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid (och `hintSimplified` för förenklat läge), villkor för misslyckande, tidsgräns, boj, tillåtna spellägen (`modes`) och om skyddsnätet är på (`safetyNet`). `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska (`tests/scenarios.test.ts`, `tests/terrain.test.ts`), i varje spelläge det tillåter (`tests/gameModes.test.ts`).
 - **Prestanda:** `Simulation.telemetry()` gör en full kraftberäkning. Använd `kinematics()` när bara läge och hastighet behövs, till exempel i autopiloten.
 
 ## Fysikkonventioner
@@ -49,7 +55,7 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
 - Identifierare och kommentarer skrivs på engelska. UI-texter, konsolkommandon och dokumentation på svenska.
 - `strict` TypeScript med `noUncheckedIndexedAccess`.
 - Ny fysik ska ha Vitest-tester i `tests/`.
-- `localStorage` används bara för inställningar och bästa tider, alltid inom try/catch (`src/ui/settings.ts`).
+- `localStorage` används bara för inställningar (inklusive spelläge), alltid inom try/catch (`src/ui/settings.ts`). Bästa tider sparas inte längre.
 - Pekskärm: `body.touch` styr pekknapparna. Konsolens textfält ska ha teckenstorlek ≥ 16 px på iOS, annars zoomar Safari.
 
 ## Integritetsregler

@@ -1,11 +1,15 @@
 import type { Controller } from '../control/controller';
+import type { GameMode } from '../control/gameMode';
 import type { Order } from '../control/orders';
 import type { InputModeState } from './inputMode';
+import { submitDive } from './keyboard';
 
 interface TouchButton {
   label: string;
   title: string;
   order?: Order;
+  /** Submits orders that depend on the controller's state. */
+  run?: (ctrl: Controller) => void;
   /** Repeat the order while held. */
   repeat?: boolean;
   action?: () => void;
@@ -17,8 +21,9 @@ const REPEAT_INTERVAL = 350;
 
 /**
  * On-screen controls for touch devices. Each button submits the same Order
- * objects as the keyboard, with source 'touch'. Holding a rudder, planes or
- * speed button repeats it.
+ * objects as the keyboard, with source 'touch'. Holding a rudder, planes,
+ * depth, heading or speed button repeats it. Both game modes' button sets
+ * are built; `root.dataset.mode` (set by main.ts) shows one of them.
  */
 export function bindTouchControls(
   root: HTMLElement,
@@ -26,51 +31,89 @@ export function bindTouchControls(
   mode: InputModeState,
   openConsole: () => void,
 ): void {
-  const groups: { name: string; buttons: TouchButton[] }[] = [
-    {
-      name: 'Roder',
-      buttons: [
-        { label: '◀ BB', title: 'Roder 5° babord', order: { kind: 'rudder', angle: -5, relative: true }, repeat: true },
-        { label: 'Mitt', title: 'Roder midskepps', order: { kind: 'rudder', angle: 0 } },
-        { label: 'SB ▶', title: 'Roder 5° styrbord', order: { kind: 'rudder', angle: 5, relative: true }, repeat: true },
-      ],
-    },
-    {
-      name: 'Djuproder',
-      buttons: [
-        { label: '▲ Upp', title: 'Djuproder 5° upp', order: { kind: 'planes', angle: -5, relative: true }, repeat: true },
-        { label: '▼ Ned', title: 'Djuproder 5° ned', order: { kind: 'planes', angle: 5, relative: true }, repeat: true },
-      ],
-    },
-    {
-      name: 'Fart',
-      buttons: [
-        { label: '−', title: 'Fart −1 knop', order: { kind: 'adjustSpeed', deltaKnots: -1 }, repeat: true },
-        { label: '+', title: 'Fart +1 knop', order: { kind: 'adjustSpeed', deltaKnots: 1 }, repeat: true },
-      ],
-    },
-    {
-      name: 'Konsol',
-      buttons: [{ label: '>_', title: 'Öppna kommandokonsolen', action: openConsole, className: 'console-btn' }],
-    },
-  ];
+  type Group = { name: string; buttons: TouchButton[] };
+  const speed: Group = {
+    name: 'Fart',
+    buttons: [
+      { label: '−', title: 'Fart −1 knop', order: { kind: 'adjustSpeed', deltaKnots: -1 }, repeat: true },
+      { label: '+', title: 'Fart +1 knop', order: { kind: 'adjustSpeed', deltaKnots: 1 }, repeat: true },
+    ],
+  };
+  const consoleGroup: Group = {
+    name: 'Konsol',
+    buttons: [{ label: '>_', title: 'Öppna kommandokonsolen', action: openConsole, className: 'console-btn' }],
+  };
+  const sets: Record<GameMode, Group[]> = {
+    realistic: [
+      {
+        name: 'Roder',
+        buttons: [
+          { label: '◀ BB', title: 'Roder 5° babord', order: { kind: 'rudder', angle: -5, relative: true }, repeat: true },
+          { label: 'Mitt', title: 'Roder midskepps', order: { kind: 'rudder', angle: 0 } },
+          { label: 'SB ▶', title: 'Roder 5° styrbord', order: { kind: 'rudder', angle: 5, relative: true }, repeat: true },
+        ],
+      },
+      {
+        name: 'Djuproder',
+        buttons: [
+          { label: '▲ Upp', title: 'Djuproder 5° upp', order: { kind: 'planes', angle: -5, relative: true }, repeat: true },
+          { label: '▼ Ned', title: 'Djuproder 5° ned', order: { kind: 'planes', angle: 5, relative: true }, repeat: true },
+        ],
+      },
+      speed,
+      consoleGroup,
+    ],
+    simplified: [
+      {
+        name: 'Kurs',
+        buttons: [
+          { label: '◀', title: 'Kurs 10° babord', order: { kind: 'adjustHeading', deltaDegrees: -10 }, repeat: true },
+          { label: '▶', title: 'Kurs 10° styrbord', order: { kind: 'adjustHeading', deltaDegrees: 10 }, repeat: true },
+        ],
+      },
+      {
+        name: 'Djup',
+        buttons: [
+          { label: '▲', title: 'Djup 5 m grundare', order: { kind: 'adjustDepth', deltaMetres: -5 }, repeat: true },
+          { label: '▼', title: 'Djup 5 m djupare', order: { kind: 'adjustDepth', deltaMetres: 5 }, repeat: true },
+        ],
+      },
+      speed,
+      {
+        name: 'Ballast',
+        buttons: [
+          { label: 'Dyk', title: 'Dyk: fyll huvudballasten', run: (c) => submitDive(c, 'touch') },
+          { label: 'Yta', title: 'Ytläge: blås huvudballasten', order: { kind: 'surface' } },
+        ],
+      },
+      consoleGroup,
+    ],
+  };
 
   root.innerHTML = '';
-  for (const g of groups) {
-    const group = document.createElement('div');
-    group.className = 'touch-group';
-    const label = document.createElement('div');
-    label.className = 'touch-label';
-    label.textContent = g.name;
-    const row = document.createElement('div');
-    row.className = 'touch-row';
-    for (const b of g.buttons) row.append(makeButton(b));
-    group.append(label, row);
-    root.append(group);
+  for (const [gameMode, groups] of Object.entries(sets)) {
+    const set = document.createElement('div');
+    set.className = 'touch-set';
+    set.dataset.mode = gameMode;
+    for (const g of groups) {
+      const group = document.createElement('div');
+      group.className = 'touch-group';
+      const label = document.createElement('div');
+      label.className = 'touch-label';
+      label.textContent = g.name;
+      const row = document.createElement('div');
+      row.className = 'touch-row';
+      for (const b of g.buttons) row.append(makeButton(b));
+      group.append(label, row);
+      set.append(group);
+    }
+    root.append(set);
   }
 
   function fire(b: TouchButton): void {
-    if (b.order) getCtrl()?.submit(b.order, 'touch');
+    const ctrl = getCtrl();
+    if (ctrl && b.order) ctrl.submit(b.order, 'touch');
+    if (ctrl && b.run) b.run(ctrl);
     b.action?.();
   }
 

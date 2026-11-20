@@ -4,7 +4,8 @@
  * simulation step. Angles are in degrees and speeds in knots here (the
  * operator's units); the controller converts to SI.
  */
-export type OrderSource = 'keyboard' | 'touch' | 'console';
+/** 'assist' = the trim assistant and safety net in the simplified simulation. */
+export type OrderSource = 'keyboard' | 'touch' | 'console' | 'assist';
 
 export type TankGroup = 'all' | 'fwd' | 'aft';
 export type AutopilotAxis = 'all' | 'depth' | 'heading' | 'speed';
@@ -24,7 +25,17 @@ export type Order =
   | { kind: 'trim'; litres: number }
   /** Compensation in litres, positive = flood from sea, negative = pump out. */
   | { kind: 'compensate'; litres: number }
-  | { kind: 'autopilot'; axis: AutopilotAxis; on: boolean };
+  | { kind: 'autopilot'; axis: AutopilotAxis; on: boolean }
+  /** Change the depth setpoint (engages the depth autopilot). Positive = deeper. */
+  | { kind: 'adjustDepth'; deltaMetres: number }
+  /** Change the heading setpoint (engages the heading autopilot). Positive = starboard. */
+  | { kind: 'adjustHeading'; deltaDegrees: number }
+  /** Hold the present depth and heading on autopilot. */
+  | { kind: 'holdCourse' }
+  /** Flood all main ballast; the vents shut automatically when the tanks are full. */
+  | { kind: 'dive' }
+  /** Blow all main ballast; a depth autopilot is sent to the surface. */
+  | { kind: 'surface' };
 
 export interface QueuedOrder {
   order: Order;
@@ -75,5 +86,15 @@ export function acknowledgement(o: Order): string {
       return `Kompensera ${o.litres > 0 ? 'in' : 'ut'} ${fmt(Math.abs(o.litres))} liter, ja`;
     case 'autopilot':
       return `Autopilot${axisText[o.axis]} ${o.on ? 'på' : 'av'}, ja`;
+    case 'adjustDepth':
+      return `Djup ${fmt(Math.abs(o.deltaMetres))} m ${o.deltaMetres > 0 ? 'djupare' : 'grundare'}, ja`;
+    case 'adjustHeading':
+      return `Kurs ${fmt(Math.abs(o.deltaDegrees))}° ${o.deltaDegrees > 0 ? 'styrbord' : 'babord'}, ja`;
+    case 'holdCourse':
+      return 'Håll kurs och djup, ja';
+    case 'dive':
+      return 'Dyk, ja';
+    case 'surface':
+      return 'Ytläge, ja';
   }
 }

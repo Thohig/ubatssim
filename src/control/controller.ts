@@ -2,13 +2,16 @@
  * Glue between orders, autopilot and the simulation. One call to `step()`
  * advances the whole system by one fixed time step:
  *   drain order queue → update setpoints/manual commands → autopilot →
- *   write plant commands → sim.step()
+ *   write plant commands → sim.step() → (simplified mode) trim assistant
  */
 import type { Simulation } from '../sim/simulation';
 import { DT } from '../sim/simulation';
 import { Autopilot, type AutopilotInput } from './autopilot';
+import type { GameMode } from './gameMode';
 import { OrderQueue } from './orderQueue';
 import { acknowledgement, type Order, type OrderSource, type TankGroup } from './orders';
+import { LIMITS } from './parser';
+import { TrimAssist } from './trimAssist';
 
 const DEG = Math.PI / 180;
 const KNOT = 1852 / 3600;
@@ -41,6 +44,7 @@ export interface AutopilotState {
 export class Controller {
   readonly queue = new OrderQueue();
   readonly autopilot = new Autopilot();
+  readonly assist: TrimAssist = new TrimAssist(this);
   readonly log: LogEntry[] = [];
   private listeners: ((e: LogEntry) => void)[] = [];
 
@@ -70,10 +74,38 @@ export class Controller {
   }
 
   /** Game rules set by the menu/scenario. */
-  options = {
-    /** When false, depth and heading autopilots cannot be engaged (speed control stays available). */
+  options: { autopilotAllowed: boolean; mode: GameMode; safetyNet: boolean } = {
+    /**
+     * Realistic mode only: when false, depth and heading autopilots cannot be
+     * engaged (speed control stays available). The simplified mode is built
+     * on the autopilots and ignores it.
+     */
     autopilotAllowed: true,
+    /** Change with `setMode()`. */
+    mode: 'realistic',
+    /** Simplified mode: emergency blow, shallow-water limit and keel warning. */
+    safetyNet: true,
   };
+
+  /** Switches game mode without a jump in the commands. */
+  setMode(mode: GameMode): void {
+    if (mode === this.options.mode) return;
+    this.options.mode = mode;
+    if (mode === 'simplified') {
+      // Hold the present depth and heading; the player then moves the targets.
+      this.apply({ kind: 'autopilot', axis: 'depth', on: true });
+      this.apply({ kind: 'autopilot', axis: 'heading', on: true });
+      this.addLog('Förenklad simulering: ↑/↓ ändrar djupet, ←/→ ändrar kursen. Assistenten trimmar ubåten.', 'info');
+    } else {
+      // Hand over with the last automatic rudder and plane angles, as "autopilot av" does.
+      this.apply({ kind: 'autopilot', axis: 'depth', on: false });
+      this.apply({ kind: 'autopilot', axis: 'heading', on: false });
+      this.addLog('Realistisk simulering: du styr roder och djuproder och trimmar själv.', 'info');
+    }
+  }
+
+  /** Main ballast vents shut automatically once the tanks are full (after "dyk"). */
+  private shutVentsWhenFull = false;
 
   submit(order: Order, source: OrderSource): void {
     this.queue.push(order, source);
@@ -81,12 +113,20 @@ export class Controller {
 
   /** True if the order would engage a depth or heading autopilot. */
   private engagesSteeringAutopilot(o: Order): boolean {
-    return o.kind === 'setDepth' || o.kind === 'setHeading' || (o.kind === 'autopilot' && o.on && o.axis !== 'speed');
+    return (
+      o.kind === 'setDepth' ||
+      o.kind === 'setHeading' ||
+      o.kind === 'adjustDepth' ||
+      o.kind === 'adjustHeading' ||
+      o.kind === 'holdCourse' ||
+      (o.kind === 'autopilot' && o.on && o.axis !== 'speed')
+    );
   }
 
   step(): void {
     for (const { order, source } of this.queue.drain()) {
-      if (!this.options.autopilotAllowed && this.engagesSteeringAutopilot(order)) {
+      const allowed = this.options.autopilotAllowed || this.options.mode === 'simplified';
+      if (!allowed && this.engagesSteeringAutopilot(order)) {
         this.addLog('Autopilot för djup och kurs är inte tillåten här. Styr med roder och djuproder.', 'error', source);
         continue;
       }
@@ -123,6 +163,18 @@ export class Controller {
     sim.commands.rps = this.rpsCmd;
 
     sim.step();
+
+    if (this.shutVentsWhenFull) {
+      // Air can stay trapped at the top of a tank at the surface; it vents once the boat is under way down.
+      const fills = sim.tankDefs.flatMap((d, i) => (d.kind === 'mainBallast' ? [sim.tanks[i]!.water / d.volume] : []));
+      const least = Math.min(...fills);
+      if (least > 0.999 || (least > 0.98 && sim.y[2]! > 15)) {
+        sim.setVents(false);
+        this.shutVentsWhenFull = false;
+        this.addLog('Huvudballasten är full. Ventilerna stängda.', 'info');
+      }
+    }
+    if (this.options.mode === 'simplified') this.assist.step();
 
     const grounded = sim.groundContacts > 0;
     if (grounded && !this.grounded) {
@@ -176,6 +228,7 @@ export class Controller {
         break;
       }
       case 'mainBallast': {
+        this.shutVentsWhenFull = false;
         const ids = groupIds(o.group);
         if (o.action === 'flood') sim.setVents(true, ids);
         else if (o.action === 'blow') sim.setBlow(true, ids);
@@ -216,6 +269,42 @@ export class Controller {
         }
         break;
       }
+      case 'adjustDepth': {
+        const base = this.ap.depth ? this.setpoints.depth : Math.round(tel.depth);
+        if (!this.ap.depth) this.resetDepthLoops();
+        let depth = Math.max(0, Math.min(LIMITS.maxDepth, base + o.deltaMetres));
+        if (this.options.mode === 'simplified' && this.options.safetyNet && o.deltaMetres > 0) {
+          // Shallow water: never deeper than the safety limit (or the present target, if already below it).
+          depth = Math.min(depth, Math.max(base, this.assist.depthLimit()));
+        }
+        this.setpoints.depth = depth;
+        this.ap.depth = true;
+        break;
+      }
+      case 'adjustHeading': {
+        const base = this.ap.heading ? this.setpoints.heading : Math.round(tel.heading / DEG);
+        if (!this.ap.heading) this.autopilot.headingPid.reset();
+        this.setpoints.heading = (((base + o.deltaDegrees) % 360) + 360) % 360;
+        this.ap.heading = true;
+        break;
+      }
+      case 'holdCourse':
+        this.setpoints.depth = Math.round(tel.depth);
+        this.setpoints.heading = Math.round(tel.heading / DEG) % 360;
+        this.resetDepthLoops();
+        this.autopilot.headingPid.reset();
+        this.ap.depth = true;
+        this.ap.heading = true;
+        break;
+      case 'dive':
+        sim.setVents(true);
+        this.shutVentsWhenFull = true;
+        break;
+      case 'surface':
+        sim.setBlow(true);
+        this.shutVentsWhenFull = false;
+        if (this.ap.depth) this.setpoints.depth = 0;
+        break;
     }
   }
 

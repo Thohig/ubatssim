@@ -148,6 +148,14 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 - **Fart:** PI på varvtalet, med framkoppling från jämviktsvarvtalet.
 - **Gemensamt:** alla regulatorer har villkorlig integration (anti-windup) och en integrationszon. Förstärkningen för roder och djuproder skalas med 1/U², eftersom fenornas lyftkraft växer med U².
 
+## Trimassistent (förenklad simulering, src/control)
+
+Assistenten ändrar inget i fysiken. Den ger samma order som spelaren kan ge, och pumparnas kapacitet begränsar den.
+
+- **Kompensering:** när ubåten är helt nedsänkt under 8 m, huvudballasten är full och djupet har varit stilla i 15 s (vertikalfart under 0,15 m/s, inom 3 m från djupmålet), filtreras flytkraftsöverskottet med tidskonstanten 10 s. Avviker det mer än 50 kg, pumpas skillnaden i portioner om högst 200 l. Assistenten väntar 10 s efter varje pumpning. Kravet på stilla djup finns eftersom luftresten i huvudballasten och skrovet trycks ihop medan ubåten byter djup.
+- **Trim:** djuprodrets medelutslag över 20 s, medan djupautopiloten håller djupet, ger det stampmoment som rodret står för: ½ρU²·A·C_Lα·δ·|x_fena|. Halva den vattenmängd som ger samma moment flyttas mellan trimtankarna, högst 200 l per gång.
+- **Skyddsnät:** nödblåsning under 255 m, eller om ubåten sjunker fortare än 2 m/s under 250 m. Djupbörvärdet begränsas till bottendjupet minus skrovradien minus 10 m, under ubåten och upp till 150 m framåt.
+
 ## Förenklingar och kända begränsningar
 
 - **Hydrodynamiska koefficienter:** skrovkoefficienterna, rulldämpningen, fenornas lyftlutning och motorns data är uppskattningar (APPROX). De är inte kontrollerade mot publicerade tabeller.

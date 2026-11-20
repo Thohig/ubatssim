@@ -7,6 +7,7 @@
 import { ENVIRONMENT } from '../sim/config/environment';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
+import { GAME_MODES, type GameMode } from './gameMode';
 
 const G = ENVIRONMENT.g;
 const KN = 1852 / 3600;
@@ -18,6 +19,8 @@ export interface Objective {
   text: string;
   /** Longer instruction, e.g. which command to type. */
   hint: string;
+  /** Hint for the simplified simulation, when it differs. */
+  hintSimplified?: string;
   check: (t: Telemetry, c: Controller) => boolean;
   /** Seconds the condition must hold continuously. */
   holdSeconds?: number;
@@ -29,8 +32,12 @@ export interface Scenario {
   description: string;
   difficulty: Difficulty;
   initial: InitialConditions;
-  /** Whether depth/heading autopilots may be used. */
+  /** Realistic mode: whether depth/heading autopilots may be used. */
   autopilotAllowed: boolean;
+  /** Game modes the scenario can be played in (default: both). */
+  modes?: readonly GameMode[];
+  /** Simplified mode: whether the safety net is active (default true). */
+  safetyNet?: boolean;
   objectives: Objective[];
   /** Returns a failure message, or null while the scenario is still alive. */
   failure?: (t: Telemetry, c: Controller) => string | null;
@@ -48,6 +55,15 @@ export function waypointInfo(t: Telemetry, wp: [number, number]): { distance: nu
   return { distance: Math.hypot(dn, de), bearing };
 }
 
+/** The game modes a scenario allows. */
+export const scenarioModes = (s: Scenario): readonly GameMode[] => s.modes ?? GAME_MODES;
+
+/** The mode to play a scenario in: the preferred one if allowed, else the first allowed. */
+export const scenarioMode = (s: Scenario, preferred: GameMode): GameMode => {
+  const modes = scenarioModes(s);
+  return modes.includes(preferred) ? preferred : modes[0]!;
+};
+
 const mbt = (t: Telemetry) => t.tanks.filter((x) => x.kind === 'mainBallast');
 
 export const SCENARIOS: Scenario[] = [
@@ -62,28 +78,33 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Öppna ventilerna till huvudballasten',
         hint: 'Skriv "fyll huvudballast" i konsolen.',
+        hintSimplified: 'Tryck D (eller Dyk). Ventilerna stängs själva när tankarna är fulla.',
         check: (t) => mbt(t).every((x) => x.ventOpen || x.fill > 0.95),
       },
       {
         text: 'Gå framåt med 5 knop',
         hint: 'Skriv "fart 5 knop". Djuprodren behöver fart för att verka.',
+        hintSimplified: 'Öka farten till 5 knop med Shift + ↑ (eller +). Djuprodren behöver fart för att verka.',
         check: (t) => t.u > 3 * KN,
       },
       {
         text: 'Dyk till 30 meter och håll djupet',
         hint: 'Skriv "djup 30". Autopiloten styr djuprodren.',
+        hintSimplified: 'Tryck ↓ (eller ▼) tills djupmålet visar 30 m.',
         check: (t) => Math.abs(t.depth - 30) < 2,
         holdSeconds: 10,
       },
       {
         text: 'Trimma ubåten neutral (±300 kg)',
         hint: 'Se "Flytkraftsöverskott" under "Mer". Är den tung (minus)? Skriv t.ex. "kompensera ut 600".',
+        hintSimplified: 'Assistenten pumpar ut vatten tills ubåten är neutral. Följ "Trim" och loggen.',
         check: (t) => Math.abs(t.netBuoyancy / G) < 300 && t.compRemaining === 0,
         holdSeconds: 5,
       },
       {
         text: 'Gå till ytläge',
         hint: 'Skriv "blås huvudballast" och "djup 0". Lite vatten blir kvar i tankarna när luften trycks ihop i ytläget.',
+        hintSimplified: 'Tryck S (eller Ytläge). Huvudballasten blåses och djupmålet sätts till 0 m.',
         // Air blown at depth expands and partly escapes on the way up, so some water remains when surfaced.
         check: (t) => t.depth < 3 && mbt(t).every((x) => x.fill < 0.4),
         holdSeconds: 5,
@@ -98,6 +119,7 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'medel',
     initial: { depth: 50, speed: 4 * KN, tankFills: { comp: 0.54 } },
     autopilotAllowed: false,
+    modes: ['realistic'],
     objectives: [
       {
         text: 'Håll 50 m ±2 m i 3 minuter',
@@ -119,11 +141,13 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Dyk till 90 m',
         hint: 'Skriv "djup 90".',
+        hintSimplified: 'Tryck ↓ (eller ▼) tills djupmålet visar 90 m.',
         check: (t) => t.depth > 85,
       },
       {
         text: 'Håll 90 m ±3 m i en minut med neutral trim (±300 kg)',
         hint: 'Ubåten är lätt här. Ta in vatten: "kompensera in <liter>".',
+        hintSimplified: 'Ubåten blir lätt under språngskiktet. Assistenten tar in vatten, följ "Trim" och loggen.',
         check: (t) => Math.abs(t.depth - 90) < 3 && Math.abs(t.netBuoyancy / G) < 300,
         holdSeconds: 60,
       },
@@ -142,6 +166,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Gå genom sundet till den gula bojen',
         hint: 'Skriv "fart 4 knop" och styr med ←/→ eller "kurs <grader>". Sundet slingrar sig mot nordost.',
+        hintSimplified: 'Öka farten till 4 knop och styr med ←/→ (10° per tryck) mot bojens bäring. Sundet slingrar sig mot nordost.',
         check: (t) => waypointInfo(t, [1200, 2848]).distance < 60,
       },
     ],
@@ -153,10 +178,12 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'svår',
     initial: { depth: 200, speed: 4 * KN, tankFills: { comp: 1 }, east: -3000 },
     autopilotAllowed: true,
+    safetyNet: false,
     objectives: [
       {
         text: 'Nå ytan',
         hint: 'Blås huvudballasten ("blås huvudballast"), öka farten och styr uppåt med djuprodren.',
+        hintSimplified: 'Tryck S (ytläge) och öka farten. Här finns ingen automatisk nödblåsning.',
         check: (t) => t.depth < 10,
       },
     ],
@@ -193,6 +220,7 @@ export class ScenarioRunner {
     readonly ctrl: Controller,
   ) {
     ctrl.options.autopilotAllowed = scenario.autopilotAllowed;
+    ctrl.options.safetyNet = scenario.safetyNet ?? true;
   }
 
   onChange(fn: (p: ScenarioProgress) => void): void {

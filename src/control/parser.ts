@@ -3,7 +3,7 @@
  *
  * Examples: "djup 120", "kurs 270", "fart 8 knop", "roder sb 15",
  * "djuproder ned 10", "fyll huvudballast", "blås hb akter",
- * "trimma för 200", "kompensera ut 300", "autopilot av".
+ * "trimma för 200", "kompensera ut 300", "autopilot av", "dyk", "ytläge".
  */
 import type { AutopilotAxis, Order, TankGroup } from './orders';
 
@@ -33,6 +33,8 @@ export const HELP_TEXT = [
   'fyll huvudballast [för|akter]   – öppna ventilerna',
   'blås huvudballast [för|akter]   – blås med tryckluft',
   'stäng huvudballast [för|akter]  – stäng ventiler och blåsning',
+  'dyk                      – fyll huvudballasten, ventilerna stängs när den är full',
+  'ytläge                   – blås huvudballasten (djupautopiloten går till 0 m)',
   'trimma för|akter <liter> – pumpa mellan trimtankarna',
   'kompensera in|ut <liter> – ta in eller pumpa ut vatten',
   'autopilot på|av [djup|kurs|fart]',
@@ -47,7 +49,9 @@ const COMMANDS: Record<string, string[]> = {
   varv: ['varv', 'rpm'],
   roder: ['roder', 'r'],
   djuproder: ['djuproder', 'dr'],
-  fyll: ['fyll', 'ventilera', 'dyk'],
+  fyll: ['fyll', 'ventilera'],
+  dyk: ['dyk', 'dykning'],
+  ytläge: ['ytläge', 'ytlage', 'yta'],
   blås: ['blås', 'blas'],
   stäng: ['stäng', 'stang'],
   trimma: ['trimma', 'trim'],
@@ -189,6 +193,11 @@ export function parseCommand(input: string): ParseResult {
       const n = parseNumberArg(t.withoutUnits(), 'en kurs i grader', 'kurs 270', 0, 360);
       return isResult(n) ? n : ok({ kind: 'setHeading', heading: n % 360 });
     }
+
+    case 'dyk':
+    case 'ytläge':
+      if (t.peek() !== undefined) return unexpected(t.peek()!, `inget mer efter "${cmd}"`);
+      return ok({ kind: cmd === 'dyk' ? 'dive' : 'surface' });
 
     case 'stopp':
       if (t.peek() !== undefined) return unexpected(t.peek()!, 'inget mer efter "stopp"');

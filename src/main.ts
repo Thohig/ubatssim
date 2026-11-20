@@ -1,5 +1,6 @@
 import { Controller } from './control/controller';
-import { SCENARIOS, ScenarioRunner, type Scenario } from './control/scenarios';
+import type { GameMode } from './control/gameMode';
+import { SCENARIOS, ScenarioRunner, scenarioMode, scenarioModes, type Scenario } from './control/scenarios';
 import { createScene } from './render/scene';
 import { quatToMat3 } from './sim/math/quat';
 import { getQuat } from './sim/rigidBody';
@@ -11,7 +12,7 @@ import { bindKeyboard } from './ui/keyboard';
 import { bindLog } from './ui/log';
 import { Menu, type FreeStart } from './ui/menu';
 import { updateObjective } from './ui/objective';
-import { loadSettings, recordBestTime, saveSettings, type Settings } from './ui/settings';
+import { loadSettings, saveSettings, type Settings } from './ui/settings';
 import { bindTouchControls, isTouchDevice } from './ui/touch';
 
 const el = <T extends HTMLElement>(id: string) => {
@@ -30,6 +31,7 @@ interface Session {
   sim: Simulation;
   ctrl: Controller;
   runner: ScenarioRunner | null;
+  scenario: Scenario | null;
   /** How to recreate this session for "Starta om". */
   restart: () => Session;
   propellerAngle: number;
@@ -57,23 +59,26 @@ const logEl = el('log');
 const instrumentsEl = el('instruments');
 const objectiveEl = el('objective');
 
-function newSession(initial: InitialConditions, scenario: Scenario | null, intro: string): Session {
+/** Game sessions start in `mode`; the demo session behind the menu runs the realistic mode. */
+function newSession(initial: InitialConditions, scenario: Scenario | null, intro: string, mode: GameMode = 'realistic'): Session {
   const sim = new Simulation(initial);
   const ctrl = new Controller(sim);
   ctrl.options.autopilotAllowed = settings.autopilot;
   const runner = scenario ? new ScenarioRunner(scenario, ctrl) : null;
   bindLog(logEl, ctrl);
+  if (intro) ctrl.addLog(intro, 'info');
+  ctrl.setMode(mode);
   instrumentsEl.classList.remove('expanded');
   const s: Session = {
     sim,
     ctrl,
     runner,
-    restart: () => newSession(initial, scenario, intro),
+    scenario,
+    restart: () => newSession(initial, scenario, intro, ctrl.options.mode),
     propellerAngle: 0,
     updateInstruments: createInstruments(instrumentsEl, ctrl),
   };
-  if (intro) ctrl.addLog(intro, 'info');
-  if (!ctrl.options.autopilotAllowed) ctrl.addLog('Autopilot för djup och kurs är avstängd.', 'info');
+  if (mode === 'realistic' && !ctrl.options.autopilotAllowed) ctrl.addLog('Autopilot för djup och kurs är avstängd.', 'info');
   ctrl.addLog(touch ? 'Tryck >_ och skriv "hjälp" för kommandon.' : 'Skriv "hjälp" i konsolen för kommandon.', 'info');
   runner?.onChange((p) => {
     if (p.status !== 'running') window.setTimeout(() => endScenario(), 1500);
@@ -102,11 +107,11 @@ const menu = new Menu(
   {
     startFree(start) {
       const f = FREE_STARTS[start];
-      startGame(newSession(f.initial, null, f.text));
+      startGame(newSession(f.initial, null, f.text, settings.mode));
     },
     startScenario(id) {
       const sc = SCENARIOS.find((s) => s.id === id);
-      if (sc) startGame(newSession(sc.initial, sc, `Scenario: ${sc.title}. ${sc.description}`));
+      if (sc) startGame(newSession(sc.initial, sc, `Scenario: ${sc.title}. ${sc.description}`, scenarioMode(sc, settings.mode)));
     },
     resume() {
       setState('playing');
@@ -123,13 +128,51 @@ const menu = new Menu(
       saveSettings(s);
       applySettings();
     },
+    switchMode() {
+      const next: GameMode = session.ctrl.options.mode === 'simplified' ? 'realistic' : 'simplified';
+      if (session.scenario && !scenarioModes(session.scenario).includes(next)) return;
+      session.ctrl.setMode(next);
+      // The choice is remembered for the next game, as on the start page.
+      settings = { ...settings, mode: next };
+      saveSettings(settings);
+      menu.setSettings(settings);
+      session.updateInstruments = createInstruments(instrumentsEl, session.ctrl);
+      applyGameMode();
+      showPause();
+    },
+    introDone: finishIntro,
   },
   settings,
 );
 
 function startGame(s: Session): void {
   session = s;
+  applyGameMode();
+  if (s.ctrl.options.mode === 'simplified' && !settings.introSeen) {
+    setState('paused');
+    menu.show('intro');
+    return;
+  }
   setState('playing');
+}
+
+function finishIntro(): void {
+  settings = { ...settings, introSeen: true };
+  saveSettings(settings);
+  menu.setSettings(settings);
+  setState('playing');
+}
+
+/** Shows the touch buttons for the running game's mode. */
+function applyGameMode(): void {
+  el('touch').dataset.mode = session.ctrl.options.mode;
+}
+
+function showPause(): void {
+  const mode = session.ctrl.options.mode;
+  const other: GameMode = mode === 'simplified' ? 'realistic' : 'simplified';
+  menu.setPauseInfo({ mode, canSwitch: !session.scenario || scenarioModes(session.scenario).includes(other) });
+  menu.show('pause');
 }
 
 function endScenario(): void {
@@ -137,9 +180,8 @@ function endScenario(): void {
   if (!r || state !== 'playing' || r.status === 'running') return;
   const completed = r.status === 'completed';
   const time = r.endTime ?? session.sim.t;
-  const newBest = completed ? recordBestTime(r.scenario.id, time) : false;
   setState('ended');
-  menu.showResult({ scenario: r.scenario, completed, message: r.message ?? '', time, newBest });
+  menu.showResult({ scenario: r.scenario, completed, message: r.message ?? '', time });
 }
 
 function setState(s: GameState): void {
@@ -149,7 +191,7 @@ function setState(s: GameState): void {
   view.setAutoRotate(s === 'menu');
   if (s === 'playing') menu.hide();
   if (s === 'menu') menu.show('main');
-  if (s === 'paused') menu.show('pause');
+  if (s === 'paused') showPause();
   if (s !== 'playing') mode.set('steer');
 }
 
@@ -173,6 +215,9 @@ window.addEventListener('keydown', (e) => {
   if (state === 'playing' && mode.current === 'steer') {
     e.preventDefault();
     pause();
+  } else if (state === 'paused' && menu.current === 'intro') {
+    e.preventDefault();
+    finishIntro();
   } else if (state === 'paused' && (menu.current === 'pause' || !menu.visible)) {
     e.preventDefault();
     setState('playing');

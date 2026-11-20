@@ -20,23 +20,35 @@ function centredBar(key: string): string {
   return `<div class="bar center" data-k="${key}"><div class="zero"></div><div class="fill"></div><div class="mark"></div></div>`;
 }
 
-/** Instrument panel: depth, speed, heading, attitude, control surfaces, tanks, HP air. */
+/** Net buoyancy within this is shown as "Neutral" in the simplified panel [kg]. */
+const TRIM_NEUTRAL_KG = 100;
+
+/**
+ * Instrument panel: depth, speed, heading, attitude, control surfaces, tanks,
+ * HP air. The layout follows the controller's game mode at creation; create
+ * it again after a mode switch. The simplified panel leads with the targets,
+ * the water under the keel and a trim indicator, and keeps rudder and planes
+ * under "Mer".
+ */
 export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Telemetry) => void {
   const sim = ctrl.sim;
-  el.innerHTML = `
-    <div class="inst-row"><span class="inst-label">Tid</span><span data-k="time"></span></div>
-    <div class="inst-sep"></div>
-    ${row('Djup (m)', 'depth', true, 'depthSet', 'apDepth')}
-    ${row('Fart (knop)', 'speed', true, 'speedSet', 'apSpeed')}
-    ${row('Kurs (°)', 'heading', true, 'headingSet', 'apHeading')}
-    ${row('Stampvinkel (°)', 'pitch')}
-    ${row('Under köl (m)', 'keel')}
-    <div class="inst-sep"></div>
+  const simple = ctrl.options.mode === 'simplified';
+  const surfaces = `
     ${row('Roder', 'rudder')}
     ${centredBar('rudderBar')}
     ${row('Djuproder', 'planes')}
-    ${centredBar('planesBar')}
+    ${centredBar('planesBar')}`;
+  el.innerHTML = `
+    <div class="inst-row"><span class="inst-label">Tid</span><span data-k="time"></span></div>
+    <div class="inst-sep"></div>
+    ${row('Djup (m)', 'depth', true, 'depthSet', simple ? undefined : 'apDepth')}
+    ${row('Fart (knop)', 'speed', true, 'speedSet', simple ? undefined : 'apSpeed')}
+    ${row('Kurs (°)', 'heading', true, 'headingSet', simple ? undefined : 'apHeading')}
+    ${simple ? row('Under köl (m)', 'keel', true) + row('Trim', 'trim') : row('Stampvinkel (°)', 'pitch') + row('Under köl (m)', 'keel')}
+    <div class="inst-sep"></div>
+    ${simple ? '' : surfaces}
     <div class="inst-more">
+      ${simple ? row('Stampvinkel (°)', 'pitch') + surfaces + '<div class="inst-sep"></div>' : ''}
       ${row('Djupändring (m/min)', 'depthRate')}
       ${row('Krängning (°)', 'roll')}
       ${row('Varv (rpm)', 'rpm')}
@@ -118,6 +130,14 @@ export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Teleme
     }
     set('air', f(t.airPressure / 1e5));
     bar('airBar', t.airPressure / airMax);
-    set('net', signed(t.netBuoyancy / 9.80665, 0));
+    const netKg = t.netBuoyancy / 9.80665;
+    set('net', signed(netKg, 0));
+    if (refs['trim']) {
+      const submerged = t.submergedFraction > 0.999;
+      const state = !submerged ? 'surface' : netKg < -TRIM_NEUTRAL_KG ? 'heavy' : netKg > TRIM_NEUTRAL_KG ? 'light' : 'neutral';
+      set('trim', state === 'surface' ? 'Ytläge' : state === 'heavy' ? 'Tung' : state === 'light' ? 'Lätt' : 'Neutral');
+      refs['trim'].classList.toggle('trim-heavy', state === 'heavy');
+      refs['trim'].classList.toggle('trim-light', state === 'light');
+    }
   };
 }
