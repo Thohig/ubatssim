@@ -61,7 +61,9 @@ src/main.ts   Spellägen (menu | playing | paused | ended), sessioner och tidsst
 ## Integritetsregler
 - Inga absoluta lokala sökvägar, användarnamn, e-postadresser eller annan personlig information i kod, kommentarer, README, docs eller CLAUDE.md.
 - Ingen `author` eller annan personlig information i `package.json`.
-- Commits görs med GitHub noreply-adressen (`...@users.noreply.github.com`). Kontrollera `git config user.email` innan commit.
+- Commits görs med en noreply-adress. Kontrollera `git config user.email` innan commit.
+  - Lokalt: GitHub noreply-adressen (`...@users.noreply.github.com`).
+  - I Claude Code-molnsessioner: `Claude <noreply@anthropic.com>`. Sessionens kontrollskript kräver den adressen, annars visar GitHub commiten som "Unverified".
 - Ingen `Co-Authored-By`-rad i commit-meddelanden.
 - `.gitignore` utesluter `node_modules/`, `dist/`, `.env*` och `.claude/settings.local.json`.
 - Fråga alltid användaren innan något skapas, pushas eller ändras på GitHub.
