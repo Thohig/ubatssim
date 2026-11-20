@@ -191,7 +191,7 @@ Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är
 
 Ubåten är en generisk modern dieselelektrisk ubåt: 60 m lång, 6,2 m bred, ~1 530 t i undervattensläge. Den gör ~19 knop vid 2,9 MW och 240 rpm.
 
-En utförlig beskrivning med ekvationer, källor och förenklingar finns i [docs/fysikmodell.md](docs/fysikmodell.md). Alla parametrar finns samlade, med källa och enhet, i `src/sim/config/`.
+En utförlig beskrivning med ekvationer, källor och förenklingar finns i [docs/fysikmodell.md](docs/fysikmodell.md). Hur grafiken fungerar beskrivs i [docs/grafik.md](docs/grafik.md). Alla parametrar finns samlade, med källa och enhet, i `src/sim/config/`.
 
 ## Utveckling
 
@@ -250,7 +250,7 @@ src/
               vyer och deras overlay (kompassband, periskop).
   main.ts     Spellägen (meny, spel, paus) och tidsstegsloopen.
 tests/        Vitest.
-docs/         Fördjupande dokumentation.
+docs/         Fördjupande dokumentation: fysikmodellen och grafiken.
 public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
 scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet.
 assets/       Källfil för ikonen utan rundade hörn (används för att rendera PNG-filerna).
