@@ -10,6 +10,7 @@ import { Menu } from '../src/ui/menu';
 import { SCREENS, handledText, type MenuState, type Screen } from '../src/ui/menuScreens';
 import { CREW_SYSTEMS, type CrewDuties } from '../src/control/crew';
 import { DEFAULT_SETTINGS } from '../src/ui/settings';
+import { bindLog } from '../src/ui/log';
 
 describe('dom helpers', () => {
   it('html escapes inserted values, but not nested html or raw', () => {
@@ -163,5 +164,18 @@ describe('instrument panel', () => {
     expect(el.querySelector('.alarm')).not.toBeNull();
     update({ ...t, depthUnderKeel: 200 });
     expect(el.querySelector('.alarm')).toBeNull();
+  });
+});
+
+describe('log history', () => {
+  it('keeps the whole help list and the lines before it', () => {
+    const ctrl = new Controller(new Simulation());
+    const el = document.createElement('div');
+    bindLog(el, ctrl);
+    ctrl.addLog('Före hjälpen', 'info');
+    for (const line of HELP_TEXT) ctrl.addLog(line, 'info');
+    const text = [...el.children].map((c) => c.textContent ?? '');
+    expect(text.some((t) => t.includes('Före hjälpen'))).toBe(true);
+    expect(text.some((t) => t.includes(HELP_TEXT[0]!))).toBe(true);
   });
 });

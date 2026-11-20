@@ -12,8 +12,8 @@
  */
 import { formatSimTime, type Controller, type LogEntry, type LogKind } from '../control/controller';
 
-/** Lines kept for the history. */
-const MAX_KEPT = 14;
+/** Lines kept for the history (it scrolls); room for the whole "hjälp" list and what came before. */
+export const MAX_KEPT = 100;
 /** Lines shown at once before they fade. */
 export const LIVE_LINES = 3;
 

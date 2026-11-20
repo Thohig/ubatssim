@@ -13,6 +13,8 @@
  * around zero speed, and the loops are reset when it does.
  */
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+/** Depth rate [m/s] below which the depth counts as standing still (the depth integral works outside its zone). */
+const DEPTH_STEADY_RATE = 0.02;
 
 export class PID {
   private integral = 0;
@@ -32,14 +34,15 @@ export class PID {
   /**
    * @param error     setpoint − measurement
    * @param rate      time derivative of the measurement (derivative on measurement)
+   * @param integrate override the integral zone: true integrates outside it too, false not at all
    */
-  update(error: number, rate: number, dt: number, feedForward = 0, gainScale = 1): number {
+  update(error: number, rate: number, dt: number, feedForward = 0, gainScale = 1, integrate?: boolean): number {
     const unsat = feedForward + gainScale * (this.kp * error + this.ki * this.integral - this.kd * rate);
     const out = clamp(unsat, this.outMin, this.outMax);
     // Conditional integration (anti-windup): only integrate when not pushing further into saturation.
     const saturatedHigh = unsat > this.outMax && error > 0;
     const saturatedLow = unsat < this.outMin && error < 0;
-    if (!saturatedHigh && !saturatedLow && Math.abs(error) < this.integralZone) this.integral += error * dt;
+    if (!saturatedHigh && !saturatedLow && (integrate ?? Math.abs(error) < this.integralZone)) this.integral += error * dt;
     return out;
   }
 
@@ -103,6 +106,8 @@ export class Autopilot {
   readonly speedPid: PID;
   /** +1 ahead, −1 astern (see `direction()`). */
   private dir: 1 | -1 = 1;
+  /** The planes were (nearly) hard over at the last step: the depth loop's pitch reference is out of reach. */
+  private planesHardOver = false;
 
   constructor(readonly tuning = AUTOPILOT_TUNING) {
     const t = tuning;
@@ -141,9 +146,16 @@ export class Autopilot {
     // Deeper target → positive error → negative pitch reference ahead (bow down),
     // positive astern (stern down, the end the boat is moving towards).
     const maxPitch = dir === 1 ? this.tuning.depth.maxPitch : this.tuning.maxPitchAstern;
-    const pitchRef = clamp(-dir * this.depthPid.update(targetDepth - s.depth, s.depthRate, dt), -maxPitch, maxPitch);
+    // The depth integral works within its zone, and also outside it once the depth stands still (a boat
+    // resting 2 m off the target is not a transient), but never while the planes are hard over (wind-up).
+    const err = targetDepth - s.depth;
+    const zone = this.tuning.depth.integralZone;
+    const integrate = !this.planesHardOver && (Math.abs(err) < zone || Math.abs(s.depthRate) < DEPTH_STEADY_RATE);
+    const pitchRef = clamp(-dir * this.depthPid.update(err, s.depthRate, dt, 0, 1, integrate), -maxPitch, maxPitch);
     // Pitch above reference → bow down: planes dive (positive) ahead, rise astern.
-    return dir * this.pitchPid.update(s.pitch - pitchRef, -s.pitchRate, dt, 0, this.gainScale(s.speed));
+    const planes = dir * this.pitchPid.update(s.pitch - pitchRef, -s.pitchRate, dt, 0, this.gainScale(s.speed));
+    this.planesHardOver = Math.abs(planes) >= 0.9 * this.tuning.pitch.maxPlanes;
+    return planes;
   }
 
   /** Rudder command [rad], positive = starboard. */

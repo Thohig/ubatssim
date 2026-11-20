@@ -32,8 +32,11 @@ const CRASH_STOP_UNTIL = 0.5;
 const PLANES_SPEED = 4;
 const STALL_TIME = 30;
 const STALL_HINT_EVERY = 120;
-/** Within this of the depth target [m] the boost ends. */
-const DEPTH_REACHED = 2;
+/** Off the depth target by more than this [m], hard-over planes count as stalled (1 m matters at periscope depth). */
+const STALL_MIN_ERROR = 1;
+/** The boost ends when the depth has been within this of the target [m] for `DEPTH_SETTLE` seconds (not just passed through it). */
+const DEPTH_REACHED = 0.5;
+const DEPTH_SETTLE = 30;
 /** The crew starts the diesels below this state of charge and stops them at the second. */
 const CHARGE_START = 0.95;
 const CHARGE_STOP = 0.99;
@@ -348,29 +351,60 @@ export class Controller {
   private lastStallHint = -Infinity;
   /** The engine runs at least `PLANES_SPEED` until the depth target is reached (the crew handles the speed). */
   depthBoost = false;
+  /** Seconds the boosted boat has been within `DEPTH_REACHED` of the target. */
+  private boostSettled = 0;
+  /** Depth target and speed a boost last ended at; a second stall there keeps the boost (`boostHeld`). */
+  private boostEndedAt: { depth: number; speed: number } | null = null;
+  /** The boost stays until the depth target or the speed is changed (the planes stalled twice at them). */
+  private boostHeld = false;
 
   /**
    * The planes' lift grows with the speed squared: at 3 knots they cannot
    * lift or push the boat far. When the depth autopilot has held the planes
-   * hard over for `STALL_TIME` seconds without the depth changing, it says
-   * so; if the crew handles the speed too, the engine goes up to
-   * `PLANES_SPEED` until the depth is reached and then back to the
-   * player's speed.
+   * hard over for `STALL_TIME` seconds, more than `STALL_MIN_ERROR` off the
+   * target and without the depth changing, it says so; if the crew handles
+   * the speed too, the engine goes up to `PLANES_SPEED` until the depth has
+   * been reached for `DEPTH_SETTLE` seconds and then back to the player's
+   * speed. Should the planes stall again at the same depth target and speed
+   * (a raised mast at periscope depth, say), the crew keeps `PLANES_SPEED`
+   * until the player changes either.
    */
   private watchDepthStall(k: Kinematics): void {
     const sim = this.sim;
-    const err = this.setpoints.depth - k.depth;
-    if (this.depthBoost && (!this.ap.depth || !this.ap.speed || Math.abs(err) < DEPTH_REACHED)) {
-      this.depthBoost = false;
-      if (this.ap.speed) this.addLog(`Djupet nått. Maskinen går tillbaka till ${this.setpoints.speed.toString().replace('.', ',')} knop.`, 'info');
+    const sp = this.setpoints;
+    const err = sp.depth - k.depth;
+    this.boostSettled = this.depthBoost && Math.abs(err) < DEPTH_REACHED ? this.boostSettled + DT : 0;
+    if (this.depthBoost) {
+      const changed = this.boostHeld && (sp.depth !== this.boostEndedAt?.depth || sp.speed !== this.boostEndedAt?.speed);
+      const reached = !this.boostHeld && this.boostSettled >= DEPTH_SETTLE;
+      if (!this.ap.depth || !this.ap.speed || changed || reached) {
+        this.depthBoost = false;
+        this.boostSettled = 0;
+        this.boostHeld = false;
+        this.boostEndedAt = reached ? { depth: sp.depth, speed: sp.speed } : null;
+        // The depth and pitch integrals hold a bow angle for the old speed.
+        this.resetDepthLoops();
+        if (this.ap.speed && sp.speed < PLANES_SPEED) {
+          this.addLog(`${reached ? 'Djupet nått. ' : ''}Maskinen går tillbaka till ${sp.speed.toString().replace('.', ',')} knop.`, 'info');
+        }
+      }
     }
-    const hardOver = Math.abs(sim.commands.sternPlanes) >= this.autopilot.tuning.pitch.maxPlanes - 1 * DEG;
-    const stuck = this.ap.depth && !this.surfaceHold && Math.abs(err) > 3 && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
+    // Nearly hard over counts too: a boat stuck at 24° of 25° is just as stuck.
+    const hardOver = Math.abs(sim.commands.sternPlanes) >= 0.9 * this.autopilot.tuning.pitch.maxPlanes;
+    const stuck = this.ap.depth && !this.surfaceHold && Math.abs(err) > STALL_MIN_ERROR && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
     this.stalled = stuck ? this.stalled + DT : 0;
     if (this.stalled < STALL_TIME || this.depthBoost) return;
-    if (this.ap.speed && this.setpoints.speed >= 0 && this.setpoints.speed < PLANES_SPEED) {
+    if (this.ap.speed && sp.speed >= 0 && sp.speed < PLANES_SPEED) {
       this.depthBoost = true;
-      this.addLog(`Djuprodren orkar inte vid den här farten. Maskinen ökar till ${PLANES_SPEED} knop tills djupet är nått.`, 'info');
+      this.boostHeld = this.boostEndedAt !== null && this.boostEndedAt.depth === sp.depth && this.boostEndedAt.speed === sp.speed;
+      this.boostEndedAt = this.boostHeld ? { depth: sp.depth, speed: sp.speed } : null;
+      this.resetDepthLoops();
+      this.addLog(
+        this.boostHeld
+          ? `Djuprodren orkar inte heller nu. Maskinen håller ${PLANES_SPEED} knop tills djup eller fart ändras.`
+          : `Djuprodren orkar inte vid den här farten. Maskinen ökar till ${PLANES_SPEED} knop tills djupet är nått.`,
+        'info',
+      );
     } else if (sim.t - this.lastStallHint > STALL_HINT_EVERY) {
       this.lastStallHint = sim.t;
       this.addLog(`Djuprodren orkar inte vid den här farten. Öka till minst ${PLANES_SPEED} knop.`, 'error');

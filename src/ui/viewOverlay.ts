@@ -17,6 +17,8 @@ export interface OverlayState {
   underwater: boolean;
   /** Vertical field of view [deg] (for placing the buoy marker). */
   fov: number;
+  /** Top of the panels at the bottom of the screen [CSS px]: the periscope's bearing band stays above it. */
+  clearBottom?: number;
 }
 
 const ACCENT = '#5fd3ff';
@@ -145,7 +147,9 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     // The bearing band spans the horizontal field of view.
     const hFov = (2 * Math.atan(Math.tan((s.fov * Math.PI) / 360) * (w / h)) * 180) / Math.PI;
     const width = Math.min(2 * r, w - 32);
-    band(cx, cy + r - 40, width, (hFov * width) / w, s.bearing, s.waypointBearing);
+    // Low in the eyepiece, but above the screen controls and the fire panel, which would hide it.
+    const bandY = Math.max(cy + 46, Math.min(cy + r - 40, (s.clearBottom ?? h) - 34));
+    band(cx, bandY, width, (hFov * width) / w, s.bearing, s.waypointBearing);
 
     ctx.save();
     ctx.font = 'bold 14px ui-monospace, Menlo, monospace';

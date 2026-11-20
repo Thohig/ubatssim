@@ -349,12 +349,19 @@ export function startApp(): void {
   function overlay() {
     if (!flow.inGame || (views.mode !== 'bridge' && views.mode !== 'periscope')) return null;
     const cam = views.camera(0, Infinity);
-    return overlayState(session, {
+    const state = overlayState(session, {
       mode: views.mode,
       relative: views.mode === 'bridge' ? views.bridgeYaw : views.periscopeBearing,
       zoom: views.zoom,
       fov: cam.mode === 'periscope' ? cam.fov : 70,
     });
+    // The periscope's bearing band goes above the screen controls and the fire panel.
+    // (The fire panel counts where it is under the middle of the screen; beside the chart it is not.)
+    const fire = el('fire').getBoundingClientRect();
+    const mid = window.innerWidth / 2;
+    const fireTop = fire.height > 0 && fire.left < mid && fire.right > mid ? fire.top : Infinity;
+    const clearBottom = Math.min(helmEl.getBoundingClientRect().top, fireTop);
+    return { ...state, clearBottom };
   }
 
   /**

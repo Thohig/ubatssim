@@ -23,6 +23,12 @@ describe('hydrostatics', () => {
     expect(pressureAt(100) - pressureAt(0)).toBeGreaterThan(1.0e6);
     expect(pressureAt(100) - pressureAt(0)).toBeLessThan(1.02e6);
   });
+
+  it('a deep boat is fully submerged although the hull is compressed', () => {
+    // Below ~166 m the compression alone took the old fraction under 0.999 ("Ytläge" on the trim instrument).
+    const t = new Simulation({ depth: 250, designTrim: true }).telemetry();
+    expect(t.submergedFraction).toBe(1);
+  });
 });
 
 describe('mass properties from tanks', () => {

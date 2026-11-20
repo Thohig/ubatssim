@@ -535,6 +535,10 @@ body.nav-open #fire { z-index: 5; }
   display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 2;
 }
 #top-center > #objective { position: static; transform: none; width: auto; pointer-events: auto; }
+/* With the chart open, between the instrument panel and the chart, so that long log lines do not run under it. */
+@media (min-width: 1180px) and (min-height: 501px) {
+  body.nav-open #top-center { left: 340px; right: calc(64px + min(400px, 100% - 90px) + 12px); width: auto; min-width: 0; transform: none; }
+}
 /* No background: the lines float over the view with a shadow, and fade away. */
 #log {
   position: static; width: auto; display: flex; flex-direction: column; gap: 2px;

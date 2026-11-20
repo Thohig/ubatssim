@@ -45,6 +45,13 @@ export const ASSIST = {
   steadyTime: 15,
   /** Averaging window for the stern-plane angle [s]. */
   trimWindow: 20,
+  /**
+   * No trimming while the crew runs the engine up for the planes
+   * (`Controller.depthBoost`), nor for this long [s] after it starts or
+   * ends: the plane angle then comes from the speed, not from the trim, and
+   * water moved for it sets the boat swinging at periscope depth.
+   */
+  boostQuiet: 120,
   /** Mean stern-plane angle that triggers a trim transfer [rad]. */
   trimDeadband: 1.5 * DEG,
   /** Fraction of the estimated trim transfer that is ordered (avoids overshoot). */
@@ -80,6 +87,8 @@ export class TrimAssist {
   private blowArmed = true;
   private keelArmed = true;
   private limiting = false;
+  private lastBoost = false;
+  private boostChangedAt = -Infinity;
 
   constructor(private readonly ctrl: Controller) {}
 
@@ -93,7 +102,12 @@ export class TrimAssist {
     const k = sim.kinematics();
     const steady = Math.abs(k.depthRate) < ASSIST.steadyRate;
     if (!steady) this.unsteadySince = sim.t;
-    if (ctrl.ap.depth && Math.abs(k.depth - ctrl.setpoints.depth) < 2 && Math.abs(k.depthRate) < 0.2 && k.u > 2 && k.depth > ASSIST.minDepth) {
+    if (ctrl.depthBoost !== this.lastBoost) {
+      this.lastBoost = ctrl.depthBoost;
+      this.boostChangedAt = sim.t;
+    }
+    const boostQuiet = ctrl.depthBoost || sim.t - this.boostChangedAt < ASSIST.boostQuiet;
+    if (!boostQuiet && ctrl.ap.depth && Math.abs(k.depth - ctrl.setpoints.depth) < 2 && Math.abs(k.depthRate) < 0.2 && k.u > 2 && k.depth > ASSIST.minDepth) {
       this.planesSum += sim.actuators.sternPlanes;
       this.planesSamples++;
     } else {

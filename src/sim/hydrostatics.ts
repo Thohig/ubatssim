@@ -21,7 +21,7 @@ export interface HydrostaticResult {
   buoyancy: number;
   /** Displaced volume (after compression) [m^3]. */
   displacedVolume: number;
-  /** Fraction of the hull volume that is submerged (0..1). */
+  /** Fraction of the hull volume that is submerged (0..1), by geometry: hull compression does not lower it. */
   submergedFraction: number;
   /** Centre of buoyancy in body frame [m] (meaningful when buoyancy > 0). */
   cb: Vec3;
@@ -90,6 +90,7 @@ export function restoringForces(
   let B = 0;
   let vol = 0;
   let vol0 = 0;
+  let volWet = 0;
   const mB: Vec3 = [0, 0, 0];
   for (let i = 0; i < hull.slices.length; i++) {
     const sl = hull.slices[i]!;
@@ -111,6 +112,7 @@ export function restoringForces(
     // Depth of the submerged centroid.
     const zCentroid = zc + gb[1] * ry + gb[2] * rz;
     const p = pressureAt(zCentroid, water);
+    volWet += area * sl.dx;
     const v = area * sl.dx * (1 - hullCompressibility * (p - E.pAtm));
     const b = waterDensity(zCentroid, water) * E.g * v;
     vol += v;
@@ -123,7 +125,7 @@ export function restoringForces(
     mB[2] += b * rz;
   }
   const cb: Vec3 = B > 0 ? [mB[0] / B, mB[1] / B, mB[2] / B] : [0, 0, 0];
-  return { tau, buoyancy: B, displacedVolume: vol, submergedFraction: vol0 > 0 ? Math.min(1, vol / vol0) : 0, cb };
+  return { tau, buoyancy: B, displacedVolume: vol, submergedFraction: vol0 > 0 ? Math.min(1, volWet / vol0) : 0, cb };
 }
 
 /**
