@@ -19,7 +19,8 @@ export function audioInput(s: GameSession, view: ViewMode, cameraUnderwater: boo
     t: sim.telemetry(),
     maxPower: sim.cfg.propulsion.maxPower,
     lpBlower: sim.commands.lpBlower,
-    view,
+    // The cutaway camera stands outside the boat, as the external one.
+    view: view === 'cutaway' ? 'external' : view,
     cameraUnderwater,
     conditions: s.conditions,
     seaHs: sim.sea.hs,

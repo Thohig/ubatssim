@@ -33,6 +33,12 @@ export function bindModeIndicator(el: HTMLElement, state: InputModeState, touch 
         : 'PERISKOP<small>←/→ vrider · Z förstoring · Shift+←/→ styr · Esc = yttre vy</small>';
       return;
     }
+    if (m === 'steer' && view === 'cutaway') {
+      el.innerHTML = touch
+        ? 'SNITT<small>tryck på ett rum · dra · nyp</small>'
+        : 'SNITT<small>klicka på ett rum · dra för att vrida · hjul eller +/− zoomar · Z ovan/sida · C eller Esc = yttre vy</small>';
+      return;
+    }
     if (m === 'steer' && view === 'bridge') {
       el.innerHTML = touch ? 'BRYGGAN<small>dra för att titta runt</small>' : 'BRYGGAN<small>dra för att titta runt · V byter vy · Esc = yttre vy</small>';
       return;

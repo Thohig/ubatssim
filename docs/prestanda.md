@@ -44,3 +44,7 @@ En bild får ta 16,7 ms vid 60 bilder per sekund. Fördelningen på en mellankla
 - **Vågorna på grafikkortet:** vågnätet förskjuts i en vertexshader med samma vågsumma som fysiken (`src/render/waveShader.ts`). Fasen vid nätets mitt räknas i dubbel precision varje bild. Ett test visar att shaderns formel ger fysikens yta inom några millimeter, även 15 km bort och efter två timmar.
 - **Terrängen i en bakgrundstråd:** höjder, normaler och färger för terrängens rutnät byggs i en Web Worker (`terrainWorker.ts`, med samma kod i `terrainBuild.ts` som reserv). Det första rutnätet i ett område byggs direkt.
 - **Three.js i en egen fil:** webbläsaren kan behålla den mellan uppdateringar av spelet.
+
+## Genomskärningen
+
+Snittvyns JavaScript är litet: en profil med 4× strypt processor visar vattenytans beräkning på 0,1 % och resten som i den yttre vyn. I testmiljön (SwiftShader, grafik i mjukvara) blir "grafik" i `?perf` ändå ~11 ms mot ~5 ms i den yttre vyn, men nästan allt är rastrering av de genomskinliga och dubbelsidiga ytorna, som ett riktigt grafikkort gör. Mät med `?perf` på en telefon innan inredningen byggs ut. Om det behövs: färre genomskinliga ytor (tankarnas skal) och enklare cylindrar.

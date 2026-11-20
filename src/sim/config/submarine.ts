@@ -51,6 +51,11 @@ export interface CompartmentDef {
   name: string;
   /** Extent along body x [m]: [aft, fwd]. */
   xRange: [number, number];
+  /**
+   * Decks, top first: name and floor height (body z [m], down positive).
+   * Only for the cutaway view; the physics uses the tanks, not the decks.
+   */
+  decks: { name: string; floor: number }[];
 }
 
 export interface FinDef {
@@ -173,12 +178,23 @@ export const SUBMARINE = {
     },
   ] satisfies TankDef[],
 
+  /**
+   * The pressure hull's compartments, bulkheads at x = 13, 3, −6 and −14 m.
+   * The two middle ones have two decks; the trim and compensating tanks lie
+   * under the floors. Layout typical of a 60 m diesel-electric boat. APPROX.
+   */
   compartments: [
-    { id: 'torpedo', name: 'Torpedrum', xRange: [13, 21] },
-    { id: 'control', name: 'Manöverrum', xRange: [3, 13] },
-    { id: 'living', name: 'Bostäder och batterier', xRange: [-6, 3] },
-    { id: 'engine', name: 'Maskinrum', xRange: [-14, -6] },
-    { id: 'motor', name: 'Elmotorrum', xRange: [-20, -14] },
+    { id: 'torpedo', name: 'Torpedrum', xRange: [13, 21], decks: [{ name: 'Torpeddäck', floor: 1.2 }] },
+    {
+      id: 'control', name: 'Manöverrum', xRange: [3, 13],
+      decks: [{ name: 'Övre däck: manövercentral, sonar och radio', floor: -0.3 }, { name: 'Nedre däck: pumprum och HP-luft', floor: 1.7 }],
+    },
+    {
+      id: 'living', name: 'Bostäder och batterier', xRange: [-6, 3],
+      decks: [{ name: 'Övre däck: mäss, kabyss och kojer', floor: -0.3 }, { name: 'Nedre däck: batterirum', floor: 1.7 }],
+    },
+    { id: 'engine', name: 'Maskinrum', xRange: [-14, -6], decks: [{ name: 'Maskindäck', floor: 1.2 }] },
+    { id: 'motor', name: 'Elmotorrum', xRange: [-20, -14], decks: [{ name: 'Motordäck', floor: 1.2 }] },
   ] satisfies CompartmentDef[],
 
   /** High-pressure air system (isothermal, Boyle's law). */

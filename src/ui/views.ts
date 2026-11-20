@@ -1,17 +1,21 @@
 /**
- * Camera views: external (orbit), the open bridge and the periscope. The
- * view is player state, not simulation state: it never changes the boat.
- * Raising and lowering the periscope and manning the bridge are orders.
+ * Camera views: external (orbit), the open bridge, the periscope and the
+ * cutaway. The view is player state, not simulation state: it never changes
+ * the boat. Raising and lowering the periscope and manning the bridge are orders.
  *
  * Availability:
  *   bridge    – the bridge is manned (surfaced)
  *   periscope – the mast is fully raised
+ *   cutaway   – always: the boat cut along the centre line (side) or through
+ *               the upper deck (top); drag to turn, wheel or pinch to zoom,
+ *               tap a space to select it and centre the view on it
  */
 import type { Controller } from '../control/controller';
 import type { OrderSource } from '../control/orders';
 import type { CameraView } from '../render/scene';
+import type { CutPlan } from '../render/cutaway';
 
-export type ViewMode = 'external' | 'bridge' | 'periscope';
+export type ViewMode = 'external' | 'bridge' | 'periscope' | 'cutaway';
 
 const DEG = Math.PI / 180;
 
@@ -26,7 +30,12 @@ const TRAIN_RATE = 40 * DEG;
 const BRIDGE_YAW_LIMIT = 160 * DEG;
 const BRIDGE_PITCH_LIMIT = 40 * DEG;
 
-export const VIEW_NAME: Record<ViewMode, string> = { external: 'Yttre vy', bridge: 'Bryggan', periscope: 'Periskop' };
+export const VIEW_NAME: Record<ViewMode, string> = { external: 'Yttre vy', bridge: 'Bryggan', periscope: 'Periskop', cutaway: 'Genomskärning' };
+
+const CUT_YAW_LIMIT = 60 * DEG;
+const CUT_PITCH_LIMIT = 45 * DEG;
+/** Cutaway zoom: 1 = the whole boat. */
+export const CUT_ZOOM_MAX = 6;
 
 export class ViewState {
   mode: ViewMode = 'external';
@@ -37,6 +46,14 @@ export class ViewState {
   zoom = 0;
   /** −1, 0 or +1 while a training key is held. */
   trainDir = 0;
+  /** Cutaway: side or top, turned by yaw/pitch, zoomed, centred on `cutPan` [m] along the boat. */
+  cutPlan: CutPlan = 'side';
+  cutYaw = 0;
+  cutPitch = 0;
+  cutZoom = 1;
+  cutPan = 0;
+  /** Cutaway: the tapped space (interior.ts), or null. */
+  selected: string | null = null;
   private listeners: ((m: ViewMode) => void)[] = [];
 
   onChange(fn: (m: ViewMode) => void): void {
@@ -56,7 +73,7 @@ export class ViewState {
 
   /** Next available view after the present one. */
   cycle(available: Record<ViewMode, boolean>): void {
-    const order: ViewMode[] = ['external', 'bridge', 'periscope'];
+    const order: ViewMode[] = ['external', 'bridge', 'periscope', 'cutaway'];
     let i = order.indexOf(this.mode);
     for (let k = 0; k < order.length; k++) {
       i = (i + 1) % order.length;
@@ -69,6 +86,44 @@ export class ViewState {
     this.zoom = (this.zoom + 1) % PERISCOPE_ZOOM.length;
   }
 
+  /** Cutaway: zoom by a factor (wheel, pinch, buttons), within 1…CUT_ZOOM_MAX. */
+  zoomCut(factor: number): void {
+    this.cutZoom = clamp(this.cutZoom * factor, 1, CUT_ZOOM_MAX);
+    this.notify();
+  }
+
+  /** Cutaway: side ↔ top. */
+  toggleCutPlan(): void {
+    this.cutPlan = this.cutPlan === 'side' ? 'top' : 'side';
+    this.cutYaw = 0;
+    this.cutPitch = 0;
+    this.notify();
+  }
+
+  /** Cutaway: the whole boat again, nothing selected. */
+  resetCut(): void {
+    this.cutYaw = 0;
+    this.cutPitch = 0;
+    this.cutZoom = 1;
+    this.cutPan = 0;
+    this.selected = null;
+    this.notify();
+  }
+
+  /** Cutaway: select a space (null to clear) and centre the view on body x [m]. */
+  select(id: string | null, x?: number): void {
+    this.selected = id;
+    if (id !== null && x !== undefined) {
+      this.cutPan = clamp(x, -30, 30);
+      if (this.cutZoom < 2) this.cutZoom = 2;
+    }
+    this.notify();
+  }
+
+  private notify(): void {
+    for (const fn of this.listeners) fn(this.mode);
+  }
+
   /** Turns the periscope or the bridge look by a pointer drag [px]. */
   drag(dx: number, dy: number): void {
     if (this.mode === 'periscope') {
@@ -76,6 +131,9 @@ export class ViewState {
     } else if (this.mode === 'bridge') {
       this.bridgeYaw = clamp(this.bridgeYaw - dx * 0.005, -BRIDGE_YAW_LIMIT, BRIDGE_YAW_LIMIT);
       this.bridgePitch = clamp(this.bridgePitch + dy * 0.005, -BRIDGE_PITCH_LIMIT, BRIDGE_PITCH_LIMIT);
+    } else if (this.mode === 'cutaway') {
+      this.cutYaw = clamp(this.cutYaw - dx * 0.005, -CUT_YAW_LIMIT, CUT_YAW_LIMIT);
+      this.cutPitch = clamp(this.cutPitch + dy * 0.005, -CUT_PITCH_LIMIT, CUT_PITCH_LIMIT);
     }
   }
 
@@ -93,34 +151,68 @@ export class ViewState {
       const shake = Math.max(0, Math.abs(speed) - vibrationSpeed) * 2;
       return { mode: 'periscope', bearing: this.periscopeBearing, fov: PERISCOPE_ZOOM[this.zoom]!.fov, shake };
     }
+    if (this.mode === 'cutaway') return { mode: 'cutaway', plan: this.cutPlan, yaw: this.cutYaw, pitch: this.cutPitch, zoom: this.cutZoom, pan: this.cutPan };
     return { mode: 'external' };
   }
 }
 
 /** Which views can be shown now. */
 export function availableViews(ctrl: Controller): Record<ViewMode, boolean> {
-  return { external: true, bridge: ctrl.bridgeManned, periscope: ctrl.sim.actuators.periscope >= 0.99 };
+  return { external: true, bridge: ctrl.bridgeManned, periscope: ctrl.sim.actuators.periscope >= 0.99, cutaway: true };
 }
 
 /**
- * Pointer drags on the 3D view turn the bridge look or train the
- * periscope (the orbit controls are off in those views).
+ * Pointer input on the 3D view: drags turn the bridge look, train the
+ * periscope or turn the cutaway (the orbit controls are off in those views).
+ * In the cutaway a wheel or a two-finger pinch zooms, and a tap (a press
+ * that hardly moves) calls `onTap` with the screen point.
  */
-export function bindViewPointer(canvas: HTMLElement, views: ViewState): void {
-  let last: { x: number; y: number; id: number } | null = null;
+export function bindViewPointer(canvas: HTMLElement, views: ViewState, onTap?: (x: number, y: number) => void): void {
+  const pointers = new Map<number, { x: number; y: number; x0: number; y0: number }>();
+  let pinch: number | null = null;
   canvas.addEventListener('pointerdown', (e) => {
     if (views.mode === 'external') return;
-    last = { x: e.clientX, y: e.clientY, id: e.pointerId };
-    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // Synthetic events have no pointer to capture.
+    }
+    pinch = null;
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!last || e.pointerId !== last.id || views.mode === 'external') return;
-    views.drag(e.clientX - last.x, e.clientY - last.y);
-    last = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    const p = pointers.get(e.pointerId);
+    if (!p || views.mode === 'external') return;
+    if (pointers.size === 2 && views.mode === 'cutaway') {
+      const [a, b] = [...pointers.values()];
+      p.x = e.clientX;
+      p.y = e.clientY;
+      const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+      if (pinch !== null && d > 0) views.zoomCut(d / pinch);
+      pinch = d;
+      return;
+    }
+    views.drag(e.clientX - p.x, e.clientY - p.y);
+    p.x = e.clientX;
+    p.y = e.clientY;
   });
-  const end = () => (last = null);
+  const end = (e: PointerEvent) => {
+    const p = pointers.get(e.pointerId);
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (p && e.type === 'pointerup' && views.mode === 'cutaway' && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < 6) onTap?.(e.clientX, e.clientY);
+  };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener(
+    'wheel',
+    (e) => {
+      if (views.mode !== 'cutaway') return;
+      e.preventDefault();
+      views.zoomCut(Math.exp(-e.deltaY * 0.0015));
+    },
+    { passive: false },
+  );
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -154,9 +246,14 @@ export function viewBearing(ctrl: Controller, views: ViewState): number {
   return ((deg % 360) + 360) % 360;
 }
 
+/** C / "Snitt": into the cutaway, or back to the external view. */
+export function toggleCutaway(views: ViewState): void {
+  views.set(views.mode === 'cutaway' ? 'external' : 'cutaway');
+}
+
 /** B / "Brg": report the bearing of the cross hair (or the bridge look). */
 export function reportViewBearing(ctrl: Controller, views: ViewState, source: OrderSource): void {
-  if (views.mode === 'external') return;
+  if (views.mode !== 'bridge' && views.mode !== 'periscope') return;
   ctrl.submit({ kind: 'reportBearing', bearing: Math.round(viewBearing(ctrl, views)) % 360 }, source);
 }
 
@@ -172,16 +269,27 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
     <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>
+    <button type="button" data-v="cutaway" title="Genomskärning av ubåten (C)" aria-label="Genomskärning av ubåten">Snitt</button>
+    <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
+    <button type="button" data-v="whole" title="Hela ubåten" aria-label="Visa hela ubåten">Hela</button>
     <button type="button" data-v="console" class="console-btn" title="Kommandokonsolen (Enter)" aria-label="Öppna kommandokonsolen">&gt;_</button>`;
   const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
+  const cut = root.querySelector<HTMLButtonElement>('[data-v="cutaway"]')!;
+  const plan = root.querySelector<HTMLButtonElement>('[data-v="plan"]')!;
+  const whole = root.querySelector<HTMLButtonElement>('[data-v="whole"]')!;
   /** Whether the boat is too deep for the periscope and the bridge. */
   let deep = false;
   const sync = () => {
     zoom.hidden = views.mode !== 'periscope';
-    brg.hidden = views.mode === 'external';
+    brg.hidden = views.mode !== 'bridge' && views.mode !== 'periscope';
+    const inCut = views.mode === 'cutaway';
+    cut.classList.toggle('on', inCut);
+    plan.hidden = !inCut;
+    whole.hidden = !inCut;
+    plan.textContent = views.cutPlan === 'side' ? 'Ovan' : 'Sida';
     per.hidden = deep;
     view.hidden = deep && views.mode === 'external';
   };
@@ -196,7 +304,10 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     }
     const ctrl = getCtrl();
     if (!b || !ctrl) return;
-    if (b.dataset.v === 'view') cycleView(ctrl, views, 'touch');
+    if (b.dataset.v === 'cutaway') toggleCutaway(views);
+    else if (b.dataset.v === 'plan') views.toggleCutPlan();
+    else if (b.dataset.v === 'whole') views.resetCut();
+    else if (b.dataset.v === 'view') cycleView(ctrl, views, 'touch');
     else if (b.dataset.v === 'periscope') togglePeriscope(ctrl, 'touch');
     else if (b.dataset.v === 'bearing') reportViewBearing(ctrl, views, 'touch');
     else views.toggleZoom();

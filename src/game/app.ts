@@ -7,8 +7,12 @@ import { AudioDirector } from '../audio/director';
 import { SCENARIOS } from '../control/scenarios';
 import { AREA_INFO } from '../control/areas';
 import { createScene } from '../render/scene';
+import type { CutawayState } from '../render/cutaway';
 import { quatToMat3 } from '../sim/math/quat';
 import { getQuat } from '../sim/rigidBody';
+import { spaceAt } from '../render/interior';
+import { cutawayInfo, spaceCentre } from '../ui/cutawayInfo';
+import { h } from '../ui/dom';
 import { SUBMARINE } from '../sim/config/submarine';
 import { bindConsole } from '../ui/console';
 import { createHelm } from '../ui/helm';
@@ -53,7 +57,10 @@ export function startApp(): void {
   const mode = new InputModeState();
   const views = new ViewState();
   // On-board views: the HUD makes room for the view on small screens (style.css).
-  views.onChange((m) => document.body.classList.toggle('onboard', m !== 'external'));
+  views.onChange((m) => {
+    document.body.classList.toggle('onboard', m === 'bridge' || m === 'periscope');
+    document.body.classList.toggle('cutaway', m === 'cutaway');
+  });
   let lastPeriscope = 0;
   let session: GameSession;
   let updateInstruments: ReturnType<typeof createInstruments>;
@@ -184,7 +191,48 @@ export function startApp(): void {
   const activeCtrl = () => (flow.state === 'playing' ? session.ctrl : null);
   const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode);
   bindKeyboard(activeCtrl, mode, openConsole, views);
-  bindViewPointer(view.renderer.domElement, views);
+  // Cutaway: a tap selects the space under it (interior.ts) and centres the view on it.
+  bindViewPointer(view.renderer.domElement, views, (x, y) => {
+    const p = view.pickCut(x, y);
+    const id = p ? spaceAt(SUBMARINE, p) : null;
+    views.select(id, id ? spaceCentre(SUBMARINE, id) : undefined);
+  });
+  // The cutaway frames the boat between the panels: measured when they change size, not every frame.
+  const measureSafeArea = () => {
+    const c = view.renderer.domElement.getBoundingClientRect();
+    /** A panel's box, or null while it is hidden (small screens hide some in the cutaway). */
+    const box = (id: string) => {
+      const r = el(id).getBoundingClientRect();
+      return r.width > 0 && r.height > 0 ? r : null;
+    };
+    const inst = box('instruments');
+    const btns = box('view-btns');
+    const helm = box('helm');
+    const info = box('cutaway-info');
+    const narrow = c.width < 760;
+    view.setSafeArea({
+      // On a narrow screen the instruments sit above the boat, not beside it.
+      left: !narrow && inst ? Math.max(0, inst.right - c.left) : 0,
+      top: Math.max(56, narrow && inst ? inst.bottom - c.top : 0),
+      right: btns ? Math.max(0, c.right - btns.left) : 0,
+      bottom: Math.max(helm ? c.bottom - helm.top : 0, info && narrow ? c.bottom - info.top : 0),
+    });
+  };
+  const safeAreaObserver = new ResizeObserver(measureSafeArea);
+  for (const id of ['instruments', 'view-btns', 'helm', 'cutaway-info']) safeAreaObserver.observe(el(id));
+  window.addEventListener('resize', measureSafeArea);
+  const cutawayInfoEl = el('cutaway-info');
+  let cutawayInfoKey = '';
+  /** The information box for the selected space (10 times a second, only on change). */
+  const updateCutawayInfo = (s: GameSession) => {
+    const info = views.mode === 'cutaway' && views.selected ? cutawayInfo(SUBMARINE, views.selected, s.sim.telemetry(), { bridgeManned: s.ctrl.bridgeManned }) : null;
+    const key = info ? `${info.title}|${info.lines.join('|')}` : views.mode === 'cutaway' ? 'hint' : '';
+    if (key === cutawayInfoKey) return;
+    cutawayInfoKey = key;
+    cutawayInfoEl.hidden = views.mode !== 'cutaway';
+    if (info) cutawayInfoEl.replaceChildren(h('h3', null, info.title), h('p', null, info.description), h('ul', null, ...info.lines.map((l) => h('li', null, l))));
+    else cutawayInfoEl.replaceChildren(h('p', null, 'Tryck på ett rum, en tank eller tornet för att se vad som finns där.'));
+  };
   const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole);
   const helmEl = el('helm');
   const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
@@ -249,7 +297,7 @@ export function startApp(): void {
   }
 
   function overlay() {
-    if (!flow.inGame || views.mode === 'external') return null;
+    if (!flow.inGame || (views.mode !== 'bridge' && views.mode !== 'periscope')) return null;
     const cam = views.camera(0, Infinity);
     return overlayState(session, {
       mode: views.mode,
@@ -257,6 +305,28 @@ export function startApp(): void {
       zoom: views.zoom,
       fov: cam.mode === 'periscope' ? cam.fov : 70,
     });
+  }
+
+  /**
+   * What the cutaway shows. The telemetry part is taken 10 times a second
+   * (with the instruments); the shaft and the animations move every frame.
+   */
+  let cutawayFromTelemetry: Omit<CutawayState, 'plan' | 'propellerAngle' | 'selected' | 't'> | null = null;
+  function sampleCutaway(s: GameSession) {
+    const t = s.sim.telemetry();
+    const R = quatToMat3(getQuat(s.sim.y));
+    // True up in the body frame: Rᵀ·(0, 0, −1), R body → NED (row-major).
+    cutawayFromTelemetry = {
+      up: [-R[6]!, -R[7]!, -R[8]!],
+      tanks: t.tanks.map((k) => ({ id: k.id, fill: k.fill, ventOpen: k.ventOpen, blowOpen: k.blowOpen })),
+      trimRemaining: t.trimRemaining,
+      compRemaining: t.compRemaining,
+      air: t.airPressure / s.sim.cfg.air.bottlePressure,
+    };
+  }
+  function cutawayState(s: GameSession): CutawayState {
+    if (!cutawayFromTelemetry) sampleCutaway(s);
+    return { ...cutawayFromTelemetry!, plan: views.cutPlan, propellerAngle: s.propellerAngle, selected: views.selected, t: s.sim.t };
   }
 
   // ------------------------------------------------------------------- loop
@@ -288,6 +358,7 @@ export function startApp(): void {
       propellerAngle: s.propellerAngle,
       periscope: sim.actuators.periscope,
       vessels: s.ctrl.world.vessels.map((v) => v.state),
+      cutaway: views.mode === 'cutaway' ? cutawayState(s) : undefined,
     });
     drawOverlay(overlay());
     perf.mark('render');
@@ -302,6 +373,8 @@ export function startApp(): void {
       updateInstruments(tel);
       updateViewButtons(s.ctrl);
       updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
+      updateCutawayInfo(s);
+      if (views.mode === 'cutaway') sampleCutaway(s);
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
       updateObjective(objectiveEl, s.runner);
       lastUi = now;

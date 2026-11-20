@@ -23,7 +23,7 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
 - **Mått:** modellen byggs av samma mått som fysiken använder (`src/sim/config/submarine.ts`).
   - Skrovet roteras fram ur skrovets radieprofil (`LatheGeometry`).
   - Tornet, rodren, djuprodren och propellern placeras på sina positioner i kroppen.
-- **Lager:** yttre skrov, tryckskrov, tankar, avdelningar och utrustning ligger i separata grupper med egna material. På så sätt kan ett klippningsplan för en genomskärningsvy läggas till senare. `renderer.localClippingEnabled` är redan på.
+- **Lager:** yttre skrov, tryckskrov, tankar, avdelningar och utrustning ligger i separata grupper med egna material. Genomskärningen lägger sitt klippningsplan på dem (`renderer.localClippingEnabled`).
 - **Rörliga delar:** roder, djuproder, propeller och periskopmast följer simuleringens värden varje bild.
 
 ## Terrängen (`terrain.ts`)
@@ -64,10 +64,20 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
 | **Yttre** | `OrbitControls` följer ubåten. Du vrider och zoomar med mus eller finger. Avståndet sparas när du byter vy. |
 | **Bryggan** | Fast vid bryggans ögonpunkt och följer ubåtens stamp och krängning. Du drar för att titta runt (±160° åt sidorna, ±40° upp och ner). Synfält 70°. |
 | **Periskopet** | I periskophuvudet. Vrids med ←/→ eller genom att dra. Förstoring 1,5× (synfält 32°) eller 6× (8°). Över 6 knop skakar bilden. |
+| **Genomskärning** | Utanför ubåten, från styrbord eller ovanifrån, på ett avstånd som får plats med hela ubåten (synfält 40°). Dra för att vrida (±60° åt sidorna, ±45° upp och ner), zooma 1–6×. Ett tryck centrerar på det valda utrymmet. |
 
 - **Vyval:** vyn är spelarens tillstånd, inte simuleringens. `ViewState` håller vy, blickriktning, periskopets riktning och förstoring.
 - **Automatiskt byte:** `src/game/app.ts` öppnar periskopvyn när masten är uppe och lämnar en vy som inte längre finns, till exempel när bryggan utryms.
 - **Overlay** (`viewOverlay.ts`): hårkors, periskopmask, bäringsskala och bryggans kompassband ritas i 2D på en egen canvas ovanpå 3D-bilden och under panelerna. Bojens riktning visas som en gul markering på bandet.
+
+## Genomskärningen (`cutaway.ts`, `interior.ts`, `tankLevel.ts`)
+
+- **Inredningen är data** (`interior.ts`, utan Three.js): varje utrymme (avdelningarna med däck från `config/submarine.ts`, tankarna och de fritt flödande utrymmena sonardom, torn och akterpik) och utrustningen i dem som lådor och cylindrar med läge och material. Upprepade saker (kojer, battericeller, torpeder) genereras. Inga människor. Testerna i `tests/cutaway.test.ts` kontrollerar att allt ligger inom sin avdelning och innanför tryckskrovet, och att möbler står på sitt däck.
+- **Bygget** (`cutaway.ts`) sker första gången vyn öppnas. Utrustningen slås ihop till ett nät per material. Skotten är skivor med en dörr på babordssidan, och tryckskrovets insida är ljus.
+- **Snittet:** ett klippningsplan i världen, genom mittlinjen (styrbordshalvan tas bort) eller vågrätt genom övre däck. Det läggs på skrov, torn, tankar och inredning. Allt är dubbelsidigt, så ett uppskuret föremål visar sin insida i stället för ett hål.
+- **Vattnet i tankarna:** tankens form med ett andra klippningsplan vid vattenytan. Höjden räknas av `waterLevel` (`tankLevel.ts`): tanken provtas med punkter, och ytan läggs där andelen punkter under den är lika med fyllnadsgraden, längs den sanna lodlinjen. Ytan blir därmed vågrät och volymen rätt vid alla lutningar (testat). Den räknas om bara när fyllnaden ändrats med 1 % eller lutningen märkbart.
+- **Rörliga delar:** bubblor (punkter) i huvudballasten när den ventileras eller blåses, pilar för trim- och kompenseringspumparna, HP-flaskornas sken efter trycket och axeln som snurrar med propellern. Telemetrin för snittet läses 10 gånger per sekund.
+- **Kameran** står utanför ubåten och ramar in den i den fria delen av skärmen mellan panelerna (`setSafeArea`, `setViewOffset`). Ett tryck pekas mot snittplanet och översätts till kroppskoordinater, och `spaceAt` säger vilket utrymme punkten ligger i. Informationsrutan (`src/ui/cutawayInfo.ts`) är en ren funktion av utrymmet och telemetrin.
 
 ## Gränssnittet
 

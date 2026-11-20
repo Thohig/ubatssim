@@ -85,7 +85,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 
 En panelknapp som du sköter själv är gul. På stående telefon ligger djupskalan till vänster, kompassen och knapparna till höger och telegrafen över hela bredden längst ner. På liggande telefon ligger allt i en rad. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
 
-Knapparna Vy, Per, Zoom och Brg uppe till höger gör samma sak som V, P, Z och B. Per och Vy visas när ubåten är grundare än 25 m eller periskopet är uppe. **>_** öppnar konsolen.
+Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P, Z, B och C. Per och Vy visas när ubåten är grundare än 25 m eller periskopet är uppe. **>_** öppnar konsolen.
 
 ### Tangentbord
 
@@ -100,7 +100,9 @@ Piltangenterna följer Auto / Hand.
 | D / S | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) / ytläge | Samma |
 | V | Byt vy (yttre, bryggan, periskopet). Besättningen bemannar bryggan i ytläge. | Byt vy (bryggan måste vara bemannad) |
 | P | Periskop upp / ned | Samma |
-| Z | Periskopets förstoring, 1,5× / 6× | Samma |
+| Z | Periskopets förstoring, 1,5× / 6× (i genomskärningen: ovanifrån / från sidan) | Samma |
+| C | Genomskärning på / av | Samma |
+| + / − | Zooma genomskärningen | Samma |
 | B | Rapportera bäringen dit periskopet eller blicken pekar | Samma |
 | ← / → i periskopet | Vrid periskopet (Shift + ← / → styr) | Samma |
 | Enter eller / | Öppna kommandokonsolen | Samma |
@@ -128,12 +130,17 @@ Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med
 | **Yttre** | Bakom och ovanför ubåten. Dra för att vrida, nyp eller scrolla för att zooma. | Alltid |
 | **Bryggan** | Överst i tornet. Dra för att titta runt. Kompassband med bäring och bojens riktning. | När bryggan är bemannad, i ytläge |
 | **Periskopet** | I periskophuvudet: hårkors, bäringsskala och förstoring 1,5× eller 6×. Vrid med ←/→ eller genom att dra. | När periskopet är uppe |
+| **Genomskärning** | Utanför ubåten, som är uppskuren längs mittlinjen (från styrbord) eller genom övre däck (ovanifrån). | Alltid (Snitt eller C) |
 
 - **Bryggan** är bemannad i ytläge. Den måste utrymmas innan ubåten dyker:
   - Sköter besättningen ballasten utryms bryggan automatiskt när du trycker Dyk (D).
   - Sköter du ballasten själv trycker du Klart bryggan under Ballast ▾ (eller `klart bryggan`). Annars vägrar ubåten att fylla huvudballasten.
   - Når vattnet över brygglisten utryms bryggan, och vyn byter till den yttre.
 - **Lågtrycksblåsaren** går när bryggan är bemannad och håller huvudballasten torr i sjögång.
+- **Genomskärningen** visar alla avdelningar utan människor: torpedrummet, manöverrummet (två däck: manövercentral med sonar och radio, pumprum och HP-luft), bostäder och batterirum (två däck), maskinrummet med två dieselgeneratorer och elmotorrummet med huvudmotorn. Utanför tryckskrovet syns sonardomen, huvudballasttankarna, tornet med masterna och bryggan, och akterpiken med styrmaskinerna.
+  - **Det som rör sig:** vattnet i tankarna har en vågrät yta också när ubåten lutar. Bubblor syns när huvudballasten ventileras eller blåses, pilar när pumparna går, och HP-flaskorna lyser efter trycket. Axeln snurrar med propellern, och periskopmasten, rodren och djuprodren rör sig.
+  - **Så används den:** dra för att vrida, och scrolla, nyp eller tryck + / − för att zooma. **Ovan** (Z) byter till snittet ovanifrån och **Hela** visar hela ubåten igen. Tryck på ett rum, en tank eller tornet, så markeras det, vyn zoomar dit och en ruta visar vad som finns där och läget just nu, till exempel tanknivå, pumpar, tryck på skrovet, HP-luft och motorvarv.
+  - **På små skärmar** döljs kontrollerna och instrumentpanelen medan snittet visas. Snitt eller Esc går tillbaka.
 - **Periskopet** tar 8 s att hissa. Vyn öppnas när det är uppe. Huvudet når över vattnet ner till ungefär 14 m djup i stilla sjö. I grov sjö kan vågtopparna skölja över det. Över 6 knop vibrerar bilden, och den våta masten ger motstånd.
 
 ## Kommandokonsolen
@@ -291,6 +298,7 @@ Testerna täcker bland annat:
 - havsområdena: att trycket är integralen av densiteten, saltsprångskiktet, sötvattnet i fjorden, fjordens tröskel och att alla startlägen och fyrar ligger rätt
 - strömmen (drift, fart genom vattnet och över grund) och vågorna (signifikant våghöjd, rörelser i ytläge, lågtrycksblåsaren)
 - periskopet, bryggan och vyerna
+- genomskärningen: att all inredning ligger inom sin avdelning och tryckskrovet, att vattenytan i en lutande tank fyller rätt volym, att ett tryck hittar rätt utrymme och att informationsrutan har något att säga om varje utrymme
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
 - skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta, panelerna Ballast, Trim och Fart), att tangenterna följer Auto / Hand och att inget scenariotips kräver konsolen
@@ -307,7 +315,8 @@ src/
     math/     Vektorer, matriser (LU), quaternioner.
   control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, besättningen (crew),
               trimassistent och skyddsnät, havsområdenas startlägen och fyrar, scenarier.
-  render/     Three.js: ubåtsmodell i lager, terräng, vågor, fyrar, ljus och dimma, kameravyer.
+  render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, terräng, vågor,
+              fyrar, ljus och dimma, kameravyer.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
   ui/         Meny, instrumentpanel, konsol, logg, tangentbord, skärmkontroller (helm) och knappar, inställningar,
               vyer och deras overlay (kompassband, periskop). HTML byggs med mallar som escapar.

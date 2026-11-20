@@ -3,7 +3,7 @@ import { PERISCOPE_DEPTH, telegraphStep } from '../control/crew';
 import { LIMITS } from '../control/parser';
 import type { OrderSource } from '../control/orders';
 import type { InputModeState } from './inputMode';
-import { cycleView, reportViewBearing, togglePeriscope, type ViewState } from './views';
+import { cycleView, reportViewBearing, toggleCutaway, togglePeriscope, type ViewState } from './views';
 
 /**
  * "Dyk": flood the main ballast and, unless a deeper target is already set,
@@ -37,7 +37,8 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   Shift+↑/↓  crew: telegraph one position ahead/astern; player: ±10 rpm
  *   Space  both Auto: hold present depth and heading; else rudder (or planes) to zero
  *   D  dive   S  surface   Enter or /  open the console
- *   V  next view   P  periscope up/down   Z  periscope magnification
+ *   V  next view   P  periscope up/down   Z  periscope magnification (cutaway: side/top)
+ *   C  cutaway on/off   + / −  cutaway zoom
  *   B  report the bearing of the cross hair / bridge look
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
@@ -64,11 +65,21 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
         togglePeriscope(ctrl, 'keyboard');
         break;
       case 'z':
-        if (views.mode !== 'periscope') return;
-        views.toggleZoom();
+        if (views.mode === 'cutaway') views.toggleCutPlan();
+        else if (views.mode === 'periscope') views.toggleZoom();
+        else return;
+        break;
+      case 'c':
+        toggleCutaway(views);
+        break;
+      case '+':
+      case '=':
+      case '-':
+        if (views.mode !== 'cutaway') return;
+        views.zoomCut(key === '-' ? 1 / 1.25 : 1.25);
         break;
       case 'b':
-        if (views.mode === 'external') return;
+        if (views.mode !== 'bridge' && views.mode !== 'periscope') return;
         reportViewBearing(ctrl, views, 'keyboard');
         break;
       case 'ArrowLeft':

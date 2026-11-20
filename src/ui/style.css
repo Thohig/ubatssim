@@ -28,7 +28,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 }
 .mode.steer { color: var(--ok); }
 .mode.console { color: var(--warn); }
-.mode.periscope, .mode.bridge { color: var(--accent); }
+.mode.periscope, .mode.bridge, .mode.cutaway { color: var(--accent); }
 .mode small { font-weight: 400; letter-spacing: 0; color: var(--muted); margin-left: 10px; }
 
 /* Instruments */
@@ -80,7 +80,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 
 /* ------------------------------------------------------------ screen buttons */
 /* The mode indicator only shows the console and the on-board views. */
-.mode.steer:not(.periscope):not(.bridge) { display: none; }
+.mode.steer:not(.periscope):not(.bridge):not(.cutaway) { display: none; }
 .touch-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .touch-row { display: flex; gap: 4px; }
 .touch-btn {
@@ -372,3 +372,20 @@ legend { color: var(--muted); padding: 0 4px; }
   #log { left: 220px; right: 64px; width: auto; max-height: 20%; }
 }
 
+
+/* ------------------------------------------------------------ cutaway */
+#cutaway-info { right: 12px; bottom: calc(var(--helm-h, 200px) + 6px); width: 380px; max-height: 40%; overflow-y: auto; font-size: 13px; }
+#cutaway-info[hidden] { display: none; }
+#cutaway-info h3 { margin: 0 0 4px; font-size: 15px; color: var(--accent); }
+#cutaway-info p { margin: 0 0 6px; color: var(--muted); }
+#cutaway-info ul { margin: 0; padding-left: 16px; }
+body.cutaway #log { display: none; }
+#view-btns button.on { border-color: var(--accent); color: var(--accent); }
+/* Small screens: the cutaway is for looking, so it gets the screen (Snitt or Esc goes back). */
+@media (max-width: 760px), (max-height: 500px) {
+  body.cutaway #helm, body.cutaway #instruments, body.cutaway #objective { display: none; }
+  #cutaway-info {
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
+    bottom: max(8px, env(safe-area-inset-bottom)); max-height: 30%; font-size: 12px;
+  }
+}

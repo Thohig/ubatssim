@@ -10,6 +10,7 @@ import type { WaveComponent } from '../sim/waves';
 import type { VesselDef, VesselState } from '../sim/vessel';
 import { VesselView } from './vessels';
 import { buildSubmarineModel, updateSubmarineModel, type SubmarineModel } from './submarineModel';
+import { createCutaway, type CutawayState, type CutPlan } from './cutaway';
 
 export interface RenderState {
   t: number;
@@ -23,6 +24,8 @@ export interface RenderState {
   periscope: number;
   /** Other vessels, in the order given to `setVessels`. */
   vessels: readonly VesselState[];
+  /** What the cutaway view shows (only in that view). */
+  cutaway?: CutawayState;
 }
 
 /**
@@ -31,11 +34,16 @@ export interface RenderState {
  *   external  – orbiting camera that follows the boat (mouse/finger)
  *   bridge    – eye of the officer of the watch on the open bridge
  *   periscope – in the periscope head; `shake` [m] adds vibration
+ *   cutaway   – outside the boat looking at the cut: from starboard (side)
+ *               or from above (top); `pan` [m] along the boat, `zoom` ≥ 1
  */
 export type CameraView =
   | { mode: 'external' }
   | { mode: 'bridge'; yaw: number; pitch: number }
-  | { mode: 'periscope'; bearing: number; fov: number; shake: number };
+  | { mode: 'periscope'; bearing: number; fov: number; shake: number }
+  | { mode: 'cutaway'; plan: CutPlan; yaw: number; pitch: number; zoom: number; pan: number };
+
+const CUTAWAY_FOV = 40;
 
 const EXTERNAL_FOV = 55;
 const BRIDGE_FOV = 70;
@@ -61,6 +69,13 @@ export interface SceneView {
   setVessels(defs: readonly VesselDef[]): void;
   /** Depth of the camera [m], negative above the water (after the last render). */
   cameraDepth(): number;
+  /** Cutaway view: the body-frame point [m] under a screen point on the cut, or null. */
+  pickCut(clientX: number, clientY: number): Vec3 | null;
+  /**
+   * The part of the view not covered by panels, in pixels from the canvas's
+   * edges: the cutaway frames the boat there. Null = the whole view.
+   */
+  setSafeArea(insets: { left: number; top: number; right: number; bottom: number } | null): void;
 }
 
 export function createScene(container: HTMLElement, cfg: SubmarineConfig): SceneView {
@@ -87,6 +102,9 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
 
   const model = buildSubmarineModel(cfg);
   scene.add(model.root);
+  const cutaway = createCutaway(model, cfg);
+  let cutawayOn = false;
+  let insets = { left: 0, top: 0, right: 0, bottom: 0 };
   const env = createEnvironment(scene, hemi, sun);
   const vesselView = new VesselView(scene);
 
@@ -136,6 +154,49 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     camera.quaternion.copy(look);
   };
 
+  /**
+   * Cutaway camera: outside the boat, at a distance that fits its length
+   * (divided by the zoom), looking at the cut. Side: from starboard, turned
+   * by yaw (towards the bow) and pitch (from above). Top: from above, bow
+   * to the right.
+   */
+  const camUp = new THREE.Vector3();
+  const target = new THREE.Vector3();
+  const placeCutawayCamera = (v: Extract<CameraView, { mode: 'cutaway' }>) => {
+    model.root.updateMatrixWorld();
+    // Frame the boat in the free part of the view and shift the picture so
+    // its centre is there (setViewOffset keeps the picking consistent).
+    const W = renderer.domElement.clientWidth || 1;
+    const H = renderer.domElement.clientHeight || 1;
+    const safeW = Math.max(80, W - insets.left - insets.right);
+    const safeH = Math.max(60, H - insets.top - insets.bottom);
+    camera.setViewOffset(W, H, -((insets.left - insets.right) / 2), -((insets.top - insets.bottom) / 2), W, H);
+    const t = Math.tan((CUTAWAY_FOV * Math.PI) / 360);
+    const L = cfg.hull.length + 4;
+    const tall = v.plan === 'side' ? 15 : 9; // keel to the top of the sail, or the beam
+    const fit = Math.max((L * H) / (2 * t * safeW), (tall * H) / (2 * t * safeH));
+    const dist = fit / v.zoom;
+    const tBody: Vec3 = [v.pan, 0, v.plan === 'side' ? -1.2 : 0];
+    let d: Vec3;
+    let upBody: Vec3;
+    if (v.plan === 'side') {
+      d = [Math.sin(v.yaw) * Math.cos(v.pitch), Math.cos(v.yaw) * Math.cos(v.pitch), -Math.sin(v.pitch)];
+      upBody = [0, 0, -1];
+    } else {
+      d = [Math.sin(v.pitch) * 0.6, Math.sin(v.yaw) * 0.6, -1];
+      const k = Math.hypot(d[0], d[1], d[2]);
+      d = [d[0] / k, d[1] / k, d[2] / k];
+      upBody = [0, -1, 0]; // port at the top of the screen, bow to the right
+    }
+    model.root.localToWorld(bodyToLocal(tBody, target));
+    model.root.localToWorld(bodyToLocal([tBody[0] + d[0] * dist, tBody[1] + d[1] * dist, tBody[2] + d[2] * dist], eye));
+    camera.position.copy(eye);
+    bodyToLocal(upBody, camUp).applyQuaternion(model.root.quaternion);
+    camera.up.copy(camUp);
+    camera.lookAt(target);
+    camera.up.set(0, 1, 0);
+  };
+
   window.addEventListener('resize', () => {
     camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();
@@ -175,11 +236,31 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     cameraDepth() {
       return env.surfaceAt(camera.position.x, camera.position.z) - camera.position.y;
     },
+    setSafeArea(i) {
+      insets = i ?? { left: 0, top: 0, right: 0, bottom: 0 };
+    },
+    pickCut(clientX, clientY) {
+      if (!cutawayOn) return null;
+      const r = renderer.domElement.getBoundingClientRect();
+      const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(ndc, camera);
+      const hit = ray.ray.intersectPlane(cutaway.cutPlane(), new THREE.Vector3());
+      if (!hit) return null;
+      const local = model.root.worldToLocal(hit);
+      return [-local.z, local.x, -local.y]; // model-local → body (see coords.ts)
+    },
     render(state) {
       nedToThree(state.position, subPos);
       model.root.position.copy(subPos);
       rotationToThree(state.rotation, model.root.quaternion);
       updateSubmarineModel(model, state.rudder, state.sternPlanes, state.propellerAngle, state.periscope, cfg.periscope.extension);
+      const wantCutaway = view.mode === 'cutaway';
+      if (wantCutaway !== cutawayOn) {
+        cutawayOn = wantCutaway;
+        cutaway.setActive(wantCutaway);
+        if (!wantCutaway) camera.clearViewOffset();
+      }
 
       if (view.mode === 'external') {
         controls.enabled = true;
@@ -206,7 +287,11 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       } else {
         controls.enabled = false;
         wasExternal = false;
-        if (view.mode === 'bridge') {
+        if (view.mode === 'cutaway') {
+          setFov(CUTAWAY_FOV);
+          placeCutawayCamera(view);
+          if (state.cutaway) cutaway.update(state.cutaway);
+        } else if (view.mode === 'bridge') {
           setFov(BRIDGE_FOV);
           placeOnBoard(cfg.bridge.eye, view.yaw, view.pitch);
         } else {

@@ -180,7 +180,8 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>D / S</td><td colspan="2">Dyk (till periskopdjup, 13 m, om inget djupare mål finns) / ytläge</td></tr>
           <tr><td>V</td><td colspan="2">Byt vy: yttre, bryggan (i ytläge) och periskopet (när det är uppe)</td></tr>
           <tr><td>P</td><td colspan="2">Periskop upp / ned. Vyn öppnas när masten är uppe.</td></tr>
-          <tr><td>Z</td><td colspan="2">Periskopets förstoring, 1,5× eller 6×</td></tr>
+          <tr><td>Z</td><td colspan="2">Periskopets förstoring, 1,5× eller 6× (i genomskärningen: ovanifrån eller från sidan)</td></tr>
+          <tr><td>C, + / −</td><td colspan="2">Genomskärning på / av, och zoom</td></tr>
           <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
           <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
           <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
@@ -190,7 +191,8 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Vyer</h3>
         <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan under Ballast ▾.</p>
         <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
-        <p>Knapparna Vy, Per, Zoom och Brg uppe till höger gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+        <p><b>Genomskärningen</b> (Snitt eller C) visar ubåten uppskuren med alla avdelningar, tankarna med vattnet, pumparna och maskinerna. Dra för att vrida, scrolla eller nyp för att zooma, och tryck på ett rum eller en tank för att se vad som finns där. Ovan byter till snittet ovanifrån och Hela visar hela ubåten.</p>
+        <p>Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
         <h3>Ljud</h3>
         <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar.</p>
         <h3>Havsområden och väder</h3>
