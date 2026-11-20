@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { PID, wrapAngle } from '../src/control/autopilot';
-import { Controller } from '../src/control/controller';
-import { parseCommand } from '../src/control/parser';
-import { Simulation } from '../src/sim/simulation';
+import { PID, wrapAngle } from '../../src/control/autopilot';
+import { Controller } from '../../src/control/controller';
+import { parseCommand } from '../../src/control/parser';
+import { Simulation } from '../../src/sim/simulation';
 
 const DEG = 180 / Math.PI;
 const KN = 1852 / 3600;

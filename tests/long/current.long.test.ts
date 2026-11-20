@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../src/control/controller';
-import { AREAS } from '../src/sim/config/areas';
-import { Simulation } from '../src/sim/simulation';
+import { Controller } from '../../src/control/controller';
+import { AREAS } from '../../src/sim/config/areas';
+import { Simulation } from '../../src/sim/simulation';
 
 const KN = 1852 / 3600;
 

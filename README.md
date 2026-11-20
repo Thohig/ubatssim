@@ -228,6 +228,10 @@ npm test
 ```
 
 ```bash
+npm run test:all
+```
+
+```bash
 npm run lint
 ```
 
@@ -239,7 +243,7 @@ npm run build
 npm run bench
 ```
 
-- `npm test` kör alla enhetstester med Vitest. Fysiken testas utan grafik.
+- `npm test` kör de snabba testerna med Vitest (~20 s). `npm run test:all` kör också de långa scenario- och simuleringstesterna i `tests/long/` (~2 min), som publiceringen alltid kör. Fysiken testas utan grafik.
 - `npm run lint` kör ESLint och kontrollerar bland annat att fysiklagret inte importerar Three.js eller DOM.
 - `npm run build` gör typkontroll och produktionsbygge till `dist/`.
 - `npm run bench` mäter fysikens tid per tidssteg. Lägg till `?perf` i adressen för att se tiden per bild i spelet. Budgeten finns i [docs/prestanda.md](docs/prestanda.md).

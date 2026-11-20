@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { AREA_INFO } from '../src/control/areas';
-import { Controller } from '../src/control/controller';
-import type { GameMode } from '../src/control/gameMode';
-import type { Order } from '../src/control/orders';
-import { SCENARIOS, ScenarioRunner, scenarioMode, waypointInfo } from '../src/control/scenarios';
-import { Simulation } from '../src/sim/simulation';
+import { AREA_INFO } from '../../src/control/areas';
+import { Controller } from '../../src/control/controller';
+import type { GameMode } from '../../src/control/gameMode';
+import type { Order } from '../../src/control/orders';
+import { SCENARIOS, ScenarioRunner, scenarioMode, waypointInfo } from '../../src/control/scenarios';
+import { Simulation } from '../../src/sim/simulation';
 
 const G = 9.80665;
 
@@ -127,9 +127,16 @@ describe('fail cases', () => {
   });
 
   it('"Fyrljuset" fails when time runs out', () => {
-    const { runner, run } = start('night-light', 'realistic');
-    run(1600);
+    // The same scenario with a 30 s limit: the rule is the same, the test 50 times shorter.
+    const sc = SCENARIOS.find((s) => s.id === 'night-light')!;
+    const c = new Controller(new Simulation(sc.initial));
+    const runner = new ScenarioRunner({ ...sc, timeLimit: 30 }, c);
+    for (let i = 0; i < 40 * 100 && runner.status === 'running'; i++) {
+      c.step();
+      runner.update();
+    }
     expect(runner.status).toBe('failed');
+    expect(runner.message).toMatch(/Tiden tog slut/);
   });
 });
 

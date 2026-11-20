@@ -25,7 +25,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      # All tests, including the long scenario tests in tests/long/.
+      - run: npm run test:all
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

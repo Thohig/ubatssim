@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Controller } from '../src/control/controller';
-import { parseCommand } from '../src/control/parser';
-import { SCENARIOS, ScenarioRunner, type Scenario } from '../src/control/scenarios';
-import { Simulation } from '../src/sim/simulation';
+import { Controller } from '../../src/control/controller';
+import { parseCommand } from '../../src/control/parser';
+import { SCENARIOS, ScenarioRunner, type Scenario } from '../../src/control/scenarios';
+import { Simulation } from '../../src/sim/simulation';
 
 const scenario = (id: string): Scenario => SCENARIOS.find((s) => s.id === id)!;
 
