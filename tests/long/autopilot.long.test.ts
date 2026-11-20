@@ -102,3 +102,21 @@ describe('autopilot', () => {
     expect(Math.abs(c.sim.commands.rudder * DEG - before)).toBeLessThan(1);
   });
 });
+
+describe('speed autopilot at the shaft limit', () => {
+  it('an unreachable target (full ahead) winds nothing up: back to 8 knots without overshoot', { timeout: 60000 }, () => {
+    const c = new Controller(new Simulation({ depth: 100, designTrim: true, speed: 18 * KN }));
+    cmd(c, 'djup 100');
+    cmd(c, 'fart 19');
+    for (let i = 0; i < 600 * 100; i++) c.step();
+    expect(c.sim.telemetry().u / KN).toBeGreaterThan(18.5); // full power, the target is just out of reach
+    cmd(c, 'fart 8');
+    let lowest = Infinity;
+    for (let i = 0; i < 400 * 100; i++) {
+      c.step();
+      if (i > 200 * 100) lowest = Math.min(lowest, c.sim.telemetry().u / KN);
+    }
+    expect(Math.abs(c.sim.telemetry().u / KN - 8)).toBeLessThan(0.2);
+    expect(lowest).toBeGreaterThan(7.6);
+  });
+});

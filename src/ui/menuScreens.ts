@@ -166,7 +166,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <ul>
           <li><b>Djupskalan</b> (vänster, Auto) visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och <b>13 m</b> går till periskopdjup. På Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
           <li><b>Kompassen</b> (höger, Auto) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. På Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
-          <li><b>Telegrafen</b> (mitten): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2, 4 och 6 knop back, 4, 8 och 12 knop fram).</li>
+          <li><b>Telegrafen</b> (mitten): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2, 4 och 6 knop back, 4 och 8 knop fram, och Full fram är toppfarten, 19 knop).</li>
           <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup på Auto.</li>
           <li><b>Per</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller periskopet är uppe. <b>&gt;_</b> öppnar konsolen.</li>
         </ul>

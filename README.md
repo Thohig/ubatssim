@@ -76,7 +76,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Kompass** (Auto) | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
 | **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
 | **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. |
-| **Maskintelegraf** | Mitten | Full, Halv och Sakta back (6, 4 och 2 knop), Stopp, och Sakta, Halv och Full fram (4, 8 och 12 knop). Läget som gäller lyser, och klockan slår vid varje ny order. |
+| **Maskintelegraf** | Mitten | Full, Halv och Sakta back (6, 4 och 2 knop), Stopp, och Sakta, Halv och Full fram (4 och 8 knop, och Full fram är toppfarten: 19 knop, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. |
 | **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. |
 | **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
 | **Ballast ▾** | Mitten | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |

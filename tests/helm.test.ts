@@ -61,9 +61,10 @@ describe('telegraph', () => {
     expect(telegraphStep(0, -1)).toBe(-2);
     expect(telegraphStep(3, -1)).toBe(0);
     expect(telegraphStep(3, 1)).toBe(4);
-    expect(telegraphStep(12, 1)).toBe(12);
+    expect(telegraphStep(19, 1)).toBe(19);
+    expect(telegraphStep(12, 1)).toBe(19);
     expect(telegraphStep(-6, -1)).toBe(-6);
-    expect(telegraphStep(20, -1)).toBe(12);
+    expect(telegraphStep(20, -1)).toBe(19);
   });
 });
 

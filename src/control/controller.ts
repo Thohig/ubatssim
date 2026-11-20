@@ -237,7 +237,7 @@ export class Controller {
     let target: number;
     if (this.ap.speed) {
       const v = this.setpoints.speed * KNOT;
-      target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT);
+      target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT, -maxRpsAstern, maxRps);
     } else {
       target = this.manual.rpm / 60;
     }

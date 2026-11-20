@@ -187,7 +187,7 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 
 - **Djup:** kaskad. En djup-PID ger ett börvärde för stampvinkeln (högst ±12°), och en stamp-PID styr djuprodren.
 - **Kurs:** PID med kortaste vägen runt 360°.
-- **Fart:** PI på varvtalet, med framkoppling från jämviktsvarvtalet (också back). Korrektionen får nå fullt varvtal, så att propellern bromsar vid stopp och vid byte mellan framåt och back.
+- **Fart:** PI på varvtalet, med framkoppling från jämviktsvarvtalet (också back). Korrektionen får nå fullt varvtal, så att propellern bromsar vid stopp och vid byte mellan framåt och back. Varvtalet begränsas till axelns gränser inne i regulatorn, så integralen slutar växa där. Ett mål som inte går att nå, som Full fram (19 knop, strax över toppfarten), lämnar då inget kvar som stör nästa, lägre mål.
 - **Back:** med vattnet bakifrån vänder ett roderutslag ubåten åt andra hållet, och en ubåt med fören nedåt stiger. Djup- och kursregulatorn vänder därför tecknet på sina utslag och på stampvinkelns börvärde, som begränsas till ±5°. Riktningen byts med hysteres när farten genom vattnet passerat ±0,2 m/s, och regulatorerna nollställs vid bytet, eftersom integralerna håller utslag för den gamla riktningen.
 - **Ytläge:** med tom huvudballast, djupmål grundare än 5 m och centrumlinjen grundare än 6 m flyter ubåten. Djupautopiloten håller då djuprodret i noll i stället för att försöka trycka ner ~200 t reservflytkraft.
 - **Gemensamt:** alla regulatorer har villkorlig integration (anti-windup) och en integrationszon. Förstärkningen för roder och djuproder skalas med 1/U², eftersom fenornas lyftkraft växer med U².

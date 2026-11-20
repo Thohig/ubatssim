@@ -94,7 +94,8 @@ export interface TelegraphBell {
 }
 
 /**
- * The engine-order telegraph, astern to ahead. Astern
+ * The engine-order telegraph, astern to ahead. Full ahead is the top speed
+ * (an order a little beyond it, so the shaft runs at full power). Astern
  * matches "back sakta|halv|full"; full astern is the speed autopilot's limit.
  */
 export const TELEGRAPH: readonly TelegraphBell[] = [
@@ -104,7 +105,8 @@ export const TELEGRAPH: readonly TelegraphBell[] = [
   { knots: 0, label: 'Stopp', name: 'Stopp' },
   { knots: 4, label: 'Sakta', name: 'Sakta fram' },
   { knots: 8, label: 'Halv', name: 'Halv fram' },
-  { knots: 12, label: 'Full', name: 'Full fram' },
+  /** The top speed (~18.9 knots at 240 rpm in salt water): full power. */
+  { knots: 19, label: 'Full', name: 'Full fram' },
 ];
 
 /**

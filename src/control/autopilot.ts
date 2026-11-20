@@ -66,9 +66,10 @@ export const AUTOPILOT_TUNING = {
   /**
    * Speed → shaft speed correction [rev/s per m/s], around the steady shaft
    * speed. The correction may reach full shaft speed, so that stopping or
-   * going from ahead to astern uses the propeller as a brake.
+   * going from ahead to astern uses the propeller as a brake. The command is
+   * limited to the shaft's limits (see `rps`), and the integral stops there.
    */
-  speed: { kp: 1.0, ki: 0.03, integralZone: 0.5, maxCorrection: 4 },
+  speed: { kp: 1.0, ki: 0.03, integralZone: 0.5 },
   /** Largest pitch reference astern [rad]: depth changes stern first are kept gentle. */
   maxPitchAstern: 5 * DEG,
   /** Speed through the water [m/s] beyond which the loops switch to astern (−) or ahead (+). */
@@ -103,7 +104,7 @@ export class Autopilot {
     this.depthPid = new PID(t.depth.kp, t.depth.ki, t.depth.kd, -t.depth.maxPitch, t.depth.maxPitch, t.depth.integralZone);
     this.pitchPid = new PID(t.pitch.kp, t.pitch.ki, t.pitch.kd, -t.pitch.maxPlanes, t.pitch.maxPlanes, t.pitch.integralZone);
     this.headingPid = new PID(t.heading.kp, t.heading.ki, t.heading.kd, -t.heading.maxRudder, t.heading.maxRudder, t.heading.integralZone);
-    this.speedPid = new PID(t.speed.kp, t.speed.ki, 0, -t.speed.maxCorrection, t.speed.maxCorrection, t.speed.integralZone);
+    this.speedPid = new PID(t.speed.kp, t.speed.ki, 0, -Infinity, Infinity, t.speed.integralZone);
   }
 
   private gainScale(speed: number): number {
@@ -146,8 +147,15 @@ export class Autopilot {
     return dir * this.headingPid.update(wrapAngle(targetHeading - s.heading), s.yawRate, dt, 0, this.gainScale(s.speed));
   }
 
-  /** Shaft speed command [rev/s] around a feed-forward value. */
-  rps(targetSpeed: number, feedForward: number, s: AutopilotInput, dt: number): number {
-    return feedForward + this.speedPid.update(targetSpeed - s.speed, 0, dt);
+  /**
+   * Shaft speed command [rev/s] around a feed-forward value, within the
+   * shaft's limits [rev/s]. The limits are the PID's own, so it stops
+   * integrating at them: a target out of reach (full ahead, 19 knots) then
+   * winds nothing up that would spoil the next, lower target.
+   */
+  rps(targetSpeed: number, feedForward: number, s: AutopilotInput, dt: number, minRps = -Infinity, maxRps = Infinity): number {
+    this.speedPid.outMin = minRps;
+    this.speedPid.outMax = maxRps;
+    return this.speedPid.update(targetSpeed - s.speed, 0, dt, feedForward);
   }
 }
