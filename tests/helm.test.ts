@@ -128,7 +128,8 @@ describe('screen controls with the crew', () => {
     drag(scale, [0.5, 0.1], [0.5, depthToFraction(80)]);
     c.step();
     expect(c.setpoints.depth).toBe(80);
-    expect(c.log.at(-1)?.text).toBe('Djup 80, ja');
+    // Stopped, the crew also says it hovers there (hover.ts).
+    expect(c.log.map((e) => e.text)).toContain('Djup 80, ja');
   });
 
   it('a cancelled drag orders nothing', () => {

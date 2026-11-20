@@ -12,6 +12,7 @@ import { OrderQueue } from './orderQueue';
 import { acknowledgement, type Order, type OrderSource } from './orders';
 import { BRIDGE_FREEBOARD, ORDERS, type Kinematics, type OrderRule } from './orderRegistry';
 import { CHARGE_STOP, PlantWatch } from './plantWatch';
+import { HOVER } from './hover';
 import { TrimAssist } from './trimAssist';
 import { Sonar } from './sonar';
 import { FireControl } from './fireControl';
@@ -247,8 +248,10 @@ export class Controller {
     // Surfaced with empty main ballast and a shallow target, the boat simply floats:
     // the depth autopilot keeps the planes at zero instead of fighting ~200 t of buoyancy.
     this.surfaceHold = this.ap.depth && this.setpoints.depth < DIVE_TARGET_DEPTH && tel.depth < SURFACE_HOLD_DEPTH && this.mainBallastEmpty();
-    if (this.surfaceHold) this.resetDepthLoops();
-    sim.commands.sternPlanes = this.surfaceHold
+    // Hovering (hover.ts): without speed the planes do nothing, so they rest at zero and the loops do not wind up.
+    const planesRest = this.surfaceHold || this.hovering;
+    if (planesRest) this.resetDepthLoops();
+    sim.commands.sternPlanes = planesRest
       ? 0
       : this.ap.depth
         ? this.autopilot.planes(this.setpoints.depth, input, DT)
@@ -376,8 +379,16 @@ export class Controller {
     const hardOver = Math.abs(sim.commands.sternPlanes) >= 0.9 * this.autopilot.tuning.pitch.maxPlanes;
     const stuck = this.ap.depth && !this.surfaceHold && Math.abs(err) > STALL_MIN_ERROR && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
     this.stalled = stuck ? this.stalled + DT : 0;
-    if (this.stalled < STALL_TIME || this.depthBoost) return;
-    if (this.ap.speed && sp.speed >= 0 && sp.speed < PLANES_SPEED) {
+    if (this.stalled < STALL_TIME || this.depthBoost || this.hovering) return;
+    // Stopped on purpose (quiet): the crew hovers if it has the trim (returned above once it does); a player
+    // handling the trim is told how. Where hovering is not possible (shallow, ballast not full) the engine helps.
+    const stopped = this.ap.speed && sp.speed >= 0 && sp.speed <= HOVER.maxOrderedSpeed;
+    if (stopped && !this.options.crew.trim) {
+      if (sim.t - this.lastStallHint > STALL_HINT_EVERY) {
+        this.lastStallHint = sim.t;
+        this.addLog('Ubåten har ingen fart, så djuprodren verkar inte. Ändra djupet med In och Ut i panelen Trim, eller öka farten.', 'error');
+      }
+    } else if (this.ap.speed && sp.speed >= 0 && sp.speed < PLANES_SPEED) {
       this.depthBoost = true;
       this.boostHeld = this.boostEndedAt !== null && this.boostEndedAt.depth === sp.depth && this.boostEndedAt.speed === sp.speed;
       this.boostEndedAt = this.boostHeld ? { depth: sp.depth, speed: sp.speed } : null;
@@ -447,6 +458,11 @@ export class Controller {
       return null;
     }
     return 'Bryggan är bemannad. Tryck Klart bryggan i panelen Ballast (eller skriv "klart bryggan") innan ubåten dyker.';
+  }
+
+  /** True while the crew changes or holds the depth without speed, with the compensating tank (hover.ts). */
+  get hovering(): boolean {
+    return this.assist.hover.active && this.options.crew.trim && this.ap.depth && this.ap.speed;
   }
 
   /**

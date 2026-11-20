@@ -233,7 +233,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <pre>${HELP_TEXT.join('\n')}</pre>
         <h3>Att tänka på</h3>
         <ul>
-          <li>Djuprodren verkar bara när ubåten har fart: lyftkraften växer med farten i kvadrat.</li>
+          <li>Djuprodren verkar bara när ubåten har fart: lyftkraften växer med farten i kvadrat. Stillastående <b>svävar</b> besättningen i stället: den gör ubåten lite tung eller lätt med kompenseringen och neutral igen vid djupmålet. Det går långsamt, några meter i minuten, men tyst.</li>
           <li><b>Flytkraft</b> (i panelen Trim) visar om ubåten är lätt (+) eller tung (−). Ta in eller pumpa ut vatten med In och Ut.</li>
           <li>Under språngskiktet (40–70 m) är vattnet tätare. Ubåten blir då lättare och behöver ta in vatten.</li>
           <li>Skrovet trycks ihop mer än vattnet på djupet, så ubåten blir långsamt tyngre ju djupare den går.</li>

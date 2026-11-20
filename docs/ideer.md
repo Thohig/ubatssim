@@ -38,6 +38,5 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 ## Mindre idéer
 
 - **Kortare långa tester:** testerna går nu på alla kärnor (~2,5 min). Mer tid går bara att vinna genom att simulera mindre, till exempel med mål närmare starten i testerna.
-- **Ändra djupet utan fart:** vid mycket låg fart kan trimassistenten pumpa ut eller ta in vatten, så att ubåten stiger eller sjunker utan djuprodren (som när en ubåt "svävar"). Det går långsamt med pumparnas 6 l/s.
 - **Fysiken i en Web Worker:** frigör huvudtråden, men lönar sig först när en kampanj eller fler fartyg och torpeder spräcker fysikbudgeten i `docs/prestanda.md`. Gränssnittet läser i dag `sim` direkt på många ställen och skulle i stället få en tunn kopia av tillståndet per bild.
 - **Telegrafen:** steget från Halv fram (8 knop) till Full fram (19 knop) är stort. Halv fram kan höjas till 10–12 knop, eller så kan ett läge till läggas in.

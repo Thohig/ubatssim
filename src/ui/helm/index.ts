@@ -352,7 +352,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     setText(
       depthReadout,
       depthAutoOn
-        ? `${Math.round(depth)} m${depthTarget !== null ? ` → ${depthTarget === 0 && depthPreview === null ? 'yta' : `${depthTarget} m`}` : ''}`
+        ? `${Math.round(depth)} m${depthTarget !== null ? ` → ${depthTarget === 0 && depthPreview === null ? 'yta' : `${depthTarget} m`}` : ''}${c.hovering ? ' · svävar' : ''}`
         : `${Math.round(depth)} m · ${angleText(planesCmd, 'ned', 'upp')}`,
     );
     const courseTarget = coursePreview ?? (headingAutoOn ? c.setpoints.heading : null);

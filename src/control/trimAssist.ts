@@ -9,6 +9,8 @@
  *
  *  - Compensation: while submerged with full main ballast, the filtered net
  *    buoyancy is pumped away in portions of at most 200 l.
+ *  - Hovering (hover.ts): with no speed the crew changes and holds the depth
+ *    with the compensating tank instead (and compensates no other way).
  *  - Trim: a persistent stern-plane angle while the depth autopilot holds
  *    depth means a pitch-moment imbalance; water is moved between the trim
  *    tanks to remove it.
@@ -18,6 +20,7 @@
 import { ENVIRONMENT } from '../sim/config/environment';
 import { DT } from '../sim/simulation';
 import type { Controller } from './controller';
+import { Hover } from './hover';
 
 const DEG = Math.PI / 180;
 
@@ -90,7 +93,12 @@ export class TrimAssist {
   private lastBoost = false;
   private boostChangedAt = -Infinity;
 
-  constructor(private readonly ctrl: Controller) {}
+  /** Depth without speed: the compensating tank instead of the planes. */
+  readonly hover: Hover;
+
+  constructor(private readonly ctrl: Controller) {
+    this.hover = new Hover(ctrl);
+  }
 
   /** Call once per simulation step, after `sim.step()`. */
   step(): void {
@@ -118,8 +126,11 @@ export class TrimAssist {
     if (this.tick++ % STEPS_PER_EVAL !== 0) return;
     if (ctrl.options.crew.safetyNet) this.safetyNet(k.depth, k.depthRate);
     if (ctrl.options.crew.trim) {
-      this.compensate();
+      if (this.hover.update(ASSIST.interval)) this.netFiltered = null;
+      else this.compensate();
       this.trim(k.u);
+    } else if (this.hover.active) {
+      this.hover.update(ASSIST.interval); // the player took the trim over: it stops
     }
   }
 

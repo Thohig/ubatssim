@@ -121,6 +121,8 @@ const sunk = (c: Controller, id: string) => c.world.vessels.find((v) => v.def.id
 const lookoutUp = (t: Telemetry) => t.periscope > 0.99 && t.periscopeHeadDepth < 0;
 
 /** "Smyg förbi": the corvette shuttles east–west across the way to the buoy. */
+/** "Sväva": most speed through the water [m/s] (1 knot). */
+const HOVER_FAIL_SPEED = 1 * KN;
 const STEALTH_BUOY: [number, number] = [2500, 0];
 const STEALTH_CORVETTE = corvette('vaktaren', 'korvetten Väktaren', [[1300, -3000], [1300, 3000]]);
 /** The freighter in "Fartyget": northbound west of the boat. */
@@ -224,6 +226,33 @@ export const SCENARIOS: Scenario[] = [
       },
     ],
     failure: (t) => (t.depth > 250 ? 'Ubåten gick för djupt (250 m).' : null),
+  },
+  {
+    id: 'hover',
+    title: 'Sväva',
+    description: 'Gå från 30 m ned till 80 m, under språngskiktet, utan fart: propellern får inte gå över 1 knop. Bara kompenseringen ändrar djupet. Håll sedan 80 m i två minuter.',
+    difficulty: 'medel',
+    initial: { depth: 30, speed: 0, neutral: true },
+    objectives: [
+      {
+        text: 'Gå ned till 80 m utan fart',
+        system: 'trim',
+        hint: 'Ta in vatten med In 500 i panelen Trim (1 liter ≈ 1 kg). 500 kg tung sjunker ubåten ungefär 4 m i minuten. Pumpa ut i god tid före 80 m: pumpen tar 6 liter i sekunden.',
+        hintCrew: 'Tryck på djupskalan vid 80 m. Utan fart svävar besättningen ned med kompenseringen. Det tar några minuter.',
+        check: (t) => t.depth > 78,
+      },
+      {
+        text: 'Håll 80 m ±2 m i två minuter',
+        system: 'trim',
+        hint: 'Gör ubåten neutral: sjunker den, Ut 100. Stiger den, In 100. Flytkraft i panelen Trim visar hur tung den är.',
+        hintCrew: 'Besättningen håller djupet med små pumpningar. Följ loggen.',
+        check: (t) => Math.abs(t.depth - 80) < 2,
+        holdSeconds: 120,
+      },
+    ],
+    failure: (t) =>
+      Math.abs(t.u) > HOVER_FAIL_SPEED ? 'Farten gick över 1 knop. Propellern hördes.' : t.depth > 150 ? 'Ubåten sjönk för djupt (150 m).' : null,
+    timeLimit: 1800,
   },
   {
     id: 'astern',

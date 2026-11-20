@@ -116,7 +116,7 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
   depth: (c) =>
     row('Djup (m)', (t) => f(t.depth, 1), c, {
       big: true,
-      setpoint: (k) => (k.ap.depth ? (k.surfaceHold ? '→ yta' : `→ ${f(k.setpoints.depth)}`) : ''),
+      setpoint: (k) => (k.ap.depth ? (k.surfaceHold ? '→ yta' : `→ ${f(k.setpoints.depth)}${k.hovering ? ' svävar' : ''}`) : ''),
     }),
   speed: (c) =>
     row('Fart (knop)', (t) => knots(t.u * KN), c, {

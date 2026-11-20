@@ -59,6 +59,7 @@ Det finns ett spel och en ubåt. För varje system väljer du om **besättningen
 - **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾**, **Fart ▾** och **El ▾** (på mobil under **System ▾**). Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
 - **Order tar över:** en manuell order tar över systemet den gäller, också i konsolen. `roder sb 10` sätter kursen på Hand, `trimma för 200` avlöser trimassistenten, `fyll hb` ger dig ballasten och `diesel start` laddningen. Ett djup- eller kursmål och telegrafen lämnar axeln till besättningen igen.
 - **Djuprodren behöver fart:** deras kraft växer med farten i kvadrat, så vid 3 knop orkar de knappt ändra djupet. Har djuprodret legat i fullt utslag i 30 s utan att djupet ändrats, mer än 1 m från målet, säger djupstyraren till. Sköter besättningen farten ökar maskinen till 4 knop tills djupet är nått och går sedan tillbaka till din fart. Orkar rodren inte heller då, till exempel på periskopdjup i 3 knop med periskopet uppe, håller maskinen 4 knop tills du ändrar djup eller fart. Sköter du farten själv får du ett besked att öka till minst 4 knop.
+- **Sväva utan fart:** är fartmålet högst 1 knop (Stopp eller tyst) ökar besättningen inte farten. I stället svävar den: gör ubåten några hundra kilo tung eller lätt med kompenseringen, så att den sjunker eller stiger 4–5 m i minuten, och gör den neutral i god tid före djupmålet, eftersom pumpen bara tar 6 liter i sekunden. 30 m tar ungefär 8–12 minuter. Djupvisningen visar "svävar". Det kräver att besättningen sköter djupet, farten och trimmet. Sköter du trimmet får du ett besked om att ändra djupet med In och Ut i panelen Trim. I språngskiktet blir ubåten lättare ju djupare den kommer, och på stort djup tyngre när skrovet trycks ihop: håll koll på Flytkraft.
 - **Utan ryck:** tar du över djup eller kurs ligger rodren kvar där autopiloten hade dem. Lämnar du tillbaka dem sätts målen till nuvarande djup och kurs.
 - **Instrumentpanelen** följer valen: tar du över kursen visas rodret, trimmet flytkraft och tankar, ballasten HP-luften, laddningen dieslarna, snorkeln och elförbrukningen.
 - **Första gången** visas en kort introduktion.
@@ -299,6 +300,7 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 | Första dykningen | lätt | Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma neutralt och gå till ytläge igen. |
 | Trimövning | medel | Håll 50 m ±2 m i tre minuter utan djupautopilot. |
 | Språngskiktet | medel | Dyk genom termoklinen till 90 m och kompensera för att ubåten blir lättare där. |
+| Sväva | medel | Från 30 m till 80 m under språngskiktet utan fart (högst 1 knop): bara kompenseringen ändrar djupet. Håll sedan 80 m i två minuter. |
 | Back | lätt | Backa 450 m till en boj rakt akterut och stanna vid den, utan att vända ubåten. |
 | Genom sundet | medel | Gå i ytläge genom ett smalt sund i skärgården till en gul boj, utan att gå på grund. |
 | Nödblåsning | svår | Ubåten är flera ton för tung på 200 m. Nå ytan innan krossdjupet 300 m. |
