@@ -25,9 +25,9 @@ describe('views', () => {
     expect(availableViews(dived).periscope).toBe(true);
   });
 
-  it('the simplified mode mans the bridge when the view is chosen on the surface', () => {
+  it('the crew mans the bridge when the view is chosen on the surface', () => {
     const c = new Controller(new Simulation());
-    c.setMode('simplified');
+    c.crewTakesAll();
     c.submit({ kind: 'bridge', manned: false }, 'console');
     c.step();
     const v = new ViewState();
@@ -58,7 +58,7 @@ describe('views', () => {
 describe('the bridge during a dive', () => {
   it('is not manned again while the vents are open', () => {
     const c = new Controller(new Simulation());
-    c.setMode('simplified');
+    c.crewTakesAll();
     c.submit({ kind: 'dive' }, 'keyboard');
     c.step();
     expect(c.bridgeManned).toBe(false);

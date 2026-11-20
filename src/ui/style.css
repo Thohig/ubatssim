@@ -59,11 +59,14 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 .log-entry .src { color: var(--muted); font-size: 11px; margin-left: 6px; }
 
 /* Console */
-#console { left: 50%; transform: translateX(-50%); bottom: 12px; width: min(640px, calc(100% - 24px)); display: flex; align-items: center; gap: 8px; pointer-events: auto; opacity: 0.6; }
+#console { left: 50%; transform: translateX(-50%); bottom: calc(var(--helm-h, 200px) + 6px); width: min(640px, calc(100% - 24px)); display: flex; align-items: center; gap: 8px; pointer-events: auto; opacity: 0.6; }
 #console.active { opacity: 1; border-color: var(--warn); }
 #console .prompt { color: var(--warn); font-weight: 700; }
 #console input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font: inherit; font-size: 15px; }
 #console input::placeholder { color: var(--muted); }
+/* The console is a second way to give orders: shown only while it is open (>_ or Enter). */
+#console:not(.active) { display: none; }
+#console input { font-size: 16px; } /* ≥16px stops iOS zooming on focus */
 
 @media (max-width: 760px) {
   #instruments { width: 200px; font-size: 11px; }
@@ -75,19 +78,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 /* ---------------------------------------------------------------- toggles */
 .inst-toggle { display: none; }
 
-/* ------------------------------------------------------------ touch layer */
-.touch-controls { display: none; }
-body.touch .touch-controls {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  display: flex; justify-content: space-between; align-items: flex-end; gap: 8px;
-  padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-  pointer-events: none;
-}
-/* The simplified mode has its own screen controls (#helm) and no console. */
-body.simplified .touch-controls,
-body.simplified #console { display: none !important; }
-body.simplified .mode.steer:not(.periscope):not(.bridge) { display: none; }
-.touch-group { display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: auto; }
+/* ------------------------------------------------------------ screen buttons */
+/* The mode indicator only shows the console and the on-board views. */
+.mode.steer:not(.periscope):not(.bridge) { display: none; }
 .touch-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .touch-row { display: flex; gap: 4px; }
 .touch-btn {
@@ -99,13 +92,8 @@ body.simplified .mode.steer:not(.periscope):not(.bridge) { display: none; }
 }
 .touch-btn[hidden] { display: none; }
 .touch-btn.pressed { background: var(--accent); color: #02121c; }
-.touch-btn.console-btn { font-size: 16px; color: var(--warn); }
-.touch-group:has(.console-btn) .touch-label { visibility: hidden; }
+#view-btns .console-btn { color: var(--warn); font-size: 13px; }
 
-body.touch #console { bottom: calc(76px + env(safe-area-inset-bottom)); }
-body.touch #log { bottom: calc(126px + env(safe-area-inset-bottom)); }
-body.touch #console input { font-size: 16px; } /* ≥16px stops iOS zooming on focus */
-body.touch #console:not(.active) { display: none; }
 body.touch .mode { top: max(8px, env(safe-area-inset-top)); }
 body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); }
 
@@ -127,9 +115,7 @@ body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px
     border: 1px solid var(--panel-border); background: transparent; color: var(--accent); font: inherit; font-size: 11px;
   }
   #log { left: 8px; right: 8px; width: auto; max-height: 22%; font-size: 11px; padding: 6px 8px; }
-  .touch-btn { min-width: 38px; height: 44px; font-size: 12px; padding: 0 4px; }
   .touch-row { gap: 3px; }
-  body.touch .touch-controls { gap: 4px; }
 }
 
 /* ------------------------------------------------------------- menu / hud */
@@ -204,7 +190,15 @@ legend { color: var(--muted); padding: 0 4px; }
 .inst-value.alarm { color: var(--error); font-weight: 700; }
 .obj-nav { color: var(--warn); font-size: 12px; margin-top: 2px; }
 
-/* ------------------------------------------------------------ game mode */
+/* ------------------------------------------------------------ crew screen */
+.crew-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+.crew-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--panel-border); border-radius: 8px; }
+.crew-row > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.crew-row small { color: var(--muted); font-size: 12px; }
+.crew-choice { display: flex; gap: 4px; flex: none; }
+.menu-btn.seg { width: auto; padding: 6px 10px; font-size: 13px; margin: 0; }
+.menu-btn.seg.on { border-color: var(--accent); background: rgba(95, 211, 255, 0.15); color: var(--accent); }
+.menu-btn.seg:disabled { opacity: 0.35; cursor: not-allowed; }
 .mode-choice { display: flex; flex-direction: column; gap: 6px; margin: 0 0 6px; }
 .mode-opt {
   display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; cursor: pointer;
@@ -217,16 +211,6 @@ legend { color: var(--muted); padding: 0 4px; }
 .help th { text-align: left; color: var(--muted); font-weight: 600; }
 .intro { padding-left: 18px; line-height: 1.6; }
 .inst-value.trim-heavy, .inst-value.trim-light { color: var(--warn); }
-@media (max-width: 420px) {
-  body.touch .touch-controls { gap: 4px; }
-  .touch-row { gap: 3px; }
-  .touch-btn { min-width: 36px; padding: 0 5px; }
-}
-@media (max-width: 340px) {
-  body.touch .touch-controls { gap: 3px; padding-left: 4px; padding-right: 4px; }
-  .touch-btn { min-width: 30px; padding: 0 3px; font-size: 13px; }
-}
-
 /* ------------------------------------------------------------ views */
 #view-overlay { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #view-overlay[hidden] { display: none; }
@@ -249,17 +233,16 @@ legend { color: var(--muted); padding: 0 4px; }
   font-size: 11px; color: #ffe08a; background: rgba(0, 0, 0, 0.6); padding: 2px 8px; border-radius: 4px; white-space: nowrap;
 }
 
-/* ------------------------------------------- simplified mode: screen controls */
-.helm { display: none; }
-body.simplified .helm {
+/* ---------------------------------------------------------- screen controls */
+.helm {
   position: absolute; left: 0; right: 0; bottom: 0;
   display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "depth centre course";
   align-items: end; gap: 12px;
   padding: 8px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   pointer-events: none;
 }
-body.simplified #log { bottom: calc(var(--helm-h, 200px) + 6px); }
-.helm-group, .helm-context { pointer-events: auto; }
+#log { bottom: calc(var(--helm-h, 200px) + 6px); }
+.helm-group, .helm-actions, .helm-panel { pointer-events: auto; }
 .helm-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .helm-depth { grid-area: depth; }
 .helm-course { grid-area: course; }
@@ -277,7 +260,7 @@ body.simplified #log { bottom: calc(var(--helm-h, 200px) + 6px); }
   display: block; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg);
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
-.helm-depth-scale { width: 56px; height: 132px; cursor: ns-resize; }
+.helm-depth-scale { width: 56px; cursor: ns-resize; }
 .helm-band { width: 240px; height: 44px; cursor: ew-resize; }
 .helm-band-row { align-items: center; }
 .helm-telegraph { width: min(100%, 460px); }
@@ -297,45 +280,95 @@ body.simplified #log { bottom: calc(var(--helm-h, 200px) + 6px); }
 .helm-bell.stop.on { background: var(--warn); border-color: var(--warn); }
 .helm-ballast { min-width: 72px !important; color: var(--warn); }
 
-/* Phones held upright: depth on the left, course and buttons on the right, telegraph across the bottom. */
+/* Group heads: label, readout and (for the course) the Auto / Hand switch. */
+.helm-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
+.helm-switch { display: flex; border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; flex: none; }
+.helm-switch.vertical { flex-direction: column; }
+.helm .touch-btn.helm-seg { height: 24px; min-width: 0; border: none; border-radius: 0; padding: 0 8px; font-size: 11px; background: var(--panel-bg); color: var(--muted); }
+.helm-switch.vertical .touch-btn.helm-seg { height: 22px; padding: 0 4px; }
+.helm .touch-btn.helm-seg.on { background: var(--accent); color: #02121c; }
+.helm .touch-btn.helm-seg:disabled { opacity: 0.35; cursor: not-allowed; }
+.helm-depth-side { display: flex; flex-direction: column; gap: 4px; }
+.helm-depth-scale[hidden], .helm-depth-btns[hidden], .helm-band-row[hidden], .helm-course-btns[hidden] { display: none; }
+.helm-depth-scale { height: 178px; }
+.helm-course-btns { justify-content: center; }
+.helm-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.helm .touch-btn.helm-panel-btn { min-width: 64px; }
+.helm .touch-btn.helm-panel-btn.self { border-color: var(--warn); color: var(--warn); }
+.helm .touch-btn.helm-panel-btn.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
+
+/* A panel opens above the controls. */
+.helm-panel {
+  position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 6px;
+  width: min(440px, calc(100% - 16px)); overflow-y: auto; padding: 10px 12px;
+  /* Never over the menu button and the instruments' first rows. */
+  max-height: calc(100vh - var(--helm-h, 200px) - 72px);
+  max-height: calc(100dvh - var(--helm-h, 200px) - 72px);
+  display: flex; flex-direction: column; gap: 6px; font-size: 13px;
+}
+.helm-panel[hidden], .helm-panel-body[hidden] { display: none; }
+.helm-panel-head { display: flex; justify-content: space-between; align-items: center; }
+.helm-panel-close { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 2px 6px; }
+.helm-panel-crew { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0 6px; border-bottom: 1px solid var(--panel-border); }
+.helm-panel-role { color: var(--muted); font-size: 12px; }
+.helm-panel-body { display: flex; flex-direction: column; gap: 6px; }
+.helm-panel-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.helm-panel-label { color: var(--muted); min-width: 76px; font-size: 12px; }
+.helm-panel-value { font-variant-numeric: tabular-nums; }
+.helm-panel .touch-btn.helm-small { height: 32px; min-width: 52px; }
+.helm-level .tank-name { display: flex; justify-content: space-between; font-size: 12px; }
+.helm-level .flags { color: var(--warn); }
+
+/* Phones held upright: depth on the left; course, Dyk/Håll and the panels on the right; telegraph across the bottom. */
 @media (max-width: 760px) {
-  body.simplified .helm {
+  .helm {
     grid-template-columns: auto 1fr; gap: 6px 8px;
     grid-template-areas: "depth course" "depth centre" "tele tele";
   }
   .helm-centre { display: contents; }
-  .helm-context { grid-area: centre; justify-self: center; align-self: end; }
+  .helm-actions { grid-area: centre; justify-self: stretch; align-self: end; }
+  .helm-actions .touch-row { justify-content: center; }
   .helm-telegraph { grid-area: tele; width: 100%; }
-  .helm-group > .touch-label { display: none; }
+  .helm-head > .touch-label { display: none; }
   .helm-course { align-self: start; width: 100%; }
   .helm-band-row { width: 100%; }
   .helm-band { flex: 1 1 auto; width: auto; min-width: 0; }
   .helm .touch-btn { font-size: 14px; }
+  .helm-depth-scale { height: 164px; }
+  .helm-depth-side .touch-btn:not(.helm-seg) { height: 40px; }
+  .helm-panel .touch-btn.helm-small { height: 30px; min-width: 46px; font-size: 12px; }
+  .helm-panel { font-size: 12px; gap: 4px; }
+  /* Objective under the compact instruments, the log just above the controls. */
+  #objective { top: calc(212px + env(safe-area-inset-top)); }
+  #log { max-height: 13%; }
 }
 /* The instrument panel ends above the screen controls (it scrolls if it must). */
-body.simplified #instruments { max-height: calc(100% - var(--helm-h, 200px) - 24px); overflow-y: auto; }
-@media (max-width: 760px) {
-  body.simplified #log { max-height: 16%; }
-}
+#instruments { max-height: calc(100% - var(--helm-h, 200px) - 24px); overflow-y: auto; }
 
 /* Low screens (phones held sideways): everything in one row, compact. */
 @media (max-height: 500px) {
-  body.simplified .helm {
+  .helm {
     grid-template-columns: auto 1fr auto; grid-template-areas: "depth centre course";
     gap: 8px; padding-top: 4px;
   }
   .helm-centre { display: flex; gap: 4px; }
-  .helm-context, .helm-telegraph { grid-area: auto; }
+  .helm-actions, .helm-telegraph { grid-area: auto; }
+  .helm-actions { flex-direction: row; }
   .helm-group > .touch-label { display: none; }
-  .helm-depth-scale { height: 96px; }
+  .helm-depth-scale { height: 124px; }
   .helm .touch-btn { height: 40px; min-width: 40px; }
   .helm .touch-btn.helm-small { height: 30px; }
-  .helm-depth-btns .touch-btn { height: 30px; }
+  .helm-depth-side .touch-btn:not(.helm-seg) { height: 26px; }
+  .helm-switch.vertical .touch-btn.helm-seg { height: 20px; }
+  .helm-head { justify-content: center; }
+  /* The panel sits between the instruments and the menu button, so it may use the height. */
+  .helm-panel { max-height: calc(100vh - var(--helm-h, 200px) - 12px); max-height: calc(100dvh - var(--helm-h, 200px) - 12px); }
   .helm-course { align-self: end; width: auto; }
   .helm-band-row { width: auto; }
   .helm-band { flex: none; width: 150px; height: 40px; }
   .helm-telegraph { width: min(100%, 380px); }
   /* The objective and the log go between the instrument panel and the menu button. */
-  body.simplified #objective { top: max(8px, env(safe-area-inset-top)); left: 220px; right: 64px; width: auto; transform: none; }
-  body.simplified #log { left: 220px; right: 64px; width: auto; max-height: 20%; }
+  #objective { top: max(8px, env(safe-area-inset-top)); left: 220px; right: 64px; width: auto; transform: none; }
+  #log { left: 220px; right: 64px; width: auto; max-height: 20%; }
 }
+

@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { AREA_INFO } from '../../src/control/areas';
 import { Controller } from '../../src/control/controller';
-import type { GameMode } from '../../src/control/gameMode';
 import type { Order } from '../../src/control/orders';
-import { SCENARIOS, ScenarioRunner, scenarioMode, waypointInfo } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner, waypointInfo } from '../../src/control/scenarios';
 import { Simulation } from '../../src/sim/simulation';
 
 const G = 9.80665;
 
-function start(id: string, mode: GameMode) {
+/** Who handles the boat: the crew (as every game starts), or the player, who has taken over all the scenario allows. */
+type Who = 'crew' | 'player';
+
+function start(id: string, who: Who) {
   const sc = SCENARIOS.find((s) => s.id === id)!;
   const c = new Controller(new Simulation(sc.initial));
   const runner = new ScenarioRunner(sc, c);
-  c.setMode(scenarioMode(sc, mode));
+  c.crewTakesAll();
+  if (who === 'player') c.submit({ kind: 'crew', system: 'all', crew: false }, 'keyboard');
   const send = (o: Order) => c.submit(o, 'keyboard');
   const run = (seconds: number, until?: () => boolean, each?: (i: number) => void) => {
     for (let i = 0; i < seconds * 100; i++) {
@@ -29,9 +32,9 @@ const light = (name: string) => AREA_INFO.westCoast.lighthouses.find((l) => l.na
 const bearing = (c: Controller, to: [number, number]) =>
   (((Math.atan2(to[1] - c.sim.y[1]!, to[0] - c.sim.y[0]!) * 180) / Math.PI) + 360) % 360;
 
-describe.each(['realistic', 'simplified'] as const)('new scenarios (%s)', (mode) => {
+describe.each(['player', 'crew'] as const)('new scenarios (%s)', (who) => {
   it('"Periskopspaning": raise, report the bearing, lower', () => {
-    const { c, runner, send, run } = start('periscope-recce', mode);
+    const { c, runner, send, run } = start('periscope-recce', who);
     send({ kind: 'periscope', up: true });
     run(15, () => runner.progress.index >= 1);
     expect(runner.progress.index).toBe(1);
@@ -44,7 +47,7 @@ describe.each(['realistic', 'simplified'] as const)('new scenarios (%s)', (mode)
   });
 
   it('"Periskopspaning" fails on a wrong bearing alone, and when the periscope shows too long', () => {
-    const { c, runner, send, run } = start('periscope-recce', mode);
+    const { c, runner, send, run } = start('periscope-recce', who);
     send({ kind: 'periscope', up: true });
     run(15, () => runner.progress.index >= 1);
     send({ kind: 'reportBearing', bearing: Math.round(bearing(c, light('Västra fyren')) + 20) % 360 });
@@ -55,7 +58,7 @@ describe.each(['realistic', 'simplified'] as const)('new scenarios (%s)', (mode)
   });
 
   it('"Fjordinloppet": following the fjord at 35 m reaches the buoy', () => {
-    const { c, runner, send, run } = start('fjord-entry', mode);
+    const { c, runner, send, run } = start('fjord-entry', who);
     // Centre line of the fjord (deepest points), south to north.
     const route: [number, number][] = [
       [-2200, 0], [-1000, -10], [-600, -10], [-200, 20], [200, 90], [600, 160], [1000, 360],
@@ -79,7 +82,7 @@ describe.each(['realistic', 'simplified'] as const)('new scenarios (%s)', (mode)
   });
 
   it('"Fyrljuset": steering on the light reaches it', () => {
-    const { c, runner, send, run } = start('night-light', mode);
+    const { c, runner, send, run } = start('night-light', who);
     send({ kind: 'setSpeed', knots: 6 });
     run(1500, undefined, (i) => {
       if (i % 1000 === 0) send({ kind: 'setHeading', heading: Math.round(bearing(c, light('Södra fyren'))) % 360 });
@@ -90,8 +93,8 @@ describe.each(['realistic', 'simplified'] as const)('new scenarios (%s)', (mode)
 });
 
 describe('"Saltsprånget"', () => {
-  it('realistic: dive, take on water for the denser layer, hold', () => {
-    const { c, runner, send, run } = start('halocline', 'realistic');
+  it('player: dive, take on water for the denser layer, hold', () => {
+    const { c, runner, send, run } = start('halocline', 'player');
     send({ kind: 'setDepth', depth: 90 });
     run(900, () => runner.progress.index >= 1 && Math.abs(c.sim.y[2]! - 90) < 1 && Math.abs(c.sim.kinematics().depthRate) < 0.05);
     const net = c.sim.telemetry().netBuoyancy / G;
@@ -101,15 +104,15 @@ describe('"Saltsprånget"', () => {
     expect(runner.status).toBe('completed');
   });
 
-  it('simplified: the assistant does it (slowly)', () => {
-    const { runner, send, run } = start('halocline', 'simplified');
+  it('crew: the assistant does it (slowly)', () => {
+    const { runner, send, run } = start('halocline', 'crew');
     send({ kind: 'setDepth', depth: 90 });
     run(2400);
     expect(runner.status).toBe('completed');
   });
 
   it('fails when the boat goes too deep', () => {
-    const { runner, send, run } = start('halocline', 'realistic');
+    const { runner, send, run } = start('halocline', 'player');
     send({ kind: 'setDepth', depth: 118 });
     send({ kind: 'compensate', litres: 6000 }); // heavy enough to get through the layer
     run(1500);
@@ -119,7 +122,7 @@ describe('"Saltsprånget"', () => {
 
 describe('fail cases', () => {
   it('"Fjordinloppet" fails when the boat comes up shallower than 15 m', () => {
-    const { runner, send, run } = start('fjord-entry', 'simplified');
+    const { runner, send, run } = start('fjord-entry', 'crew');
     send({ kind: 'setDepth', depth: 5 });
     run(300);
     expect(runner.status).toBe('failed');
@@ -140,9 +143,9 @@ describe('fail cases', () => {
   });
 });
 
-describe.each(['realistic', 'simplified'] as const)('"Fartyget" (%s)', (mode) => {
+describe.each(['player', 'crew'] as const)('"Fartyget" (%s)', (who) => {
   it('can be completed by reporting the bearing to the ship', () => {
-    const { c, runner, send, run } = start('ship-recce', mode);
+    const { c, runner, send, run } = start('ship-recce', who);
     expect(c.world.vessels).toHaveLength(1);
     send({ kind: 'periscope', up: true });
     run(15, () => runner.progress.index >= 1);
@@ -156,7 +159,7 @@ describe.each(['realistic', 'simplified'] as const)('"Fartyget" (%s)', (mode) =>
   });
 
   it('fails on a bearing to the lighthouse instead of the ship', () => {
-    const { c, runner, send, run } = start('ship-recce', mode);
+    const { c, runner, send, run } = start('ship-recce', who);
     send({ kind: 'periscope', up: true });
     run(15, () => runner.progress.index >= 1);
     send({ kind: 'reportBearing', bearing: Math.round(bearing(c, light('Västra fyren'))) });
@@ -168,7 +171,7 @@ describe.each(['realistic', 'simplified'] as const)('"Fartyget" (%s)', (mode) =>
 
 describe('collision in a scenario', () => {
   it('fails the scenario, like grounding', () => {
-    const { c, runner, run } = start('ship-recce', 'realistic');
+    const { c, runner, run } = start('ship-recce', 'player');
     // Put the boat in the ship's path at periscope depth.
     c.world.vessels[0]!.state.north = c.sim.y[0]! - 300;
     c.world.vessels[0]!.state.east = c.sim.y[1]!;

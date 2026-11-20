@@ -4,7 +4,7 @@
  * choices (area, light, sea state) and calls back into the game. It owns no
  * game state.
  */
-import type { GameMode } from '../control/gameMode';
+import type { CrewSystem } from '../control/crew';
 import type { Settings } from './settings';
 import type { ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
@@ -21,9 +21,9 @@ export interface MenuHandlers {
   restart(): void;
   toMainMenu(): void;
   settingsChanged(s: Settings): void;
-  /** Pause menu: switch the running game to the other mode. */
-  switchMode(): void;
-  /** The simplified mode's introduction was dismissed. */
+  /** ☰ → Besättning: hand a system (or all) to the crew, or take it over. */
+  crewChange(system: CrewSystem | 'all', crew: boolean): void;
+  /** The introduction was dismissed. */
   introDone(): void;
 }
 
@@ -33,7 +33,7 @@ export class Menu {
   /** Where "Tillbaka" goes from settings/help: the main or the pause menu. */
   private base: 'main' | 'pause' = 'main';
   private result: ResultInfo | null = null;
-  private pauseInfo: PauseInfo = { mode: 'simplified', canSwitch: true };
+  private pauseInfo: PauseInfo = { duties: null, locks: {} };
   /** Free play: chosen area and light/visibility. */
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
@@ -128,9 +128,11 @@ export class Menu {
       case 'main':
         this.h.toMainMenu();
         break;
-      case 'switchMode':
-        this.h.switchMode();
+      case 'crew': {
+        const [system, crew] = (arg ?? '').split(':');
+        this.h.crewChange(system as CrewSystem | 'all', crew === '1');
         break;
+      }
       case 'introDone':
         this.h.introDone();
         break;
@@ -139,10 +141,7 @@ export class Menu {
 
   private onSetting(name: string, value: string): void {
     const s = { ...this.settings };
-    if (name === 'mode') s.mode = value as GameMode;
     if (name === 'timeScale') s.timeScale = Number(value) as Settings['timeScale'];
-    if (name === 'autopilot') s.autopilot = value === 'true';
-    if (name === 'touch') s.touch = value as Settings['touch'];
     if (name === 'particles') s.particles = value === 'true';
     if (name === 'volume') s.volume = Number(value) / 100;
     if (name === 'soundEffects') s.soundEffects = value === 'true';
@@ -150,6 +149,5 @@ export class Menu {
     if (name === 'voice') s.voice = value === 'true';
     this.settings = s;
     this.h.settingsChanged(s);
-    if (name === 'mode') this.show(this.screen); // re-render the scenario notes and help
   }
 }

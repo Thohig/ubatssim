@@ -64,7 +64,7 @@ describe('bridge', () => {
     expect(parseCommand('klart').ok).toBe(false);
   });
 
-  it('the realistic mode refuses to flood with the bridge manned', () => {
+  it('a player handling the ballast cannot flood with the bridge manned', () => {
     const c = new Controller(new Simulation());
     c.submit({ kind: 'mainBallast', action: 'flood', group: 'all' }, 'console');
     c.step();

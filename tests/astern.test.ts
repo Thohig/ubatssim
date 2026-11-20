@@ -146,9 +146,9 @@ describe('orders astern', () => {
     expect(acknowledgement(order('fart 0'))).toBe('Fart 0 knop, ja');
   });
 
-  it('the simplified speed keys go past zero to 6 knots astern', () => {
+  it('the speed target goes past zero to 6 knots astern', () => {
     const c = new Controller(new Simulation({ depth: 50, designTrim: true }));
-    c.setMode('simplified');
+    c.crewTakesAll();
     for (let i = 0; i < 10; i++) c.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'keyboard');
     c.step();
     expect(c.setpoints.speed).toBe(-6);

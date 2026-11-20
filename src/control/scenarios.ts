@@ -7,7 +7,7 @@
 import { ENVIRONMENT } from '../sim/config/environment';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
-import { GAME_MODES, type GameMode } from './gameMode';
+import { CREW_NAME, CREW_SYSTEMS, type CrewLocks, type CrewSystem } from './crew';
 import { AREA_INFO, freighter, type ConditionsId } from './areas';
 import type { VesselDef } from '../sim/vessel';
 
@@ -19,10 +19,14 @@ export type Difficulty = 'lätt' | 'medel' | 'svår';
 export interface Objective {
   /** Short goal shown in the banner. */
   text: string;
-  /** Longer instruction, e.g. which command to type. */
+  /** What to do, with the screen controls (the console is never required). */
   hint: string;
-  /** Hint for the simplified simulation, when it differs. */
-  hintSimplified?: string;
+  /**
+   * The system the objective is about. While the crew handles it, `hintCrew`
+   * is shown instead of `hint` (which tells a player handling it what to do).
+   */
+  system?: CrewSystem;
+  hintCrew?: string;
   check: (t: Telemetry, c: Controller) => boolean;
   /** Seconds the condition must hold continuously. */
   holdSeconds?: number;
@@ -34,12 +38,12 @@ export interface Scenario {
   description: string;
   difficulty: Difficulty;
   initial: InitialConditions;
-  /** Realistic mode: whether depth/heading autopilots may be used. */
-  autopilotAllowed: boolean;
-  /** Game modes the scenario can be played in (default: both). */
-  modes?: readonly GameMode[];
-  /** Simplified mode: whether the safety net is active (default true). */
-  safetyNet?: boolean;
+  /**
+   * Systems fixed for this scenario (true = the crew, false = the player);
+   * the player chooses the rest. Every game starts with the crew handling
+   * all unlocked systems.
+   */
+  locks?: CrewLocks;
   objectives: Objective[];
   /** Returns a failure message, or null while the scenario is still alive. */
   failure?: (t: Telemetry, c: Controller) => string | null;
@@ -61,14 +65,15 @@ export function waypointInfo(t: Telemetry, wp: [number, number]): { distance: nu
   return { distance: Math.hypot(dn, de), bearing };
 }
 
-/** The game modes a scenario allows. */
-export const scenarioModes = (s: Scenario): readonly GameMode[] => s.modes ?? GAME_MODES;
-
-/** The mode to play a scenario in: the preferred one if allowed, else the first allowed. */
-export const scenarioMode = (s: Scenario, preferred: GameMode): GameMode => {
-  const modes = scenarioModes(s);
-  return modes.includes(preferred) ? preferred : modes[0]!;
-};
+/** "Du sköter djup och trim själv · Utan skyddsnät": the locks, for the scenario list. */
+export function lockText(locks: CrewLocks | undefined): string[] {
+  if (!locks) return [];
+  const self = CREW_SYSTEMS.filter((x) => x !== 'safetyNet' && locks[x] === false).map((x) => CREW_NAME[x].toLowerCase());
+  const parts: string[] = [];
+  if (self.length) parts.push(`Du sköter ${self.join(' och ')} själv`);
+  if (locks.safetyNet === false) parts.push('Utan skyddsnät');
+  return parts;
+}
 
 const mbt = (t: Telemetry) => t.tanks.filter((x) => x.kind === 'mainBallast');
 
@@ -104,44 +109,49 @@ export const SCENARIOS: Scenario[] = [
     description: 'Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma ubåten neutral och gå sedan till ytläge igen.',
     difficulty: 'lätt',
     initial: {},
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Klara bryggan',
-        hint: 'Skriv "klart bryggan". Ingen får vara kvar på bryggan när ubåten dyker.',
-        hintSimplified: 'Tryck Dyk (eller D). Bryggan utryms automatiskt.',
+        system: 'ballast',
+        hint: 'Öppna Ballast ▾ och tryck Klart bryggan. Ingen får vara kvar på bryggan när ubåten dyker.',
+        hintCrew: 'Tryck Dyk (eller D). Besättningen utrymmer bryggan.',
         check: (_t, c) => !c.bridgeManned,
       },
       {
         text: 'Öppna ventilerna till huvudballasten',
-        hint: 'Skriv "fyll huvudballast" i konsolen.',
-        hintSimplified: 'Tryck Dyk (eller D). Ventilerna stängs själva när tankarna är fulla.',
+        system: 'ballast',
+        hint: 'Tryck Fyll vid Båda under Ballast ▾. Stäng ventilerna när tankarna är fulla.',
+        hintCrew: 'Tryck Dyk (eller D). Ventilerna stängs när tankarna är fulla.',
         check: (t) => mbt(t).every((x) => x.ventOpen || x.fill > 0.95),
       },
       {
         text: 'Gå framåt med 5 knop',
-        hint: 'Skriv "fart 5 knop". Djuprodren behöver fart för att verka.',
-        hintSimplified: 'Tryck Sakta fram på telegrafen (eller Shift + ↑). Djuprodren behöver fart för att verka.',
+        system: 'speed',
+        hint: 'Öka varvet under Fart ▾, eller tryck Sakta fram på telegrafen. Djuprodren behöver fart för att verka.',
+        hintCrew: 'Tryck Sakta fram på telegrafen (eller Shift + ↑). Djuprodren behöver fart för att verka.',
         check: (t) => t.u > 3 * KN,
       },
       {
         text: 'Dyk till 30 meter och håll djupet',
-        hint: 'Skriv "djup 30". Autopiloten styr djuprodren.',
-        hintSimplified: 'Tryck eller dra på djupskalan till 30 m (eller ↓ tills djupmålet visar 30 m).',
+        system: 'depth',
+        hint: 'Lägg djuprodret några grader ned (▼ eller ↓) och ta upp det före 30 m. Eller växla djupet till Auto.',
+        hintCrew: 'Tryck eller dra på djupskalan till 30 m (eller ↓ tills djupmålet visar 30 m).',
         check: (t) => Math.abs(t.depth - 30) < 2,
         holdSeconds: 10,
       },
       {
         text: 'Trimma ubåten neutral (±300 kg)',
-        hint: 'Se "Flytkraftsöverskott" under "Mer". Är den tung (minus)? Skriv t.ex. "kompensera ut 600".',
-        hintSimplified: 'Assistenten pumpar ut vatten tills ubåten är neutral. Följ "Trim" och loggen.',
+        system: 'trim',
+        hint: 'Öppna Trim ▾. Är ubåten tung (minus), tryck Ut för att pumpa ut vatten. 1 liter ≈ 1 kg.',
+        hintCrew: 'Trimassistenten pumpar ut vatten tills ubåten är neutral. Följ "Trim" och loggen.',
         check: (t) => Math.abs(t.netBuoyancy / G) < 300 && t.compRemaining === 0,
         holdSeconds: 5,
       },
       {
         text: 'Gå till ytläge',
-        hint: 'Skriv "blås huvudballast" och "djup 0". Lite vatten blir kvar i tankarna när luften trycks ihop i ytläget.',
-        hintSimplified: 'Tryck Yta (eller S). Huvudballasten blåses och djupmålet sätts till 0 m.',
+        system: 'ballast',
+        hint: 'Tryck Blås vid Båda under Ballast ▾ och sätt djupet till 0 m. Lite vatten blir kvar i tankarna när luften trycks ihop i ytläget.',
+        hintCrew: 'Tryck Yta (eller S). Huvudballasten blåses och djupmålet sätts till 0 m.',
         // Air blown at depth expands and partly escapes on the way up, so some water remains when surfaced.
         check: (t) => t.depth < 3 && mbt(t).every((x) => x.fill < 0.4),
         holdSeconds: 5,
@@ -155,12 +165,11 @@ export const SCENARIOS: Scenario[] = [
     description: 'Håll 50 m (±2 m) i tre minuter utan djupautopilot. Ubåten är lite tung från start, så den behöver kompenseras.',
     difficulty: 'medel',
     initial: { depth: 50, speed: 4 * KN, tankFills: { comp: 0.54 } },
-    autopilotAllowed: false,
-    modes: ['realistic'],
+    locks: { depth: false, trim: false },
     objectives: [
       {
         text: 'Håll 50 m ±2 m i 3 minuter',
-        hint: 'Styr med ↑/↓ (djuproder) och använd "kompensera ut <liter>" för att bli neutral.',
+        hint: 'Styr djuprodret med ▲ och ▼ (↑/↓) och pumpa ut vatten under Trim ▾ för att bli neutral.',
         check: (t) => Math.abs(t.depth - 50) < 2,
         holdSeconds: 180,
       },
@@ -173,18 +182,19 @@ export const SCENARIOS: Scenario[] = [
     description: 'Dyk genom språngskiktet till 90 m. Under det är vattnet tätare och ubåten blir lättare. Håll 90 m ±3 m i en minut.',
     difficulty: 'medel',
     initial: { depth: 25, speed: 6 * KN, designTrim: true },
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Dyk till 90 m',
-        hint: 'Skriv "djup 90".',
-        hintSimplified: 'Tryck eller dra på djupskalan till 90 m (eller ↓ tills djupmålet visar 90 m).',
+        system: 'depth',
+        hint: 'Lägg djuprodret ned och ta upp det före 90 m. Eller växla djupet till Auto.',
+        hintCrew: 'Tryck eller dra på djupskalan till 90 m (eller ↓ tills djupmålet visar 90 m).',
         check: (t) => t.depth > 85,
       },
       {
         text: 'Håll 90 m ±3 m i en minut med neutral trim (±300 kg)',
-        hint: 'Ubåten är lätt här. Ta in vatten: "kompensera in <liter>".',
-        hintSimplified: 'Ubåten blir lätt under språngskiktet. Assistenten tar in vatten, följ "Trim" och loggen.',
+        system: 'trim',
+        hint: 'Ubåten är lätt här. Tryck In under Trim ▾ för att ta in vatten (1 liter ≈ 1 kg).',
+        hintCrew: 'Ubåten blir lätt under språngskiktet. Trimassistenten tar in vatten, följ "Trim" och loggen.',
         check: (t) => Math.abs(t.depth - 90) < 3 && Math.abs(t.netBuoyancy / G) < 300,
         holdSeconds: 60,
       },
@@ -198,24 +208,26 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'lätt',
     initial: { depth: 30, speed: 3 * KN, neutral: true, north: ASTERN_START[0], east: ASTERN_START[1], heading: 0 },
     waypoint: ASTERN_BUOY,
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Slå back',
-        hint: 'Skriv "back halv" (4 knop). Propellern bromsar först ubåten och driver den sedan bakåt.',
-        hintSimplified: 'Tryck Halv back på telegrafen (eller Shift + ↓ tre gånger).',
+        system: 'speed',
+        hint: 'Sänk varvet förbi noll under Fart ▾, eller tryck Halv back på telegrafen.',
+        hintCrew: 'Tryck Halv back på telegrafen (eller Shift + ↓ tre gånger).',
         check: (t) => t.u < -0.5 * KN,
       },
       {
         text: 'Backa till den gula bojen',
-        hint: 'Håll kursen med "kurs 0" och djupet med "djup 30". Styr du själv verkar rodren omvänt: roder styrbord vrider fören åt babord.',
-        hintSimplified: 'Autopiloten håller kurs och djup åt dig, också när ubåten backar. Följ avståndet till bojen.',
+        system: 'heading',
+        hint: 'Rodret verkar omvänt när ubåten backar: roder styrbord vrider fören åt babord. Håll kursen kring 000.',
+        hintCrew: 'Rorsmannen håller kursen, också när ubåten backar. Följ avståndet till bojen.',
         check: (t) => waypointInfo(t, ASTERN_BUOY).distance < 60,
       },
       {
         text: 'Stanna vid bojen',
-        hint: 'Skriv "fart stopp". Propellern går framåt en stund och bromsar ubåten.',
-        hintSimplified: 'Tryck Stopp på telegrafen (eller Shift + ↑ två gånger). Propellern bromsar ubåten.',
+        system: 'speed',
+        hint: 'Tryck Stopp på telegrafen, eller ge varv framåt under Fart ▾ tills farten är noll.',
+        hintCrew: 'Tryck Stopp på telegrafen (eller Shift + ↑ två gånger). Propellern bromsar ubåten.',
         check: (t) => Math.abs(t.u) < 0.3 * KN && waypointInfo(t, ASTERN_BUOY).distance < 100,
         holdSeconds: 5,
       },
@@ -235,12 +247,12 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'medel',
     initial: { east: 2560, heading: (20 * Math.PI) / 180 },
     waypoint: [1200, 2848],
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Gå genom sundet till den gula bojen',
-        hint: 'Skriv "fart 4 knop" och styr med ←/→ eller "kurs <grader>". Sundet slingrar sig mot nordost.',
-        hintSimplified: 'Tryck Sakta fram och styr med kompassen eller ◀/▶. Bojen är den gula pricken på kompassen. Sundet slingrar sig mot nordost.',
+        system: 'heading',
+        hint: 'Tryck Sakta fram och styr med rodret (◀ BB och SB ▶). Bojen är den gula pricken. Sundet slingrar sig mot nordost.',
+        hintCrew: 'Tryck Sakta fram och styr med kompassen eller ◀/▶. Bojen är den gula pricken på kompassen. Sundet slingrar sig mot nordost.',
         check: (t) => waypointInfo(t, [1200, 2848]).distance < 60,
       },
     ],
@@ -251,13 +263,13 @@ export const SCENARIOS: Scenario[] = [
     description: 'Kompenseringstanken har vattenfyllts på 200 m och ubåten är flera ton för tung. Ta dig till ytan innan den når krossdjupet 300 m.',
     difficulty: 'svår',
     initial: { depth: 200, speed: 4 * KN, tankFills: { comp: 1 }, east: -3000 },
-    autopilotAllowed: true,
-    safetyNet: false,
+    locks: { safetyNet: false },
     objectives: [
       {
         text: 'Nå ytan',
-        hint: 'Blås huvudballasten ("blås huvudballast"), öka farten och styr uppåt med djuprodren.',
-        hintSimplified: 'Tryck Yta (eller S) och Full fram. Här finns ingen automatisk nödblåsning.',
+        system: 'ballast',
+        hint: 'Tryck Blås vid Båda under Ballast ▾, tryck Full fram och styr uppåt.',
+        hintCrew: 'Tryck Yta (eller S) och Full fram. Här finns inget skyddsnät.',
         check: (t) => t.depth < 10,
       },
     ],
@@ -270,18 +282,15 @@ export const SCENARIOS: Scenario[] = [
     description: `Gå på periskopdjup, hissa periskopet och ta ut bäringen till Västra fyren (vitt torn med rött band på en ö i nordost). Periskopet får inte synas mer än ${PERISCOPE_EXPOSURE_LIMIT} s i taget.`,
     difficulty: 'medel',
     initial: { depth: 13, speed: 4 * KN, neutral: true, east: 700, heading: 60 * DEG },
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Hissa periskopet',
-        hint: 'Skriv "periskop upp" eller tryck P. Håll farten under 6 knop, annars vibrerar bilden.',
-        hintSimplified: 'Tryck Per (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
+        hint: 'Tryck Per (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
         check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
       },
       {
         text: 'Rapportera bäringen till Västra fyren (±3°)',
-        hint: 'Vrid periskopet med ←/→ tills fyren står i hårkorset och tryck B, eller skriv "bäring <grader>".',
-        hintSimplified: 'Vrid periskopet genom att dra i bilden (eller ←/→) tills fyren står i hårkorset och tryck Brg (eller B).',
+        hint: 'Vrid periskopet genom att dra i bilden (eller ←/→) tills fyren står i hårkorset och tryck Brg (eller B).',
         check: (_t, c) => {
           const r = c.lastBearing;
           return r !== null && r.lookout && bearingDiff(r.bearing, bearingTo(r.position, WEST_LIGHT)) <= 3;
@@ -289,8 +298,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Sänk periskopet',
-        hint: 'Skriv "periskop ned" eller tryck P.',
-        hintSimplified: 'Tryck Per (eller P) igen.',
+        hint: 'Tryck Per (eller P) igen.',
         check: (t) => t.periscope < 0.01,
       },
     ],
@@ -309,18 +317,15 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'medel',
     initial: { depth: 13, speed: 3 * KN, neutral: true, east: -800, heading: 330 * DEG },
     traffic: [RECCE_SHIP],
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Hissa periskopet',
-        hint: 'Skriv "periskop upp" eller tryck P.',
-        hintSimplified: 'Tryck Per (eller P).',
+        hint: 'Tryck Per (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
         check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
       },
       {
         text: 'Rapportera bäringen till M/S Skagerack (±3°)',
-        hint: 'Fartyget är sydväst om dig. Vrid periskopet med ←/→ tills det står i hårkorset och tryck B, eller skriv "bäring <grader>".',
-        hintSimplified: 'Fartyget är sydväst om dig. Vrid periskopet genom att dra i bilden (eller ←/→) tills det står i hårkorset och tryck Brg (eller B).',
+        hint: 'Fartyget är sydväst om dig. Vrid periskopet genom att dra i bilden (eller ←/→) tills det står i hårkorset och tryck Brg (eller B).',
         check: (_t, c) => {
           const r = c.lastBearing;
           const truth = r?.contacts[RECCE_SHIP.id];
@@ -329,8 +334,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Sänk periskopet',
-        hint: 'Skriv "periskop ned" eller tryck P.',
-        hintSimplified: 'Tryck Per (eller P) igen.',
+        hint: 'Tryck Per (eller P) igen.',
         check: (t) => t.periscope < 0.01,
       },
     ],
@@ -348,18 +352,19 @@ export const SCENARIOS: Scenario[] = [
     description: 'Östersjön: dyk genom saltsprångskiktet (60–80 m) till 90 m. Under det är vattnet saltare och tätare, och ubåten blir flera ton lättare. Håll 90 m ±3 m i en minut med högst 1 ton över- eller undervikt.',
     difficulty: 'svår',
     initial: { area: 'baltic', depth: 40, speed: 5 * KN, neutral: true, east: -2500 },
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Dyk till 90 m',
-        hint: 'Skriv "djup 90". Följ "Flytkraftsöverskott" under "Mer" på vägen ner.',
-        hintSimplified: 'Tryck eller dra på djupskalan till 90 m (eller ↓ tills djupmålet visar 90 m).',
+        system: 'depth',
+        hint: 'Lägg djuprodret ned och ta upp det före 90 m. Eller växla djupet till Auto.',
+        hintCrew: 'Tryck eller dra på djupskalan till 90 m (eller ↓ tills djupmålet visar 90 m).',
         check: (t) => t.depth > 86,
       },
       {
         text: 'Håll 90 m ±3 m i en minut, neutral inom ±1 000 kg',
-        hint: 'Ubåten är lätt under skiktet. Ta in vatten: "kompensera in <liter>" (1 liter ≈ 1 kg).',
-        hintSimplified: 'Assistenten tar in vatten, men pumpen klarar bara 6 liter i sekunden. Ha tålamod, eller öka tidskomprimeringen.',
+        system: 'trim',
+        hint: 'Ubåten är lätt under skiktet. Tryck In under Trim ▾ för att ta in vatten (1 liter ≈ 1 kg). Pumpen klarar 6 liter i sekunden.',
+        hintCrew: 'Trimassistenten tar in vatten, men pumpen klarar bara 6 liter i sekunden. Ha tålamod, eller öka tidskomprimeringen.',
         check: (t) => Math.abs(t.depth - 90) < 3 && Math.abs(t.netBuoyancy / G) < 1000,
         holdSeconds: 60,
       },
@@ -374,17 +379,19 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'svår',
     initial: { area: 'fjord', depth: 30, speed: 5 * KN, neutral: true, north: -2200, east: 0 },
     waypoint: FJORD_BUOY,
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Passera tröskeln',
-        hint: 'Håll 30–40 m djup och följ "Under köl". Tröskeln ligger kring mynningen (bojens bäring rakt norrut).',
-        hintSimplified: 'Håll 30–40 m med djupskalan och styr med kompassen eller ◀/▶. Följ "Under köl".',
+        system: 'depth',
+        hint: 'Håll 30–40 m med djuprodret och följ "Under köl". Tröskeln ligger kring mynningen, rakt norrut.',
+        hintCrew: 'Håll 30–40 m med djupskalan och styr med kompassen eller ◀/▶. Följ "Under köl".',
         check: (t) => t.position[0] > 350,
       },
       {
         text: 'Gå till den gula bojen',
-        hint: 'Fjorden svänger österut och sedan tillbaka. Styr mot bojens bäring men håll avstånd till bergväggarna.',
+        system: 'heading',
+        hint: 'Fjorden svänger österut och sedan tillbaka. Styr mot bojen med rodret, men håll avstånd till bergväggarna.',
+        hintCrew: 'Fjorden svänger österut och sedan tillbaka. Styr mot bojen med kompassen, men håll avstånd till bergväggarna.',
         check: (t) => waypointInfo(t, FJORD_BUOY).distance < 120,
       },
     ],
@@ -398,12 +405,12 @@ export const SCENARIOS: Scenario[] = [
     difficulty: 'medel',
     conditions: 'night',
     initial: { north: -800, east: 0, heading: 90 * DEG },
-    autopilotAllowed: true,
     objectives: [
       {
         text: 'Gå mot Södra fyren tills den är 700 m bort',
-        hint: 'Skriv "fart 6 knop", tryck V för bryggan och styr mot det röda skenet.',
-        hintSimplified: 'Tryck Halv fram, Vy (eller V) för bryggan och styr med kompassen mot det röda skenet.',
+        system: 'heading',
+        hint: 'Tryck Halv fram, Vy (eller V) för bryggan och styr med rodret mot det röda skenet.',
+        hintCrew: 'Tryck Halv fram, Vy (eller V) för bryggan och styr med kompassen mot det röda skenet.',
         check: (t) => waypointInfo(t, SOUTH_LIGHT).distance < 700,
       },
     ],
@@ -438,8 +445,7 @@ export class ScenarioRunner {
     readonly scenario: Scenario,
     readonly ctrl: Controller,
   ) {
-    ctrl.options.autopilotAllowed = scenario.autopilotAllowed;
-    ctrl.options.safetyNet = scenario.safetyNet ?? true;
+    ctrl.options.locks = { ...scenario.locks };
     ctrl.world.add(scenario.traffic ?? []);
   }
 

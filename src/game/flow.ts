@@ -6,7 +6,7 @@
  *     │               └──scenario over──▶ ended
  *     └──── main menu (from paused or ended)
  *
- * `paused` also shows the simplified mode's introduction before a game,
+ * `paused` also shows the introduction to the crew and the controls before a game,
  * so a start may go menu → paused, and a restart ended → paused.
  */
 export type GameState = 'menu' | 'playing' | 'paused' | 'ended';

@@ -131,15 +131,15 @@ const wrap = (a: number) => {
 };
 
 /**
- * V / "Vy": next available view. In the simplified simulation the bridge
- * is manned automatically when the boat is surfaced, as "Dyk" clears it.
+ * V / "Vy": next available view. While the crew handles the ballast the
+ * bridge is manned automatically when the boat is surfaced, as "Dyk" clears it.
  */
 export function cycleView(ctrl: Controller, views: ViewState, source: OrderSource): void {
   const available = availableViews(ctrl);
   const sim = ctrl.sim;
   // Not while diving: the vents are open.
   const canMan = sim.bodyPointDepth(sim.cfg.bridge.deck) < -0.5 && !sim.tanks.some((t) => t.ventOpen);
-  if (views.mode === 'external' && !available.bridge && canMan && ctrl.options.mode === 'simplified') {
+  if (views.mode === 'external' && !available.bridge && canMan && ctrl.options.crew.ballast) {
     ctrl.submit({ kind: 'bridge', manned: true }, source);
     views.set('bridge');
     return;
@@ -166,17 +166,18 @@ export function togglePeriscope(ctrl: Controller, source: OrderSource): void {
 }
 
 /** Buttons for the views next to the menu button (mouse and touch). */
-export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState): (ctrl: Controller) => void {
+export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState, openConsole?: () => void): (ctrl: Controller) => void {
   root.innerHTML = `
     <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
     <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
-    <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>`;
+    <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>
+    <button type="button" data-v="console" class="console-btn" title="Kommandokonsolen (Enter)" aria-label="Öppna kommandokonsolen">&gt;_</button>`;
   const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
-  /** Simplified mode only: whether the boat is too deep for the periscope and the bridge. */
+  /** Whether the boat is too deep for the periscope and the bridge. */
   let deep = false;
   const sync = () => {
     zoom.hidden = views.mode !== 'periscope';
@@ -188,6 +189,11 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
   views.onChange(sync);
   root.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-v]');
+    // iOS shows the on-screen keyboard only for focus() inside a click handler.
+    if (b?.dataset.v === 'console') {
+      openConsole?.();
+      return;
+    }
     const ctrl = getCtrl();
     if (!b || !ctrl) return;
     if (b.dataset.v === 'view') cycleView(ctrl, views, 'touch');
@@ -196,13 +202,13 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     else views.toggleZoom();
   });
   /**
-   * Call ~10 times a second. In the simplified mode the buttons follow the
-   * situation: Per and Vy are hidden below PERISCOPE_BUTTON_DEPTH with the
-   * mast housed, where neither the periscope nor the bridge can be used.
+   * Call ~10 times a second. The buttons follow the situation: Per and Vy
+   * are hidden below PERISCOPE_BUTTON_DEPTH with the mast housed, where
+   * neither the periscope nor the bridge can be used.
    */
   return (ctrl) => {
     const k = ctrl.sim.kinematics();
-    const next = ctrl.options.mode === 'simplified' && k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01;
+    const next = k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01;
     if (next !== deep) {
       deep = next;
       sync();
@@ -210,5 +216,5 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
   };
 }
 
-/** Simplified mode: the periscope and view buttons show above this CO depth [m]. */
+/** The periscope and view buttons show above this CO depth [m]. */
 export const PERISCOPE_BUTTON_DEPTH = 25;

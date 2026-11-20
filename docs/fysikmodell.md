@@ -192,7 +192,9 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 - **Ytläge:** med tom huvudballast, djupmål grundare än 5 m och centrumlinjen grundare än 6 m flyter ubåten. Djupautopiloten håller då djuprodret i noll i stället för att försöka trycka ner ~200 t reservflytkraft.
 - **Gemensamt:** alla regulatorer har villkorlig integration (anti-windup) och en integrationszon. Förstärkningen för roder och djuproder skalas med 1/U², eftersom fenornas lyftkraft växer med U².
 
-## Trimassistent (förenklad simulering, src/control)
+## Trimassistent och skyddsnät (besättningen, src/control)
+
+Båda arbetar bara medan besättningen sköter trimmet respektive skyddsnätet (se `crew.ts` och README, Besättningen och du).
 
 Assistenten ändrar inget i fysiken. Den ger samma order som spelaren kan ge, och pumparnas kapacitet begränsar den.
 

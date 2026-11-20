@@ -5,8 +5,7 @@
  */
 import { AREA_INFO, type ConditionsId } from '../control/areas';
 import { Controller } from '../control/controller';
-import type { GameMode } from '../control/gameMode';
-import { ScenarioRunner, scenarioMode, type Scenario } from '../control/scenarios';
+import { ScenarioRunner, lockText, type Scenario } from '../control/scenarios';
 import type { AreaId } from '../sim/config/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
 import { DT, IDX_SHAFT, Simulation, type InitialConditions } from '../sim/simulation';
@@ -19,11 +18,8 @@ export interface SessionSpec {
   scenario: Scenario | null;
   /** First log line (the start position or the scenario). */
   intro: string;
-  mode: GameMode;
   conditions: ConditionsId;
-  /** Realistic mode: depth/heading autopilots allowed in free play (scenarios decide for themselves). */
-  autopilotAllowed: boolean;
-  /** Log line on where the commands are (differs for touch screens). */
+  /** Log line on where the controls are. */
   helpHint: string;
 }
 
@@ -38,11 +34,12 @@ export class GameSession {
     const { initial, scenario } = spec;
     this.sim = new Simulation(initial);
     this.ctrl = new Controller(this.sim);
-    this.ctrl.options.autopilotAllowed = spec.autopilotAllowed;
+    // The scenario's locks first: every game then starts with the crew handling the rest.
     this.runner = scenario ? new ScenarioRunner(scenario, this.ctrl) : null;
+    this.ctrl.crewTakesAll();
     if (spec.intro) this.ctrl.addLog(spec.intro, 'info');
-    this.ctrl.setMode(spec.mode);
-    if (spec.mode === 'realistic' && !this.ctrl.options.autopilotAllowed) this.ctrl.addLog('Autopilot för djup och kurs är avstängd.', 'info');
+    const self = lockText(scenario?.locks);
+    if (self.length) this.ctrl.addLog(`${self.join('. ')}.`, 'info');
     if (spec.helpHint) this.ctrl.addLog(spec.helpHint, 'info');
     // Free play and the demo behind the menu have the area's traffic; scenarios bring their own.
     if (!scenario) this.ctrl.world.add(AREA_INFO[this.sim.areaId].traffic);
@@ -63,9 +60,9 @@ export class GameSession {
     this.propellerAngle += 2 * Math.PI * this.sim.y[IDX_SHAFT]! * DT;
   }
 
-  /** The same start again, in the mode the game is in now. */
+  /** The same start again (the crew handles everything again). */
   restart(): GameSession {
-    return new GameSession({ ...this.spec, mode: this.ctrl.options.mode });
+    return new GameSession(this.spec);
   }
 }
 
@@ -75,24 +72,20 @@ export function freePlaySpec(
   startId: string,
   conditions: ConditionsId,
   sea: SeaStateId,
-  mode: GameMode,
-  autopilotAllowed: boolean,
   helpHint: string,
 ): SessionSpec | null {
   const f = AREA_INFO[area].starts.find((s) => s.id === startId);
   if (!f) return null;
-  return { initial: { ...f.initial, sea }, scenario: null, intro: f.text, mode, conditions, autopilotAllowed, helpHint };
+  return { initial: { ...f.initial, sea }, scenario: null, intro: f.text, conditions, helpHint };
 }
 
-/** A scenario, in the preferred mode if it allows it. */
-export function scenarioSpec(sc: Scenario, preferred: GameMode, autopilotAllowed: boolean, helpHint: string): SessionSpec {
+/** A scenario. */
+export function scenarioSpec(sc: Scenario, helpHint: string): SessionSpec {
   return {
     initial: sc.initial,
     scenario: sc,
     intro: `Scenario: ${sc.title}. ${sc.description}`,
-    mode: scenarioMode(sc, preferred),
     conditions: sc.conditions ?? 'day',
-    autopilotAllowed,
     helpHint,
   };
 }
@@ -103,9 +96,7 @@ export function demoSession(): GameSession {
     initial: { east: 1700, speed: 5 * KN },
     scenario: null,
     intro: '',
-    mode: 'realistic',
     conditions: 'day',
-    autopilotAllowed: true,
     helpHint: '',
   });
   s.ctrl.submit({ kind: 'setHeading', heading: 0 }, 'console');

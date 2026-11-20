@@ -26,11 +26,11 @@ En bild får ta 16,7 ms vid 60 bilder per sekund. Fördelningen på en mellankla
 | Ytläge, grov sjö | 249 µs/steg | 152 µs/steg |
 | 100 m, 8 knop | 110 µs/steg | 113 µs/steg |
 
-| Skärmkontroller i förenklat läge (4× strypt processor, per uppdatering var 100:e ms) | Före | Efter |
+| Skärmkontroller (4× strypt processor, per uppdatering var 100:e ms) | Före | Efter |
 |---|---|---|
 | Djupskala och kompassband | 1,9 ms | 0,27 ms |
 
-Åtgärderna var tre: storleken på de två canvasytorna hålls av en `ResizeObserver` i stället för att läsas med `clientWidth`, vilket tvingade fram en layout efter instrumentpanelens textändringar. Färgerna läses en gång i stället för med `getComputedStyle` vid varje ritning. Canvasytorna ritas bara om när något ändrats med minst ungefär en pixel. Gränssnittstiden blev då densamma som i realistiskt läge.
+Åtgärderna var tre: storleken på de två canvasytorna hålls av en `ResizeObserver` i stället för att läsas med `clientWidth`, vilket tvingade fram en layout efter instrumentpanelens textändringar. Färgerna läses en gång i stället för med `getComputedStyle` vid varje ritning. Canvasytorna ritas bara om när något ändrats med minst ungefär en pixel. Gränssnittstiden blev då densamma som utan skärmkontroller. Med kursen på Hand och en öppen panel är den ~2,4 ms per bild med 4× strypt processor (1,6 ms med besättningen på allt), med mjukvarugrafik i testmiljön.
 
 | Grafik (4× strypt processor) | Före | Efter |
 |---|---|---|

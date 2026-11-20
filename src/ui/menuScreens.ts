@@ -5,21 +5,21 @@
  */
 import { formatSimTime } from '../control/controller';
 import { HELP_TEXT } from '../control/parser';
-import { SCENARIOS, scenarioModes, type Scenario } from '../control/scenarios';
-import { GAME_MODES, GAME_MODE_NAME, GAME_MODE_TEXT, type GameMode } from '../control/gameMode';
+import { SCENARIOS, lockText, type Scenario } from '../control/scenarios';
+import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, LOCK_TEXT, swedishList, type CrewDuties, type CrewLocks, type CrewSystem } from '../control/crew';
 import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
 import { html, type SafeHtml } from './dom';
 import type { Settings } from './settings';
 
-export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'result' | 'intro';
+export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro';
 
-/** What the pause menu needs to know about the running game. */
+/** What the pause menu and ☰ → Besättning need to know about the running game. */
 export interface PauseInfo {
-  mode: GameMode;
-  /** False when the scenario allows only one mode. */
-  canSwitch: boolean;
+  /** Who handles what (including orders still waiting in the queue); null outside a game. */
+  duties: CrewDuties | null;
+  locks: CrewLocks;
 }
 
 export interface ResultInfo {
@@ -27,6 +27,17 @@ export interface ResultInfo {
   completed: boolean;
   message: string;
   time: number;
+  /** What the player handled at some time during the scenario. */
+  selfHandled: CrewSystem[];
+}
+
+/** "Du skötte själv trimmet och ballasten · utan skyddsnät", or that the crew handled everything. */
+export function handledText(self: readonly CrewSystem[]): string {
+  const systems = self.filter((x) => x !== 'safetyNet').map((x) => CREW_NOUN[x]);
+  const parts: string[] = [];
+  if (systems.length) parts.push(`Du skötte själv ${swedishList(systems)}`);
+  if (self.includes('safetyNet')) parts.push('utan skyddsnät');
+  return parts.length ? `${parts.join(', ')}.` : 'Besättningen skötte allt.';
 }
 
 /** What the screens show. */
@@ -43,16 +54,11 @@ export interface MenuState {
 const back = html`<button class="menu-btn secondary" data-action="back">‹ Tillbaka</button>`;
 
 export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
-  main: (m) => {
+  main: () => {
     return html`
       <h1 class="menu-title">Ubåtssim</h1>
       <p class="menu-sub">Simulering av en dieselelektrisk ubåt</p>
-      <div class="mode-choice" role="radiogroup" aria-label="Spelläge">
-        ${GAME_MODES.map(
-          (gm) => html`<label class="mode-opt"><input type="radio" name="mode" value="${gm}" ${m.settings.mode === gm ? 'checked' : ''}/>
-            <span><b>${GAME_MODE_NAME[gm]}</b><small>${GAME_MODE_TEXT[gm]}</small></span></label>`,
-        )}
-      </div>
+      <p class="menu-note">Besättningen sköter ubåten från start. Ta över det du vill sköta själv, när du vill.</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="nav" data-arg="free">Fritt spel</button>
         <button class="menu-btn" data-action="nav" data-arg="scenarios">Scenarier</button>
@@ -63,14 +69,10 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
   pause: (m) => {
     return html`
       <h2 class="menu-title small">Paus</h2>
-      <p class="menu-sub">${GAME_MODE_NAME[m.pauseInfo.mode]}</p>
+      <p class="menu-sub">${crewSummary(m.pauseInfo.duties)}</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="resume">Fortsätt</button>
-        ${
-          m.pauseInfo.canSwitch
-            ? html`<button class="menu-btn" data-action="switchMode">Byt till ${GAME_MODE_NAME[m.pauseInfo.mode === 'simplified' ? 'realistic' : 'simplified'].toLowerCase()}</button>`
-            : html`<p class="menu-note">Det här scenariot kräver ${GAME_MODE_NAME[m.pauseInfo.mode].toLowerCase()}.</p>`
-        }
+        <button class="menu-btn" data-action="nav" data-arg="crew">Besättning</button>
         <button class="menu-btn" data-action="restart">Starta om</button>
         <button class="menu-btn" data-action="nav" data-arg="settings">Inställningar</button>
         <button class="menu-btn" data-action="nav" data-arg="help">Hjälp</button>
@@ -102,15 +104,9 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </div>
       <button class="menu-btn secondary" data-action="nav" data-arg="free">‹ Tillbaka</button>`;
   },
-  scenarios: (m) => {
-    const mode = m.settings.mode;
+  scenarios: () => {
     const meta = (s: Scenario) => {
-      const parts: string[] = [];
-      const modes = scenarioModes(s);
-      if (!modes.includes(mode)) parts.push(`Kräver ${GAME_MODE_NAME[modes[0]!].toLowerCase()}`);
-      const playedIn = modes.includes(mode) ? mode : modes[0]!;
-      if (playedIn === 'realistic' && !s.autopilotAllowed) parts.push('Utan autopilot');
-      if (playedIn === 'simplified' && s.safetyNet === false) parts.push('Utan automatisk nödblåsning');
+      const parts: string[] = lockText(s.locks);
       const area = s.initial.area ?? 'westCoast';
       if (area !== 'westCoast') parts.unshift(AREA_INFO[area].title);
       if (s.conditions === 'night') parts.unshift('Natt');
@@ -128,7 +124,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <span class="meta">${meta(s)}</span>
       </button>`,
     );
-    return html`<h2 class="menu-title small">Scenarier</h2><p class="menu-sub">${GAME_MODE_NAME[mode]}</p><div class="menu-list">${cards}</div>${back}`;
+    return html`<h2 class="menu-title small">Scenarier</h2><p class="menu-sub">Besättningen sköter det du inte tar över själv.</p><div class="menu-list">${cards}</div>${back}`;
   },
   settings: (m) => {
     const s = m.settings;
@@ -138,12 +134,6 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <h2 class="menu-title small">Inställningar</h2>
       <fieldset><legend>Tidskomprimering</legend>
         ${radio('timeScale', '1', '×1', s.timeScale === 1)}${radio('timeScale', '2', '×2', s.timeScale === 2)}${radio('timeScale', '4', '×4', s.timeScale === 4)}
-      </fieldset>
-      <fieldset><legend>Realistisk simulering, fritt spel</legend>
-        <label class="opt"><input type="checkbox" name="autopilot" ${s.autopilot ? 'checked' : ''}/> Tillåt autopilot för djup och kurs</label>
-      </fieldset>
-      <fieldset><legend>Pekknappar (realistisk simulering)</legend>
-        ${radio('touch', 'auto', 'Automatiskt', s.touch === 'auto')}${radio('touch', 'on', 'Alltid', s.touch === 'on')}${radio('touch', 'off', 'Aldrig', s.touch === 'off')}
       </fieldset>
       <fieldset><legend>Ljud</legend>
         <label class="opt">Volym <input type="range" name="volume" min="0" max="100" step="5" value="${Math.round(s.volume * 100)}"/></label><br/>
@@ -162,41 +152,45 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
     return html`
       <h2 class="menu-title small">Hjälp</h2>
       <div class="help">
-        <h3>Spelläge</h3>
-        <p><b>Förenklad simulering:</b> du anger djup och kurs, och autopiloten styr roder och djuproder. Sätter du ett djupmål i ytläge fylls huvudballasten automatiskt, och går du mot ytan (grundare än 5 m) blåses den. Assistenten kompenserar och trimmar ubåten och nödblåser nära krossdjupet. Allt den gör syns i loggen.</p>
-        <p><b>Realistisk simulering:</b> du styr roder och djuproder och sköter ballast, trim och kompensering själv.</p>
-        <p>Läget väljs på startsidan och kan bytas i pausmenyn.</p>
+        <h3>Besättningen och du</h3>
+        <p>Varje spel börjar med att besättningen sköter ubåten. Du tar över det du vill sköta själv, och lämnar tillbaka det när du vill:</p>
+        <ul>
+          <li><b>Djup</b> och <b>kurs</b>: omkopplaren <b>Auto / Hand</b> vid djupskalan och kompassen. På Auto håller djupstyraren och rorsmannen dina mål. På Hand styr du djuprodret och rodret själv.</li>
+          <li><b>Fart</b>: telegrafen ger maskinen ett fartmål. Under <b>Fart ▾</b> styr du propellervarvet själv.</li>
+          <li><b>Ballast och brygga</b>: Dyk / Yta låter besättningen sköta det. Under <b>Ballast ▾</b> fyller, blåser och stänger du huvudballasten och klarar bryggan själv.</li>
+          <li><b>Trim</b>: trimassistenten kompenserar och trimmar. Under <b>Trim ▾</b> gör du det själv.</li>
+          <li><b>Skyddsnät</b>: nödblåsning nära krossdjupet, djupgräns över botten och varning för grunt vatten. Slås av under ☰ → Besättning.</li>
+        </ul>
+        <p>Trycker du på en knapp i en panel tar du över systemet. Panelens övre knapp lämnar det till besättningen. ☰ → Besättning visar alla på ett ställe. Vissa scenarier låser något, till exempel Trimövning.</p>
+        <h3>Kontrollerna</h3>
+        <ul>
+          <li><b>Djupskalan</b> (vänster, Auto) visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och <b>13 m</b> går till periskopdjup. På Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
+          <li><b>Kompassen</b> (höger, Auto) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. På Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
+          <li><b>Telegrafen</b> (mitten): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2, 4 och 6 knop back, 4, 8 och 12 knop fram).</li>
+          <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup på Auto.</li>
+          <li><b>Per</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller periskopet är uppe. <b>&gt;_</b> öppnar konsolen.</li>
+        </ul>
         <h3>Tangentbord</h3>
         <table>
-          <tr><th></th><th>Förenklad</th><th>Realistisk</th></tr>
+          <tr><th></th><th>Auto / besättningen</th><th>Hand / du</th></tr>
           <tr><td>← / →</td><td>Kurs 10° babord / styrbord</td><td>Roder 5° babord / styrbord</td></tr>
           <tr><td>↑ / ↓</td><td>Djup 5 m grundare / djupare</td><td>Djuproder 5° upp / ned</td></tr>
           <tr><td>Mellanslag</td><td>Håll kurs och djup</td><td>Roder midskepps</td></tr>
-          <tr><td>D</td><td>Dyk (till periskopdjup, 13 m, om inget djupare mål finns)</td><td>–</td></tr>
-          <tr><td>S</td><td>Ytläge</td><td>–</td></tr>
-          <tr><td>Shift + ↑ / ↓</td><td>Telegrafen ett läge fram / back</td><td>Fart ±1 knop. Under noll går ubåten back, högst 6 knop.</td></tr>
+          <tr><td>Shift + ↑ / ↓</td><td>Telegrafen ett läge fram / back</td><td>Varv ±10 rpm</td></tr>
+          <tr><td>D / S</td><td colspan="2">Dyk (till periskopdjup, 13 m, om inget djupare mål finns) / ytläge</td></tr>
           <tr><td>V</td><td colspan="2">Byt vy: yttre, bryggan (i ytläge) och periskopet (när det är uppe)</td></tr>
           <tr><td>P</td><td colspan="2">Periskop upp / ned. Vyn öppnas när masten är uppe.</td></tr>
           <tr><td>Z</td><td colspan="2">Periskopets förstoring, 1,5× eller 6×</td></tr>
           <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
           <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
-          <tr><td>Enter eller /</td><td>– (ingen konsol)</td><td>Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
+          <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
           <tr><td>Esc</td><td colspan="2">Lämna konsolen eller en vy, eller pausa</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
         </table>
-        <h3>Förenklad simulering: kontrollerna</h3>
-        <p>Förenklad simulering har ingen konsol. Allt styrs med kontrollerna längst ner, på dator och mobil, eller med tangenterna ovan.</p>
-        <ul>
-          <li><b>Djupskalan</b> (vänster) visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och <b>13 m</b> går till periskopdjup.</li>
-          <li><b>Kompassen</b> (höger) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den.</li>
-          <li><b>Telegrafen</b> (mitten): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2, 4 och 6 knop back, 4, 8 och 12 knop fram).</li>
-          <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup.</li>
-          <li><b>Per</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller periskopet är uppe.</li>
-        </ul>
         <h3>Vyer</h3>
-        <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker: skriv <code>klart bryggan</code> i realistisk simulering. I förenklad simulering sköts det automatiskt.</p>
+        <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan under Ballast ▾.</p>
         <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
-        <p>Knapparna Vy, Per, Zoom och Brg under ☰ gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+        <p>Knapparna Vy, Per, Zoom och Brg uppe till höger gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
         <h3>Ljud</h3>
         <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar.</p>
         <h3>Havsområden och väder</h3>
@@ -209,36 +203,60 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         </ul>
         <p>I fritt spel går fartyg i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision loggas, och i ett scenario misslyckas uppdraget.</p>
         <p>Instrumentpanelen visar farten genom vattnet. Under "Mer" finns fart och kurs över grund och strömmen. I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
-        <h3>Pekskärm</h3>
-        <p>I realistisk simulering har knapparna längst ner samma funktioner som tangenterna: roder, djuproder och fart. Håll in för att upprepa. <code>&gt;_</code> öppnar konsolen och ☰ pausar. Inställningen Pekknappar gäller bara realistisk simulering.</p>
-        <h3>Kommandon (realistisk simulering)</h3>
+        <h3>Konsolen</h3>
+        <p>Konsolen (<b>&gt;_</b> eller Enter) är ett annat sätt att ge order, för den som vill skriva exakta värden. Ingenting kräver den. En order i konsolen tar över systemet den gäller, precis som en knapp: <code>roder sb 10</code> sätter kursen på Hand.</p>
+        <h3>Kommandon</h3>
         <pre>${HELP_TEXT.join('\n')}</pre>
         <h3>Att tänka på</h3>
         <ul>
           <li>Djuprodren verkar bara när ubåten har fart: lyftkraften växer med farten i kvadrat.</li>
-          <li><b>Flytkraftsöverskott</b> (under "Mer") visar om ubåten är lätt (+) eller tung (−). Trimma med <code>kompensera in/ut &lt;liter&gt;</code>.</li>
+          <li><b>Flytkraft</b> (under Trim ▾) visar om ubåten är lätt (+) eller tung (−). Ta in eller pumpa ut vatten med In och Ut.</li>
           <li>Under språngskiktet (40–70 m) är vattnet tätare. Ubåten blir då lättare och behöver ta in vatten.</li>
           <li>Skrovet trycks ihop mer än vattnet på djupet, så ubåten blir långsamt tyngre ju djupare den går.</li>
           <li>Tryckluften räcker inte till hur många blåsningar som helst. Håll koll på HP-luften.</li>
-          <li><b>Back</b> (<code>back halv</code>, eller Shift + ↓ under noll): propellern ger mindre kraft bakåt, och farten blir högst ungefär 6,5 knop. Rodren verkar omvänt: roder styrbord vrider fören åt babord, och djuprodren likaså. Autopiloten tar hänsyn till det. Ubåten glider länge, så slå stopp i god tid.</li>
+          <li><b>Back</b> (telegrafen eller <code>back halv</code>): propellern ger mindre kraft bakåt, och farten blir högst ungefär 6,5 knop. Rodren verkar omvänt: roder styrbord vrider fören åt babord, och djuprodren likaså. Djupstyraren och rorsmannen tar hänsyn till det. Ubåten glider länge, så slå stopp i god tid.</li>
         </ul>
       </div>
       ${back}`;
   },
   intro: () => {
     return html`
-      <h2 class="menu-title small">Förenklad simulering</h2>
+      <h2 class="menu-title small">Besättningen sköter ubåten</h2>
       <ul class="intro">
         <li><b>Djupskalan</b> till vänster: tryck eller dra för att välja djup. ▲ / ▼ ändrar 5 m.</li>
         <li><b>Kompassen</b> till höger: tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°.</li>
         <li><b>Telegrafen</b> i mitten väljer fart, från Full back till Full fram.</li>
         <li><b>Dyk / Yta</b> sköter huvudballasten, och <b>Håll</b> behåller kurs och djup.</li>
-        <li>Assistenten trimmar ubåten. Det den gör syns i loggen.</li>
+        <li>Trimassistenten trimmar ubåten. Det den gör syns i loggen.</li>
+        <li>Vill du sköta något själv? Växla djup eller kurs till <b>Hand</b>, eller öppna <b>Ballast ▾</b>, <b>Trim ▾</b> och <b>Fart ▾</b>. ☰ → Besättning visar allt.</li>
         <li>På dator fungerar också tangenterna: ↑ / ↓ djup, ← / → kurs, Shift + ↑ / ↓ fart, D dyk och S yta.</li>
       </ul>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="introDone">Kör</button>
       </div>`;
+  },
+  crew: (m) => {
+    const d = m.pauseInfo.duties;
+    if (!d) return html`<h2 class="menu-title small">Besättning</h2>${back}`;
+    const row = (x: CrewSystem) => {
+      const lock = m.pauseInfo.locks[x];
+      const crew = d[x];
+      const choice = (value: boolean, label: string) =>
+        html`<button class="menu-btn seg ${crew === value ? 'on' : ''}" data-action="crew" data-arg="${x}:${value ? '1' : '0'}" ${lock !== undefined && lock !== value ? 'disabled' : ''} aria-pressed="${String(crew === value)}">${label}</button>`;
+      return html`<div class="crew-row">
+        <div><b>${CREW_NAME[x]}</b><small>${lock !== undefined ? LOCK_TEXT[x][lock ? 0 : 1] : CREW_ROLE[x][crew ? 0 : 1]}</small></div>
+        <div class="crew-choice">${choice(true, x === 'safetyNet' ? 'På' : 'Besättningen')}${choice(false, x === 'safetyNet' ? 'Av' : 'Du')}</div>
+      </div>`;
+    };
+    return html`
+      <h2 class="menu-title small">Besättning</h2>
+      <p class="menu-sub">Vem sköter vad? Ändringen gäller när du fortsätter.</p>
+      <div class="crew-list">${CREW_SYSTEMS.map(row)}</div>
+      <div class="menu-list">
+        <button class="menu-btn" data-action="crew" data-arg="all:1">Besättningen sköter allt</button>
+        <button class="menu-btn" data-action="crew" data-arg="all:0">Du sköter allt</button>
+      </div>
+      ${back}`;
   },
   result: (m) => {
     const r = m.result!;
@@ -247,6 +265,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <p class="menu-sub">${r.scenario.title}</p>
       <p>${r.message}</p>
       ${r.completed ? html`<p>Tid: <b>${formatSimTime(r.time)}</b></p>` : ''}
+      <p class="menu-note">${handledText(r.selfHandled)}</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="restart">Spela igen</button>
         <button class="menu-btn" data-action="nav" data-arg="scenarios">Scenarier</button>
@@ -254,3 +273,11 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </div>`;
   },
 };
+
+/** The pause menu's line on who handles what. */
+function crewSummary(d: CrewDuties | null): string {
+  if (!d) return '';
+  const self = CREW_SYSTEMS.filter((x) => x !== 'safetyNet' && !d[x]).map((x) => CREW_NAME[x].toLowerCase());
+  const net = d.safetyNet ? '' : ' Skyddsnätet är av.';
+  return (self.length ? `Du sköter ${swedishList(self)}. Besättningen sköter resten.` : 'Besättningen sköter allt.') + net;
+}

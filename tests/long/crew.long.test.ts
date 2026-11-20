@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../../src/control/controller';
-import { PERISCOPE_DEPTH, type GameMode } from '../../src/control/gameMode';
+import { PERISCOPE_DEPTH } from '../../src/control/crew';
 import type { Order } from '../../src/control/orders';
-import { SCENARIOS, ScenarioRunner, scenarioMode, waypointInfo } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner, waypointInfo } from '../../src/control/scenarios';
 import { ASSIST } from '../../src/control/trimAssist';
 import { Simulation, type InitialConditions } from '../../src/sim/simulation';
 
 const G = 9.80665;
 const DEG = 180 / Math.PI;
 
-function game(initial: InitialConditions, mode: GameMode) {
+/** The crew handles everything (as every game starts), or the player does (a new Controller). */
+type Who = 'crew' | 'player';
+
+function game(initial: InitialConditions, who: Who) {
   const c = new Controller(new Simulation(initial));
-  c.setMode(mode);
+  if (who === 'crew') c.crewTakesAll();
   const run = (seconds: number, each?: () => void) => {
     for (let i = 0; i < seconds * 100; i++) {
       c.step();
@@ -22,7 +25,7 @@ function game(initial: InitialConditions, mode: GameMode) {
   return { c, sim: c.sim, run, send };
 }
 
-/** The simplified "D" key: dive and, without a deeper target, periscope depth. */
+/** The "D" key: dive and, without a deeper target, periscope depth. */
 const dive = (c: Controller) => {
   c.submit({ kind: 'dive' }, 'keyboard');
   if (!c.ap.depth || c.setpoints.depth < PERISCOPE_DEPTH) c.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, 'keyboard');
@@ -30,7 +33,7 @@ const dive = (c: Controller) => {
 
 describe('trim assistant', () => {
   it('dives to 50 m and trims neutral without help from the player', () => {
-    const { c, sim, run, send } = game({}, 'simplified');
+    const { c, sim, run, send } = game({}, 'crew');
     dive(c);
     send({ kind: 'setSpeed', knots: 6 });
     run(120);
@@ -43,8 +46,8 @@ describe('trim assistant', () => {
     expect(c.log.some((e) => e.source === 'assist' && /Kompensera/.test(e.text))).toBe(true);
   });
 
-  it('does nothing in the realistic simulation', () => {
-    const { c, run, send } = game({}, 'realistic');
+  it('does nothing when the player handles the trim', () => {
+    const { c, run, send } = game({}, 'player');
     send({ kind: 'bridge', manned: false });
     send({ kind: 'dive' });
     send({ kind: 'setDepth', depth: 50 });
@@ -56,7 +59,7 @@ describe('trim assistant', () => {
 
   it('is deterministic', () => {
     const play = () => {
-      const { c, sim, run, send } = game({}, 'simplified');
+      const { c, sim, run, send } = game({}, 'crew');
       dive(c);
       send({ kind: 'setSpeed', knots: 6 });
       run(60);
@@ -71,7 +74,7 @@ describe('trim assistant', () => {
 
 describe('safety net', () => {
   it('blows the main ballast before crush depth', () => {
-    const { c, sim, run } = game({ depth: 200, speed: 4 * 0.5144, tankFills: { comp: 1 }, east: -3000 }, 'simplified');
+    const { c, sim, run } = game({ depth: 200, speed: 4 * 0.5144, tankFills: { comp: 1 }, east: -3000 }, 'crew');
     let deepest = 0;
     run(600, () => (deepest = Math.max(deepest, sim.y[2]!)));
     expect(c.log.some((e) => e.source === 'assist' && /nödblåsning/.test(e.text))).toBe(true);
@@ -80,7 +83,7 @@ describe('safety net', () => {
 
   it('keeps the depth target off the sea bed', () => {
     // Heading east towards the archipelago, where the sea bed rises.
-    const { c, sim, run, send } = game({ east: 1500, depth: 30, speed: 3, designTrim: true, heading: 90 / DEG }, 'simplified');
+    const { c, sim, run, send } = game({ east: 1500, depth: 30, speed: 3, designTrim: true, heading: 90 / DEG }, 'crew');
     for (let i = 0; i < 40; i++) send({ kind: 'adjustDepth', deltaMetres: 5 });
     run(0.02);
     const limit = c.assist.depthLimit();
@@ -95,12 +98,12 @@ describe('safety net', () => {
   });
 });
 
-describe('scenarios in the simplified simulation', () => {
+describe('scenarios with the crew handling everything', () => {
   const start = (id: string) => {
     const sc = SCENARIOS.find((s) => s.id === id)!;
     const c = new Controller(new Simulation(sc.initial));
     const runner = new ScenarioRunner(sc, c);
-    c.setMode(scenarioMode(sc, 'simplified'));
+    c.crewTakesAll();
     const run = (seconds: number, until?: () => boolean) => {
       for (let i = 0; i < seconds * 100; i++) {
         c.step();
@@ -111,10 +114,10 @@ describe('scenarios in the simplified simulation', () => {
     return { c, runner, run };
   };
 
-  it('"Trimövning" is played in the realistic simulation only', () => {
-    const sc = SCENARIOS.find((s) => s.id === 'trim-drill')!;
-    expect(scenarioMode(sc, 'simplified')).toBe('realistic');
-    for (const s of SCENARIOS.filter((x) => x.id !== 'trim-drill')) expect(scenarioMode(s, 'simplified')).toBe('simplified');
+  it('"Trimövning" locks the depth on Hand and the trim on the player; other scenarios leave the choice', () => {
+    const { c } = start('trim-drill');
+    expect(c.duties()).toMatchObject({ depth: false, trim: false, heading: true, ballast: true });
+    for (const s of SCENARIOS.filter((x) => x.id !== 'trim-drill' && x.id !== 'emergency-blow')) expect(s.locks).toBeUndefined();
   });
 
   it('"Första dykningen" can be completed with D, ↓ and S, the assistant trimming', () => {
@@ -182,8 +185,8 @@ describe('scenarios in the simplified simulation', () => {
 });
 
 describe('depth target with empty main ballast', () => {
-  it('simplified: starts the dive and reaches the depth', () => {
-    const { c, sim, run, send } = game({ area: 'atlantic', sea: 'moderate' }, 'simplified');
+  it('the crew starts the dive and reaches the depth', () => {
+    const { c, sim, run, send } = game({ area: 'atlantic', sea: 'moderate' }, 'crew');
     send({ kind: 'setSpeed', knots: 10 });
     send({ kind: 'setDepth', depth: 32 });
     run(1);
@@ -193,15 +196,15 @@ describe('depth target with empty main ballast', () => {
     expect(Math.abs(sim.y[2]! - 32)).toBeLessThan(3);
   });
 
-  it('simplified: a target near the surface does not flood', () => {
-    const { sim, run, send } = game({}, 'simplified');
+  it('the crew does not flood for a target near the surface', () => {
+    const { sim, run, send } = game({}, 'crew');
     send({ kind: 'adjustDepth', deltaMetres: 2 });
     run(1);
     expect(sim.tanks.some((t) => t.ventOpen)).toBe(false);
   });
 
-  it('realistic: reminds the player instead', () => {
-    const { c, sim, run, send } = game({}, 'realistic');
+  it('a player handling the ballast is reminded instead', () => {
+    const { c, sim, run, send } = game({}, 'player');
     send({ kind: 'setDepth', depth: 32 });
     run(1);
     expect(sim.tanks.some((t) => t.ventOpen)).toBe(false);
@@ -211,7 +214,7 @@ describe('depth target with empty main ballast', () => {
 
 describe('surface hold', () => {
   it('on the surface the depth autopilot leaves the planes at zero and the boat floats', () => {
-    const { c, sim, run, send } = game({}, 'simplified');
+    const { c, sim, run, send } = game({}, 'crew');
     send({ kind: 'setSpeed', knots: 5 });
     let maxPlanes = 0;
     run(180, () => (maxPlanes = Math.max(maxPlanes, Math.abs(sim.actuators.sternPlanes))));
@@ -221,7 +224,7 @@ describe('surface hold', () => {
   });
 
   it('a depth target ends the surface hold and the boat dives', () => {
-    const { c, sim, run, send } = game({}, 'simplified');
+    const { c, sim, run, send } = game({}, 'crew');
     send({ kind: 'setSpeed', knots: 6 });
     run(10);
     send({ kind: 'setDepth', depth: 25 });
@@ -232,8 +235,8 @@ describe('surface hold', () => {
 });
 
 describe('depth target near the surface with flooded main ballast', () => {
-  it('simplified: ↑ to the surface blows the tanks, and the boat floats on the surface', () => {
-    const { c, sim, run, send } = game({ depth: 13, speed: 5 * 0.5144, neutral: true }, 'simplified');
+  it('the crew blows the tanks for ↑ to the surface, and the boat floats on the surface', () => {
+    const { c, sim, run, send } = game({ depth: 13, speed: 5 * 0.5144, neutral: true }, 'crew');
     send({ kind: 'adjustDepth', deltaMetres: -5 });
     send({ kind: 'adjustDepth', deltaMetres: -5 });
     run(1);
@@ -246,15 +249,15 @@ describe('depth target near the surface with flooded main ballast', () => {
     expect(c.surfaceHold).toBe(true);
   });
 
-  it('simplified: periscope depth does not blow', () => {
-    const { sim, run, send } = game({ depth: 30, speed: 5 * 0.5144, neutral: true }, 'simplified');
+  it('periscope depth does not blow', () => {
+    const { sim, run, send } = game({ depth: 30, speed: 5 * 0.5144, neutral: true }, 'crew');
     send({ kind: 'setDepth', depth: 13 });
     run(1);
     expect(sim.tanks.some((t) => t.blowOpen)).toBe(false);
   });
 
-  it('realistic: reminds the player instead', () => {
-    const { c, sim, run, send } = game({ depth: 13, speed: 5 * 0.5144, neutral: true }, 'realistic');
+  it('a player handling the ballast is reminded instead', () => {
+    const { c, sim, run, send } = game({ depth: 13, speed: 5 * 0.5144, neutral: true }, 'player');
     send({ kind: 'setDepth', depth: 2 });
     run(1);
     expect(sim.tanks.some((t) => t.blowOpen)).toBe(false);

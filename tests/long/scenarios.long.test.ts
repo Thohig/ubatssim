@@ -60,16 +60,34 @@ describe('scenarios', () => {
     expect(runner.status).toBe('completed');
   });
 
-  it('"Trimövning" refuses the depth autopilot and fails when the boat sinks', () => {
+  it('"Trimövning" refuses the depth autopilot (locked on Hand) and fails when the boat sinks', () => {
     const { ctrl, runner, cmd, run } = start('trim-drill');
     cmd('djup 50');
     run(1);
     expect(ctrl.ap.depth).toBe(false);
-    expect(ctrl.log.some((e) => e.kind === 'error' && /inte tillåten/.test(e.text))).toBe(true);
+    expect(ctrl.log.some((e) => e.kind === 'error' && /Här styr du djupet själv/.test(e.text))).toBe(true);
     cmd('djuproder ned 15');
     run(600);
     expect(runner.status).toBe('failed');
     expect(runner.message).toMatch(/15 m/);
+  });
+
+  it('"Trimövning" can be completed by hand: stern planes and compensation', () => {
+    const { ctrl, runner, run } = start('trim-drill');
+    const t0 = ctrl.sim.telemetry();
+    // Pump out what makes the boat heavy (1 litre ≈ 1 kg), as the hint says.
+    ctrl.submit({ kind: 'compensate', litres: Math.round(t0.netBuoyancy / 9.80665) }, 'touch');
+    // A player on the planes: a few degrees against the depth error and the depth rate, once a second.
+    run(400, () => {
+      if (Math.round(ctrl.sim.t * 100) % 100 === 0) {
+        const k = ctrl.sim.kinematics();
+        const angle = Math.max(-15, Math.min(15, Math.round(-(2 * (k.depth - 50) + 25 * k.depthRate + 40 * k.pitch))));
+        if (angle !== ctrl.manual.planes) ctrl.submit({ kind: 'planes', angle }, 'touch');
+      }
+      return false;
+    });
+    expect(runner.status).toBe('completed');
+    expect(ctrl.duties()).toMatchObject({ depth: false, trim: false });
   });
 
   it('"Nödblåsning" is survivable by blowing and driving up', () => {

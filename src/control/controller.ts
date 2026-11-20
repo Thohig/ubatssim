@@ -2,12 +2,12 @@
  * Glue between orders, autopilot and the simulation. One call to `step()`
  * advances the whole system by one fixed time step:
  *   drain order queue → update setpoints/manual commands → autopilot →
- *   write plant commands → sim.step() → (simplified mode) trim assistant
+ *   write plant commands → sim.step() → the crew's trim assistant and safety net
  */
 import type { Simulation } from '../sim/simulation';
 import { DT } from '../sim/simulation';
 import { Autopilot, type AutopilotInput } from './autopilot';
-import type { GameMode } from './gameMode';
+import { AXES, CREW_SYSTEMS, LOCK_TEXT, isAxis, type CrewDuties, type CrewLocks, type CrewSystem } from './crew';
 import { OrderQueue } from './orderQueue';
 import { acknowledgement, type Order, type OrderKind, type OrderOf, type OrderSource, type TankGroup } from './orders';
 import { LIMITS } from './parser';
@@ -53,11 +53,22 @@ type Kinematics = ReturnType<Simulation['kinematics']>;
 /** How one kind of order is handled (see `Controller.ORDERS`). */
 interface OrderRule<O extends Order> {
   apply(c: Controller, o: O, k: Kinematics): void;
-  /** True if the order engages the depth or heading autopilot. */
-  steering?: (o: O) => boolean;
+  /**
+   * Who handles which system after the order (true = the crew): a rudder
+   * order takes the heading over, a depth target hands the depth to the
+   * crew. Checked against the scenario's locks; ballast and trim are switched
+   * here (the axes by `apply`). Ignored for the crew's own orders ('assist').
+   */
+  effects?: (o: O, c: Controller) => Partial<CrewDuties>;
   /** A message if the order cannot be carried out now. */
   refuse?: (c: Controller, o: O) => string | null;
 }
+
+/** Logged when a manual order takes a system over from the crew. */
+const TAKEN_OVER: Partial<Record<CrewSystem, string>> = {
+  ballast: 'Du sköter ballasten och bryggan nu.',
+  trim: 'Trimassistenten avlöst. Du sköter trimmet nu.',
+};
 
 export class Controller {
   readonly queue = new OrderQueue();
@@ -88,10 +99,14 @@ export class Controller {
   }
 
   /** Why an order cannot be carried out now, or null. */
-  private refusal(o: Order): string | null {
+  private refusal(o: Order, source: OrderSource): string | null {
     const rule = Controller.ORDERS[o.kind] as OrderRule<Order>;
-    const allowed = this.options.autopilotAllowed || this.options.mode === 'simplified';
-    if (!allowed && rule.steering?.(o)) return 'Autopilot för djup och kurs är inte tillåten här. Styr med roder och djuproder.';
+    if (source !== 'assist') {
+      for (const [s, crew] of Object.entries(rule.effects?.(o, this) ?? {}) as [CrewSystem, boolean][]) {
+        const lock = this.options.locks[s];
+        if (lock !== undefined && lock !== crew) return LOCK_TEXT[s][lock ? 0 : 1];
+      }
+    }
     return rule.refuse?.(this, o) ?? null;
   }
 
@@ -106,40 +121,58 @@ export class Controller {
     for (const fn of this.listeners) fn(e);
   }
 
-  /** Game rules set by the menu/scenario. */
-  options: { autopilotAllowed: boolean; mode: GameMode; safetyNet: boolean } = {
-    /**
-     * Realistic mode only: when false, depth and heading autopilots cannot be
-     * engaged (speed control stays available). The simplified mode is built
-     * on the autopilots and ignores it.
-     */
-    autopilotAllowed: true,
-    /** Change with `setMode()`. */
-    mode: 'realistic',
-    /** Simplified mode: emergency blow, shallow-water limit and keel warning. */
-    safetyNet: true,
+  /**
+   * Who handles ballast, trim and the safety net (true = the crew), and the
+   * scenario's locks. Depth, heading and speed are the `ap` flags. A new
+   * Controller has the player handling everything (as tests expect); a game
+   * starts with `crewTakesAll()`.
+   */
+  options: { crew: { ballast: boolean; trim: boolean; safetyNet: boolean }; locks: CrewLocks } = {
+    crew: { ballast: false, trim: false, safetyNet: false },
+    locks: {},
   };
 
-  /** Switches game mode without a jump in the commands. */
-  setMode(mode: GameMode): void {
-    if (mode === this.options.mode) return;
-    this.options.mode = mode;
-    if (mode === 'simplified') {
-      // Hold the present depth and heading; the player then moves the targets.
-      this.apply({ kind: 'autopilot', axis: 'depth', on: true });
-      this.apply({ kind: 'autopilot', axis: 'heading', on: true });
-      this.addLog('Förenklad simulering: välj djup, kurs och fart med kontrollerna längst ner (eller ↑/↓, ←/→ och Shift). Assistenten trimmar ubåten.', 'info');
-    } else {
-      // Hand over with the last automatic rudder and plane angles, as "autopilot av" does.
-      this.apply({ kind: 'autopilot', axis: 'depth', on: false });
-      this.apply({ kind: 'autopilot', axis: 'heading', on: false });
-      this.addLog('Realistisk simulering: du styr roder och djuproder och trimmar själv.', 'info');
+  /** True if the crew handles the system now. */
+  duty(s: CrewSystem): boolean {
+    return isAxis(s) ? this.ap[s] : this.options.crew[s];
+  }
+
+  duties(): CrewDuties {
+    return Object.fromEntries(CREW_SYSTEMS.map((s) => [s, this.duty(s)])) as CrewDuties;
+  }
+
+  /**
+   * The duties once the queued orders have been carried out (for menus shown
+   * while the game is paused and the queue waits).
+   */
+  pendingDuties(): CrewDuties {
+    const d = this.duties();
+    for (const { order, source } of this.queue.peek()) {
+      if (source === 'assist') continue;
+      const rule = Controller.ORDERS[order.kind] as OrderRule<Order>;
+      Object.assign(d, rule.effects?.(order, this) ?? {});
     }
+    return d;
+  }
+
+  /** Systems the player has handled at some time this game (for the result). */
+  readonly selfHandled = new Set<CrewSystem>();
+
+  /** Hands every system to the crew at once (respecting the locks): how every game starts. */
+  crewTakesAll(): void {
+    for (const s of CREW_SYSTEMS) this.setDuty(s, this.options.locks[s] ?? true);
+    this.selfHandled.clear();
+  }
+
+  /** Switches a system without a jump in the commands (an autopilot axis takes over or hands over as "autopilot på/av"). */
+  private setDuty(s: CrewSystem, crew: boolean): void {
+    if (isAxis(s)) Controller.ORDERS.autopilot.apply(this, { kind: 'autopilot', axis: s, on: crew }, this.sim.kinematics());
+    else this.options.crew[s] = crew;
   }
 
   /**
    * Someone is on the open bridge. The boat must not dive with the bridge
-   * manned: the realistic mode refuses to flood, the simplified mode clears
+   * manned: a player handling the ballast is refused, the crew clears
    * the bridge itself. Starts manned when the bridge is above the water.
    */
   bridgeManned: boolean;
@@ -166,13 +199,14 @@ export class Controller {
 
   step(): void {
     for (const { order, source } of this.queue.drain()) {
-      const refused = this.refusal(order);
+      const refused = this.refusal(order, source);
       if (refused) {
         this.addLog(refused, 'error', source);
         continue;
       }
       this.apply(order);
       this.addLog(acknowledgement(order), 'ack', source);
+      if (source !== 'assist') this.applyEffects(order);
     }
     const sim = this.sim;
     // On the surface with the bridge manned the low-pressure blower keeps the main ballast dry.
@@ -230,7 +264,8 @@ export class Controller {
     }
     const headUp = sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0;
     this.periscopeExposure = headUp ? this.periscopeExposure + DT : 0;
-    if (this.options.mode === 'simplified') this.assist.step();
+    if (this.options.crew.trim || this.options.crew.safetyNet) this.assist.step();
+    for (const sys of CREW_SYSTEMS) if (!this.duty(sys)) this.selfHandled.add(sys);
 
     const hit = this.world.collision;
     if (hit && this.collidedWith === null) {
@@ -256,7 +291,7 @@ export class Controller {
    */
   private static readonly ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
     setDepth: {
-      steering: () => true,
+      effects: () => ({ depth: true }),
       apply: (c, o) => {
         if (!c.ap.depth) c.resetDepthLoops();
         c.setpoints.depth = o.depth;
@@ -265,7 +300,7 @@ export class Controller {
       },
     },
     setHeading: {
-      steering: () => true,
+      effects: () => ({ heading: true }),
       apply: (c, o) => {
         if (!c.ap.heading) c.autopilot.headingPid.reset();
         c.setpoints.heading = o.heading;
@@ -273,12 +308,14 @@ export class Controller {
       },
     },
     setSpeed: {
+      effects: () => ({ speed: true }),
       apply: (c, o) => {
         c.setpoints.speed = o.knots;
         c.ap.speed = true;
       },
     },
     adjustSpeed: {
+      effects: () => ({ speed: true }),
       apply: (c, o, k) => {
         const base = c.ap.speed ? c.setpoints.speed : Math.round(k.u / KNOT);
         c.setpoints.speed = Math.max(-6, Math.min(20, base + o.deltaKnots));
@@ -286,30 +323,34 @@ export class Controller {
       },
     },
     setRpm: {
+      effects: () => ({ speed: false }),
       apply: (c, o) => {
         c.manual.rpm = o.rpm;
         c.ap.speed = false;
       },
     },
     rudder: {
+      effects: () => ({ heading: false }),
       apply: (c, o) => {
         const sim = c.sim;
         const current = c.ap.heading ? sim.commands.rudder / DEG : c.manual.rudder;
-        const max = sim.cfg.actuators.rudderMax / DEG;
+        const max = Math.round(sim.cfg.actuators.rudderMax / DEG);
         c.manual.rudder = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
         c.ap.heading = false;
       },
     },
     planes: {
+      effects: () => ({ depth: false }),
       apply: (c, o) => {
         const sim = c.sim;
         const current = c.ap.depth ? sim.commands.sternPlanes / DEG : c.manual.planes;
-        const max = sim.cfg.actuators.planesMax / DEG;
+        const max = Math.round(sim.cfg.actuators.planesMax / DEG);
         c.manual.planes = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
         c.ap.depth = false;
       },
     },
     mainBallast: {
+      effects: () => ({ ballast: false }),
       refuse: (c, o) => (o.action === 'flood' ? c.refuseDiveWithBridgeManned() : null),
       apply: (c, o) => {
         const sim = c.sim;
@@ -324,17 +365,19 @@ export class Controller {
       },
     },
     trim: {
+      effects: () => ({ trim: false }),
       apply: (c, o) => {
         c.sim.requestTrimTransfer(o.litres / 1000);
       },
     },
     compensate: {
+      effects: () => ({ trim: false }),
       apply: (c, o) => {
         c.sim.requestCompensation(o.litres / 1000);
       },
     },
     autopilot: {
-      steering: (o) => o.on && o.axis !== 'speed',
+      effects: (o) => Object.fromEntries((o.axis === 'all' ? AXES : [o.axis]).map((a) => [a, o.on])),
       apply: (c, o, k) => {
         const sim = c.sim;
         const axes = o.axis === 'all' ? (['depth', 'heading', 'speed'] as const) : ([o.axis] as const);
@@ -362,12 +405,12 @@ export class Controller {
       },
     },
     adjustDepth: {
-      steering: () => true,
+      effects: () => ({ depth: true }),
       apply: (c, o, k) => {
         const base = c.ap.depth ? c.setpoints.depth : Math.round(k.depth);
         if (!c.ap.depth) c.resetDepthLoops();
         let depth = Math.max(0, Math.min(LIMITS.maxDepth, base + o.deltaMetres));
-        if (c.options.mode === 'simplified' && c.options.safetyNet && o.deltaMetres > 0) {
+        if (c.options.crew.safetyNet && o.deltaMetres > 0) {
           // Shallow water: never deeper than the safety limit (or the present target, if already below it).
           depth = Math.min(depth, Math.max(base, c.assist.depthLimit()));
         }
@@ -377,7 +420,7 @@ export class Controller {
       },
     },
     adjustHeading: {
-      steering: () => true,
+      effects: () => ({ heading: true }),
       apply: (c, o, k) => {
         const base = c.ap.heading ? c.setpoints.heading : Math.round(k.heading / DEG);
         if (!c.ap.heading) c.autopilot.headingPid.reset();
@@ -386,7 +429,7 @@ export class Controller {
       },
     },
     holdCourse: {
-      steering: () => true,
+      effects: () => ({ depth: true, heading: true }),
       apply: (c, _o, k) => {
         c.setpoints.depth = Math.round(k.depth);
         c.setpoints.heading = Math.round(k.heading / DEG) % 360;
@@ -426,6 +469,15 @@ export class Controller {
         c.bridgeManned = o.manned;
       },
     },
+    crew: {
+      // 'all' leaves locked systems as they are.
+      effects: (o, c) =>
+        Object.fromEntries((o.system === 'all' ? CREW_SYSTEMS.filter((x) => c.options.locks[x] === undefined) : [o.system]).map((x) => [x, o.crew])),
+      apply: (c, o) => {
+        const systems = o.system === 'all' ? CREW_SYSTEMS.filter((x) => c.options.locks[x] === undefined) : [o.system];
+        for (const x of systems) c.setDuty(x, o.crew);
+      },
+    },
     reportBearing: {
       apply: (c, o) => {
         const sim = c.sim;
@@ -445,15 +497,27 @@ export class Controller {
     rule.apply(this, o, this.sim.kinematics());
   }
 
-  /** Flooding with the bridge manned: refused in the realistic mode, the bridge is cleared in the simplified mode. */
+  /** Switches ballast, trim and safety net as a player's order implies (the axes switch in `apply`). */
+  private applyEffects(o: Order): void {
+    if (o.kind === 'crew') return;
+    const rule = Controller.ORDERS[o.kind] as OrderRule<Order>;
+    for (const [s, crew] of Object.entries(rule.effects?.(o, this) ?? {}) as [CrewSystem, boolean][]) {
+      if (isAxis(s) || this.options.crew[s] === crew) continue;
+      this.options.crew[s] = crew;
+      const text = TAKEN_OVER[s];
+      if (!crew && text) this.addLog(text, 'info');
+    }
+  }
+
+  /** Flooding with the bridge manned: the crew clears the bridge; a player handling the ballast is refused. */
   private refuseDiveWithBridgeManned(): string | null {
     if (!this.bridgeManned) return null;
-    if (this.options.mode === 'simplified') {
+    if (this.options.crew.ballast) {
       this.bridgeManned = false;
       this.addLog('Klart bryggan. Bryggan är utrymd inför dykningen.', 'info');
       return null;
     }
-    return 'Bryggan är bemannad. Ge order "klart bryggan" innan ubåten dyker.';
+    return 'Bryggan är bemannad. Tryck Klart bryggan under Ballast ▾ (eller skriv "klart bryggan") innan ubåten dyker.';
   }
 
   /**
@@ -471,14 +535,14 @@ export class Controller {
     });
   }
 
-  /** Sim time of the last "the main ballast is empty" reminder (realistic mode). */
+  /** Sim time of the last "the main ballast is empty" reminder (player handling the ballast). */
   private lastBallastHint = -Infinity;
 
   /**
    * A depth target below the surface while the main ballast is empty cannot
    * be reached: the boat has ~200 t of reserve buoyancy and the planes give
-   * a few tonnes. The simplified mode starts the dive (as "dyk" does); the
-   * realistic mode reminds the player.
+   * a few tonnes. The crew starts the dive (as "dyk" does); a player handling
+   * the ballast is reminded.
    */
   private checkBallastForDepth(): void {
     const sim = this.sim;
@@ -487,7 +551,7 @@ export class Controller {
       return;
     }
     if (!this.mainBallastEmpty()) return;
-    if (this.options.mode === 'simplified') {
+    if (this.options.crew.ballast) {
       if (this.bridgeManned) {
         this.bridgeManned = false;
         this.addLog('Klart bryggan. Bryggan är utrymd inför dykningen.', 'info');
@@ -497,15 +561,15 @@ export class Controller {
       this.addLog('Huvudballasten fylls för dykning.', 'info');
     } else if (sim.t - this.lastBallastHint > 10) {
       this.lastBallastHint = sim.t;
-      this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Ge order "dyk" eller "klart bryggan" och "fyll huvudballast".', 'error');
+      this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Tryck Dyk, eller Klart bryggan och Fyll under Ballast ▾.', 'error');
     }
   }
 
   /**
    * The mirror image: a target near the surface with flooded main ballast.
    * The boat is then neutral and the planes can only bring it up awash.
-   * The simplified mode blows the tanks (as "ytläge" does); the realistic
-   * mode reminds the player.
+   * The crew blows the tanks (as "ytläge" does); a player handling the
+   * ballast is reminded.
    */
   private checkBallastForSurface(): void {
     const sim = this.sim;
@@ -514,7 +578,7 @@ export class Controller {
       return d.kind === 'mainBallast' && s.water / d.volume > 0.5 && !s.blowOpen;
     });
     if (!flooded || sim.tanks.some((t) => t.blowOpen)) return;
-    if (this.options.mode === 'simplified') {
+    if (this.options.crew.ballast) {
       sim.setBlow(true);
       this.shutVentsWhenFull = false;
       this.addLog('Huvudballasten blåses för ytläge.', 'info');

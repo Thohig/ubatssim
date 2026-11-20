@@ -1,11 +1,12 @@
 /**
  * Instrument panel. Every instrument is a small component (created once,
- * updated ten times a second), and the panel's layout per game mode is
- * data (`LAYOUT`): which instruments in the main panel, which under "Mer".
- * Adding an instrument = one entry in `INSTRUMENTS` and its id in `LAYOUT`.
+ * updated ten times a second). Which instruments are in the main panel and
+ * which under "Mer" follows who handles what (`instrumentLayout`): a system
+ * the player takes over brings its instruments into view.
+ * Adding an instrument = one entry in `INSTRUMENTS` and its id in `instrumentLayout`.
  */
 import { formatSimTime, type Controller } from '../control/controller';
-import type { GameMode } from '../control/gameMode';
+import type { CrewDuties } from '../control/crew';
 import type { Telemetry } from '../sim/simulation';
 import { h, type Component } from './dom';
 
@@ -19,7 +20,7 @@ const deg3 = (rad: number) => String(Math.round(((rad * DEG) % 360 + 360) % 360)
 /** Knots as "4,0", or "BACK 4,0" astern (below −0.05 knots). */
 const knots = (kn: number) => (kn < -0.05 ? `BACK ${f(-kn, 1)}` : f(Math.max(0, kn), 1));
 
-/** Net buoyancy within this is shown as "Neutral" in the simplified panel [kg]. */
+/** Net buoyancy within this is shown as "Neutral" [kg]. */
 const TRIM_NEUTRAL_KG = 100;
 
 type Instrument = Component<Telemetry>;
@@ -28,7 +29,7 @@ interface RowOptions {
   big?: boolean;
   /** Autopilot target shown after the value (e.g. "→ 32"). */
   setpoint?: (c: Controller) => string;
-  /** Autopilot badge (realistic panel only). */
+  /** Autopilot badge (not used: the screen controls show Auto / Hand). */
   ap?: (c: Controller) => boolean;
   /** CSS classes switched on by the reading (e.g. alarm). */
   classes?: (t: Telemetry) => Record<string, boolean>;
@@ -101,7 +102,7 @@ const trimState = (t: Telemetry) => {
 };
 
 /** Every instrument, by id. */
-const INSTRUMENTS: Record<string, (c: Controller, simple: boolean) => Instrument> = {
+const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
   sep: () => separator(),
   time: () => {
     const v = h('span');
@@ -112,27 +113,24 @@ const INSTRUMENTS: Record<string, (c: Controller, simple: boolean) => Instrument
       },
     };
   },
-  depth: (c, simple) =>
+  depth: (c) =>
     row('Djup (m)', (t) => f(t.depth, 1), c, {
       big: true,
       setpoint: (k) => (k.ap.depth ? (k.surfaceHold ? '→ yta' : `→ ${f(k.setpoints.depth)}`) : ''),
-      ap: simple ? undefined : (k) => k.ap.depth,
     }),
-  speed: (c, simple) =>
+  speed: (c) =>
     row('Fart (knop)', (t) => knots(t.u * KN), c, {
       big: true,
       setpoint: (k) => (k.ap.speed ? `→ ${knots(k.setpoints.speed)}` : ''),
-      ap: simple ? undefined : (k) => k.ap.speed,
     }),
-  heading: (c, simple) =>
+  heading: (c) =>
     row('Kurs (°)', (t) => deg3(t.heading), c, {
       big: true,
       setpoint: (k) => (k.ap.heading ? `→ ${String(Math.round(k.setpoints.heading) % 360).padStart(3, '0')}` : ''),
-      ap: simple ? undefined : (k) => k.ap.heading,
     }),
-  keel: (c, simple) =>
+  keel: (c) =>
     row('Under köl (m)', (t) => (t.grounded ? 'GRUND!' : f(Math.max(0, t.depthUnderKeel), 1)), c, {
-      big: simple,
+      big: true,
       classes: (t) => ({ alarm: t.grounded || t.depthUnderKeel < 5 }),
     }),
   trim: (c) =>
@@ -175,33 +173,44 @@ const INSTRUMENTS: Record<string, (c: Controller, simple: boolean) => Instrument
   net: (c) => row('Flytkraftsöverskott (kg)', (t) => signed(t.netBuoyancy / 9.80665, 0), c),
 };
 
-/**
- * The panel per game mode: the simplified panel leads with the targets, the
- * water under the keel and the trim, and keeps rudder and planes under "Mer".
- */
-export const LAYOUT: Record<GameMode, { main: string[]; more: string[] }> = {
-  simplified: {
-    main: ['time', 'sep', 'depth', 'speed', 'heading', 'keel', 'trim', 'sep'],
-    more: ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'tanks', 'air', 'net'],
-  },
-  realistic: {
-    main: ['time', 'sep', 'depth', 'speed', 'heading', 'pitch', 'keel', 'sep', 'rudder', 'planes'],
-    more: ['depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'tanks', 'air', 'net'],
-  },
-};
+/** Every instrument under "Mer", in order (those in the main panel are left out there). */
+const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'net', 'tanks', 'air'];
 
 /**
- * Builds the panel for the controller's game mode (create it again after a
- * mode switch) and returns its update function.
+ * The panel for who handles what: the main panel leads with depth, speed,
+ * course, the water under the keel and the trim; what the player takes over
+ * joins it (planes and pitch for the depth, the rudder for the course, the
+ * shaft for the speed, buoyancy and tanks for the trim, tanks and HP air for
+ * the ballast). Everything else is under "Mer".
  */
+export function instrumentLayout(d: CrewDuties): { main: string[]; more: string[] } {
+  const main = ['time', 'sep', 'depth', 'speed', 'heading', 'keel', 'trim'];
+  const extra: string[] = [];
+  if (!d.depth) extra.push('pitch', 'planes');
+  if (!d.heading) extra.push('rudder');
+  if (!d.speed) extra.push('rpm', 'power');
+  if (!d.trim) extra.push('net');
+  if (!d.trim || !d.ballast) extra.push('tanks');
+  if (!d.ballast) extra.push('air');
+  if (extra.length) main.push('sep', ...extra);
+  main.push('sep');
+  const more = ALL_MORE.filter((id) => id === 'sep' || !main.includes(id));
+  // No separator first, last or twice in a row.
+  const tidy = more.filter((id, i) => id !== 'sep' || (i > 0 && i < more.length - 1 && more[i - 1] !== 'sep'));
+  return { main, more: tidy };
+}
+
+/** A key that changes when the layout does (rebuild the panel then). */
+export const layoutKey = (d: CrewDuties): string => instrumentLayout(d).main.join(',');
+
+/** Builds the panel for who handles what now (create it again when that changes) and returns its update function. */
 export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Telemetry) => void {
-  const simple = ctrl.options.mode === 'simplified';
-  const layout = LAYOUT[ctrl.options.mode];
-  const make = (id: string) => INSTRUMENTS[id]!(ctrl, simple);
+  const layout = instrumentLayout(ctrl.duties());
+  const make = (id: string) => INSTRUMENTS[id]!(ctrl);
   const main = layout.main.map(make);
   const more = layout.more.map(make);
   // On narrow screens the panel starts compact; the button shows the rest.
-  const toggle = h('button', { type: 'button', class: 'inst-toggle', 'aria-expanded': 'false' }, 'Mer ▾');
+  const toggle = h('button', { type: 'button', class: 'inst-toggle', 'aria-expanded': 'false' }, el.classList.contains('expanded') ? 'Mindre ▴' : 'Mer ▾');
   toggle.addEventListener('click', () => {
     const expanded = el.classList.toggle('expanded');
     toggle.textContent = expanded ? 'Mindre ▴' : 'Mer ▾';

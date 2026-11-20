@@ -5,9 +5,10 @@ import { HELP_TEXT } from '../src/control/parser';
 import { SCENARIOS } from '../src/control/scenarios';
 import { Simulation } from '../src/sim/simulation';
 import { h, html, raw } from '../src/ui/dom';
-import { createInstruments, LAYOUT } from '../src/ui/instruments';
+import { createInstruments, instrumentLayout } from '../src/ui/instruments';
 import { Menu } from '../src/ui/menu';
-import { SCREENS, type MenuState, type Screen } from '../src/ui/menuScreens';
+import { SCREENS, handledText, type MenuState, type Screen } from '../src/ui/menuScreens';
+import { CREW_SYSTEMS, type CrewDuties } from '../src/control/crew';
 import { DEFAULT_SETTINGS } from '../src/ui/settings';
 
 describe('dom helpers', () => {
@@ -26,10 +27,12 @@ describe('dom helpers', () => {
   });
 });
 
+const allCrew = (over: Partial<CrewDuties> = {}): CrewDuties => ({ ...(Object.fromEntries(CREW_SYSTEMS.map((x) => [x, true])) as CrewDuties), ...over });
+
 const state = (over: Partial<MenuState> = {}): MenuState => ({
   settings: { ...DEFAULT_SETTINGS },
-  pauseInfo: { mode: 'simplified', canSwitch: true },
-  result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312 },
+  pauseInfo: { duties: allCrew(), locks: {} },
+  result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312, selfHandled: ['trim', 'safetyNet'] },
   area: 'westCoast',
   conditions: 'day',
   sea: 'calm',
@@ -46,11 +49,11 @@ describe('menu screens', () => {
     }
   });
 
-  it('the scenario list marks scenarios that need the realistic mode', () => {
+  it('the scenario list shows what a scenario locks', () => {
     const div = document.createElement('div');
     div.innerHTML = SCREENS.scenarios(state()).value;
-    const trim = div.querySelector('[data-arg="trim-drill"]')!;
-    expect(trim.textContent).toMatch(/Kräver realistisk simulering/);
+    expect(div.querySelector('[data-arg="trim-drill"]')!.textContent).toMatch(/Du sköter djup och trim själv/);
+    expect(div.querySelector('[data-arg="emergency-blow"]')!.textContent).toMatch(/Utan skyddsnät/);
     expect(div.querySelectorAll('[data-action="scenario"]').length).toBe(SCENARIOS.length);
   });
 
@@ -60,13 +63,33 @@ describe('menu screens', () => {
     expect(div.querySelector('pre')!.textContent).toBe(HELP_TEXT.join('\n'));
   });
 
-  it('the pause menu offers the other mode, or says the scenario needs this one', () => {
+  it('the pause menu says who handles what and leads to ☰ → Besättning', () => {
     const a = document.createElement('div');
     a.innerHTML = SCREENS.pause(state()).value;
-    expect(a.textContent).toMatch(/Byt till realistisk simulering/);
+    expect(a.textContent).toMatch(/Besättningen sköter allt/);
+    expect(a.querySelector('[data-arg="crew"]')).not.toBeNull();
     const b = document.createElement('div');
-    b.innerHTML = SCREENS.pause(state({ pauseInfo: { mode: 'realistic', canSwitch: false } })).value;
-    expect(b.textContent).toMatch(/kräver realistisk simulering/);
+    b.innerHTML = SCREENS.pause(state({ pauseInfo: { duties: allCrew({ trim: false, depth: false, safetyNet: false }), locks: {} } })).value;
+    expect(b.textContent).toMatch(/Du sköter djup och trim\. Besättningen sköter resten\. Skyddsnätet är av\./);
+  });
+
+  it('☰ → Besättning has a choice per system, with locked choices disabled', () => {
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew({ depth: false }), locks: { depth: false } } })).value;
+    expect(div.querySelectorAll('.crew-row').length).toBe(CREW_SYSTEMS.length);
+    expect(div.querySelector<HTMLButtonElement>('[data-arg="depth:1"]')!.disabled).toBe(true);
+    expect(div.querySelector('[data-arg="depth:0"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(div.querySelector<HTMLButtonElement>('[data-arg="trim:0"]')!.disabled).toBe(false);
+    expect(div.textContent).toMatch(/Här styr du djupet själv/);
+  });
+
+  it('the result says what the player handled', () => {
+    expect(handledText([])).toBe('Besättningen skötte allt.');
+    expect(handledText(['trim', 'ballast'])).toBe('Du skötte själv trimmet och ballasten.');
+    expect(handledText(['safetyNet', 'depth'])).toBe('Du skötte själv djupet, utan skyddsnät.');
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.result(state()).value;
+    expect(div.textContent).toMatch(/Du skötte själv trimmet, utan skyddsnät/);
   });
 
   it('the Menu calls back on clicks and keeps its own choices', () => {
@@ -80,8 +103,8 @@ describe('menu screens', () => {
         resume: () => calls.push('resume'),
         restart: () => calls.push('restart'),
         toMainMenu: () => calls.push('main'),
-        settingsChanged: (s) => calls.push(`settings ${s.mode}`),
-        switchMode: () => calls.push('switch'),
+        settingsChanged: (s) => calls.push(`settings ${s.timeScale}`),
+        crewChange: (system, crew) => calls.push(`crew ${system} ${crew}`),
         introDone: () => calls.push('intro'),
       },
       { ...DEFAULT_SETTINGS },
@@ -93,28 +116,37 @@ describe('menu screens', () => {
     fog.checked = true;
     fog.dispatchEvent(new Event('change', { bubbles: true }));
     (root.querySelector('[data-action="free"]') as HTMLElement).click();
-    expect(calls).toEqual(['free fjord sea fog calm']);
+    menu.setPauseInfo({ duties: allCrew(), locks: {} });
+    menu.show('crew');
+    (root.querySelector('[data-arg="trim:0"]') as HTMLElement).click();
+    expect(calls).toEqual(['free fjord sea fog calm', 'crew trim false']);
   });
 });
 
 describe('instrument panel', () => {
-  it('follows the layout of the game mode', () => {
-    for (const mode of ['simplified', 'realistic'] as const) {
-      const c = new Controller(new Simulation());
-      c.setMode(mode);
-      const el = document.createElement('div');
-      createInstruments(el, c)(c.sim.telemetry());
-      const more = el.querySelector('.inst-more')!;
-      const mainText = Array.from(el.children).filter((n) => n !== more).map((n) => n.textContent).join(' ');
-      expect(mainText.includes('Roder')).toBe(LAYOUT[mode].main.includes('rudder'));
-      expect(more.textContent).toMatch(/Tankar/);
-      expect(el.querySelectorAll('.ap').length).toBe(mode === 'realistic' ? 3 : 0);
+  it('brings what the player takes over into the main panel', () => {
+    const crew = instrumentLayout(allCrew());
+    expect(crew.main).not.toContain('rudder');
+    expect(crew.more).toContain('rudder');
+    const hand = instrumentLayout(allCrew({ heading: false, trim: false }));
+    expect(hand.main).toEqual(expect.arrayContaining(['rudder', 'net', 'tanks']));
+    expect(hand.more).not.toContain('rudder');
+    for (const l of [crew, hand]) {
+      expect(l.more[0]).not.toBe('sep');
+      expect(l.more.at(-1)).not.toBe('sep');
     }
+    const c = new Controller(new Simulation());
+    c.crewTakesAll();
+    const el = document.createElement('div');
+    createInstruments(el, c)(c.sim.telemetry());
+    const more = el.querySelector('.inst-more')!;
+    expect(more.textContent).toMatch(/Tankar/);
+    expect(el.querySelectorAll('.ap').length).toBe(0);
   });
 
-  it('shows "→ yta" on the surface in the simplified mode, and the trim', () => {
+  it('shows "→ yta" on the surface with the crew on the depth, and the trim', () => {
     const c = new Controller(new Simulation());
-    c.setMode('simplified');
+    c.crewTakesAll();
     for (let i = 0; i < 10; i++) c.step();
     const el = document.createElement('div');
     createInstruments(el, c)(c.sim.telemetry());

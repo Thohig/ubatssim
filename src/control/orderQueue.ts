@@ -14,6 +14,11 @@ export class OrderQueue {
     return out;
   }
 
+  /** The waiting orders, oldest first (not removed). */
+  peek(): readonly QueuedOrder[] {
+    return this.items;
+  }
+
   get length(): number {
     return this.items.length;
   }

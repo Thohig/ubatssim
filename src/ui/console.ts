@@ -4,7 +4,7 @@ import type { InputModeState } from './inputMode';
 
 /**
  * Command console: Enter submits, ↑/↓ browse history, Esc returns to steering.
- * `allowed` is false in the simplified simulation, which has no console:
+ * `allowed` (default: always) can switch the console off:
  * the console then neither opens nor takes focus.
  */
 export function bindConsole(

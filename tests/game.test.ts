@@ -7,37 +7,40 @@ import { audioInput, overlayState } from '../src/game/wiring';
 import { AREA_INFO } from '../src/control/areas';
 
 const free = (area: 'westCoast' | 'atlantic' = 'westCoast', start = 'periscope') =>
-  new GameSession(freePlaySpec(area, start, 'day', 'calm', 'simplified', true, 'Skriv "hjälp".')!);
+  new GameSession(freePlaySpec(area, start, 'day', 'calm', 'Styr med kontrollerna.')!);
 
 describe('game session', () => {
   it('free play has the area\'s traffic; a scenario only its own', () => {
     expect(free().ctrl.world.vessels.map((v) => v.def.id)).toEqual(AREA_INFO.westCoast.traffic.map((d) => d.id));
     const recce = SCENARIOS.find((s) => s.id === 'ship-recce')!;
-    expect(new GameSession(scenarioSpec(recce, 'simplified', true, '')).ctrl.world.vessels.map((v) => v.def.id)).toEqual(['skagerack']);
+    expect(new GameSession(scenarioSpec(recce, '')).ctrl.world.vessels.map((v) => v.def.id)).toEqual(['skagerack']);
     const dive = SCENARIOS.find((s) => s.id === 'first-dive')!;
-    expect(new GameSession(scenarioSpec(dive, 'simplified', true, '')).ctrl.world.vessels).toHaveLength(0);
+    expect(new GameSession(scenarioSpec(dive, '')).ctrl.world.vessels).toHaveLength(0);
   });
 
-  it('logs the start, the mode and where the commands are, in that order', () => {
+  it('logs the start and where the controls are, in that order', () => {
     const texts = free().ctrl.log.map((e) => e.text);
     expect(texts[0]).toMatch(/periskopdjup/);
-    expect(texts[1]).toMatch(/^Förenklad simulering/);
-    expect(texts[2]).toBe('Skriv "hjälp".');
+    expect(texts[1]).toBe('Styr med kontrollerna.');
   });
 
-  it('"Starta om" gives the same start, in the mode the game is in now', () => {
+  it('every game starts with the crew handling everything; "Starta om" starts over, crew included', () => {
     const s = free();
+    expect(Object.values(s.ctrl.duties()).every((d) => d)).toBe(true);
+    s.ctrl.submit({ kind: 'crew', system: 'all', crew: false }, 'touch');
     for (let i = 0; i < 500; i++) s.step();
-    s.ctrl.setMode('realistic');
+    expect(s.ctrl.duties().trim).toBe(false);
     const again = s.restart();
-    expect(again.ctrl.options.mode).toBe('realistic');
+    expect(Object.values(again.ctrl.duties()).every((d) => d)).toBe(true);
     expect(Array.from(again.sim.y)).toEqual(Array.from(free().sim.y));
     expect(again.sim.t).toBe(0);
   });
 
-  it('a scenario that allows only one mode starts in it', () => {
+  it('a scenario\'s locks apply from the start and are logged', () => {
     const trim = SCENARIOS.find((s) => s.id === 'trim-drill')!;
-    expect(new GameSession(scenarioSpec(trim, 'simplified', true, '')).ctrl.options.mode).toBe('realistic');
+    const g = new GameSession(scenarioSpec(trim, ''));
+    expect(g.ctrl.duties()).toMatchObject({ depth: false, trim: false, heading: true });
+    expect(g.ctrl.log.some((e) => /Du sköter djup och trim själv/.test(e.text))).toBe(true);
   });
 
   it('the demo cruises north at 5 knots on autopilot', () => {
@@ -96,7 +99,7 @@ describe('wiring', () => {
 
   it('gives the overlay the true bearing of the look and the buoy', () => {
     const sound = SCENARIOS.find((s) => s.id === 'sound-transit')!;
-    const s = new GameSession(scenarioSpec(sound, 'simplified', true, ''));
+    const s = new GameSession(scenarioSpec(sound, ''));
     const o = overlayState(s, { mode: 'bridge', relative: Math.PI / 2, zoom: 0, fov: 70 });
     expect(o.bearing).toBeCloseTo(20 + 90, 0); // heading 020 + 90° to starboard
     expect(o.waypointBearing).not.toBeNull();

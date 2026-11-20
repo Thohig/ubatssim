@@ -1,5 +1,6 @@
 /**
- * Trim assistant and safety net for the simplified simulation.
+ * The crew's trim assistant and safety net (crew.ts): each runs while the
+ * crew handles the trim or the safety net.
  *
  * The assistant does what the crew could do and no more: it issues ordinary
  * orders (source 'assist') through the controller's queue, so every action
@@ -101,9 +102,11 @@ export class TrimAssist {
     }
 
     if (this.tick++ % STEPS_PER_EVAL !== 0) return;
-    if (ctrl.options.safetyNet) this.safetyNet(k.depth, k.depthRate);
-    this.compensate();
-    this.trim(k.u);
+    if (ctrl.options.crew.safetyNet) this.safetyNet(k.depth, k.depthRate);
+    if (ctrl.options.crew.trim) {
+      this.compensate();
+      this.trim(k.u);
+    }
   }
 
   /**

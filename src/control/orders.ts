@@ -4,7 +4,9 @@
  * simulation step. Angles are in degrees and speeds in knots here (the
  * operator's units); the controller converts to SI.
  */
-/** 'assist' = the trim assistant and safety net in the simplified simulation. */
+import type { CrewSystem } from './crew';
+
+/** 'assist' = the crew's trim assistant and safety net (never takes a system over). */
 export type OrderSource = 'keyboard' | 'touch' | 'console' | 'assist';
 
 export type TankGroup = 'all' | 'fwd' | 'aft';
@@ -41,7 +43,9 @@ export type Order =
   /** Man the bridge, or clear it before diving. */
   | { kind: 'bridge'; manned: boolean }
   /** Report a true bearing [deg] to something seen through the periscope or from the bridge. */
-  | { kind: 'reportBearing'; bearing: number };
+  | { kind: 'reportBearing'; bearing: number }
+  /** Hand a system (or all) to the crew (`crew: true`) or take it over (`crew: false`). See crew.ts. */
+  | { kind: 'crew'; system: CrewSystem | 'all'; crew: boolean };
 
 export type OrderKind = Order['kind'];
 export type OrderOf<K extends OrderKind> = Extract<Order, { kind: K }>;
@@ -111,5 +115,18 @@ export function acknowledgement(o: Order): string {
       return o.manned ? 'Bemanna bryggan, ja' : 'Klart bryggan, ja';
     case 'reportBearing':
       return `Bäring ${String(Math.round(o.bearing) % 360).padStart(3, '0')}, ja`;
+    case 'crew':
+      return CREW_ACK[o.system][o.crew ? 0 : 1];
   }
 }
+
+/** Acknowledgements for `crew` orders: [to the crew, taken over]. */
+const CREW_ACK: Record<CrewSystem | 'all', [string, string]> = {
+  depth: ['Djup på auto, ja', 'Djup på hand, ja'],
+  heading: ['Kurs på auto, ja', 'Kurs på hand, ja'],
+  speed: ['Fart på telegraf, ja', 'Fart på varv, ja'],
+  ballast: ['Besättningen sköter ballasten, ja', 'Du sköter ballasten, ja'],
+  trim: ['Trimassistenten tar trimmet, ja', 'Trimassistenten avlöst, ja'],
+  safetyNet: ['Skyddsnät på, ja', 'Skyddsnät av, ja'],
+  all: ['Besättningen sköter allt, ja', 'Du sköter allt, ja'],
+};

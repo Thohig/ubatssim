@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../../src/control/controller';
-import type { GameMode } from '../../src/control/gameMode';
 import type { Order } from '../../src/control/orders';
-import { SCENARIOS, ScenarioRunner, scenarioMode } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner } from '../../src/control/scenarios';
 import { Simulation } from '../../src/sim/simulation';
 
 const DEG = 180 / Math.PI;
 const KN = 1852 / 3600;
 
-function start(mode: GameMode) {
+/** Who handles the boat: the crew (as every game starts), or the player, who has taken over all the scenario allows. */
+type Who = 'crew' | 'player';
+
+function start(who: Who) {
   const sc = SCENARIOS.find((s) => s.id === 'astern')!;
   const c = new Controller(new Simulation(sc.initial));
   const runner = new ScenarioRunner(sc, c);
-  c.setMode(scenarioMode(sc, mode));
+  c.crewTakesAll();
+  if (who === 'player') c.submit({ kind: 'crew', system: 'all', crew: false }, 'keyboard');
   const send = (o: Order) => c.submit(o, 'keyboard');
   const run = (seconds: number, until?: () => boolean) => {
     for (let i = 0; i < seconds * 100; i++) {
@@ -25,8 +28,8 @@ function start(mode: GameMode) {
 }
 
 describe('"Back"', () => {
-  it('realistic: back with the autopilots holding course and depth, stop at the buoy', () => {
-    const { c, runner, send, run } = start('realistic');
+  it('player: back with the autopilots holding course and depth, stop at the buoy', () => {
+    const { c, runner, send, run } = start('player');
     send({ kind: 'setHeading', heading: 0 });
     send({ kind: 'setDepth', depth: 30 });
     send({ kind: 'setSpeed', knots: -4 });
@@ -38,8 +41,8 @@ describe('"Back"', () => {
     expect(Math.abs(c.sim.telemetry().depth - 30)).toBeLessThan(5);
   });
 
-  it('simplified: Shift+↓ past zero to BACK 4, then Shift+↑ back to 0', () => {
-    const { c, runner, send, run } = start('simplified');
+  it('crew: Shift+↓ past zero to BACK 4, then Shift+↑ back to 0', () => {
+    const { c, runner, send, run } = start('crew');
     for (let i = 0; i < 7; i++) send({ kind: 'adjustSpeed', deltaKnots: -1 });
     run(1);
     expect(c.setpoints.speed).toBe(-4);
@@ -50,8 +53,8 @@ describe('"Back"', () => {
     expect(runner.status).toBe('completed');
   });
 
-  it.each(['realistic', 'simplified'] as const)('fails when the boat turns round instead (%s)', (mode) => {
-    const { c, runner, send, run } = start(mode);
+  it.each(['player', 'crew'] as const)('fails when the boat turns round instead (%s)', (who) => {
+    const { c, runner, send, run } = start(who);
     send({ kind: 'setHeading', heading: 90 });
     send({ kind: 'setSpeed', knots: 6 });
     run(600);

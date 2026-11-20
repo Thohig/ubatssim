@@ -1,39 +1,42 @@
 import type { Controller } from '../control/controller';
-import { PERISCOPE_DEPTH, telegraphStep } from '../control/gameMode';
+import { PERISCOPE_DEPTH, telegraphStep } from '../control/crew';
+import { LIMITS } from '../control/parser';
 import type { OrderSource } from '../control/orders';
 import type { InputModeState } from './inputMode';
 import { cycleView, reportViewBearing, togglePeriscope, type ViewState } from './views';
 
 /**
- * "Dyk" in the simplified simulation: flood the main ballast and, unless a
- * deeper target is already set, aim the depth autopilot at periscope depth.
+ * "Dyk": flood the main ballast and, unless a deeper target is already set,
+ * aim the depth autopilot at periscope depth (on Hand the depth stays the player's).
  */
 export function submitDive(ctrl: Controller, source: OrderSource): void {
   ctrl.submit({ kind: 'dive' }, source);
-  if (!ctrl.ap.depth || ctrl.setpoints.depth < PERISCOPE_DEPTH) ctrl.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, source);
+  if (ctrl.ap.depth && ctrl.setpoints.depth < PERISCOPE_DEPTH) ctrl.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, source);
 }
 
 const KNOT = 1852 / 3600;
 
-/** Simplified mode: the telegraph one position ahead (+1) or astern (−1) of the present speed order. */
+/** The telegraph one position ahead (+1) or astern (−1) of the present speed order (hands the speed to the crew). */
 export function submitTelegraphStep(ctrl: Controller, dir: 1 | -1, source: OrderSource): void {
   const current = ctrl.ap.speed ? ctrl.setpoints.speed : Math.round(ctrl.sim.kinematics().u / KNOT);
   ctrl.submit({ kind: 'setSpeed', knots: telegraphStep(current, dir) }, source);
 }
 
+/** Shaft speed ±`delta` rpm from the present order (the player handles the speed). */
+export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSource): void {
+  const now = Math.round(ctrl.sim.telemetry().rpsCmd * 60);
+  ctrl.submit({ kind: 'setRpm', rpm: Math.max(-LIMITS.maxRpmAstern, Math.min(LIMITS.maxRpm, now + delta)) }, source);
+}
+
 /**
  * Steering keys. Every key press becomes an Order in the controller's queue.
  * `getCtrl` returns null while no game is running (menu open or paused).
- *
- * Realistic simulation:
- *   ←/→  rudder ±5° (port/starboard)      ↑/↓  stern planes up/down 5°
- *   Space  rudder midships
- * Simplified simulation:
- *   ←/→  heading ±10°                      ↑/↓  depth ∓5 m
- *   Space  hold present depth and heading  D  dive   S  surface
- *   Shift+↑/↓  telegraph one position ahead/astern (no console)
- * Both:
- *   Shift+↑/↓  speed ±1 knot (realistic)   Enter or /  open the console (realistic)
+ * The arrows follow who handles each axis (crew.ts):
+ *   ←/→  Auto: course ±10°      Hand: rudder ±5° (port/starboard)
+ *   ↑/↓  Auto: depth ∓5 m       Hand: stern planes up/down 5°
+ *   Shift+↑/↓  crew: telegraph one position ahead/astern; player: ±10 rpm
+ *   Space  both Auto: hold present depth and heading; else rudder (or planes) to zero
+ *   D  dive   S  surface   Enter or /  open the console
  *   V  next view   P  periscope up/down   Z  periscope magnification
  *   B  report the bearing of the cross hair / bridge look
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
@@ -47,7 +50,6 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
     const ctrl = getCtrl();
     if (!ctrl) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const simple = ctrl.options.mode === 'simplified';
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (views.mode === 'periscope' && !e.shiftKey && (key === 'ArrowLeft' || key === 'ArrowRight')) {
       views.trainDir = key === 'ArrowLeft' ? -1 : 1;
@@ -70,40 +72,34 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
         reportViewBearing(ctrl, views, 'keyboard');
         break;
       case 'ArrowLeft':
-        if (simple) ctrl.submit({ kind: 'adjustHeading', deltaDegrees: -10 }, 'keyboard');
-        else ctrl.submit({ kind: 'rudder', angle: -5, relative: true }, 'keyboard');
+      case 'ArrowRight': {
+        const dir = key === 'ArrowLeft' ? -1 : 1;
+        if (ctrl.ap.heading) ctrl.submit({ kind: 'adjustHeading', deltaDegrees: 10 * dir }, 'keyboard');
+        else ctrl.submit({ kind: 'rudder', angle: 5 * dir, relative: true }, 'keyboard');
         break;
-      case 'ArrowRight':
-        if (simple) ctrl.submit({ kind: 'adjustHeading', deltaDegrees: 10 }, 'keyboard');
-        else ctrl.submit({ kind: 'rudder', angle: 5, relative: true }, 'keyboard');
-        break;
+      }
       case 'ArrowUp':
-        if (e.shiftKey && simple) submitTelegraphStep(ctrl, 1, 'keyboard');
-        else if (e.shiftKey) ctrl.submit({ kind: 'adjustSpeed', deltaKnots: 1 }, 'keyboard');
-        else if (simple) ctrl.submit({ kind: 'adjustDepth', deltaMetres: -5 }, 'keyboard');
-        else ctrl.submit({ kind: 'planes', angle: -5, relative: true }, 'keyboard');
+      case 'ArrowDown': {
+        const dir = key === 'ArrowUp' ? 1 : -1;
+        if (e.shiftKey && ctrl.ap.speed) submitTelegraphStep(ctrl, dir, 'keyboard');
+        else if (e.shiftKey) submitRpmStep(ctrl, 10 * dir, 'keyboard');
+        else if (ctrl.ap.depth) ctrl.submit({ kind: 'adjustDepth', deltaMetres: -5 * dir }, 'keyboard');
+        else ctrl.submit({ kind: 'planes', angle: -5 * dir, relative: true }, 'keyboard');
         break;
-      case 'ArrowDown':
-        if (e.shiftKey && simple) submitTelegraphStep(ctrl, -1, 'keyboard');
-        else if (e.shiftKey) ctrl.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'keyboard');
-        else if (simple) ctrl.submit({ kind: 'adjustDepth', deltaMetres: 5 }, 'keyboard');
-        else ctrl.submit({ kind: 'planes', angle: 5, relative: true }, 'keyboard');
-        break;
+      }
       case ' ':
-        if (simple) ctrl.submit({ kind: 'holdCourse' }, 'keyboard');
-        else ctrl.submit({ kind: 'rudder', angle: 0 }, 'keyboard');
+        if (ctrl.ap.depth && ctrl.ap.heading) ctrl.submit({ kind: 'holdCourse' }, 'keyboard');
+        else if (!ctrl.ap.heading) ctrl.submit({ kind: 'rudder', angle: 0 }, 'keyboard');
+        else ctrl.submit({ kind: 'planes', angle: 0 }, 'keyboard');
         break;
       case 'd':
-        if (!simple) return;
         submitDive(ctrl, 'keyboard');
         break;
       case 's':
-        if (!simple) return;
         ctrl.submit({ kind: 'surface' }, 'keyboard');
         break;
       case 'Enter':
       case '/':
-        if (simple) return; // the simplified mode has no console
         openConsole();
         break;
       default:

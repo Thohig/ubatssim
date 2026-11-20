@@ -4,8 +4,7 @@
  * lives in session.ts, flow.ts and loop.ts; this file wires them to the DOM.
  */
 import { AudioDirector } from '../audio/director';
-import type { GameMode } from '../control/gameMode';
-import { SCENARIOS, scenarioMode, scenarioModes } from '../control/scenarios';
+import { SCENARIOS } from '../control/scenarios';
 import { AREA_INFO } from '../control/areas';
 import { createScene } from '../render/scene';
 import { quatToMat3 } from '../sim/math/quat';
@@ -14,14 +13,14 @@ import { SUBMARINE } from '../sim/config/submarine';
 import { bindConsole } from '../ui/console';
 import { createHelm } from '../ui/helm';
 import { InputModeState, bindModeIndicator } from '../ui/inputMode';
-import { createInstruments } from '../ui/instruments';
+import { createInstruments, layoutKey } from '../ui/instruments';
 import { bindKeyboard } from '../ui/keyboard';
 import { bindLog } from '../ui/log';
 import { Menu } from '../ui/menu';
 import { updateObjective } from '../ui/objective';
 import { createPerfMeter } from '../ui/perfMeter';
 import { loadSettings, saveSettings, type Settings } from '../ui/settings';
-import { bindTouchControls, isTouchDevice } from '../ui/touch';
+import { isTouchDevice } from '../ui/button';
 import { createViewOverlay } from '../ui/viewOverlay';
 import { ViewState, availableViews, bindViewButtons, bindViewPointer } from '../ui/views';
 import { GameFlow, type GameState } from './flow';
@@ -58,14 +57,12 @@ export function startApp(): void {
   let lastPeriscope = 0;
   let session: GameSession;
   let updateInstruments: ReturnType<typeof createInstruments>;
+  /** The instrument layout follows who handles what: rebuilt when that changes. */
+  let instrumentsKey = '';
 
-  /** The first log line of a game: where to find the controls. The simplified mode has no console. */
-  const helpHint = (m: GameMode) =>
-    m === 'simplified'
-      ? 'Styr med kontrollerna längst ner. ☰ → Hjälp förklarar dem.'
-      : touch
-        ? 'Tryck >_ och skriv "hjälp" för kommandon.'
-        : 'Skriv "hjälp" i konsolen för kommandon.';
+  /** The first log lines of a game: the crew handles everything, and where to take over. */
+  const HELP_HINT =
+    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna Ballast ▾, Trim ▾ och Fart ▾ för att sköta något själv. ☰ → Hjälp förklarar.';
 
   /** Shows a session: log, instruments, sound, camera, buoy, ships and the area. */
   const attach = (s: GameSession): GameSession => {
@@ -73,6 +70,7 @@ export function startApp(): void {
     bindLog(logEl, ctrl);
     instrumentsEl.classList.remove('expanded');
     updateInstruments = createInstruments(instrumentsEl, ctrl);
+    instrumentsKey = layoutKey(ctrl.duties());
     ctrl.onLog((e) => audio.onLog(e.text, e.kind, e.source));
     runner?.onChange((p) => {
       if (p.status === 'running') return;
@@ -95,12 +93,12 @@ export function startApp(): void {
     el('menu'),
     {
       startFree(area, start, conditions, sea) {
-        const spec = freePlaySpec(area, start, conditions, sea, settings.mode, settings.autopilot, helpHint(settings.mode));
+        const spec = freePlaySpec(area, start, conditions, sea, HELP_HINT);
         if (spec) startGame(new GameSession(spec));
       },
       startScenario(id) {
         const sc = SCENARIOS.find((s) => s.id === id);
-        if (sc) startGame(new GameSession(scenarioSpec(sc, settings.mode, settings.autopilot, helpHint(scenarioMode(sc, settings.mode)))));
+        if (sc) startGame(new GameSession(scenarioSpec(sc, HELP_HINT)));
       },
       resume() {
         flow.go('playing');
@@ -117,17 +115,11 @@ export function startApp(): void {
         saveSettings(s);
         applySettings();
       },
-      switchMode() {
-        const next: GameMode = session.ctrl.options.mode === 'simplified' ? 'realistic' : 'simplified';
-        if (session.scenario && !scenarioModes(session.scenario).includes(next)) return;
-        session.ctrl.setMode(next);
-        // The choice is remembered for the next game, as on the start page.
-        settings = { ...settings, mode: next };
-        saveSettings(settings);
-        menu.setSettings(settings);
-        updateInstruments = createInstruments(instrumentsEl, session.ctrl);
-        applyGameMode();
-        showPause();
+      crewChange(system, crew) {
+        // An order like any other: carried out when the game continues (the menu shows it already).
+        session.ctrl.submit({ kind: 'crew', system, crew }, 'touch');
+        menu.setPauseInfo(pauseInfo());
+        menu.show('crew');
       },
       introDone: finishIntro,
     },
@@ -136,8 +128,8 @@ export function startApp(): void {
 
   function startGame(s: GameSession): void {
     session = attach(s);
-    applyGameMode();
-    if (s.ctrl.options.mode === 'simplified' && !settings.introSeen) {
+    mode.set('steer');
+    if (!settings.crewIntroSeen) {
       flow.go('paused');
       menu.show('intro');
       return;
@@ -146,28 +138,16 @@ export function startApp(): void {
   }
 
   function finishIntro(): void {
-    settings = { ...settings, introSeen: true };
+    settings = { ...settings, crewIntroSeen: true };
     saveSettings(settings);
     menu.setSettings(settings);
     flow.go('playing');
   }
 
-  /**
-   * Shows the controls for the running game's mode: the screen controls and
-   * no console in the simplified mode, the console (and touch buttons) in the
-   * realistic mode.
-   */
-  function applyGameMode(): void {
-    const simple = session.ctrl.options.mode === 'simplified';
-    document.body.classList.toggle('simplified', simple);
-    el('touch').dataset.mode = session.ctrl.options.mode;
-    if (simple) mode.set('steer');
-  }
+  const pauseInfo = () => ({ duties: session.ctrl.pendingDuties(), locks: session.ctrl.options.locks });
 
   function showPause(): void {
-    const m = session.ctrl.options.mode;
-    const other: GameMode = m === 'simplified' ? 'realistic' : 'simplified';
-    menu.setPauseInfo({ mode: m, canSwitch: !session.scenario || scenarioModes(session.scenario).includes(other) });
+    menu.setPauseInfo(pauseInfo());
     menu.show('pause');
   }
 
@@ -175,7 +155,13 @@ export function startApp(): void {
     const r = session.runner;
     if (!r || flow.state !== 'playing' || r.status === 'running') return;
     flow.go('ended');
-    menu.showResult({ scenario: r.scenario, completed: r.status === 'completed', message: r.message ?? '', time: r.endTime ?? session.sim.t });
+    menu.showResult({
+      scenario: r.scenario,
+      completed: r.status === 'completed',
+      message: r.message ?? '',
+      time: r.endTime ?? session.sim.t,
+      selfHandled: [...session.ctrl.selfHandled],
+    });
   }
 
   flow.onChange((s: GameState) => {
@@ -196,16 +182,15 @@ export function startApp(): void {
 
   const consoleInput = el<HTMLInputElement>('console-input');
   const activeCtrl = () => (flow.state === 'playing' ? session.ctrl : null);
-  const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode, () => session.ctrl.options.mode !== 'simplified');
+  const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode);
   bindKeyboard(activeCtrl, mode, openConsole, views);
   bindViewPointer(view.renderer.domElement, views);
-  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views);
+  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole);
   const helmEl = el('helm');
   const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
   // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
   new ResizeObserver(() => document.body.style.setProperty('--helm-h', `${helmEl.offsetHeight}px`)).observe(helmEl);
   const drawOverlay = createViewOverlay(el<HTMLCanvasElement>('view-overlay'));
-  bindTouchControls(el('touch'), activeCtrl, mode, openConsole);
   el('menu-btn').addEventListener('click', pause);
 
   window.addEventListener('keydown', (e) => {
@@ -238,9 +223,9 @@ export function startApp(): void {
   });
 
   function applySettings(): void {
-    touch = settings.touch === 'on' || (settings.touch === 'auto' && isTouchDevice());
+    touch = isTouchDevice();
     document.body.classList.toggle('touch', touch);
-    consoleInput.placeholder = touch ? 'Skriv kommando, t.ex. "djup 120" eller "hjälp"' : 'Enter eller / öppnar konsolen – skriv "hjälp"';
+    consoleInput.placeholder = 'Skriv ett kommando, t.ex. "djup 120", eller "hjälp"';
     bindModeIndicator(el('mode'), mode, touch, views);
     view.setParticles(settings.particles);
     audio.apply({ volume: settings.volume, effects: settings.soundEffects, ambience: settings.soundAmbience, voice: settings.voice });
@@ -309,11 +294,14 @@ export function startApp(): void {
 
     if (now - lastUi > 100 && !hud.hidden) {
       const tel = sim.telemetry();
+      const key = layoutKey(s.ctrl.duties());
+      if (key !== instrumentsKey) {
+        instrumentsKey = key;
+        updateInstruments = createInstruments(instrumentsEl, s.ctrl);
+      }
       updateInstruments(tel);
       updateViewButtons(s.ctrl);
-      if (s.ctrl.options.mode === 'simplified') {
-        updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
-      }
+      updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
       updateObjective(objectiveEl, s.runner);
       lastUi = now;

@@ -7,6 +7,7 @@
  * "back halv".
  */
 import { SUBMARINE } from '../sim/config/submarine';
+import type { CrewSystem } from './crew';
 import type { AutopilotAxis, Order, TankGroup } from './orders';
 
 export type ParseResult =
@@ -47,6 +48,8 @@ export const HELP_TEXT = [
   'trimma för|akter <liter> – pumpa mellan trimtankarna',
   'kompensera in|ut <liter> – ta in eller pumpa ut vatten',
   'autopilot på|av [djup|kurs|fart]',
+  'besättning <system>|allt   – lämna djup, kurs, fart, ballast, trim eller skyddsnät till besättningen',
+  'själv <system>|allt        – ta över systemet själv, t.ex. "själv trim"',
   'hjälp                    – visa denna lista',
 ];
 
@@ -72,6 +75,8 @@ const COMMANDS: Record<string, string[]> = {
   autopilot: ['autopilot', 'ap'],
   stopp: ['stopp', 'stop'],
   back: ['back', 'backa'],
+  besättning: ['besättning', 'besättningen', 'besattning'],
+  själv: ['själv', 'sjalv'],
   hjälp: ['hjälp', 'hjalp', 'help', '?'],
 };
 
@@ -117,6 +122,23 @@ function suggest(word: string, candidates: Iterable<string>): string | null {
 
 /** "back sakta|halv|full" [knots astern]. */
 const ASTERN_BELLS: Record<string, number> = { sakta: 2, halv: 4, full: 6 };
+
+/** Words for the crew's systems ("besättning trim", "själv djup"). */
+const CREW_WORDS: Record<string, CrewSystem | 'all'> = {
+  djup: 'depth',
+  kurs: 'heading',
+  fart: 'speed',
+  ballast: 'ballast',
+  ballasten: 'ballast',
+  hb: 'ballast',
+  trim: 'trim',
+  trimmet: 'trim',
+  skyddsnät: 'safetyNet',
+  skyddsnätet: 'safetyNet',
+  skyddsnat: 'safetyNet',
+  allt: 'all',
+  alla: 'all',
+};
 
 const NUMBER_RE = /^[+-]?\d+(?:\.\d+)?$/;
 
@@ -357,6 +379,17 @@ export function parseCommand(input: string): ParseResult {
       const amount = Math.abs(litres);
       if (amount === 0 || amount > LIMITS.maxCompLitres) return err(`Mängden måste vara mellan 1 och ${LIMITS.maxCompLitres} liter.`);
       return ok({ kind: 'compensate', litres: dir * amount });
+    }
+
+    case 'besättning':
+    case 'själv': {
+      const args = t.rest();
+      const sys = args.length === 1 ? CREW_WORDS[args[0]!] : undefined;
+      if (sys === undefined) {
+        const s = args.length === 1 ? suggest(args[0]!, Object.keys(CREW_WORDS)) : null;
+        return err(`${args.length ? `Förstår inte "${args.join(' ')}". ` : ''}Ange djup, kurs, fart, ballast, trim, skyddsnät eller allt, t.ex. "${cmd} trim".${s ? ` Menade du "${s}"?` : ''}`);
+      }
+      return ok({ kind: 'crew', system: sys, crew: cmd === 'besättning' });
     }
 
     case 'autopilot': {

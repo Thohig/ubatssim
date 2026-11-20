@@ -7,7 +7,7 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 ## Innehåll
 
 - [Spelet](#spelet)
-- [Spellägen](#spellägen)
+- [Besättningen och du](#besättningen-och-du)
 - [Styrning](#styrning)
 - [Vyer](#vyer)
 - [Kommandokonsolen](#kommandokonsolen)
@@ -23,99 +23,102 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 
 ## Spelet
 
-På startsidan väljer du spelläge, **förenklad** eller **realistisk simulering** (se [Spellägen](#spellägen)). Sedan finns fyra val:
+Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubåten**, och du tar över det du vill sköta själv (se [Besättningen och du](#besättningen-och-du)). På startsidan finns fyra val:
 
 | Val | Innehåll |
 |---|---|
 | **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
-| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order), autopilot tillåten i fritt spel (realistisk simulering), pekknappar i realistisk simulering (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna och valt spelläge sparas i webbläsaren. |
-| **Hjälp** | Kontroller, skärmkontrollerna, alla konsolkommandon och tips. |
+| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order) och svävande partiklar. Inställningarna sparas i webbläsaren. |
+| **Hjälp** | Besättningen, kontrollerna, tangenterna, alla konsolkommandon och tips. |
 
 På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
 
-Under spelet pausar du med ☰-knappen eller Esc. Pausmenyn har Fortsätt, Byt spelläge, Starta om, Inställningar, Hjälp och Huvudmeny. Spelet pausas också automatiskt när fliken döljs.
+Under spelet pausar du med ☰-knappen eller Esc. Pausmenyn visar vem som sköter vad och har Fortsätt, Besättning, Starta om, Inställningar, Hjälp och Huvudmeny. Spelet pausas också automatiskt när fliken döljs.
 
-## Spellägen
+## Besättningen och du
 
-Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik fungerar likadant. Skillnaden ligger i styrningen och i om spelet hjälper till.
+Det finns ett spel och en ubåt. För varje system väljer du om **besättningen** sköter det eller om du gör det **själv**. Varje spel börjar med att besättningen sköter allt, och det går att ändra när som helst, mitt i ett scenario också. Simuleringen är densamma oavsett val: ballast, pumpar, tryckluft och hydrodynamik fungerar likadant.
 
-| | Förenklad simulering | Realistisk simulering |
+| System | Besättningen sköter (från start) | Du sköter själv |
 |---|---|---|
-| **Styrning** | Skärmkontroller: djupskala, kompass och maskintelegraf. Du anger mål för djup, kurs och fart, och autopiloten styr roder och djuproder. Ingen konsol. | Du lägger roder och djuproder själv, med tangenter, pekknappar och konsolen. |
-| **Ballast** | Dyk / Yta (D och S). Ett djupmål på 5 m eller mer i ytläge startar dykningen, och ett djupmål grundare än 5 m med fylld huvudballast blåser den. | Du fyller och blåser huvudballasten med kommandon. Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
-| **Trim** | Assistenten kompenserar och trimmar. | Du kompenserar och trimmar själv. |
-| **Skyddsnät** | Nödblåsning nära krossdjupet och varning för grunt vatten. | Inget. |
-| **Instrumentpanel** | Djup, fart och kurs med mål, Under köl och Trim (Tung / Neutral / Lätt). Roder och tankar finns under "Mer". | Hela panelen. |
+| **Djup** | **Auto:** djupstyraren håller djupmålet från djupskalan. | **Hand:** du styr djuprodret. |
+| **Kurs** | **Auto:** rorsmannen håller kursmålet från kompassen. | **Hand:** du styr rodret. |
+| **Fart** | Maskinen följer telegrafen. | Du styr propellervarvet (Fart ▾). |
+| **Ballast och brygga** | Dyk / Yta. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (Ballast ▾). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
+| **Trim** | Trimassistenten kompenserar och trimmar. | Du kompenserar och trimmar (Trim ▾). |
+| **Skyddsnät** | På: nödblåsning nära krossdjupet, djupgräns över botten och varning för grunt vatten. | Av. |
 
-- **Standard:** förenklad simulering för nya spelare. Första gången visas en kort introduktion.
-- **Byte:** läget kan bytas i pausmenyn utan ryck. Till förenklat läge sätts målen till nuvarande djup och kurs. Till realistiskt läge tar du över de senaste roderutslagen.
+- **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾** och **Fart ▾**. Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
+- **Order tar över:** en manuell order tar över systemet den gäller, också i konsolen. `roder sb 10` sätter kursen på Hand, `trimma för 200` avlöser trimassistenten och `fyll hb` ger dig ballasten. Ett djup- eller kursmål och telegrafen lämnar axeln till besättningen igen.
+- **Utan ryck:** tar du över djup eller kurs ligger rodren kvar där autopiloten hade dem. Lämnar du tillbaka dem sätts målen till nuvarande djup och kurs.
+- **Instrumentpanelen** följer valen: tar du över kursen visas rodret, trimmet flytkraft och tankar, ballasten HP-luften.
+- **Första gången** visas en kort introduktion.
 - **Trimassistenten** ger vanliga order, och varje order kvitteras i loggen, till exempel `Kompensera ut 150 liter, ja`. Den är begränsad av pumparnas kapacitet (5–6 l/s), så den hinner inte rädda allt.
   - **Kompensering:** när ubåten är nedsänkt med full huvudballast och har legat stilla på sitt djup en stund, pumpar assistenten bort flytkraftsöverskottet i portioner om högst 200 l. Små avvikelser (±50 kg) lämnas.
   - **Trim:** behöver djuprodret hela tiden ligga i samma riktning för att hålla djupet, flyttas vatten mellan trimtankarna.
 - **Skyddsnätet:**
   - Nödblåsning under 255 m (85 % av krossdjupet 300 m), eller om ubåten sjunker fortare än 2 m/s under 250 m.
-  - Djupmålet begränsas så att det är minst 10 m under kölen, under ubåten och upp till 150 m framåt.
+  - Djupmålet begränsas så att det är minst 10 m under kölen, under ubåten och upp till 150 m i färdriktningen.
   - Varning i loggen när det är mindre än 10 m under kölen.
-- **Scenarier:** Trimövning går bara i realistisk simulering. I Nödblåsning finns ingen automatisk nödblåsning.
+- **Scenarier** kan låsa ett system: i Trimövning sköter du djupet (Hand) och trimmet själv, och i Nödblåsning finns inget skyddsnät. Resultatskärmen visar vad du skötte själv, till exempel "Du skötte själv trimmet och ballasten".
 
 ## Styrning
 
+### Skärmkontrollerna
+
+Kontrollerna längst ner visas alltid, på dator och mobil.
+
+| Kontroll | Var | Funktion |
+|---|---|---|
+| **Djupskala** (Auto) | Vänster | Visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Skalan är kvadratisk, så de grunda metrarna får plats. Tryck eller dra för att välja djup i steg om 5 m. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och **13 m** går till periskopdjup. |
+| **Djuproder** (Hand) | Vänster | Visar djuprodrets order och utslag. Tryck eller dra för en vinkel. **▲ Upp** / **▼ Ned** ändrar 5°, **Noll** lägger det i noll. |
+| **Kompass** (Auto) | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
+| **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
+| **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. |
+| **Maskintelegraf** | Mitten | Full, Halv och Sakta back (6, 4 och 2 knop), Stopp, och Sakta, Halv och Full fram (4, 8 och 12 knop). Läget som gäller lyser, och klockan slår vid varje ny order. |
+| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. |
+| **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
+| **Ballast ▾** | Mitten | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
+| **Trim ▾** | Mitten | Flytkraft, stampvinkel, pumparna, kompenserings- och trimtankarna. Kompensera in / ut och trimma för / akter, 100 eller 500 liter. |
+| **Fart ▾** | Mitten | Fart, varvtal och axeleffekt. Fartmålet ±1 knop, varvtalet ±10 rpm och Stopp. |
+
+En panelknapp som du sköter själv är gul. På stående telefon ligger djupskalan till vänster, kompassen och knapparna till höger och telegrafen över hela bredden längst ner. På liggande telefon ligger allt i en rad. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
+
+Knapparna Vy, Per, Zoom och Brg uppe till höger gör samma sak som V, P, Z och B. Per och Vy visas när ubåten är grundare än 25 m eller periskopet är uppe. **>_** öppnar konsolen.
+
 ### Tangentbord
 
-| Tangent | Förenklad simulering | Realistisk simulering |
+Piltangenterna följer Auto / Hand.
+
+| Tangent | Auto / besättningen | Hand / du |
 |---|---|---|
 | ← / → | Kurs 10° babord / styrbord | Roder 5° babord / styrbord |
 | ↑ / ↓ | Djup 5 m grundare / djupare | Djuproder 5° upp / ned |
-| Mellanslag | Håll nuvarande kurs och djup | Roder midskepps |
-| D | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) | – |
-| S | Ytläge | – |
-| V | Byt vy (yttre, bryggan, periskopet). Bemannar bryggan i ytläge. | Byt vy (bryggan måste vara bemannad) |
+| Mellanslag | Håll nuvarande kurs och djup | Roder (eller djuproder) i noll |
+| Shift + ↑ / ↓ | Telegrafen ett läge fram / back | Varv ±10 rpm |
+| D / S | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) / ytläge | Samma |
+| V | Byt vy (yttre, bryggan, periskopet). Besättningen bemannar bryggan i ytläge. | Byt vy (bryggan måste vara bemannad) |
 | P | Periskop upp / ned | Samma |
 | Z | Periskopets förstoring, 1,5× / 6× | Samma |
 | B | Rapportera bäringen dit periskopet eller blicken pekar | Samma |
 | ← / → i periskopet | Vrid periskopet (Shift + ← / → styr) | Samma |
-| Shift + ↑ / ↓ | Telegrafen ett läge fram / back | Fart ±1 knop (sätter fartautopiloten). Under noll går ubåten back, högst 6 knop. |
-| Enter eller / | – (ingen konsol) | Öppna kommandokonsolen |
+| Enter eller / | Öppna kommandokonsolen | Samma |
 | Esc | Lämna konsolen eller en vy, eller pausa | Samma |
 | M | Ljud av / på | Samma |
 
-I realistisk simulering visar lägesindikatorn överst om piltangenterna styr ubåten (**STYRNING**) eller konsolen (**KONSOL**). I konsolen bläddrar ↑/↓ i kommandohistoriken.
-
-Ett manuellt roder- eller djuproderutslag kopplar ur autopiloten för just den axeln. De andra axlarna fortsätter som förut.
-
-Knapparna Vy, Per, Zoom och Brg uppe till höger gör samma sak som V, P, Z och B. I förenklad simulering visas Per och Vy bara när ubåten är grundare än 25 m eller periskopet är uppe.
-
-### Skärmkontroller (förenklad simulering)
-
-Förenklad simulering har ingen konsol. Den styrs med kontrollerna längst ner, på dator och mobil, och med tangenterna ovan.
-
-| Kontroll | Var | Funktion |
-|---|---|---|
-| **Djupskala** | Vänster | Visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Skalan är kvadratisk, så de grunda metrarna får plats. Tryck eller dra för att välja djup i steg om 5 m. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och **13 m** går till periskopdjup. |
-| **Kompass** | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
-| **Maskintelegraf** | Mitten | Full, Halv och Sakta back (6, 4 och 2 knop), Stopp, och Sakta, Halv och Full fram (4, 8 och 12 knop). Läget som gäller lyser, och klockan slår vid varje ny order. |
-| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. |
-| **Håll** | Mitten | Behåller nuvarande kurs och djup. |
-
-På stående telefon ligger djupskalan till vänster, kompassen till höger och telegrafen över hela bredden längst ner. På liggande telefon ligger allt i en rad. Håll in ▲ ▼ ◀ ▶ så upprepas de, och fortare ju längre du håller.
-
-### Pekskärm, realistisk simulering (iPhone, iPad)
-
-Längst ner finns knappar som motsvarar tangenterna: roder (BB, Mitt, SB), djuproder (Upp, Ned) och fart (−, +). Inställningen Pekknappar (automatiskt, alltid, aldrig) styr om de visas.
-
-Håll in en knapp så upprepas den. `>_` öppnar konsolen med telefonens tangentbord, och ett tryck på en styrknapp stänger den igen. Instrumentpanelen är kompakt på smala skärmar, och "Mer ▾" visar resten.
+När konsolen är öppen visar lägesindikatorn överst **KONSOL**, och ↑/↓ bläddrar i kommandohistoriken. Instrumentpanelen är kompakt på smala skärmar, och "Mer ▾" visar resten.
 
 Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att zooma. Kameran följer ubåten.
 
 ### Back
 
-Ubåten backar i båda spellägena: med telegrafen (Halv back) i förenklad simulering, och med Shift + ↓ (eller −) förbi noll eller `back halv` i konsolen i realistisk. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid varje ny fartorder.
+Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med `back halv` i konsolen. På Hand går det med negativt varvtal under Fart ▾. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid varje ny fartorder.
 
 - **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop, och det tar några minuter att komma upp i fart.
-- **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. I realistisk simulering med manuella roder får du styra omvänt.
-- **Autopiloten** för kurs och djup vet om att ubåten backar och vänder sina utslag själv. Den byter riktning när farten genom vattnet har passerat ±0,2 m/s och börjar då om från noll. Vid back tillåter den högst 5° stampvinkel, så djupändringar går långsamt.
-- **Skyddsnätet** i förenklad simulering tittar efter grunt vatten åt det håll ubåten rör sig, alltså akterut vid back. Trimassistenten flyttar inget trimvatten medan ubåten backar.
+- **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. På Hand får du styra omvänt.
+- **Djupstyraren och rorsmannen** (Auto) vet om att ubåten backar och vänder sina utslag själv. Den byter riktning när farten genom vattnet har passerat ±0,2 m/s och börjar då om från noll. Vid back tillåter den högst 5° stampvinkel, så djupändringar går långsamt.
+- **Skyddsnätet** tittar efter grunt vatten åt det håll ubåten rör sig, alltså akterut vid back. Trimassistenten flyttar inget trimvatten medan ubåten backar.
 - **Stoppa i god tid.** Ubåten glider länge. Fartautopiloten bromsar med propellern, men stoppet från 4 knop back tar ändå omkring en minut.
 
 ## Vyer
@@ -127,15 +130,15 @@ Ubåten backar i båda spellägena: med telegrafen (Halv back) i förenklad simu
 | **Periskopet** | I periskophuvudet: hårkors, bäringsskala och förstoring 1,5× eller 6×. Vrid med ←/→ eller genom att dra. | När periskopet är uppe |
 
 - **Bryggan** är bemannad i ytläge. Den måste utrymmas innan ubåten dyker:
-  - I realistisk simulering ger du order `klart bryggan`. Annars vägrar ubåten att fylla huvudballasten.
-  - I förenklad simulering utryms bryggan automatiskt när du trycker D.
+  - Sköter besättningen ballasten utryms bryggan automatiskt när du trycker Dyk (D).
+  - Sköter du ballasten själv trycker du Klart bryggan under Ballast ▾ (eller `klart bryggan`). Annars vägrar ubåten att fylla huvudballasten.
   - Når vattnet över brygglisten utryms bryggan, och vyn byter till den yttre.
 - **Lågtrycksblåsaren** går när bryggan är bemannad och håller huvudballasten torr i sjögång.
 - **Periskopet** tar 8 s att hissa. Vyn öppnas när det är uppe. Huvudet når över vattnet ner till ungefär 14 m djup i stilla sjö. I grov sjö kan vågtopparna skölja över det. Över 6 knop vibrerar bilden, och den våta masten ger motstånd.
 
 ## Kommandokonsolen
 
-Alla kommandon kvitteras i loggen med simuleringstid, till exempel `[00:03:12] Djup 120, ja`. Felaktiga kommandon ger ett felmeddelande som pekar ut fel ord och föreslår rätt form ("Menade du styrbord?").
+Konsolen öppnas med **>_** eller Enter. Den är ett annat sätt att ge order, för den som vill skriva exakta värden, och inget kräver den. En order tar över systemet den gäller, precis som en knapp (se [Besättningen och du](#besättningen-och-du)). Alla kommandon kvitteras i loggen med simuleringstid, till exempel `[00:03:12] Djup 120, ja`. Felaktiga kommandon ger ett felmeddelande som pekar ut fel ord och föreslår rätt form ("Menade du styrbord?").
 
 | Kommando | Exempel | Funktion |
 |---|---|---|
@@ -157,18 +160,21 @@ Alla kommandon kvitteras i loggen med simuleringstid, till exempel `[00:03:12] D
 | `bäring <grader>` | `bäring 63` | Rapportera bäringen till något du ser genom periskopet eller från bryggan |
 | `trimma för\|akter <liter>` | `trimma för 200` | Pumpa vatten mellan trimtankarna |
 | `kompensera in\|ut <liter>` | `kompensera ut 300` | Ta in vatten eller pumpa ut det |
-| `autopilot på\|av [djup\|kurs\|fart]` | `autopilot av`, `ap på djup` | Slå på eller av autopilot |
+| `autopilot på\|av [djup\|kurs\|fart]` | `autopilot av`, `ap på djup` | Slå på eller av autopilot (samma som Auto / Hand) |
+| `besättning <system>\|allt` | `besättning trim` | Lämna djup, kurs, fart, ballast, trim eller skyddsnät till besättningen |
+| `själv <system>\|allt` | `själv ballast`, `själv skyddsnät` | Ta över systemet själv (skyddsnät: stäng av det) |
 | `hjälp` | | Visa listan |
 
 Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 45,5`), enheter (`120 m`, `10°`) och ett inledande `/`.
 
 ## Instrumentpanelen
 
-- **Djup, fart och kurs:** med autopilotens börvärde och AP-markering. I ytläge visar djupet "→ yta": ubåten flyter och djuprodret ligger i noll. Farten är farten genom vattnet, som loggen mäter.
+- **Djup, fart och kurs:** med målet (→) när besättningen sköter dem. I ytläge visar djupet "→ yta": ubåten flyter och djuprodret ligger i noll. Farten är farten genom vattnet, som loggen mäter.
 - **Stampvinkel och krängning.**
 - **Under köl:** ekolodets djup under kölen. Rött under 5 m och vid grundstötning.
 - **Roder och djuproder:** verkligt utslag och kommenderat utslag (orange markering). Rodren rör sig med begränsad hastighet, ~4°/s.
-- **Trim** (förenklad simulering): Tung, Neutral eller Lätt (±100 kg), och Ytläge när ubåten inte är helt nedsänkt.
+- **Trim:** Tung, Neutral eller Lätt (±100 kg), och Ytläge när ubåten inte är helt nedsänkt.
+- **Det du sköter själv** visas i huvudpanelen: djuproder och stampvinkel på Hand, roder på Hand, varvtal och effekt för farten, flytkraft och tankar för trimmet, tankar och HP-luft för ballasten.
 - **Under "Mer":** djupändring, fart och kurs över grund, strömmen, varvtal, axeleffekt, nivån i varje tank, ventil- och blåsstatus, HP-luftens tryck och flytkraftsöverskott (+ = lätt, − = tung).
 
 ## Scenarier
@@ -187,7 +193,7 @@ Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 4
 | Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
 | Fartyget | medel | Ta ut bäringen till ett lastfartyg genom periskopet, utan att bli sedd eller komma i vägen för det. |
 
-Ett scenario misslyckas om ubåten går på grund eller kolliderar med ett fartyg. Ledtrådarna anpassas efter spelläget. Trimövning kräver realistisk simulering.
+Ett scenario misslyckas om ubåten går på grund eller kolliderar med ett fartyg. Ledtrådarna anpassas efter vem som sköter systemet målet gäller. I Trimövning sköter du djupet (Hand) och trimmet själv, och i Nödblåsning finns inget skyddsnät. Allt annat väljer du.
 
 ## Havsområden och väder
 
@@ -279,7 +285,7 @@ Testerna täcker bland annat:
 - kommandoparsern, orderkön och kvittona
 - autopiloten (djup 120 m och kurs 270° utan stor översläng), också back: kurs- och djupändring, omslag mellan framåt och back
 - propellern back (svagare dragkraft, varvtalsgräns, kontinuitet genom noll) och att skyddsnätet tittar akterut när ubåten backar
-- spellägena: att förenklad simulering dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att lägesbytet sker utan ryck och att simuleringen fortfarande är deterministisk
+- besättningen: att besättningen dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att övertagande och lämning sker utan ryck, att en order tar över rätt system, att låsningar vägras och att simuleringen fortfarande är deterministisk
 - att varje scenario går att klara och att det misslyckas när det ska
 - terrängen, grundstötning och navigering genom sundet
 - havsområdena: att trycket är integralen av densiteten, saltsprångskiktet, sötvattnet i fjorden, fjordens tröskel och att alla startlägen och fyrar ligger rätt
@@ -287,7 +293,7 @@ Testerna täcker bland annat:
 - periskopet, bryggan och vyerna
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
-- skärmkontrollerna i förenklad simulering (djupskala, kompass, telegraf, Dyk/Yta), att konsolen inte går att öppna där och att scenariotipsen inte nämner konsolkommandon
+- skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta, panelerna Ballast, Trim och Fart), att tangenterna följer Auto / Hand och att inget scenariotips kräver konsolen
 - spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom).
 
 ## Projektstruktur
@@ -299,13 +305,13 @@ src/
     systems/  Ubåtens delsystem: ställdon, huvudballast och tryckluft, pumpar, periskopmast.
               world/vessel: världen med ubåten och andra farkoster.
     math/     Vektorer, matriser (LU), quaternioner.
-  control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, spellägen,
+  control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, besättningen (crew),
               trimassistent och skyddsnät, havsområdenas startlägen och fyrar, scenarier.
   render/     Three.js: ubåtsmodell i lager, terräng, vågor, fyrar, ljus och dimma, kameravyer.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
-  ui/         Meny, instrumentpanel, konsol, logg, tangentbord, pekknappar, skärmkontroller (helm), inställningar,
+  ui/         Meny, instrumentpanel, konsol, logg, tangentbord, skärmkontroller (helm) och knappar, inställningar,
               vyer och deras overlay (kompassband, periskop). HTML byggs med mallar som escapar.
-  game/       Spelsessioner, spellägen (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
+  game/       Spelsessioner, spelflödet (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
   main.ts     Uppstart.
 tests/        Vitest.
 docs/         Fördjupande dokumentation: fysikmodellen, grafiken, ljudet och prestandan.

@@ -1,28 +1,35 @@
 /**
- * Screen controls for the simplified simulation. Together with the keyboard
- * shortcuts they are the only controls there: the simplified mode has no
- * console. Every control submits ordinary orders with source 'touch'.
+ * The screen controls, always shown in a game. Every control submits
+ * ordinary orders with source 'touch'; the keyboard and the console give
+ * the same orders. What a control does follows who handles the system
+ * (crew.ts): the crew holds targets, the player moves rudder and planes.
  *
- *  - Depth (left thumb): a vertical scale with the present depth, the target,
- *    periscope depth, the sea bed and the safety net's limit. Tap or drag to
- *    choose a target (5 m steps); the order is sent on release. ▲/▼ move the
- *    target 5 m, "13 m" goes to periscope depth.
- *  - Course (right thumb): a compass band ±60° around the heading. Tap or
- *    drag to choose a course (5° steps), sent on release. ◀/▶ turn 10°, and
- *    "Mot bojen" steers for the scenario's buoy.
+ *  - Depth (left thumb), Auto: a vertical scale with the present depth, the
+ *    target, periscope depth, the sea bed and the safety net's limit. Tap or
+ *    drag to choose a target (5 m steps); the order is sent on release. ▲/▼
+ *    move the target 5 m, "13 m" goes to periscope depth.
+ *    Hand: a stern-plane gauge (tap or drag for an angle), Upp/Ned 5°, Noll.
+ *  - Course (right thumb), Auto: a compass band ±60° around the heading. Tap
+ *    or drag to choose a course (5° steps), sent on release. ◀/▶ turn 10°,
+ *    and "Mot bojen" steers for the scenario's buoy.
+ *    Hand: a rudder gauge, BB/SB 5°, Mitt.
  *  - Speed (centre): an engine-order telegraph, full astern to full ahead.
- *  - Context buttons: one Dyk/Yta button that follows the ballast, and Håll.
+ *  - Dyk/Yta (follows the main ballast), Håll, and the panels Ballast ▾,
+ *    Trim ▾ and Fart ▾ with each system's state and controls. A button in a
+ *    panel takes that system over (as the order does); the panel's header
+ *    hands it back to the crew.
  *
  * The mappings between screen position and depth or bearing are pure
  * functions (exported for the tests); drawing uses a 2D canvas when there is one.
  */
 import type { Controller } from '../control/controller';
-import { HELM_MAX_DEPTH, PERISCOPE_DEPTH, TELEGRAPH } from '../control/gameMode';
+import { CREW_NAME, CREW_ROLE, HELM_MAX_DEPTH, LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH, type CrewSystem } from '../control/crew';
+import { LIMITS } from '../control/parser';
 import type { Telemetry } from '../sim/simulation';
 import { h } from './dom';
 import type { InputModeState } from './inputMode';
 import { submitDive } from './keyboard';
-import { makeButton, type TouchButton } from './touch';
+import { makeButton, type ScreenButton } from './button';
 
 const DEG = 180 / Math.PI;
 
@@ -40,6 +47,9 @@ export function fractionToDepth(f: number): number {
   if (Math.abs(d - PERISCOPE_DEPTH) < 3) return PERISCOPE_DEPTH;
   return Math.min(HELM_MAX_DEPTH, Math.round(d / 5) * 5);
 }
+
+/** Rudder or plane angle [deg] under a fraction 0…1 across a gauge (whole degrees, ±max). */
+export const gaugeAngle = (f: number, max: number): number => Math.round((Math.max(0, Math.min(1, f)) - 0.5) * 2 * max);
 
 /** Half the compass band's width [deg]. */
 export const BAND_HALF_WIDTH = 60;
@@ -177,35 +187,68 @@ export interface HelmContext {
   waypoint: [number, number] | null;
 }
 
+type Panel = 'ballast' | 'trim' | 'speed';
+const PANEL_SYSTEM: Record<Panel, CrewSystem> = { ballast: 'ballast', trim: 'trim', speed: 'speed' };
+const PANEL_TITLE: Record<Panel, string> = { ballast: 'Ballast', trim: 'Trim', speed: 'Fart' };
+
 /**
- * Builds the simplified mode's screen controls in `root`. `getCtx` returns
- * null while no game is running (presses are then ignored). Returns the
- * update function, to call with fresh telemetry ~10 times a second.
+ * Builds the screen controls in `root`. `getCtx` returns null while no game
+ * is running (presses are then ignored). Returns the update function, to
+ * call with fresh telemetry ~10 times a second.
  */
 export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, mode: InputModeState): (t: Telemetry, ctx: HelmContext) => void {
   const submit = (fn: (c: Controller) => void) => {
     const ctx = getCtx();
     if (ctx) fn(ctx.ctrl);
   };
-  const fire = (b: TouchButton) => {
+  const fire = (b: ScreenButton) => {
     const ctx = getCtx();
     if (ctx && b.order) ctx.ctrl.submit(b.order, 'touch');
     if (ctx && b.run) b.run(ctx.ctrl);
+    b.action?.();
   };
-  const button = (b: TouchButton) => makeButton(b, fire, mode);
+  const button = (b: ScreenButton) => makeButton(b, fire, mode);
+  /** A button that acts once on press (no repeat), for panels and switches. */
+  const tapButton = (label: string, title: string, run: (c: Controller) => void, className = '') =>
+    makeButton({ label, title, run, className: `helm-small ${className}` }, fire, mode);
   let last: { t: Telemetry; ctx: HelmContext } | null = null;
   // The theme colours, read once: getComputedStyle forces a style recalculation.
   let palette: Colors | null = null;
   const pal = () => (palette ??= colors(root));
   // What each canvas last showed: it is redrawn only when that changes.
-  let depthKey = '';
-  let bandKey = '';
+  const keys = new Map<HTMLCanvasElement, string>();
+  const changed = (canvas: HTMLCanvasElement, key: string) => {
+    if (keys.get(canvas) === key) return false;
+    keys.set(canvas, key);
+    return true;
+  };
   const redraw = () => {
     if (last) update(last.t, last.ctx);
   };
 
-  // Depth.
+  /** The Auto/Hand switch of an axis: hands the axis to the crew or takes it over. */
+  const axisSwitch = (axis: 'depth' | 'heading') => {
+    const auto = tapButton('Auto', `${CREW_NAME[axis]}: besättningen håller målet`, (c) => c.submit({ kind: 'crew', system: axis, crew: true }, 'touch'), 'helm-seg');
+    const hand = tapButton('Hand', `${CREW_NAME[axis]}: du styr ${axis === 'depth' ? 'djuprodret' : 'rodret'}`, (c) => c.submit({ kind: 'crew', system: axis, crew: false }, 'touch'), 'helm-seg');
+    const el = h('div', { class: 'helm-switch', role: 'group', 'aria-label': `${CREW_NAME[axis]}: Auto eller Hand` }, auto, hand);
+    return {
+      el,
+      update(c: Controller) {
+        const crew = c.duty(axis);
+        const lock = c.options.locks[axis];
+        auto.classList.toggle('on', crew);
+        hand.classList.toggle('on', !crew);
+        auto.disabled = lock === false;
+        hand.disabled = lock === true;
+        const note = lock === undefined ? '' : LOCK_TEXT[axis][lock ? 0 : 1];
+        if (el.title !== note) el.title = note;
+      },
+    };
+  };
+
+  // ---- Depth: target scale (Auto) or stern planes (Hand).
   const depthReadout = h('div', { class: 'helm-readout' });
+  const depthSwitch = axisSwitch('depth');
   const depthCanvas = h('canvas', { class: 'helm-depth-scale', 'aria-label': 'Djupskala: tryck eller dra för att välja djup' });
   let depthPreview: number | null = null;
   bindDrag(
@@ -217,27 +260,43 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     },
     (depth) => submit((c) => c.submit({ kind: 'setDepth', depth }, 'touch')),
   );
+  const depthAutoBtns = h(
+      'div',
+      { class: 'helm-depth-btns' },
+      button({ label: '▲', title: 'Djup 5 m grundare', order: { kind: 'adjustDepth', deltaMetres: -5 }, repeat: true }),
+      button({ label: '▼', title: 'Djup 5 m djupare', order: { kind: 'adjustDepth', deltaMetres: 5 }, repeat: true }),
+      button({ label: `${PERISCOPE_DEPTH} m`, title: `Periskopdjup, ${PERISCOPE_DEPTH} m`, order: { kind: 'setDepth', depth: PERISCOPE_DEPTH }, className: 'helm-small' }),
+  );
+  const planesGauge = h('canvas', { class: 'helm-depth-scale helm-planes', 'aria-label': 'Djuproder: tryck eller dra för att lägga rodret' });
+  let planesPreview: number | null = null;
+  bindDrag(
+    planesGauge,
+    (_fx, fy) => gaugeAngle(fy, LIMITS.maxPlanes),
+    (v) => {
+      planesPreview = v;
+      redraw();
+    },
+    (angle) => submit((c) => c.submit({ kind: 'planes', angle }, 'touch')),
+  );
+  const depthHandBtns = h(
+    'div',
+    { class: 'helm-depth-btns' },
+    button({ label: '▲ Upp', title: 'Djuproder 5° upp', order: { kind: 'planes', angle: -5, relative: true }, repeat: true }),
+    button({ label: '▼ Ned', title: 'Djuproder 5° ned', order: { kind: 'planes', angle: 5, relative: true }, repeat: true }),
+    button({ label: 'Noll', title: 'Djuproder noll', order: { kind: 'planes', angle: 0 }, className: 'helm-small' }),
+  );
+  // The scale or the plane gauge, and beside it the Auto/Hand switch over the buttons.
+  depthSwitch.el.classList.add('vertical');
   const depthGroup = h(
     'div',
     { class: 'helm-group helm-depth' },
-    h('div', { class: 'touch-label' }, 'Djup'),
-    depthReadout,
-    h(
-      'div',
-      { class: 'helm-depth-row' },
-      depthCanvas,
-      h(
-        'div',
-        { class: 'helm-depth-btns' },
-        button({ label: '▲', title: 'Djup 5 m grundare', order: { kind: 'adjustDepth', deltaMetres: -5 }, repeat: true }),
-        button({ label: '▼', title: 'Djup 5 m djupare', order: { kind: 'adjustDepth', deltaMetres: 5 }, repeat: true }),
-        button({ label: `${PERISCOPE_DEPTH} m`, title: `Periskopdjup, ${PERISCOPE_DEPTH} m`, order: { kind: 'setDepth', depth: PERISCOPE_DEPTH }, className: 'helm-small' }),
-      ),
-    ),
+    h('div', { class: 'helm-head' }, h('span', { class: 'touch-label' }, 'Djup'), depthReadout),
+    h('div', { class: 'helm-depth-row' }, depthCanvas, planesGauge, h('div', { class: 'helm-depth-side' }, depthSwitch.el, depthAutoBtns, depthHandBtns)),
   );
 
-  // Course.
+  // ---- Course: compass band (Auto) or rudder (Hand).
   const courseReadout = h('div', { class: 'helm-readout' });
+  const courseSwitch = axisSwitch('heading');
   const band = h('canvas', { class: 'helm-band', 'aria-label': 'Kompass: tryck eller dra för att välja kurs' });
   let bandCentre = 0;
   let coursePreview: number | null = null;
@@ -264,22 +323,43 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
       c.submit({ kind: 'setHeading', heading: Math.round(bearingTo(c.sim.telemetry(), ctx.waypoint)) % 360 }, 'touch');
     },
   });
+  const courseAuto = h(
+    'div',
+    { class: 'touch-row helm-band-row' },
+    button({ label: '◀', title: 'Kurs 10° babord', order: { kind: 'adjustHeading', deltaDegrees: -10 }, repeat: true }),
+    band,
+    button({ label: '▶', title: 'Kurs 10° styrbord', order: { kind: 'adjustHeading', deltaDegrees: 10 }, repeat: true }),
+  );
+  const rudderGauge = h('canvas', { class: 'helm-band helm-rudder', 'aria-label': 'Roder: tryck eller dra för att lägga rodret' });
+  let rudderPreview: number | null = null;
+  bindDrag(
+    rudderGauge,
+    (fx) => gaugeAngle(fx, LIMITS.maxRudder),
+    (v) => {
+      rudderPreview = v;
+      redraw();
+    },
+    (angle) => submit((c) => c.submit({ kind: 'rudder', angle }, 'touch')),
+  );
+  const courseHand = h(
+    'div',
+    { class: 'touch-row helm-band-row' },
+    button({ label: '◀ BB', title: 'Roder 5° babord', order: { kind: 'rudder', angle: -5, relative: true }, repeat: true }),
+    rudderGauge,
+    button({ label: 'SB ▶', title: 'Roder 5° styrbord', order: { kind: 'rudder', angle: 5, relative: true }, repeat: true }),
+  );
+  const midBtn = button({ label: 'Mitt', title: 'Roder midskepps', order: { kind: 'rudder', angle: 0 }, className: 'helm-small' });
+  const courseBtns = h('div', { class: 'touch-row helm-course-btns' }, buoyBtn, midBtn);
   const courseGroup = h(
     'div',
     { class: 'helm-group helm-course' },
-    h('div', { class: 'touch-label' }, 'Kurs'),
-    courseReadout,
-    h(
-      'div',
-      { class: 'touch-row helm-band-row' },
-      button({ label: '◀', title: 'Kurs 10° babord', order: { kind: 'adjustHeading', deltaDegrees: -10 }, repeat: true }),
-      band,
-      button({ label: '▶', title: 'Kurs 10° styrbord', order: { kind: 'adjustHeading', deltaDegrees: 10 }, repeat: true }),
-    ),
-    buoyBtn,
+    h('div', { class: 'helm-head' }, h('span', { class: 'touch-label' }, 'Kurs'), courseReadout, courseSwitch.el),
+    courseAuto,
+    courseHand,
+    courseBtns,
   );
 
-  // Telegraph.
+  // ---- Telegraph.
   const speedReadout = h('div', { class: 'helm-readout' });
   const bells = TELEGRAPH.map((b) => {
     const el = button({ label: b.label, title: b.name, order: { kind: 'setSpeed', knots: b.knots }, className: `helm-bell${b.knots < 0 ? ' astern' : b.knots === 0 ? ' stop' : ''}` });
@@ -292,7 +372,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     h('div', { class: 'touch-row' }, ...bells.map((b) => b.el)),
   );
 
-  // Context buttons.
+  // ---- Dyk/Yta, Håll and the panel buttons.
   let ballastAction: 'dive' | 'surface' = 'dive';
   const ballastBtn = button({
     label: 'Dyk',
@@ -301,27 +381,251 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     run: (c) => (ballastAction === 'dive' ? submitDive(c, 'touch') : c.submit({ kind: 'surface' }, 'touch')),
   });
   const holdBtn = button({ label: 'Håll', title: 'Håll nuvarande kurs och djup', order: { kind: 'holdCourse' } });
-  const context = h('div', { class: 'touch-row helm-context' }, ballastBtn, holdBtn);
+  let open: Panel | null = null;
+  const panelBtns = (['ballast', 'trim', 'speed'] as const).map((p) => {
+    const el = tapButton(`${PANEL_TITLE[p]} ▾`, `${PANEL_TITLE[p]}: visa läget och reglagen`, () => toggle(p), 'helm-panel-btn');
+    el.setAttribute('aria-expanded', 'false');
+    return { p, el };
+  });
+  const actions = h(
+    'div',
+    { class: 'helm-actions' },
+    h('div', { class: 'touch-row helm-context' }, ballastBtn, holdBtn),
+    h('div', { class: 'touch-row helm-panel-row' }, ...panelBtns.map((b) => b.el)),
+  );
 
-  const centre = h('div', { class: 'helm-centre' }, context, telegraph);
-  root.replaceChildren(depthGroup, centre, courseGroup);
-  observer?.observe(depthCanvas);
-  observer?.observe(band);
+  // ---- Panels.
+  const panelTitle = h('b');
+  const panelRole = h('span', { class: 'helm-panel-role' });
+  const panelToggle = tapButton('', '', (c) => {
+    if (!open) return;
+    const sys = PANEL_SYSTEM[open];
+    c.submit({ kind: 'crew', system: sys, crew: !c.duty(sys) }, 'touch');
+  });
+  const closeBtn = h('button', { type: 'button', class: 'helm-panel-close', 'aria-label': 'Stäng' }, '✕');
+  closeBtn.addEventListener('click', () => toggle(null));
+  const panels = { ballast: ballastPanel(), trim: trimPanel(), speed: speedPanel() };
+  const panelEl = h(
+    'div',
+    { class: 'helm-panel panel', hidden: true },
+    h('div', { class: 'helm-panel-head' }, panelTitle, closeBtn),
+    h('div', { class: 'helm-panel-crew' }, panelRole, panelToggle),
+    ...Object.values(panels).map((x) => x.el),
+  );
+
+  function toggle(p: Panel | null): void {
+    open = open === p ? null : p;
+    panelEl.hidden = open === null;
+    for (const b of panelBtns) {
+      b.el.classList.toggle('open', b.p === open);
+      b.el.setAttribute('aria-expanded', String(b.p === open));
+    }
+    for (const [k, x] of Object.entries(panels)) x.el.hidden = k !== open;
+    redraw();
+  }
+
+  /** A labelled level bar. */
+  function level(label: string) {
+    const text = h('span');
+    const fill = h('div', { class: 'fill' });
+    const flags = h('span', { class: 'flags' });
+    return {
+      el: h('div', { class: 'helm-level' }, h('div', { class: 'tank-name' }, h('span', null, label), h('span', null, flags, ' ', text)), h('div', { class: 'bar' }, fill)),
+      set(value: string, frac: number, flag = '') {
+        setText(text, value);
+        setText(flags, flag);
+        fill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+      },
+    };
+  }
+
+  function ballastPanel() {
+    const group = (g: 'fwd' | 'aft' | 'all', label: string) =>
+      h(
+        'div',
+        { class: 'helm-panel-row' },
+        h('span', { class: 'helm-panel-label' }, label),
+        tapButton('Fyll', `Fyll huvudballast ${label.toLowerCase()}`, (c) => c.submit({ kind: 'mainBallast', action: 'flood', group: g }, 'touch')),
+        tapButton('Blås', `Blås huvudballast ${label.toLowerCase()}`, (c) => c.submit({ kind: 'mainBallast', action: 'blow', group: g }, 'touch')),
+        tapButton('Stäng', `Stäng huvudballast ${label.toLowerCase()}`, (c) => c.submit({ kind: 'mainBallast', action: 'shut', group: g }, 'touch')),
+      );
+    const fwd = level('Huvudballast för');
+    const aft = level('Huvudballast akter');
+    const air = level('HP-luft');
+    const bridgeState = h('span', { class: 'helm-panel-label' });
+    let manned = false;
+    const bridgeBtn = tapButton('', '', (c) => c.submit({ kind: 'bridge', manned: !manned }, 'touch'));
+    const el = h(
+      'div',
+      { class: 'helm-panel-body', hidden: true },
+      fwd.el,
+      aft.el,
+      group('fwd', 'För'),
+      group('aft', 'Akter'),
+      group('all', 'Båda'),
+      h('div', { class: 'helm-panel-row' }, bridgeState, bridgeBtn),
+      air.el,
+    );
+    return {
+      el,
+      update(t: Telemetry, c: Controller) {
+        const tank = (id: string) => t.tanks.find((x) => x.id === id);
+        for (const [lv, id] of [
+          [fwd, 'mbt_fwd'],
+          [aft, 'mbt_aft'],
+        ] as const) {
+          const x = tank(id);
+          if (x) lv.set(`${Math.round(x.fill * 100)} %`, x.fill, x.blowOpen ? 'BLÅS' : x.ventOpen ? 'VENT' : '');
+        }
+        air.set(`${Math.round(t.airPressure / 1e5)} bar`, t.airPressure / c.sim.cfg.air.bottlePressure);
+        manned = c.bridgeManned;
+        setText(bridgeState, manned ? 'Bryggan: bemannad' : 'Bryggan: utrymd');
+        setText(bridgeBtn, manned ? 'Klart bryggan' : 'Bemanna');
+        bridgeBtn.title = manned ? 'Klart bryggan: utrym den före dykning' : 'Bemanna bryggan (bara i ytläge)';
+      },
+    };
+  }
+
+  function trimPanel() {
+    const net = h('span', { class: 'helm-panel-value' });
+    const pumps = h('span', { class: 'helm-panel-value' });
+    const fwd = level('Trimtank för');
+    const aft = level('Trimtank akter');
+    const comp = level('Kompenseringstank');
+    const step = (label: string, title: string, order: (n: number) => Parameters<Controller['submit']>[0], n: number) =>
+      tapButton(label, title, (c) => c.submit(order(n), 'touch'));
+    const el = h(
+      'div',
+      { class: 'helm-panel-body', hidden: true },
+      h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Flytkraft'), net),
+      h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Pumpar'), pumps),
+      comp.el,
+      h(
+        'div',
+        { class: 'helm-panel-row' },
+        h('span', { class: 'helm-panel-label' }, 'Kompensera'),
+        step('In 100', 'Kompensera in 100 liter', (n) => ({ kind: 'compensate', litres: n }), 100),
+        step('In 500', 'Kompensera in 500 liter', (n) => ({ kind: 'compensate', litres: n }), 500),
+        step('Ut 100', 'Kompensera ut 100 liter', (n) => ({ kind: 'compensate', litres: -n }), 100),
+        step('Ut 500', 'Kompensera ut 500 liter', (n) => ({ kind: 'compensate', litres: -n }), 500),
+      ),
+      fwd.el,
+      aft.el,
+      h(
+        'div',
+        { class: 'helm-panel-row' },
+        h('span', { class: 'helm-panel-label' }, 'Trimma'),
+        step('För 100', 'Trimma 100 liter förut', (n) => ({ kind: 'trim', litres: n }), 100),
+        step('För 500', 'Trimma 500 liter förut', (n) => ({ kind: 'trim', litres: n }), 500),
+        step('Akter 100', 'Trimma 100 liter akterut', (n) => ({ kind: 'trim', litres: -n }), 100),
+        step('Akter 500', 'Trimma 500 liter akterut', (n) => ({ kind: 'trim', litres: -n }), 500),
+      ),
+    );
+    return {
+      el,
+      update(t: Telemetry) {
+        const kg = t.netBuoyancy / 9.80665;
+        const state = t.submergedFraction <= 0.999 ? 'ytläge' : kg < -100 ? 'tung' : kg > 100 ? 'lätt' : 'neutral';
+        setText(net, `${kg > 0 ? '+' : ''}${Math.round(kg)} kg · ${state} · stamp ${fmt(t.pitch * DEG)}°`);
+        const parts = [
+          t.compRemaining !== 0 ? `kompensering ${Math.round(Math.abs(t.compRemaining) * 1000)} l kvar` : '',
+          t.trimRemaining !== 0 ? `trim ${Math.round(Math.abs(t.trimRemaining) * 1000)} l kvar` : '',
+        ].filter(Boolean);
+        setText(pumps, parts.length ? parts.join(' · ') : 'stilla');
+        const tank = (id: string) => t.tanks.find((x) => x.id === id);
+        for (const [lv, id] of [
+          [fwd, 'trim_fwd'],
+          [aft, 'trim_aft'],
+          [comp, 'comp'],
+        ] as const) {
+          const x = tank(id);
+          if (x) lv.set(`${Math.round(x.water * 1000)} l`, x.fill);
+        }
+      },
+    };
+  }
+
+  function speedPanel() {
+    const speed = h('span', { class: 'helm-panel-value' });
+    const rpm = h('span', { class: 'helm-panel-value' });
+    const rpmStep = (delta: number) =>
+      tapButton(`Varv ${delta > 0 ? '+' : '−'}${Math.abs(delta)}`, `Propellervarv ${delta > 0 ? '+' : '−'}${Math.abs(delta)} rpm`, (c) => {
+        const now = Math.round(c.sim.telemetry().rpsCmd * 60);
+        const next = Math.max(-LIMITS.maxRpmAstern, Math.min(LIMITS.maxRpm, now + delta));
+        c.submit({ kind: 'setRpm', rpm: next }, 'touch');
+      });
+    const el = h(
+      'div',
+      { class: 'helm-panel-body', hidden: true },
+      h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Fart'), speed),
+      h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Varv'), rpm),
+      h(
+        'div',
+        { class: 'helm-panel-row' },
+        h('span', { class: 'helm-panel-label' }, 'Fartmål'),
+        tapButton('−1 knop', 'Fartmål 1 knop lägre', (c) => c.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'touch')),
+        tapButton('+1 knop', 'Fartmål 1 knop högre', (c) => c.submit({ kind: 'adjustSpeed', deltaKnots: 1 }, 'touch')),
+      ),
+      h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Varv'), rpmStep(-10), rpmStep(10), tapButton('Stopp', 'Propellervarv 0', (c) => c.submit({ kind: 'setRpm', rpm: 0 }, 'touch'))),
+    );
+    return {
+      el,
+      update(t: Telemetry) {
+        const kn = (t.u * 3600) / 1852;
+        setText(speed, kn < -0.05 ? `back ${fmt(-kn)} knop` : `${fmt(Math.max(0, kn))} knop`);
+        setText(rpm, `${Math.round(t.rps * 60)} rpm (order ${Math.round(t.rpsCmd * 60)}) · ${Math.round(t.shaftPower / 1000)} kW`);
+      },
+    };
+  }
+
+  const centre = h('div', { class: 'helm-centre' }, actions, telegraph);
+  root.replaceChildren(depthGroup, centre, courseGroup, panelEl);
+  for (const c of [depthCanvas, band, planesGauge, rudderGauge]) observer?.observe(c);
 
   function update(t: Telemetry, ctx: HelmContext): void {
     last = { t, ctx };
     const c = ctx.ctrl;
     const depth = t.depth;
     const heading = t.heading * DEG;
+    const depthAutoOn = c.ap.depth;
+    const headingAutoOn = c.ap.heading;
+
+    // Auto/Hand: which body each group shows.
+    depthSwitch.update(c);
+    courseSwitch.update(c);
+    depthCanvas.hidden = !depthAutoOn;
+    depthAutoBtns.hidden = !depthAutoOn;
+    planesGauge.hidden = depthAutoOn;
+    depthHandBtns.hidden = depthAutoOn;
+    courseAuto.hidden = !headingAutoOn;
+    courseHand.hidden = headingAutoOn;
+    midBtn.hidden = headingAutoOn;
+    buoyBtn.hidden = !headingAutoOn || ctx.waypoint === null;
+    courseBtns.hidden = buoyBtn.hidden && midBtn.hidden;
 
     // Readouts.
-    const depthTarget = depthPreview ?? (c.ap.depth ? (c.surfaceHold ? 0 : c.setpoints.depth) : null);
-    setText(depthReadout, `${Math.round(depth)} m${depthTarget !== null ? ` → ${depthTarget === 0 && depthPreview === null ? 'yta' : `${depthTarget} m`}` : ''}`);
-    const courseTarget = coursePreview ?? (c.ap.heading ? c.setpoints.heading : null);
-    setText(courseReadout, `${bearing3(heading)}°${courseTarget !== null ? ` → ${bearing3(courseTarget)}°` : ''}`);
+    const depthTarget = depthPreview ?? (depthAutoOn ? (c.surfaceHold ? 0 : c.setpoints.depth) : null);
+    const planesCmd = planesPreview ?? Math.round(t.sternPlanesCmd * DEG);
+    setText(
+      depthReadout,
+      depthAutoOn
+        ? `${Math.round(depth)} m${depthTarget !== null ? ` → ${depthTarget === 0 && depthPreview === null ? 'yta' : `${depthTarget} m`}` : ''}`
+        : `${Math.round(depth)} m · ${angleText(planesCmd, 'ned', 'upp')}`,
+    );
+    const courseTarget = coursePreview ?? (headingAutoOn ? c.setpoints.heading : null);
+    const rudderCmd = rudderPreview ?? Math.round(t.rudderCmd * DEG);
+    setText(
+      courseReadout,
+      headingAutoOn
+        ? `${bearing3(heading)}°${courseTarget !== null ? ` → ${bearing3(courseTarget)}°` : ''}`
+        : `${bearing3(heading)}° · ${angleText(rudderCmd, 'SB', 'BB')}`,
+    );
     const order = c.ap.speed ? c.setpoints.speed : null;
     const bell = order === null ? null : TELEGRAPH.find((b) => Math.abs(b.knots - order) < 0.01);
-    setText(speedReadout, order === null ? '' : bell ? bell.name : order < 0 ? `Back ${fmt(-order)} kn` : `${fmt(order)} kn`);
+    setText(
+      speedReadout,
+      order === null ? `Varv ${Math.round(t.rpsCmd * 60)}` : bell ? bell.name : order < 0 ? `Back ${fmt(-order)} kn` : `${fmt(order)} kn`,
+    );
 
     // Telegraph: the ordered bell lit; a speed between two bells marks both neighbours.
     const above = order === null || bell ? undefined : TELEGRAPH.find((x) => x.knots > order)?.knots;
@@ -341,26 +645,34 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     const flooding = mbt.some((x) => x.ventOpen);
     ballastAction = blowing ? 'dive' : flooding || fill >= 0.5 ? 'surface' : 'dive';
     setText(ballastBtn, ballastAction === 'dive' ? 'Dyk' : 'Yta');
-    const title = ballastAction === 'dive' ? 'Dyk: fyll huvudballasten' : 'Ytläge: blås huvudballasten';
-    if (ballastBtn.title !== title) {
-      ballastBtn.title = title;
-      ballastBtn.setAttribute('aria-label', title);
+    setTitle(ballastBtn, ballastAction === 'dive' ? 'Dyk: fyll huvudballasten' : 'Ytläge: blås huvudballasten');
+
+    // Panel buttons are marked while the player handles that system.
+    for (const b of panelBtns) b.el.classList.toggle('self', !c.duty(PANEL_SYSTEM[b.p]));
+    if (open) {
+      const sys = PANEL_SYSTEM[open];
+      const crew = c.duty(sys);
+      const lock = c.options.locks[sys];
+      setText(panelTitle, CREW_NAME[sys]);
+      setText(panelRole, lock === undefined ? CREW_ROLE[sys][crew ? 0 : 1] : LOCK_TEXT[sys][lock ? 0 : 1]);
+      setText(panelToggle, crew ? 'Ta över' : 'Lämna till besättningen');
+      setTitle(panelToggle, crew ? `Du tar över: ${CREW_NAME[sys].toLowerCase()}` : `Besättningen tar över: ${CREW_NAME[sys].toLowerCase()}`);
+      panelToggle.hidden = lock !== undefined;
+      panels[open].update(t, c);
     }
 
-    buoyBtn.hidden = ctx.waypoint === null;
     if (coursePreview === null) bandCentre = heading;
-
-    drawDepth(t, c, depthTarget);
-    drawBand(t, heading, courseTarget, ctx.waypoint);
+    if (depthAutoOn) drawDepth(t, c, depthTarget);
+    else drawGauge(planesGauge, true, planesCmd, t.sternPlanes * DEG, LIMITS.maxPlanes, planesPreview !== null);
+    if (headingAutoOn) drawBand(t, heading, courseTarget, ctx.waypoint);
+    else drawGauge(rudderGauge, false, rudderCmd, t.rudder * DEG, LIMITS.maxRudder, rudderPreview !== null);
   }
 
   function drawDepth(t: Telemetry, c: Controller, target: number | null): void {
-    const limit = c.options.safetyNet ? c.assist.depthLimit() : HELM_MAX_DEPTH;
+    const limit = c.options.crew.safetyNet ? c.assist.depthLimit() : HELM_MAX_DEPTH;
     // Rounded to about a pixel: the scale is ~0.7 px/m at 30 m and coarser below.
     const size = sizeOf(depthCanvas);
-    const key = `${size.w}x${size.h} ${Math.round(t.depth * 2)} ${target} ${depthPreview !== null} ${Math.round(t.seabedDepth)} ${limit}`;
-    if (key === depthKey) return;
-    depthKey = key;
+    if (!changed(depthCanvas, `${size.w}x${size.h} ${Math.round(t.depth * 2)} ${target} ${depthPreview !== null} ${Math.round(t.seabedDepth)} ${limit}`)) return;
     const g = canvas2d(depthCanvas);
     if (!g) return;
     const col = pal();
@@ -374,17 +686,14 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
       g.fillRect(0, y(t.seabedDepth), w, H - y(t.seabedDepth));
     }
     // Safety-net limit.
-    {
-      const lim = limit;
-      if (lim < HELM_MAX_DEPTH) {
-        g.strokeStyle = col.error;
-        g.setLineDash([3, 3]);
-        g.beginPath();
-        g.moveTo(0, y(lim));
-        g.lineTo(w, y(lim));
-        g.stroke();
-        g.setLineDash([]);
-      }
+    if (limit < HELM_MAX_DEPTH) {
+      g.strokeStyle = col.error;
+      g.setLineDash([3, 3]);
+      g.beginPath();
+      g.moveTo(0, y(limit));
+      g.lineTo(w, y(limit));
+      g.stroke();
+      g.setLineDash([]);
     }
     // Ticks.
     g.font = '9px system-ui, sans-serif';
@@ -417,9 +726,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     const buoy = waypoint ? Math.round(bearingTo(t, waypoint) * 2) : null;
     // Rounded to about a pixel: the band is ~2 px per degree.
     const size = sizeOf(band);
-    const key = `${size.w}x${size.h} ${Math.round(heading * 2)} ${Math.round(bandCentre * 2)} ${target} ${coursePreview !== null} ${buoy}`;
-    if (key === bandKey) return;
-    bandKey = key;
+    if (!changed(band, `${size.w}x${size.h} ${Math.round(heading * 2)} ${Math.round(bandCentre * 2)} ${target} ${coursePreview !== null} ${buoy}`)) return;
     const g = canvas2d(band);
     if (!g) return;
     const col = pal();
@@ -478,11 +785,68 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     }
   }
 
+  /**
+   * A rudder (horizontal, port left) or stern-plane gauge (vertical, "upp"
+   * at the top): the ordered angle as a marker, the actual angle as a bar.
+   */
+  function drawGauge(canvas: HTMLCanvasElement, vertical: boolean, cmd: number, actual: number, max: number, preview: boolean): void {
+    const size = sizeOf(canvas);
+    if (!changed(canvas, `${size.w}x${size.h} ${cmd} ${Math.round(actual * 2)} ${preview}`)) return;
+    const g = canvas2d(canvas);
+    if (!g) return;
+    const col = pal();
+    const { w, h: H } = size;
+    const len = vertical ? H : w;
+    const pos = (a: number) => (0.5 + Math.max(-1, Math.min(1, a / max)) / 2) * len;
+    g.fillStyle = col.water;
+    g.fillRect(0, 0, w, H);
+    g.font = '9px system-ui, sans-serif';
+    g.fillStyle = col.muted;
+    for (const a of [-20, -10, 0, 10, 20]) {
+      const p = pos(a);
+      if (vertical) g.fillRect(0, p, a === 0 ? w : 6, 1);
+      else g.fillRect(p, H - (a === 0 ? H : 6), 1, a === 0 ? H : 6);
+    }
+    g.textBaseline = 'top';
+    if (vertical) {
+      g.fillText('UPP', 3, 3);
+      g.textBaseline = 'bottom';
+      g.fillText('NED', 3, H - 3);
+    } else {
+      g.fillText('BB', 3, 3);
+      g.textAlign = 'right';
+      g.fillText('SB', w - 3, 3);
+      g.textAlign = 'left';
+    }
+    // Actual angle: a bar from zero.
+    g.fillStyle = col.accent;
+    const z = pos(0);
+    const p = pos(actual);
+    if (vertical) g.fillRect(w / 2 - 4, Math.min(z, p), 8, Math.max(2, Math.abs(p - z)));
+    else g.fillRect(Math.min(z, p), H / 2 - 4, Math.max(2, Math.abs(p - z)), 8);
+    // Ordered angle: a marker.
+    g.fillStyle = preview ? col.warn : col.text;
+    const m = pos(cmd);
+    if (vertical) g.fillRect(4, m - 1, w - 8, 3);
+    else g.fillRect(m - 1, 4, 3, H - 8);
+  }
+
   return update;
+}
+
+/** "5° ned", "12° SB", "0°". */
+function angleText(a: number, positive: string, negative: string): string {
+  return a === 0 ? '0°' : `${Math.abs(a)}° ${a > 0 ? positive : negative}`;
 }
 
 const fmt = (v: number) => String(Math.round(v * 10) / 10).replace('.', ',');
 
 function setText(el: HTMLElement, text: string): void {
   if (el.textContent !== text) el.textContent = text;
+}
+
+function setTitle(el: HTMLElement, title: string): void {
+  if (el.title === title) return;
+  el.title = title;
+  el.setAttribute('aria-label', title);
 }
