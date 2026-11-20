@@ -133,6 +133,12 @@ export class Controller {
    */
   bridgeManned: boolean;
 
+  /** Seconds the periscope head has been above the water without a break (0 when housed or under). */
+  periscopeExposure = 0;
+
+  /** The last reported bearing: where the boat was and whether anything could be seen. */
+  lastBearing: { bearing: number; t: number; position: [number, number]; lookout: boolean } | null = null;
+
   /** Main ballast vents shut automatically once the tanks are full (after "dyk"). */
   private shutVentsWhenFull = false;
 
@@ -209,6 +215,8 @@ export class Controller {
       this.bridgeManned = false;
       this.addLog('Vatten över bryggan! Bryggan är utrymd.', 'error');
     }
+    const headUp = sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0;
+    this.periscopeExposure = headUp ? this.periscopeExposure + DT : 0;
     if (this.options.mode === 'simplified') this.assist.step();
 
     const grounded = sim.groundContacts > 0;
@@ -346,6 +354,13 @@ export class Controller {
       case 'bridge':
         this.bridgeManned = o.manned;
         break;
+      case 'reportBearing': {
+        // Something can be seen from a raised periscope above the water or from the bridge.
+        const lookout = this.bridgeManned || (sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0);
+        this.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout };
+        if (!lookout) this.addLog('Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.', 'error');
+        break;
+      }
     }
   }
 

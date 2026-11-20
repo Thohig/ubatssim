@@ -38,6 +38,7 @@ export const HELP_TEXT = [
   'klart bryggan            – utrym bryggan före dykning',
   'bemanna bryggan          – gå upp på bryggan (i ytläge)',
   'periskop upp|ned',
+  'bäring <grader>          – rapportera bäringen till något du ser',
   'trimma för|akter <liter> – pumpa mellan trimtankarna',
   'kompensera in|ut <liter> – ta in eller pumpa ut vatten',
   'autopilot på|av [djup|kurs|fart]',
@@ -58,6 +59,7 @@ const COMMANDS: Record<string, string[]> = {
   klart: ['klart', 'klara', 'utrym'],
   bemanna: ['bemanna'],
   periskop: ['periskop', 'per'],
+  bäring: ['bäring', 'baring', 'brg'],
   blås: ['blås', 'blas'],
   stäng: ['stäng', 'stang'],
   trimma: ['trimma', 'trim'],
@@ -212,6 +214,11 @@ export function parseCommand(input: string): ParseResult {
         return err(`Skriv "${cmd} bryggan".`);
       }
       return ok({ kind: 'bridge', manned: cmd === 'bemanna' });
+    }
+
+    case 'bäring': {
+      const n = parseNumberArg(t.withoutUnits(), 'en bäring i grader', 'bäring 75', 0, 360);
+      return isResult(n) ? n : ok({ kind: 'reportBearing', bearing: n % 360 });
     }
 
     case 'periskop': {

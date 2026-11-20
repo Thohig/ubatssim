@@ -39,7 +39,9 @@ export type Order =
   /** Raise or lower the search periscope. */
   | { kind: 'periscope'; up: boolean }
   /** Man the bridge, or clear it before diving. */
-  | { kind: 'bridge'; manned: boolean };
+  | { kind: 'bridge'; manned: boolean }
+  /** Report a true bearing [deg] to something seen through the periscope or from the bridge. */
+  | { kind: 'reportBearing'; bearing: number };
 
 export interface QueuedOrder {
   order: Order;
@@ -104,5 +106,7 @@ export function acknowledgement(o: Order): string {
       return `Periskop ${o.up ? 'upp' : 'ned'}, ja`;
     case 'bridge':
       return o.manned ? 'Bemanna bryggan, ja' : 'Klart bryggan, ja';
+    case 'reportBearing':
+      return `Bäring ${String(Math.round(o.bearing) % 360).padStart(3, '0')}, ja`;
   }
 }

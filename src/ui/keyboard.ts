@@ -2,7 +2,7 @@ import type { Controller } from '../control/controller';
 import { PERISCOPE_DEPTH } from '../control/gameMode';
 import type { OrderSource } from '../control/orders';
 import type { InputModeState } from './inputMode';
-import { cycleView, togglePeriscope, type ViewState } from './views';
+import { cycleView, reportViewBearing, togglePeriscope, type ViewState } from './views';
 
 /**
  * "Dyk" in the simplified simulation: flood the main ballast and, unless a
@@ -26,6 +26,7 @@ export function submitDive(ctrl: Controller, source: OrderSource): void {
  * Both:
  *   Shift+↑/↓  speed ±1 knot               Enter or /  open the console
  *   V  next view   P  periscope up/down   Z  periscope magnification
+ *   B  report the bearing of the cross hair / bridge look
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
 export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeState, openConsole: () => void, views: ViewState): void {
@@ -54,6 +55,10 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
       case 'z':
         if (views.mode !== 'periscope') return;
         views.toggleZoom();
+        break;
+      case 'b':
+        if (views.mode === 'external') return;
+        reportViewBearing(ctrl, views, 'keyboard');
         break;
       case 'ArrowLeft':
         if (simple) ctrl.submit({ kind: 'adjustHeading', deltaDegrees: -10 }, 'keyboard');

@@ -146,6 +146,19 @@ export function cycleView(ctrl: Controller, views: ViewState, source: OrderSourc
   views.cycle(available);
 }
 
+/** True bearing [deg] the bridge look or the periscope points at. */
+export function viewBearing(ctrl: Controller, views: ViewState): number {
+  const rel = views.mode === 'bridge' ? views.bridgeYaw : views.mode === 'periscope' ? views.periscopeBearing : 0;
+  const deg = ((ctrl.sim.kinematics().heading + rel) * 180) / Math.PI;
+  return ((deg % 360) + 360) % 360;
+}
+
+/** B / "Brg": report the bearing of the cross hair (or the bridge look). */
+export function reportViewBearing(ctrl: Controller, views: ViewState, source: OrderSource): void {
+  if (views.mode === 'external') return;
+  ctrl.submit({ kind: 'reportBearing', bearing: Math.round(viewBearing(ctrl, views)) % 360 }, source);
+}
+
 /** P / "Per": raise a housed periscope, lower a raised one. */
 export function togglePeriscope(ctrl: Controller, source: OrderSource): void {
   ctrl.submit({ kind: 'periscope', up: !ctrl.sim.commands.periscopeUp }, source);
@@ -156,9 +169,14 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
   root.innerHTML = `
     <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
     <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
-    <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>`;
+    <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
+    <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>`;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
-  const sync = () => (zoom.hidden = views.mode !== 'periscope');
+  const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
+  const sync = () => {
+    zoom.hidden = views.mode !== 'periscope';
+    brg.hidden = views.mode === 'external';
+  };
   sync();
   views.onChange(sync);
   root.addEventListener('click', (e) => {
@@ -167,6 +185,7 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     if (!b || !ctrl) return;
     if (b.dataset.v === 'view') cycleView(ctrl, views, 'touch');
     else if (b.dataset.v === 'periscope') togglePeriscope(ctrl, 'touch');
+    else if (b.dataset.v === 'bearing') reportViewBearing(ctrl, views, 'touch');
     else views.toggleZoom();
   });
 }

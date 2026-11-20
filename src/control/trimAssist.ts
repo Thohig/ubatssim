@@ -35,12 +35,12 @@ export const ASSIST = {
   minDepth: 8,
   /**
    * Only compensate when the depth is steady: vertical speed below this
-   * [m/s], within `steadyBand` [m] of the depth target, for `steadyTime` [s].
-   * While the boat changes depth the air left in the main ballast and the
-   * hull compress, so the net buoyancy is still moving.
+   * [m/s] for `steadyTime` [s]. While the boat changes depth the air left in
+   * the main ballast and the hull compress, so the net buoyancy is still
+   * moving. A boat that hangs still short of its target (too light or too
+   * heavy for the planes) counts as steady: that is when it needs water.
    */
   steadyRate: 0.15,
-  steadyBand: 3,
   steadyTime: 15,
   /** Averaging window for the stern-plane angle [s]. */
   trimWindow: 20,
@@ -90,7 +90,7 @@ export class TrimAssist {
     if (sim.compRemaining !== 0) this.compIdleSince = sim.t;
     if (sim.trimRemaining !== 0) this.trimIdleSince = sim.t;
     const k = sim.kinematics();
-    const steady = Math.abs(k.depthRate) < ASSIST.steadyRate && (!ctrl.ap.depth || Math.abs(k.depth - ctrl.setpoints.depth) < ASSIST.steadyBand);
+    const steady = Math.abs(k.depthRate) < ASSIST.steadyRate;
     if (!steady) this.unsteadySince = sim.t;
     if (ctrl.ap.depth && Math.abs(k.depth - ctrl.setpoints.depth) < 2 && Math.abs(k.depthRate) < 0.2 && k.u > 2 && k.depth > ASSIST.minDepth) {
       this.planesSum += sim.actuators.sternPlanes;

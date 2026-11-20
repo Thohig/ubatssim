@@ -291,13 +291,23 @@ export class Menu {
               <tr><td>P</td><td colspan="2">Periskop upp / ned. Vyn öppnas när masten är uppe.</td></tr>
               <tr><td>Z</td><td colspan="2">Periskopets förstoring, 1,5× eller 6×</td></tr>
               <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
+              <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
               <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
               <tr><td>Esc</td><td colspan="2">Lämna konsolen, eller pausa</td></tr>
             </table>
             <h3>Vyer</h3>
             <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker: skriv <code>klart bryggan</code> i realistisk simulering. I förenklad simulering sköts det automatiskt.</p>
             <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
-            <p>Knapparna Vy, Per och Zoom under ☰ gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+            <p>Knapparna Vy, Per, Zoom och Brg under ☰ gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+            <h3>Havsområden och väder</h3>
+            <p>I fritt spel väljer du havsområde, ljus och sikt (dag, natt, dimma) och sjögång. Ubåtens fasta barlast är anpassad för området, men skikten i vattnet skiljer sig:</p>
+            <ul>
+              <li><b>Västerhavet:</b> språngskikt på 40–70 m. Ström norrut längs kusten.</li>
+              <li><b>Östersjön:</b> bräckt vatten och ett saltsprångskikt på 60–80 m. Under det blir ubåten flera ton lättare.</li>
+              <li><b>Fjorden:</b> sötvatten i ytan som strömmar ut ur fjorden, en grund tröskel vid mynningen och 380 m djupt innanför.</li>
+              <li><b>Atlanten:</b> ingen botten inom räckhåll. Krossdjupet 300 m är gränsen.</li>
+            </ul>
+            <p>Instrumentpanelen visar farten genom vattnet. Under "Mer" finns fart och kurs över grund och strömmen. I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
             <h3>Pekskärm</h3>
             <p>Knapparna längst ner har samma funktioner som tangenterna. I förenklad simulering ändrar ◀ / ▶ kursen och ▲ / ▼ djupet, och Dyk och Yta sköter huvudballasten. Håll in för att upprepa. <code>&gt;_</code> öppnar konsolen och ☰ pausar.</p>
             <h3>Kommandon</h3>

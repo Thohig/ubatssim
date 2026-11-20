@@ -61,9 +61,41 @@ q̇  = ½ q ⊗ (0, ν₂)
 
 - **Skivmodell:** skrovet delas i 80 skivor. För varje skiva beräknas den nedsänkta arean av cirkeln och dess tyngdpunkt exakt, för en rak vattenlinje i skivans plan som tar hänsyn till krängning och stamp. Summan ger flytkraft, flytcentrum och rätande moment i alla lägen, från ytläge till helt nedsänkt.
 - **Tornet** är fritt vattenfyllt och ger ingen flytkraft.
-- **Vattnets densitet:** ρ(z) = ρ₀(1 + κ_w ρ₀ g z) + Δρ_termoklin(z). ρ₀ = 1 025 kg/m³ och κ_w = 4,4·10⁻¹⁰ Pa⁻¹. Termoklinen ger +0,8 kg/m³ mellan 40 och 70 m.
+- **Vattnets densitet:** ρ(z) = ρ₀(1 + κ_w ρ₀ g z) + Σ Δρᵢ·s((z − topᵢ)/(bottenᵢ − topᵢ)), där s är en mjuk steg­funktion (smoothstep) och κ_w = 4,4·10⁻¹⁰ Pa⁻¹. Ytdensiteten ρ₀ och skikten beror på havsområdet (`config/waters.ts`, EOS-80):
+
+  | Område | ρ₀ (kg/m³) | Skikt |
+  |---|---|---|
+  | Västerhavet | 1 025,0 | +0,8 kg/m³ på 40–70 m (termoklin) |
+  | Östersjön | 1 005,4 | +0,6 på 20–40 m (termoklin), +2,4 på 60–80 m (haloklin) |
+  | Fjorden | 1 012,0 | +14,5 på 3–9 m (botten av sötvattenskiktet) |
+  | Atlanten | 1 026,6 | +0,6 på 50–150 m |
+
+- **Trycket** är den exakta integralen av densitetsprofilen: p(z) = p_atm + g[ρ₀z + ρ₀²κ_w g z²/2 + Σ Δρᵢ·Iᵢ(z)], där Iᵢ är integralen av smoothstep (t³ − t⁴/2 inom skiktet).
+- **Fast barlast per område:** torrvikten härleds med områdets vattenprofil, som när en marin justerar barlasten i hamn inför ett nytt hav. Ubåten är därför neutral på konstruktionsdjupet i alla områden, och skillnaderna märks i skikten. Kompenseringstanken (20 m³) skulle inte räcka för skillnaden mellan Västerhavets och Östersjöns ytvatten (~30 t).
+- **Neutral start:** startläget `neutral` justerar kompenseringstanken så att flytkraften är lika med vikten på startdjupet.
 - **Skrovets kompression:** V = V₀(1 − κ_h Δp) med κ_h = 6·10⁻¹⁰ Pa⁻¹ (APPROX). Eftersom κ_h > κ_w blir ubåten långsamt tyngre ju djupare den går, som riktiga stålskrov.
 - **Tyngdkraften** angriper i tyngdpunkten.
+
+## Ström och sjögång
+
+- **Ström:** varje område har en ytström v_c = U·e^(−d/d₀) i en fast riktning: Västerhavet 0,25 m/s norrut (d₀ = 20 m), Östersjön 0,1 m/s (15 m), fjorden 0,4 m/s söderut (6 m) och Atlanten 0,3 m/s mot nordost (150 m). APPROX.
+- **Relativ hastighet:** dämpning, fenor, propeller (anströmningen V_a) och periskopmasten räknas på ν_r = ν − ν_c [F21 §10.3]. Rörelsen mot botten ges av ν. För en ström som är konstant i NED är ν̇_c = −ω × v_c i kroppsaxlar, och (M_RB + M_A)ν̇ får tillägget M_A·ν̇_c.
+- **Loggen** visar farten genom vattnet, och autopiloten reglerar på den. Fart och kurs över grund visas separat. Startfarten gäller genom vattnet, så ubåten driver med strömmen från början.
+- **Vågor:** en deterministisk summa av sju reguljära djupvattenvågor (ω² = gk) med amplituder från ett Pierson–Moskowitz-spektrum, spridda ±0,5 rad i riktning och 0,75–1,7·ω_p i frekvens. Σa² = Hs²/8 ger rätt signifikant våghöjd. Faserna är fasta.
+
+  | Sjögång | Hs | Tp |
+  |---|---|---|
+  | Lugnt | 0 | – |
+  | Måttlig sjö | 1,25 m | 6 s |
+  | Grov sjö | 3 m | 8,5 s |
+
+- **Vågorna i fysiken:**
+  - Varje skiva i hydrostatiken räknas mot den lokala vattenytan η(x, y, t) (Froude–Krylov i hydrostatisk form).
+  - Vågornas banhastighet (linjär teori, avtar som e^(−kd)) läggs till strömmen i den relativa hastigheten.
+  - Periskophuvudets och bryggans djup räknas mot vågytan.
+- **Ytläget:**
+  - **Strålningsdämpning:** där skrovet skär vattenlinjen verkar en vertikal kraft −c·b·dx·w per skiva, där b är vattenlinjens bredd och w skivans vertikalfart mot vattnet. c = 4 000 N s/m³ ger ζ ≈ 0,2 i hiv vid fart noll. APPROX. Utan den saknade det dämpning i hiv, och hivresonansen (~6 s) gav orimliga rörelser i grov sjö.
+  - **Lågtrycksblåsare:** när bryggan är bemannad blåser den in 1,5 m³/s luft (fri luft) i huvudballasten, upp till 0,7 bar övertryck. Annars pumpar vågorna ut luften genom bottenöppningarna. APPROX.
 
 ## Huvudballast och tryckluft
 
@@ -128,6 +160,12 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 - **Reaktionsmomentet** −Q verkar på skrovet och ger en liten krängning.
 - **Resultat:** ~19 knop vid 240 rpm.
 
+## Periskop och brygga
+
+- **Periskopet** är en teleskopmast med foten överst i tornet (x = 8,6 m, 7,7 m över centrumlinjen). Den hissas 7,5 m på 8 s. Uppe sitter huvudet 15,2 m över centrumlinjen, så det når över stilla vatten ner till ~14 m djup (CO), med kölen på ~17 m. Periskopdjupet i spelet är 13 m.
+- **Mastens motstånd:** den våta delen av masten ger tvärströmsmotstånd ½ρC_D·D·L·u|u| (C_D = 1,0, D = 0,35 m) i fram- och sidled, med moment kring dess mitt. Vid 8 knop blir det några kN.
+- **Bryggan:** ögonpunkten sitter 8,6 m över centrumlinjen, durken på 7,4 m och brygglisten 1,1 m över durken. Når vattnet över listan utryms bryggan.
+
 ## Grundstötning
 
 - **Terrängen** är en deterministisk höjdfunktion (`terrain.ts`, parametrar i `config/terrain.ts`). Den beskriver övergången från öppet hav (280–375 m) till en skärgård i Bohusläns stil, med rundade granithällar, kobbar och sund längs nord–sydliga sprickdalar. Simuleringen läser den via ett cachat rutnät med 4 m upplösning och bilinjär interpolation.
@@ -152,7 +190,7 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 
 Assistenten ändrar inget i fysiken. Den ger samma order som spelaren kan ge, och pumparnas kapacitet begränsar den.
 
-- **Kompensering:** när ubåten är helt nedsänkt under 8 m, huvudballasten är full och djupet har varit stilla i 15 s (vertikalfart under 0,15 m/s, inom 3 m från djupmålet), filtreras flytkraftsöverskottet med tidskonstanten 10 s. Avviker det mer än 50 kg, pumpas skillnaden i portioner om högst 200 l. Assistenten väntar 10 s efter varje pumpning. Kravet på stilla djup finns eftersom luftresten i huvudballasten och skrovet trycks ihop medan ubåten byter djup.
+- **Kompensering:** när ubåten är helt nedsänkt under 8 m, huvudballasten är full och djupet har varit stilla i 15 s (vertikalfart under 0,15 m/s), filtreras flytkraftsöverskottet med tidskonstanten 10 s. Avviker det mer än 50 kg, pumpas skillnaden i portioner om högst 200 l. Assistenten väntar 10 s efter varje pumpning. Kravet på stilla djup finns eftersom luftresten i huvudballasten och skrovet trycks ihop medan ubåten byter djup. En ubåt som hänger stilla ovanför sitt djupmål, för att den är för lätt för djuprodren, räknas som stilla. Det är just då den behöver vatten.
 - **Trim:** djuprodrets medelutslag över 20 s, medan djupautopiloten håller djupet, ger det stampmoment som rodret står för: ½ρU²·A·C_Lα·δ·|x_fena|. Halva den vattenmängd som ger samma moment flyttas mellan trimtankarna, högst 200 l per gång.
 - **Skyddsnät:** nödblåsning under 255 m, eller om ubåten sjunker fortare än 2 m/s under 250 m. Djupbörvärdet begränsas till bottendjupet minus skrovradien minus 10 m, under ubåten och upp till 150 m framåt.
 
@@ -161,7 +199,11 @@ Assistenten ändrar inget i fysiken. Den ger samma order som spelaren kan ge, oc
 - **Hydrodynamiska koefficienter:** skrovkoefficienterna, rulldämpningen, fenornas lyftlutning och motorns data är uppskattningar (APPROX). De är inte kontrollerade mot publicerade tabeller.
 - **Tankarna:** fri vätskeyta i tankarna och impulsflödet från in- och utströmmande vatten försummas.
 - **Tryckluften** behandlas som isoterm. En verklig blåsning är närmare adiabatisk och kyler luften.
-- **Ytläget:** vågor och vågmotstånd modelleras inte, och de hydrodynamiska krafterna minskas inte när ubåten går i ytläge.
+- **Ytläget och vågorna:**
+  - Vågorna verkar hydrostatiskt (skiva för skiva) och genom banhastigheten. Det dynamiska trycket som avtar med djupet, diffraktion, vågmotstånd och sugeffekten mot ytan på periskopdjup modelleras inte.
+  - Strålningsdämpningen är en enkel linjär modell. Vågornas tröghetskraft (M_A-delen av vågkraften) saknas.
+  - De hydrodynamiska koefficienterna minskas inte när ubåten går i ytläge.
+- **Strömmen** är konstant i tiden och har samma riktning överallt. Den följer inte sunden och fjordens form.
 - **Medsvängande massa** är konstant och diagonal och beror inte på djup eller närhet till ytan eller botten.
 - **Djuproder:** bara akterdjuproder. Ubåten har inga för- eller tornroder.
 - **Inte modellerat:** batteri, diesel, läckage, sonar och vapen.

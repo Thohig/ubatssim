@@ -209,6 +209,8 @@ function pause(): void {
 let touch = false;
 const mode = new InputModeState();
 const views = new ViewState();
+// On-board views: the HUD makes room for the view on small screens (style.css).
+views.onChange((m) => document.body.classList.toggle('onboard', m !== 'external'));
 let lastPeriscope = 0;
 const consoleInput = el<HTMLInputElement>('console-input');
 const activeCtrl = () => (state === 'playing' ? session.ctrl : null);

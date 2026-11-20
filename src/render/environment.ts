@@ -183,11 +183,12 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
         band.position.y = 8;
         const lamp = new THREE.Mesh(
           new THREE.SphereGeometry(0.9, 12, 8),
-          new THREE.MeshBasicMaterial({ color: LAMP_COLOURS[mark.color] }),
+          new THREE.MeshBasicMaterial({ color: LAMP_COLOURS[mark.color], fog: false }),
         );
         lamp.position.y = 13;
         const glow = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: glowTex, color: LAMP_COLOURS[mark.color], blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false }),
+          // Lights carry much further than the land can be seen: no fog on the glow.
+          new THREE.SpriteMaterial({ map: glowTex, color: LAMP_COLOURS[mark.color], blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false, fog: false }),
         );
         glow.scale.setScalar(0.05);
         glow.position.y = 13;

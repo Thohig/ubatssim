@@ -96,7 +96,8 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     if (!s || s.mode === 'external') return;
 
     if (s.mode === 'bridge') {
-      band(w / 2, 100, Math.min(560, w - 32), 120, s.bearing, s.waypointBearing);
+      // Below the mode indicator and the scenario objective.
+      band(w / 2, 165, Math.min(560, w - 32), 120, s.bearing, s.waypointBearing);
       return;
     }
 

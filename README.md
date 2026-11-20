@@ -9,10 +9,11 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 - [Spelet](#spelet)
 - [Spellägen](#spellägen)
 - [Styrning](#styrning)
+- [Vyer](#vyer)
 - [Kommandokonsolen](#kommandokonsolen)
 - [Instrumentpanelen](#instrumentpanelen)
 - [Scenarier](#scenarier)
-- [Miljön](#miljön)
+- [Havsområden och väder](#havsområden-och-väder)
 - [Fysik i korthet](#fysik-i-korthet)
 - [Utveckling](#utveckling)
 - [Projektstruktur](#projektstruktur)
@@ -25,7 +26,7 @@ På startsidan väljer du spelläge, **förenklad** eller **realistisk simulerin
 
 | Val | Innehåll |
 |---|---|
-| **Fritt spel** | Välj startläge: ytläge på öppet hav, periskopdjup (13 m, kölen på 16 m), djupt vatten (100 m) eller i ett sund i skärgården. |
+| **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
 | **Inställningar** | Tidskomprimering ×1/×2/×4, autopilot tillåten i fritt spel (realistisk simulering), pekknappar (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna och valt spelläge sparas i webbläsaren. |
 | **Hjälp** | Kontroller, alla konsolkommandon och tips. |
@@ -68,13 +69,20 @@ Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik
 | Mellanslag | Håll nuvarande kurs och djup | Roder midskepps |
 | D | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) | – |
 | S | Ytläge | – |
+| V | Byt vy (yttre, bryggan, periskopet). Bemannar bryggan i ytläge. | Byt vy (bryggan måste vara bemannad) |
+| P | Periskop upp / ned | Samma |
+| Z | Periskopets förstoring, 1,5× / 6× | Samma |
+| B | Rapportera bäringen dit periskopet eller blicken pekar | Samma |
+| ← / → i periskopet | Vrid periskopet (Shift + ← / → styr) | Samma |
 | Shift + ↑ / ↓ | Fart ±1 knop (sätter fartautopiloten) | Samma |
 | Enter eller / | Öppna kommandokonsolen | Samma |
-| Esc | Lämna konsolen, eller pausa | Samma |
+| Esc | Lämna konsolen eller en vy, eller pausa | Samma |
 
 Lägesindikatorn överst visar om piltangenterna styr ubåten (**STYRNING**) eller konsolen (**KONSOL**). I konsolen bläddrar ↑/↓ i kommandohistoriken.
 
 Ett manuellt roder- eller djuproderutslag kopplar ur autopiloten för just den axeln. De andra axlarna fortsätter som förut. Det gäller också i förenklad simulering, om du ger roderkommandon i konsolen.
+
+Knapparna Vy, Per, Zoom och Brg under ☰ gör samma sak som V, P, Z och B.
 
 ### Pekskärm (iPhone, iPad)
 
@@ -85,6 +93,21 @@ Längst ner finns knappar som motsvarar tangenterna:
 Håll in en knapp så upprepas den. `>_` öppnar konsolen med telefonens tangentbord, och ett tryck på en styrknapp stänger den igen. Instrumentpanelen är kompakt på smala skärmar, och "Mer ▾" visar resten.
 
 Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att zooma. Kameran följer ubåten.
+
+## Vyer
+
+| Vy | Var du står | När den finns |
+|---|---|---|
+| **Yttre** | Bakom och ovanför ubåten. Dra för att vrida, nyp eller scrolla för att zooma. | Alltid |
+| **Bryggan** | Överst i tornet. Dra för att titta runt. Kompassband med bäring och bojens riktning. | När bryggan är bemannad, i ytläge |
+| **Periskopet** | I periskophuvudet: hårkors, bäringsskala och förstoring 1,5× eller 6×. Vrid med ←/→ eller genom att dra. | När periskopet är uppe |
+
+- **Bryggan** är bemannad i ytläge. Den måste utrymmas innan ubåten dyker:
+  - I realistisk simulering ger du order `klart bryggan`. Annars vägrar ubåten att fylla huvudballasten.
+  - I förenklad simulering utryms bryggan automatiskt när du trycker D.
+  - Når vattnet över brygglisten utryms bryggan, och vyn byter till den yttre.
+- **Lågtrycksblåsaren** går när bryggan är bemannad och håller huvudballasten torr i sjögång.
+- **Periskopet** tar 8 s att hissa. Vyn öppnas när det är uppe. Huvudet når över vattnet ner till ungefär 14 m djup i stilla sjö. I grov sjö kan vågtopparna skölja över det. Över 6 knop vibrerar bilden, och den våta masten ger motstånd.
 
 ## Kommandokonsolen
 
@@ -103,6 +126,10 @@ Alla kommandon kvitteras i loggen med simuleringstid, till exempel `[00:03:12] D
 | `stäng huvudballast [för\|akter]` | | Stäng ventiler och blåsning |
 | `dyk` | | Fyll huvudballasten. Ventilerna stängs när tankarna är fulla. |
 | `ytläge` | `yta` | Blås huvudballasten. En inkopplad djupautopilot får målet 0 m. |
+| `klart bryggan` | | Utrym bryggan inför dykning |
+| `bemanna bryggan` | | Gå upp på bryggan (bara i ytläge) |
+| `periskop upp\|ned` | `per upp` | Hissa eller sänk periskopet |
+| `bäring <grader>` | `bäring 63` | Rapportera bäringen till något du ser genom periskopet eller från bryggan |
 | `trimma för\|akter <liter>` | `trimma för 200` | Pumpa vatten mellan trimtankarna |
 | `kompensera in\|ut <liter>` | `kompensera ut 300` | Ta in vatten eller pumpa ut det |
 | `autopilot på\|av [djup\|kurs\|fart]` | `autopilot av`, `ap på djup` | Slå på eller av autopilot |
@@ -112,43 +139,53 @@ Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 4
 
 ## Instrumentpanelen
 
-- **Djup, fart och kurs:** med autopilotens börvärde och AP-markering.
+- **Djup, fart och kurs:** med autopilotens börvärde och AP-markering. Farten är farten genom vattnet, som loggen mäter.
 - **Stampvinkel och krängning.**
 - **Under köl:** ekolodets djup under kölen. Rött under 5 m och vid grundstötning.
 - **Roder och djuproder:** verkligt utslag och kommenderat utslag (orange markering). Rodren rör sig med begränsad hastighet, ~4°/s.
 - **Trim** (förenklad simulering): Tung, Neutral eller Lätt (±100 kg), och Ytläge när ubåten inte är helt nedsänkt.
-- **Under "Mer":** djupändring, varvtal, axeleffekt, nivån i varje tank, ventil- och blåsstatus, HP-luftens tryck och flytkraftsöverskott (+ = lätt, − = tung).
+- **Under "Mer":** djupändring, fart och kurs över grund, strömmen, varvtal, axeleffekt, nivån i varje tank, ventil- och blåsstatus, HP-luftens tryck och flytkraftsöverskott (+ = lätt, − = tung).
 
 ## Scenarier
 
 | Scenario | Svårighet | Mål |
 |---|---|---|
-| Första dykningen | lätt | Guidad övning: fyll huvudballasten, dyk till 30 m, trimma neutralt och gå till ytläge igen. |
+| Första dykningen | lätt | Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma neutralt och gå till ytläge igen. |
 | Trimövning | medel | Håll 50 m ±2 m i tre minuter utan djupautopilot. |
 | Språngskiktet | medel | Dyk genom termoklinen till 90 m och kompensera för att ubåten blir lättare där. |
 | Genom sundet | medel | Gå i ytläge genom ett smalt sund i skärgården till en gul boj, utan att gå på grund. |
 | Nödblåsning | svår | Ubåten är flera ton för tung på 200 m. Nå ytan innan krossdjupet 300 m. |
+| Periskopspaning | medel | Ta ut bäringen till en fyr genom periskopet. Periskopet får inte synas mer än 60 s i taget. |
+| Fyrljuset | medel | Natt: gå i ytläge mot en röd fyr tills den är 700 m bort. |
+| Saltsprånget | svår | Östersjön: dyk genom saltsprångskiktet till 90 m och kompensera för de tonnen ubåten blir lättare. |
+| Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
 
 Ett scenario misslyckas om ubåten går på grund. Ledtrådarna anpassas efter spelläget. Trimövning kräver realistisk simulering.
 
-## Miljön
+## Havsområden och väder
 
-Ubåten börjar på öppet hav (280–375 m djup) väster om en skärgård i Bohusläns stil, cirka 2 km österut. Där finns:
+| Område | Terräng | Vatten | Ström |
+|---|---|---|---|
+| **Västerhavet** | Öppet hav (280–375 m) och Bohusläns skärgård från ~2 km österut: granithällar, kobbar och 20–50 m djupa sund. | Salt (1 025 kg/m³), språngskikt på 40–70 m. | Baltiska strömmen, 0,25 m/s norrut vid ytan. |
+| **Östersjön** | Grundare hav (110–130 m) och en låg skärgård från ~3 km österut. | Bräckt (1 005 kg/m³). Saltsprångskikt på 60–80 m, där vattnet blir 2,4 kg/m³ tätare. | Svag, 0,1 m/s. |
+| **Fjorden** | En fjord som går norrut mellan 300 m höga berg. Tröskel på 55 m vid mynningen, 380 m djup bassäng innanför. | Sötare ytskikt (1 012 kg/m³) ovanpå atlantvatten under 9 m. | Ytvattnet strömmar ut, 0,4 m/s söderut i de översta metrarna. |
+| **Atlanten** | Djuphav, ~1 800 m. Ingen botten inom räckhåll. | Salt och kallt (1 027 kg/m³). | Nordatlantiska strömmen, 0,3 m/s mot nordost, ända ner till djupet. |
 
-- rundade granithällar och öar upp till ~50 m höjd
-- kobbar och skär mellan öarna
-- sund, 20–50 m djupa, som följer berggrundens nord–sydliga sprickdalar
-- ett mörkt lavbälte vid vattenlinjen och sand och dy under vattnet.
+- **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
+- **Ljus och sikt:** dag, natt eller dimma (sikt ~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
+- **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
 
-Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är det man kan krocka med. Vattnet har ett språngskikt (termoklin) på 40–70 m djup, där vattnet blir tätare.
+Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är det man kan krocka med.
 
 ## Fysik i korthet
 
 - **Rörelser:** 6 frihetsgrader enligt Fossens rörelseekvationer för undervattensfarkoster. Orienteringen är en quaternion, och integrationen sker med RK4 och ett fast tidssteg på 100 Hz. Simuleringen är deterministisk.
 - **Flytkraft:** skrovet är uppdelat i 80 cirkulära skivor, och den nedsänkta delen av varje skiva räknas exakt. Samma modell ger flytkraft, flytcentrum och rätande moment i ytläge, halvt nedsänkt och helt nedsänkt läge.
-- **Vatten och skrov:** vattnets densitet beror på djup och språngskikt. Skrovet trycks ihop med djupet.
+- **Vatten och skrov:** vattnets densitet beror på havsområdet, djupet och skikten. Trycket är den exakta integralen av densiteten. Skrovet trycks ihop med djupet.
+- **Ström och vågor:** de hydrodynamiska krafterna räknas mot vattnet, inte mot botten. Vågorna är en summa av sju reguljära vågor, och varje skiva av skrovet räknas mot den lokala vattenytan. I ytläge dämpas hiv och stamp av de vågor skrovet själv strålar ut.
 - **Tankar som data:** två huvudballasttankar, två trimtankar och en kompenseringstank. Massa, tyngdpunkt och tröghet räknas om från tankarnas innehåll varje tidssteg.
 - **Tryckluft:** HP-luften följer Boyles lag. Luften i huvudballasten expanderar när ubåten stiger och trycks ihop när den dyker.
+- **Periskop:** masten hissas på 8 s och ger motstånd i vattnet.
 - **Hydrodynamik:** medsvängande vattenmassa, linjär och kvadratisk dämpning, tvärströmsmotstånd, roder och djuproder med överstegring, tornets lyftkraft (ubåten krängar in i svängar) och en propeller med axeltröghet.
 - **Grundstötning:** kontaktkrafter med fjäder, dämpare och friktion mot terrängen.
 
@@ -194,19 +231,23 @@ Testerna täcker bland annat:
 - autopiloten (djup 120 m och kurs 270° utan stor översläng)
 - spellägena: att förenklad simulering dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att lägesbytet sker utan ryck och att simuleringen fortfarande är deterministisk
 - att varje scenario går att klara och att det misslyckas när det ska
-- terrängen, grundstötning och navigering genom sundet.
+- terrängen, grundstötning och navigering genom sundet
+- havsområdena: att trycket är integralen av densiteten, saltsprångskiktet, sötvattnet i fjorden, fjordens tröskel och att alla startlägen och fyrar ligger rätt
+- strömmen (drift, fart genom vattnet och över grund) och vågorna (signifikant våghöjd, rörelser i ytläge, lågtrycksblåsaren)
+- periskopet, bryggan och vyerna.
 
 ## Projektstruktur
 
 ```
 src/
   sim/        Fysiken. Ren TypeScript utan Three.js eller DOM, deterministisk.
-    config/   Parametrar för ubåt, miljö och terräng (SI-enheter, källa per värde).
+    config/   Parametrar för ubåt, vatten, havsområden, sjögång och terräng (SI-enheter, källa per värde).
     math/     Vektorer, matriser (LU), quaternioner.
   control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, spellägen,
-              trimassistent och skyddsnät, scenarier.
-  render/     Three.js: ubåtsmodell i lager, terräng, yta, partiklar, dimma, kamera.
-  ui/         Meny, instrumentpanel, konsol, logg, tangentbord, pekknappar, inställningar.
+              trimassistent och skyddsnät, havsområdenas startlägen och fyrar, scenarier.
+  render/     Three.js: ubåtsmodell i lager, terräng, vågor, fyrar, ljus och dimma, kameravyer.
+  ui/         Meny, instrumentpanel, konsol, logg, tangentbord, pekknappar, inställningar,
+              vyer och deras overlay (kompassband, periskop).
   main.ts     Spellägen (meny, spel, paus) och tidsstegsloopen.
 tests/        Vitest.
 docs/         Fördjupande dokumentation.

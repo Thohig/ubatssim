@@ -8,7 +8,7 @@ import { ENVIRONMENT } from '../sim/config/environment';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
 import { GAME_MODES, type GameMode } from './gameMode';
-import type { ConditionsId } from './areas';
+import { AREA_INFO, type ConditionsId } from './areas';
 
 const G = ENVIRONMENT.g;
 const KN = 1852 / 3600;
@@ -68,6 +68,24 @@ export const scenarioMode = (s: Scenario, preferred: GameMode): GameMode => {
 };
 
 const mbt = (t: Telemetry) => t.tanks.filter((x) => x.kind === 'mainBallast');
+
+const DEG = Math.PI / 180;
+
+/** True bearing [deg] from a position to a point. */
+const bearingTo = (from: [number, number], to: [number, number]) =>
+  (((Math.atan2(to[1] - from[1], to[0] - from[0]) * 180) / Math.PI) + 360) % 360;
+
+/** Smallest difference between two bearings [deg]. */
+const bearingDiff = (a: number, b: number) => Math.abs(((((a - b) % 360) + 540) % 360) - 180);
+
+const lighthouse = (area: keyof typeof AREA_INFO, name: string): [number, number] =>
+  AREA_INFO[area].lighthouses.find((l) => l.name === name)!.position;
+
+const WEST_LIGHT = lighthouse('westCoast', 'Västra fyren');
+const SOUTH_LIGHT = lighthouse('westCoast', 'Södra fyren');
+/** Most time the periscope may show above the water in one go [s]. */
+export const PERISCOPE_EXPOSURE_LIMIT = 60;
+const FJORD_BUOY: [number, number] = [2400, 120];
 
 export const SCENARIOS: Scenario[] = [
   {
@@ -198,6 +216,109 @@ export const SCENARIOS: Scenario[] = [
     ],
     failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
     timeLimit: 600,
+  },
+  {
+    id: 'periscope-recce',
+    title: 'Periskopspaning',
+    description: `Gå på periskopdjup, hissa periskopet och ta ut bäringen till Västra fyren (vitt torn med rött band på en ö i nordost). Periskopet får inte synas mer än ${PERISCOPE_EXPOSURE_LIMIT} s i taget.`,
+    difficulty: 'medel',
+    initial: { depth: 13, speed: 4 * KN, neutral: true, east: 700, heading: 60 * DEG },
+    autopilotAllowed: true,
+    objectives: [
+      {
+        text: 'Hissa periskopet',
+        hint: 'Skriv "periskop upp" eller tryck P. Håll farten under 6 knop, annars vibrerar bilden.',
+        check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
+      },
+      {
+        text: 'Rapportera bäringen till Västra fyren (±3°)',
+        hint: 'Vrid periskopet med ←/→ tills fyren står i hårkorset och tryck B, eller skriv "bäring <grader>".',
+        hintSimplified: 'Vrid periskopet med ←/→ (eller dra) tills fyren står i hårkorset och tryck B (Brg).',
+        check: (_t, c) => {
+          const r = c.lastBearing;
+          return r !== null && r.lookout && bearingDiff(r.bearing, bearingTo(r.position, WEST_LIGHT)) <= 3;
+        },
+      },
+      {
+        text: 'Sänk periskopet',
+        hint: 'Skriv "periskop ned" eller tryck P.',
+        check: (t) => t.periscope < 0.01,
+      },
+    ],
+    failure: (t, c) =>
+      c.periscopeExposure > PERISCOPE_EXPOSURE_LIMIT
+        ? `Periskopet var uppe i mer än ${PERISCOPE_EXPOSURE_LIMIT} s och upptäcktes.`
+        : t.depth < 8
+          ? 'Ubåten bröt ytan och upptäcktes.'
+          : null,
+    timeLimit: 900,
+  },
+  {
+    id: 'halocline',
+    title: 'Saltsprånget',
+    description: 'Östersjön: dyk genom saltsprångskiktet (60–80 m) till 90 m. Under det är vattnet saltare och tätare, och ubåten blir flera ton lättare. Håll 90 m ±3 m i en minut med högst 1 ton över- eller undervikt.',
+    difficulty: 'svår',
+    initial: { area: 'baltic', depth: 40, speed: 5 * KN, neutral: true, east: -2500 },
+    autopilotAllowed: true,
+    objectives: [
+      {
+        text: 'Dyk till 90 m',
+        hint: 'Skriv "djup 90". Följ "Flytkraftsöverskott" under "Mer" på vägen ner.',
+        hintSimplified: 'Tryck ↓ (eller ▼) tills djupmålet visar 90 m.',
+        check: (t) => t.depth > 86,
+      },
+      {
+        text: 'Håll 90 m ±3 m i en minut, neutral inom ±1 000 kg',
+        hint: 'Ubåten är lätt under skiktet. Ta in vatten: "kompensera in <liter>" (1 liter ≈ 1 kg).',
+        hintSimplified: 'Assistenten tar in vatten, men pumpen klarar bara 6 liter i sekunden. Ha tålamod, eller öka tidskomprimeringen.',
+        check: (t) => Math.abs(t.depth - 90) < 3 && Math.abs(t.netBuoyancy / G) < 1000,
+        holdSeconds: 60,
+      },
+    ],
+    failure: (t) => (t.depth > 110 ? 'Ubåten gick för djupt (110 m).' : null),
+    timeLimit: 2400,
+  },
+  {
+    id: 'fjord-entry',
+    title: 'Fjordinloppet',
+    description: 'Ta dig i undervattensläge in i fjorden till den gula bojen, 2,4 km innanför mynningen. Tröskeln vid mynningen är bara 55 m djup och fjorden slingrar sig mellan branta berg. Gå inte grundare än 15 m.',
+    difficulty: 'svår',
+    initial: { area: 'fjord', depth: 30, speed: 5 * KN, neutral: true, north: -2200, east: 0 },
+    waypoint: FJORD_BUOY,
+    autopilotAllowed: true,
+    objectives: [
+      {
+        text: 'Passera tröskeln',
+        hint: 'Håll 30–40 m djup och följ "Under köl". Tröskeln ligger kring mynningen (bojens bäring rakt norrut).',
+        hintSimplified: 'Håll 30–40 m med ↑/↓ och styr med ←/→. Följ "Under köl".',
+        check: (t) => t.position[0] > 350,
+      },
+      {
+        text: 'Gå till den gula bojen',
+        hint: 'Fjorden svänger österut och sedan tillbaka. Styr mot bojens bäring men håll avstånd till bergväggarna.',
+        check: (t) => waypointInfo(t, FJORD_BUOY).distance < 120,
+      },
+    ],
+    failure: (t) => (t.depth < 15 ? 'Ubåten gick grundare än 15 m och kunde ses från land.' : null),
+    timeLimit: 2400,
+  },
+  {
+    id: 'night-light',
+    title: 'Fyrljuset',
+    description: 'Det är natt. Gå i ytläge österut mot Södra fyren (rött sken var 3:e sekund) tills du är 700 m från den. Se ut från bryggan (V) och håll koll på "Under köl".',
+    difficulty: 'medel',
+    conditions: 'night',
+    initial: { north: -800, east: 0, heading: 90 * DEG },
+    autopilotAllowed: true,
+    objectives: [
+      {
+        text: 'Gå mot Södra fyren tills den är 700 m bort',
+        hint: 'Skriv "fart 6 knop", tryck V för bryggan och styr mot det röda skenet.',
+        hintSimplified: 'Öka farten, tryck V för bryggan och styr med ←/→ mot det röda skenet.',
+        check: (t) => waypointInfo(t, SOUTH_LIGHT).distance < 700,
+      },
+    ],
+    timeLimit: 1500,
   },
 ];
 
