@@ -11,7 +11,20 @@
  */
 import type { SoundLevels } from './levels';
 
-export type Cue = 'grounding' | 'alarm' | 'splash' | 'clonk' | 'telegraph' | 'objective' | 'success' | 'failure' | 'ping';
+export type Cue =
+  | 'grounding'
+  | 'alarm'
+  | 'splash'
+  | 'clonk'
+  | 'telegraph'
+  | 'objective'
+  | 'success'
+  | 'failure'
+  | 'ping'
+  | 'launch'
+  | 'explosion'
+  | 'depthCharge'
+  | 'activePing';
 
 export interface AudioOptions {
   /** Master volume 0…1. */
@@ -134,6 +147,28 @@ export class AudioEngine {
           this.tone(1480, t + dt, 0.6, 0.12, 'sine', this.inside);
           this.tone(3700, t + dt, 0.25, 0.04, 'sine', this.inside);
         }
+        break;
+      case 'launch':
+        // A torpedo leaving the tube: a rush of compressed air and a thump.
+        this.burst(t, 1.3, 0.7, 900, 'lowpass', this.inside);
+        this.tone(55, t, 0.5, 0.5, 'sine', this.inside);
+        break;
+      case 'explosion':
+        // A hit far away: a low rolling boom through the water.
+        this.tone(38, t + 0.2, 2.5, 0.6, 'sine', this.outside);
+        this.burst(t + 0.2, 3, 0.5, 260, 'lowpass', this.outside);
+        break;
+      case 'depthCharge':
+        // Close: a hard crack, a heavy boom and the hull ringing.
+        this.burst(t, 0.15, 0.9, 2400, 'lowpass', this.inside);
+        this.tone(32, t, 1.8, 0.9, 'sine', this.inside);
+        this.burst(t + 0.05, 2.2, 0.6, 400, 'lowpass', this.inside);
+        this.tone(190, t + 0.1, 1.2, 0.12, 'triangle', this.inside);
+        break;
+      case 'activePing':
+        // A corvette's active sonar: a ringing ping and its echo through the hull.
+        this.tone(3300, t, 0.7, 0.22, 'sine', this.outside);
+        this.tone(3300, t + 0.45, 0.6, 0.07, 'sine', this.outside);
         break;
       case 'objective':
         this.tone(660, t, 0.15, 0.2, 'sine', this.inside);

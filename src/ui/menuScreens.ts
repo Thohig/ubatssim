@@ -163,6 +163,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Fart</b>: telegrafen ger maskinen ett fartmål. I panelen <b>Fart</b> styr du propellervarvet själv.</li>
           <li><b>Ballast och brygga</b>: Dyk / Yta låter besättningen sköta det. I panelen <b>Ballast</b> fyller, blåser och stänger du huvudballasten och klarar bryggan själv.</li>
           <li><b>Trim</b>: trimassistenten kompenserar och trimmar. I panelen <b>Trim</b> gör du det själv.</li>
+          <li><b>Eldledning</b>: eldledaren mäter avståndet till målet genom periskopet och ger råd om kursbyten. Annars mäter du själv med <b>Avst</b>. Att skjuta är alltid din order.</li>
           <li><b>Laddning</b>: maskinisten startar dieslarna när snorkeln är uppe eller ubåten ligger i ytläge. I panelen <b>El</b> startar och stoppar du dem själv. Snorkeln hissar alltid du.</li>
           <li><b>Skyddsnät</b>: nödblåsning nära krossdjupet och när ubåten tagit in mycket vatten, djupgräns över botten och varning för grunt vatten. Slås av under ☰ → Besättning.</li>
         </ul>
@@ -192,6 +193,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
           <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
           <tr><td>Esc</td><td colspan="2">Lämna konsolen eller en vy, eller pausa</td></tr>
+          <tr><td>T / R / F</td><td colspan="2">Markera fartyget i hårkorset / mät avståndet / skjut (periskopet eller bryggan)</td></tr>
           <tr><td>N</td><td colspan="2">Snorkel upp / ned</td></tr>
           <tr><td>G</td><td colspan="2">Dieslarna start / stopp (du tar över laddningen)</td></tr>
           <tr><td>K / H</td><td colspan="2">Sjökortet / sonaren</td></tr>
@@ -210,6 +212,10 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Sonar och sjökort</h3>
         <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, bojen, fyrarna och sonarens bäringar.</p>
         <p>En <b>korvett</b> lyssnar efter ubåten och spanar efter master. Den hör dig bättre ju fortare du går (och när propellern kaviterar) och om dieslarna går, och den ser periskopet, snorkeln och tornet. Språngskiktet mellan er dämpar ljudet. Gå sakta, djupt och med masterna nere.</p>
+        <h3>Anfall</h3>
+        <p>I periskopvyn finns eldledningen. Sätt hårkorset på ett fartyg och tryck <b>Mål</b> (T), mät avståndet med <b>Avst</b> (R, noggrannare på 6×) och vänta tills lösningen är ok eller bra. <b>Fyr</b> (F) skjuter mot träffpunkten. Torpeden går 40 knop och söker själv det sista stycket. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Då ger bäringarna avståndet först när du bytt kurs minst 30° och hållit den några minuter. Fyra tuber, åtta torpeder i förråd och 2 minuters omladdning.</p>
+        <h3>Korvetter som jagar</h3>
+        <p>En korvett som hört eller sett dig saktar in och svänger mot dig. Sedan söker den med aktiv sonar (pingar som hörs i skrovet) och anfaller med sjunkbomber inställda på djupet den mätte. Avfyrningar hörs. Kom undan genom att gå djupt under skiktet, sakta, byta kurs och byta djup när den går över dig. Den ger upp efter fem minuter utan kontakt, eller när bomberna är slut.</p>
         <h3>Ljud</h3>
         <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar.</p>
         <h3>Havsområden och väder</h3>

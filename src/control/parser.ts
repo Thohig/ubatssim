@@ -48,10 +48,14 @@ export const HELP_TEXT = [
   'snorkel upp|ned          – hissa eller sänk snorkeln (dieslarna får luft på periskopdjup)',
   'diesel start|stopp       – starta eller stoppa dieslarna och ladda batteriet, t.ex. "ladda"',
   'bäring <grader>          – rapportera bäringen till något du ser',
+  'mål <grader>|S<n>|M<n>   – markera ett mål: i bäringen (periskop, brygga), en sonarkontakt, eller välj mål',
+  'avstånd [<m>]            – mät avståndet till målet (stadimetern), eller ange det',
+  'skjut [<tub>]            – skjut torpeder mot målet, t.ex. "skjut", "skjut 2"',
+  'spridning 1|2|3          – torpeder per salva',
   'trimma för|akter <liter> – pumpa mellan trimtankarna',
   'kompensera in|ut <liter> – ta in eller pumpa ut vatten',
   'autopilot på|av [djup|kurs|fart]',
-  'besättning <system>|allt   – lämna djup, kurs, fart, ballast, trim, laddning eller skyddsnät till besättningen',
+  'besättning <system>|allt   – lämna djup, kurs, fart, ballast, trim, laddning, eldledning eller skyddsnät till besättningen',
   'själv <system>|allt        – ta över systemet själv, t.ex. "själv trim"',
   'hjälp                    – visa denna lista',
 ];
@@ -73,6 +77,10 @@ const COMMANDS: Record<string, string[]> = {
   snorkel: ['snorkel', 'snorkla', 'snork'],
   diesel: ['diesel', 'dieslar', 'dieslarna', 'dieseln'],
   ladda: ['ladda', 'laddning'],
+  mål: ['mål', 'mal', 'markera'],
+  avstånd: ['avstånd', 'avstand', 'avst'],
+  skjut: ['skjut', 'fyr', 'eld'],
+  spridning: ['spridning', 'salva'],
   bäring: ['bäring', 'baring', 'brg'],
   blås: ['blås', 'blas'],
   stäng: ['stäng', 'stang'],
@@ -143,6 +151,8 @@ const CREW_WORDS: Record<string, CrewSystem | 'all'> = {
   laddningen: 'charging',
   diesel: 'charging',
   dieslarna: 'charging',
+  eldledning: 'fireControl',
+  eldledningen: 'fireControl',
   skyddsnät: 'safetyNet',
   skyddsnätet: 'safetyNet',
   skyddsnat: 'safetyNet',
@@ -287,6 +297,34 @@ export function parseCommand(input: string): ParseResult {
       return err('Skriv "diesel start" eller "diesel stopp".');
     }
 
+    case 'mål': {
+      const args = t.withoutUnits();
+      if (args.length !== 1) return err('Skriv "mål" och en bäring, en sonarkontakt eller ett mål, t.ex. "mål 245", "mål S1", "mål M2".');
+      const a = args[0]!;
+      if (/^[sm]\d+$/.test(a)) return ok({ kind: 'markTarget', label: a.toUpperCase() });
+      const n = parseNumberArg([a], 'en bäring i grader', 'mål 245', 0, 360);
+      return isResult(n) ? n : ok({ kind: 'markTarget', bearing: n % 360 });
+    }
+
+    case 'avstånd': {
+      const args = t.withoutUnits();
+      if (args.length === 0) return ok({ kind: 'rangeTarget' });
+      const n = parseNumberArg(args, 'ett avstånd i meter', 'avstånd 1800', 50, 20000);
+      return isResult(n) ? n : ok({ kind: 'rangeTarget', range: n });
+    }
+
+    case 'skjut': {
+      const args = t.rest().filter((a) => a !== 'tub');
+      if (args.length === 0) return ok({ kind: 'fireTorpedo' });
+      const n = parseNumberArg(args, 'en tub', 'skjut 2', 1, 4);
+      return isResult(n) ? n : ok({ kind: 'fireTorpedo', tube: Math.round(n) });
+    }
+
+    case 'spridning': {
+      const n = parseNumberArg(t.withoutUnits(), 'antal torpeder per salva', 'spridning 2', 1, 3);
+      return isResult(n) ? n : ok({ kind: 'setSpread', count: Math.round(n) });
+    }
+
     case 'stopp':
       if (t.peek() !== undefined) return unexpected(t.peek()!, 'inget mer efter "stopp"');
       return ok({ kind: 'setSpeed', knots: 0 });
@@ -415,7 +453,7 @@ export function parseCommand(input: string): ParseResult {
       const sys = args.length === 1 ? CREW_WORDS[args[0]!] : undefined;
       if (sys === undefined) {
         const s = args.length === 1 ? suggest(args[0]!, Object.keys(CREW_WORDS)) : null;
-        return err(`${args.length ? `Förstår inte "${args.join(' ')}". ` : ''}Ange djup, kurs, fart, ballast, trim, laddning, skyddsnät eller allt, t.ex. "${cmd} trim".${s ? ` Menade du "${s}"?` : ''}`);
+        return err(`${args.length ? `Förstår inte "${args.join(' ')}". ` : ''}Ange djup, kurs, fart, ballast, trim, laddning, eldledning, skyddsnät eller allt, t.ex. "${cmd} trim".${s ? ` Menade du "${s}"?` : ''}`);
       }
       return ok({ kind: 'crew', system: sys, crew: cmd === 'besättning' });
     }

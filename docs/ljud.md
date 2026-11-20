@@ -49,6 +49,10 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Vatten över bryggan | Ett plask och en larmsignal |
 | Nödblåsning | En larmsignal |
 | Läckage, skrovet kollapsar | En larmsignal |
+| Torped avfyrad (`Torped n gick från tub …`) | Tryckluft som rusar och en duns |
+| Träff | En låg, rullande smäll långt bort |
+| Sjunkbomb inom 120 m | Ett hårt knäpp, en tung smäll och skrovet som klingar |
+| Korvettens aktiva sonar | En klingande ping och dess eko genom skrovet, vid varje ping |
 | Huvudballasten full | Ett klonk när ventilerna stängs |
 | Ny fartorder (telegrafen, `fart`, `back`) | Maskintelegrafens klocka, två slag |
 | Mål klart | Två stigande toner |

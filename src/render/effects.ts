@@ -27,6 +27,10 @@ export interface EffectsInput {
   periscopeHead: Vec3 | null;
   snorkelHead: Vec3 | null;
   dieselRunning: boolean;
+  /** Torpedoes running (NED position). */
+  torpedoes: Vec3[];
+  /** Recent explosions (NED), by increasing id: each one bursts once. */
+  blasts: { id: number; kind: 'hit' | 'charge'; at: Vec3 }[];
 }
 
 interface Pool {
@@ -64,6 +68,7 @@ export function createEffects(scene: THREE.Scene): Effects {
   const world = new THREE.Vector3();
   /** Fractional particles carried over between frames, per emitter. */
   const carry = new Map<string, number>();
+  let lastBlast = 0;
 
   const toWorld = (inp: EffectsInput, p: Vec3, out: THREE.Vector3) => {
     const R = inp.rotation;
@@ -141,6 +146,26 @@ export function createEffects(scene: THREE.Scene): Effects {
           toWorld(inp, inp.propeller, world);
           const shallow = Math.max(0, 1 - inp.position[2] / 60);
           if (under(world)) emit('wake', bubbles, 25 * rps * (0.3 + shallow), d, world, 2.4, [0, 0.15, 0], 0.15, 9);
+        }
+        // Torpedoes leave a stream of bubbles.
+        inp.torpedoes.forEach((p, k) => {
+          nedToThree(p, world);
+          if (under(world)) emit(`torpedo${k}`, bubbles, 60, d, world, 0.6, [0, 0.4, 0], 0.3, 6);
+        });
+        // Explosions: a burst of bubbles under water and a plume of spray where it reaches the surface.
+        for (const b of inp.blasts) {
+          if (b.id <= lastBlast) continue;
+          lastBlast = b.id;
+          nedToThree(b.at, world);
+          const surf = surfaceAt(world.x, world.z);
+          const big = b.kind === 'hit' ? 1 : 0.6;
+          if (world.y < surf) emit(`blast${b.id}`, bubbles, 400 * big / d, d, world, 6, [0, 3, 0], 2.5, 10);
+          if (surf - world.y < 80) {
+            const top = world.clone();
+            top.y = surf;
+            emit(`plume${b.id}`, spray, 420 * big / d, d, top, b.kind === 'hit' ? 10 : 5, [0, b.kind === 'hit' ? 22 : 16, 0], 5, 3);
+            if (b.kind === 'hit') emit(`smoke${b.id}`, smoke, 120 / d, d, top, 8, [0, 3, 0], 2, 12);
+          }
         }
         // A raised mast cutting the surface throws a feather of spray; the snorkel also smokes with the diesels running.
         const masts: [string, Vec3 | null][] = [['per', inp.periscopeHead], ['snork', inp.snorkelHead]];

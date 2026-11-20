@@ -75,6 +75,8 @@ export class Sonar {
   readonly awareness: Record<string, number> = {};
   /** The vessel that found the submarine (name), or null. */
   detectedBy: string | null = null;
+  /** Patrol vessels that heard or saw the boat in the last update, by id (the hunt uses it). */
+  readonly noticed: Record<string, boolean> = {};
   /** The submarine's own radiated noise and the noise at its hydrophones [dB] (last update). */
   ownLevel = 0;
   ownNoise = 0;
@@ -108,7 +110,7 @@ export class Sonar {
       const excess = subSignalExcess(vesselSourceLevel(v.def, v.state.speed), tl, this.ownNoise);
 
       // The patrol vessels listen and look for the submarine.
-      if (v.def.kind === 'patrol') this.watch(v.def.id, v.def.name, k.range, t);
+      if (v.def.kind === 'patrol') this.watch(v.def.id, v.def.name, k.range, t, v.state.speed);
 
       if (excess <= 0) continue;
       const truth = (k.bearing * 180) / Math.PI;
@@ -148,15 +150,16 @@ export class Sonar {
   }
 
   /** One patrol vessel's sonar, lookouts and radar. */
-  private watch(id: string, name: string, range: number, t: ReturnType<Controller['sim']['telemetry']>): void {
+  private watch(id: string, name: string, range: number, t: ReturnType<Controller['sim']['telemetry']>, speed: number): void {
     const c = this.ctrl;
     const tl = transmissionLoss(range, Math.max(0, t.depth), PATROL_SONAR_DEPTH, c.sim.water);
-    const excess = patrolSignalExcess(this.ownLevel, tl);
+    const excess = patrolSignalExcess(this.ownLevel, tl, speed);
     let rate = excess > 0 ? AWARE_RATE * (1 + excess / 5) : 0;
     const A = ACOUSTICS;
     if (t.periscope > 0.99 && t.periscopeHeadDepth < 0 && range < A.sightPeriscope) rate += SIGHT_RATE.periscope;
     if (t.snorkel > 0.99 && t.snorkelHeadDepth < 0 && range < A.sightSnorkel) rate += SIGHT_RATE.snorkel;
     if (t.bridgeDeckDepth < 0 && range < A.sightSurfaced) rate += SIGHT_RATE.surfaced;
+    this.noticed[id] = rate > 0;
     const before = this.awareness[id] ?? 0;
     const now = Math.min(1, Math.max(0, before + (rate > 0 ? rate : -AWARE_DECAY)));
     this.awareness[id] = now;
@@ -164,10 +167,24 @@ export class Sonar {
       this.warned.add(id);
       c.addLog(`Varning: ${name} kan ha hört eller sett något. Gå djupare och saktare, och sänk masterna.`, 'error');
     } else if (now < 0.3) this.warned.delete(id);
-    if (now >= 1 && this.detectedBy === null) {
-      this.detectedBy = name;
-      c.addLog(`${name[0]!.toUpperCase()}${name.slice(1)} har upptäckt ubåten!`, 'error');
-    }
+    if (now >= 1) this.found(name);
+  }
+
+  /** A patrol vessel has found the boat (by listening, looking or its active sonar). */
+  found(name: string): void {
+    if (this.detectedBy !== null) return;
+    this.detectedBy = name;
+    this.ctrl.addLog(`${name[0]!.toUpperCase()}${name.slice(1)} har upptäckt ubåten!`, 'error');
+  }
+
+  /** Sets a patrol vessel's awareness down to at most `value` (it has given up). */
+  calm(id: string, value: number): void {
+    this.awareness[id] = Math.min(this.awareness[id] ?? 0, value);
+  }
+
+  /** Raises a patrol vessel's awareness (e.g. it heard a torpedo launch). */
+  alert(id: string, amount: number): void {
+    this.awareness[id] = Math.min(1, (this.awareness[id] ?? 0) + amount);
   }
 }
 

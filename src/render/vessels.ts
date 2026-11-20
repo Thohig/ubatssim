@@ -57,6 +57,12 @@ export class VesselView {
       s.root.position.y = heave(s.root.position.x, s.root.position.z);
       // Model bow is −Z; heading is clockwise from north (−Z) towards east (+X).
       s.root.rotation.y = -st.heading;
+      // Torpedoed: settles by the stern, then slides under; gone when sunk.
+      s.root.visible = st.sunk < 1;
+      if (st.sunk > 0) {
+        s.root.position.y -= st.sunk * st.sunk * 40;
+        s.root.rotation.x = -0.35 * st.sunk;
+      } else s.root.rotation.x = 0;
       for (const l of s.lights) l.visible = this.lightsOn;
     });
   }

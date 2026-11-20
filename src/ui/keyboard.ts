@@ -1,4 +1,5 @@
 import type { Controller } from '../control/controller';
+import { markOrder, rangeOrder } from './firePanel';
 import { PERISCOPE_DEPTH, telegraphStep } from '../control/crew';
 import { LIMITS } from '../control/parser';
 import type { OrderSource } from '../control/orders';
@@ -41,6 +42,7 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   C  cutaway on/off   + / −  cutaway zoom
  *   B  report the bearing of the cross hair / bridge look
  *   N  snorkel up/down   G  diesels start/stop
+ *   T  mark the vessel in the cross hair   R  range it   F  fire (periscope or bridge)
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
 export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeState, openConsole: () => void, views: ViewState): void {
@@ -106,6 +108,17 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
         break;
       case 'd':
         submitDive(ctrl, 'keyboard');
+        break;
+      case 't':
+        if (views.mode !== 'bridge' && views.mode !== 'periscope') return;
+        markOrder(ctrl, views);
+        break;
+      case 'r':
+        if (views.mode !== 'bridge' && views.mode !== 'periscope') return;
+        rangeOrder(ctrl, views);
+        break;
+      case 'f':
+        ctrl.submit({ kind: 'fireTorpedo' }, 'keyboard');
         break;
       case 'n':
         ctrl.submit({ kind: 'snorkel', up: !ctrl.sim.commands.snorkelUp }, 'keyboard');

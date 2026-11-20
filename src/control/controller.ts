@@ -13,6 +13,9 @@ import { acknowledgement, type Order, type OrderKind, type OrderOf, type OrderSo
 import { LIMITS } from './parser';
 import { TrimAssist } from './trimAssist';
 import { Sonar } from './sonar';
+import { FireControl, type Target } from './fireControl';
+import { Hunter } from './hunter';
+import { WEAPONS } from '../sim/config/weapons';
 import { World } from '../sim/world';
 
 const DEG = Math.PI / 180;
@@ -30,7 +33,7 @@ const CHARGE_STOP = 0.99;
 const BATTERY_WARNINGS = [0.3, 0.15, 0.05, 0.005] as const;
 /** Water inside the hull [m^3, ~tonnes] that calls for blowing (and the safety net blows). */
 const FLOOD_WARNING = 15;
-const LEAK_CAUSE = { grounding: 'grundstötning', collision: 'kollision', depth: 'under krossdjupet' } as const;
+const LEAK_CAUSE = { grounding: 'grundstötning', collision: 'kollision', depth: 'under krossdjupet', charge: 'sjunkbomb' } as const;
 
 export type LogKind = 'ack' | 'error' | 'info';
 
@@ -86,6 +89,18 @@ export class Controller {
   readonly assist: TrimAssist = new TrimAssist(this);
   /** The passive sonar, and the patrol vessels looking for the boat. */
   readonly sonar: Sonar = new Sonar(this);
+  /** Targets, target motion analysis and the torpedo tubes. */
+  readonly fire: FireControl = new FireControl(this);
+  /** The corvettes' hunt for the boat. */
+  readonly hunter: Hunter = new Hunter(this);
+  /** Torpedoes fired and hits this game (for the result). */
+  torpedoesFired = 0;
+  hits = 0;
+  /** Recent explosions (torpedo hits, depth charges) for the graphics and the sound, newest last. */
+  blasts: { id: number; kind: 'hit' | 'charge'; at: [number, number, number]; distance: number }[] = [];
+  private nextBlast = 1;
+  /** Lines logged right after the current order's acknowledgement. */
+  private afterAck: string[] = [];
   readonly log: LogEntry[] = [];
   private listeners: ((e: LogEntry) => void)[] = [];
 
@@ -139,8 +154,8 @@ export class Controller {
    * Controller has the player handling everything (as tests expect); a game
    * starts with `crewTakesAll()`.
    */
-  options: { crew: { ballast: boolean; trim: boolean; charging: boolean; safetyNet: boolean }; locks: CrewLocks } = {
-    crew: { ballast: false, trim: false, charging: false, safetyNet: false },
+  options: { crew: { ballast: boolean; trim: boolean; charging: boolean; fireControl: boolean; safetyNet: boolean }; locks: CrewLocks } = {
+    crew: { ballast: false, trim: false, charging: false, fireControl: false, safetyNet: false },
     locks: {},
   };
 
@@ -218,6 +233,7 @@ export class Controller {
       }
       this.apply(order);
       this.addLog(acknowledgement(order), 'ack', source);
+      for (const line of this.afterAck.splice(0)) this.addLog(line, 'info');
       if (source !== 'assist') this.applyEffects(order);
     }
     const sim = this.sim;
@@ -267,7 +283,10 @@ export class Controller {
 
     this.world.step();
     this.watchPlant();
+    this.watchWorld();
     this.sonar.update();
+    this.hunter.update();
+    this.fire.update(DT);
 
     if (this.shutVentsWhenFull) {
       // Air can stay trapped at the top of a tank at the surface; it vents once the boat is under way down.
@@ -302,6 +321,29 @@ export class Controller {
   }
 
   private grounded = false;
+
+  /** Torpedo hits, ships sinking and depth charges, for the log; a launch is heard by the corvettes. */
+  private watchWorld(): void {
+    for (const e of this.world.drainEvents()) {
+      if (e.kind === 'launch') this.hunter.heardLaunch();
+      else if (e.kind === 'hit') {
+        this.hits++;
+        this.blast('hit', e.at);
+        this.addLog(`Träff! Torped ${e.torpedo} träffade ${e.vessel}.`, 'info');
+      } else if (e.kind === 'miss') this.addLog(`Torped ${e.torpedo} missade och har gått ut sin räckvidd.`, 'info');
+      else if (e.kind === 'sunk') this.addLog(`${e.vessel[0]!.toUpperCase()}${e.vessel.slice(1)} har sjunkit.`, 'info');
+      else if (e.kind === 'drop') this.addLog(`Sjunkbomber i vattnet från ${e.by}!`, 'error');
+      else if (this.blast('charge', e.at) && e.distance < 120) this.addLog(`Sjunkbomb ${Math.round(e.distance)} m från skrovet.`, e.hole > 0 ? 'error' : 'info');
+    }
+  }
+
+  /** Remembers an explosion (the last ten); returns true. */
+  private blast(kind: 'hit' | 'charge', at: [number, number, number]): boolean {
+    const d = Math.hypot(at[0] - this.sim.y[0]!, at[1] - this.sim.y[1]!, at[2] - this.sim.y[2]!);
+    this.blasts.push({ id: this.nextBlast++, kind, at, distance: d });
+    if (this.blasts.length > 10) this.blasts.shift();
+    return true;
+  }
 
   /** Battery warnings already given (state of charge thresholds), and what the diesels did last step. */
   private batteryWarned = new Set<number>();
@@ -539,6 +581,104 @@ export class Controller {
     snorkel: {
       apply: (c, o) => {
         c.sim.commands.snorkelUp = o.up;
+      },
+    },
+    markTarget: {
+      refuse: (c, o) => {
+        if (o.label) {
+          const label = o.label.toUpperCase();
+          if (label.startsWith('M')) return c.fire.targets.some((t) => t.label === label) ? null : `Inget mål ${label}.`;
+          const k = c.sonar.contacts.find((x) => x.label === label);
+          return k ? null : `Ingen sonarkontakt ${label}.`;
+        }
+        // Through the periscope or from the bridge: a vessel in the cross hair.
+        const r = c.fire.findInSight(((o.bearing ?? 0) * Math.PI) / 180);
+        return typeof r === 'string' ? r : null;
+      },
+      apply: (c, o) => {
+        if (!o.label) {
+          const t = c.fire.markInSight(((o.bearing ?? 0) * Math.PI) / 180);
+          if (t) c.afterAck.push(`${t.label} är ${t.name}.`);
+          return;
+        }
+        const label = o.label.toUpperCase();
+        if (label.startsWith('M')) {
+          c.fire.current = label;
+          return;
+        }
+        const k = c.sonar.contacts.find((x) => x.label === label)!;
+        const v = c.world.vessels.find((x) => x.def.id === k.vesselId)!;
+        const t = c.fire.targetFor(v);
+        c.fire.observe(t, { bearing: (k.bearing * Math.PI) / 180, sigma: Math.PI / 180 });
+        c.afterAck.push(`${t.label} är ${k.label}. Eldledningen följer bäringarna.`);
+      },
+    },
+    rangeTarget: {
+      refuse: (c, o) => {
+        const t = c.fire.target;
+        if (!t) return 'Inget mål. Markera målet först (Mål).';
+        if (o.range !== undefined) return null;
+        const v = c.fire.vessel(t);
+        const seen = c.fire.inSight().find((x) => x.vessel === v);
+        if (!seen) return 'Målet syns inte: hissa periskopet eller bemanna bryggan.';
+        if (o.bearing !== undefined && Math.abs(((((o.bearing * Math.PI) / 180 - seen.bearing) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) > (3 * Math.PI) / 180) {
+          return 'Målet är inte i hårkorset.';
+        }
+        return null;
+      },
+      apply: (c, o) => {
+        const t = c.fire.target!;
+        if (o.range !== undefined) {
+          const b = t.solution ? Math.atan2(t.solution.position[1] - c.sim.y[1]!, t.solution.position[0] - c.sim.y[0]!) : t.obs.at(-1)?.bearing ?? 0;
+          c.fire.observe(t, { bearing: b, sigma: (5 * Math.PI) / 180, range: o.range, rangeError: 0.08 });
+          return;
+        }
+        const v = c.fire.vessel(t)!;
+        const seen = c.fire.inSight().find((x) => x.vessel === v)!;
+        const m = c.fire.stadimeter(v, seen.range, o.magnification === undefined ? 0 : o.magnification);
+        c.fire.observe(t, { bearing: seen.bearing, sigma: (0.3 * Math.PI) / 180, range: m.range, rangeError: m.error });
+        c.afterAck.push(`${t.label}: avstånd ${Math.round(m.range / 10) * 10} m.`);
+      },
+    },
+    setSpread: {
+      refuse: (_c, o) => (o.count >= 1 && o.count <= 3 ? null : 'Spridningen är 1, 2 eller 3 torpeder.'),
+      apply: (c, o) => {
+        c.fire.spread = o.count;
+      },
+    },
+    fireTorpedo: {
+      refuse: (c, o) => {
+        const t = c.fire.target;
+        if (!t) return 'Inget mål. Markera målet först (Mål).';
+        if (!t.solution) return `Ingen lösning på ${t.label} ännu.`;
+        if (o.tube !== undefined && !c.fire.tubes[o.tube - 1]?.loaded) return `Tub ${o.tube} är inte laddad.`;
+        if (!c.fire.tubes.some((x) => x.loaded)) return 'Alla tuber är tomma. Omladdning pågår.';
+        const aim = c.fire.aim();
+        if (!aim) return `Torpeden hinner inte ikapp ${t.label}.`;
+        if (aim.distance > WEAPONS.torpedo.range - 200) return `${t.label} är utom räckhåll (${(aim.distance / 1000).toFixed(1).replace('.', ',')} km).`;
+        return null;
+      },
+      apply: (c, o) => {
+        const fire = c.fire;
+        const t = fire.target as Target;
+        const aim = fire.aim()!;
+        const tubes = fire.tubes.map((x, i) => ({ x, i })).filter(({ x }) => x.loaded);
+        const first = o.tube !== undefined ? tubes.findIndex(({ i }) => i === o.tube! - 1) : 0;
+        const salvo = [...tubes.slice(first), ...tubes.slice(0, first)].slice(0, fire.spread);
+        const spread = (WEAPONS.spreadAngle * Math.PI) / 180;
+        salvo.forEach(({ x, i }, k) => {
+          x.loaded = false;
+          const offset = (k - (salvo.length - 1) / 2) * spread;
+          const torpedo = c.world.launch({
+            course: (aim.course + offset + 2 * Math.PI) % (2 * Math.PI),
+            depth: aim.depth,
+            seekAfter: Math.max(WEAPONS.torpedo.arming, aim.distance - WEAPONS.torpedo.seekBefore),
+          });
+          c.torpedoesFired++;
+          const deg = String(Math.round(((aim.course + offset) * 180) / Math.PI + 360) % 360).padStart(3, '0');
+          const run = Math.round(aim.time);
+          c.afterAck.push(`Torped ${torpedo.state.id} gick från tub ${i + 1} mot ${t.label}: kurs ${deg}°, gångtid ${Math.floor(run / 60)} min ${run % 60} s.`);
+        });
       },
     },
     diesel: {

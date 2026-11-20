@@ -26,6 +26,8 @@ export interface RenderState {
   snorkel?: number;
   /** Bubbles, wake, spray and exhaust (effects.ts); none in the cutaway. */
   effects?: EffectsInput | null;
+  /** Torpedoes in the water: NED position and heading [rad]. */
+  torpedoes?: { north: number; east: number; depth: number; heading: number }[];
   /** Other vessels, in the order given to `setVessels`. */
   vessels: readonly VesselState[];
   /** What the cutaway view shows (only in that view). */
@@ -209,6 +211,25 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
 
   const effects = createEffects(scene);
   let lastEffectsT: number | null = null;
+  // Torpedoes: 533 mm × 6 m, dark; a small pool reused every frame.
+  const torpedoGeo = new THREE.CylinderGeometry(0.27, 0.27, 6, 10);
+  torpedoGeo.rotateX(Math.PI / 2); // along −Z, like the ship models' bows
+  const torpedoMat = new THREE.MeshStandardMaterial({ color: 0x23282b, roughness: 0.5 });
+  const torpedoMeshes: THREE.Mesh[] = [];
+  const placeTorpedoes = (list: NonNullable<RenderState['torpedoes']>) => {
+    while (torpedoMeshes.length < list.length) {
+      const m = new THREE.Mesh(torpedoGeo, torpedoMat);
+      scene.add(m);
+      torpedoMeshes.push(m);
+    }
+    torpedoMeshes.forEach((m, i) => {
+      const t = list[i];
+      m.visible = !!t;
+      if (!t) return;
+      nedToThree([t.north, t.east, t.depth], m.position);
+      m.rotation.y = -t.heading;
+    });
+  };
 
   return {
     scene,
@@ -312,6 +333,7 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
         }
       }
       env.update(state.position, camera, state.t);
+      placeTorpedoes(state.torpedoes ?? []);
       // Effects run on simulation time: they stand still while the game is paused.
       effects.update(state.effects ?? null, lastEffectsT === null ? 0 : state.t - lastEffectsT, (x, z) => env.surfaceAt(x, z));
       lastEffectsT = state.t;

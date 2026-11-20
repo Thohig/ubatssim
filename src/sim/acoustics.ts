@@ -69,7 +69,10 @@ export function subSignalExcess(sourceLevel: number, tl: number, noise: number):
   return sourceLevel - tl - noise + A.subArrayGain - A.subThreshold;
 }
 
+/** Noise at a patrol vessel's hull sonar at its own speed [m/s]: fast, it is deaf [dB]. */
+export const patrolNoise = (speed: number): number => A.patrolNoise + A.patrolNoiseExponent * Math.log10(Math.max(1, speed / A.patrolQuietSpeed));
+
 /** Signal excess at a patrol vessel's sonar for the submarine [dB]; > 0 = heard. */
-export function patrolSignalExcess(subLevel: number, tl: number): number {
-  return subLevel - tl - A.patrolNoise + A.patrolArrayGain - A.patrolThreshold;
+export function patrolSignalExcess(subLevel: number, tl: number, patrolSpeed = 0): number {
+  return subLevel - tl - patrolNoise(patrolSpeed) + A.patrolArrayGain - A.patrolThreshold;
 }

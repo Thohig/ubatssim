@@ -30,7 +30,7 @@ export const ACOUSTICS = {
   /** Absorption at ~1–2 kHz [dB/km]. APPROX [U83]. */
   absorption: 1,
   /** A layer (thermocline, halocline) between source and receiver bends the sound away [dB]. APPROX [U83]. */
-  layerLoss: 14,
+  layerLoss: 20,
 
   /** Ambient noise in a calm sea, and the rise per metre of significant wave height [dB]. APPROX [U83]. */
   ambient: 55,
@@ -42,8 +42,10 @@ export const ACOUSTICS = {
   subArrayGain: 18,
   subThreshold: 6,
 
-  /** A patrol vessel's hull sonar: own noise at its speed, array gain, threshold [dB]. APPROX. */
+  /** A patrol vessel's hull sonar: own noise up to 10 knots, rising 60 log10(speed / 10 knots) above it (flow noise over the dome), array gain, threshold [dB]. APPROX. */
   patrolNoise: 66,
+  patrolQuietSpeed: 5.1,
+  patrolNoiseExponent: 60,
   patrolArrayGain: 15,
   patrolThreshold: 5,
   /** Ranges at which a patrol vessel's lookouts and radar find a raised periscope, a snorkel and a surfaced boat [m]. APPROX. */

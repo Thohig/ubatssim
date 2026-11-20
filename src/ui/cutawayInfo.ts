@@ -18,7 +18,12 @@ const f = (v: number, d = 0) => v.toFixed(d).replace('.', ',');
 const litres = (m3: number) => `${f(Math.abs(m3) * 1000)} l`;
 
 /** What the box says about a space (interior.ts ids), or null for an unknown id. */
-export function cutawayInfo(cfg: SubmarineConfig, id: string, t: Telemetry, extra: { bridgeManned: boolean }): CutawayInfo | null {
+export function cutawayInfo(
+  cfg: SubmarineConfig,
+  id: string,
+  t: Telemetry,
+  extra: { bridgeManned: boolean; tubes?: { loaded: boolean; loading: number }[]; reserve?: number },
+): CutawayInfo | null {
   const space = spaces(cfg).find((s) => s.id === id);
   if (!space) return null;
   const lines: string[] = [];
@@ -52,6 +57,11 @@ export function cutawayInfo(cfg: SubmarineConfig, id: string, t: Telemetry, extr
             : 'Dieslarna står still.',
       );
       lines.push(`Snorkeln: ${t.snorkel > 0.99 ? (t.inductionAir ? 'uppe, luft kommer in' : 'uppe, huvudventilen stängd') : t.snorkel < 0.01 ? 'nere' : `${f(t.snorkel * 100)} % uppe`}.`);
+    }
+    if (id === 'torpedo' && extra.tubes) {
+      const tubes = extra.tubes.map((x, i) => `${i + 1}: ${x.loaded ? 'laddad' : x.loading > 0 ? `laddas, ${Math.ceil(x.loading)} s` : 'tom'}`);
+      lines.push(`Tuberna: ${tubes.join(', ')}.`);
+      lines.push(`${extra.reserve ?? 0} torpeder i stället.`);
     }
     if (id === 'motor') lines.push(`Huvudmotorn: ${f(t.rps * 60)} rpm, ${f(t.shaftPower / 1000)} kW.`);
   } else if (id === 'sail') {

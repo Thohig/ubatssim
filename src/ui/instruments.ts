@@ -179,6 +179,11 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
       classes: (t) => ({ alarm: t.battery < 0.1, 'trim-heavy': t.battery >= 0.1 && t.battery < 0.3 }),
     }),
   load: (c) => row('Elförbrukning (kW)', (t) => f(t.electricalLoad / 1000), c),
+  tubes: (c) =>
+    row('Torpeder', () => {
+      const loaded = c.fire.tubes.filter((x) => x.loaded).length;
+      return `${loaded}/${c.fire.tubes.length} laddade, ${c.fire.reserve} kvar`;
+    }, c),
   diesel: (c) =>
     row('Diesel', (t) => (t.dieselRunning ? `går, ${f(t.generatorPower / 1000)} kW` : t.dieselOrdered ? 'väntar på luft' : 'stopp'), c),
   snorkel: (c) => row('Snorkel', (t) => (t.snorkel > 0.99 ? (t.inductionAir ? 'uppe, luft' : 'uppe, stängd') : t.snorkel < 0.01 ? 'nere' : `${f(t.snorkel * 100)} %`), c),
@@ -192,7 +197,7 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
 };
 
 /** Every instrument under "Mer", in order (those in the main panel are left out there). */
-const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'load', 'diesel', 'snorkel', 'flood', 'sep', 'net', 'tanks', 'air'];
+const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'load', 'diesel', 'snorkel', 'flood', 'tubes', 'sep', 'net', 'tanks', 'air'];
 
 /**
  * The panel for who handles what: the main panel leads with depth, speed,
@@ -213,6 +218,7 @@ export function instrumentLayout(d: CrewDuties, flooded = false): { main: string
   if (!d.trim || !d.ballast) extra.push('tanks');
   if (!d.ballast) extra.push('air');
   if (!d.charging) extra.push('diesel', 'snorkel', 'load');
+  if (!d.fireControl) extra.push('tubes');
   if (extra.length) main.push('sep', ...extra);
   main.push('sep');
   const more = ALL_MORE.filter((id) => id === 'sep' || !main.includes(id));

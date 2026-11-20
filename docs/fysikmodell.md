@@ -217,14 +217,22 @@ Sonarekvationen för bredbandsljud, i dB re 1 µPa [U83]:
 
 ```
 SE = SL − TL − NL + AG − DT          (> 0: hörs)
-TL = 20·log₁₀ r + α·r + 14 dB per skikt mellan källa och mottagare        α = 1 dB/km
+TL = 20·log₁₀ r + α·r + 20 dB per skikt mellan källa och mottagare        α = 1 dB/km
 ```
 
 - **Fartygens källnivå** (SL): lastfartyg 172, färja 168, fiskebåt 150 och korvett 158 dB vid 12 knop, plus 50·log₁₀(v/v₀) [R04] (APPROX).
 - **Ubåtens källnivå:** 112 dB vid 4 knop, plus 30·log₁₀(v/4 knop). Över 6 knop + 1 knop per 10 m djup kaviterar propellern (+18 dB). Dieslarna ger +24 dB (APPROX).
-- **Skikten:** varje skikt i vattenprofilen (termoklin, haloklin, sötvattnets botten) vars mitt ligger mellan källans och mottagarens djup ger 14 dB extra förlust. Det är en grov bild av hur skiktet böjer av ljudet.
-- **Brus:** havet 55 dB + 4 dB per meter våghöjd, och ubåtens eget strömningsbrus 48 dB vid 4 knop, plus 40·log₁₀(v/4 knop), adderat som effekter. Ubåtens bogsonar har AG = 18 och DT = 6 dB. En korvetts skrovsonar har NL = 66, AG = 15 och DT = 5 dB.
+- **Skikten:** varje skikt i vattenprofilen (termoklin, haloklin, sötvattnets botten) vars mitt ligger mellan källans och mottagarens djup ger 20 dB extra förlust (för ett eko alltså två gånger). Det är en grov bild av hur skiktet böjer av ljudet.
+- **Brus:** havet 55 dB + 4 dB per meter våghöjd, och ubåtens eget strömningsbrus 48 dB vid 4 knop, plus 40·log₁₀(v/4 knop), adderat som effekter. Ubåtens bogsonar har AG = 18 och DT = 6 dB. En korvetts skrovsonar har NL = 66 dB upp till 10 knop och sedan + 60·log₁₀(v/10 knop) (strömningsbrus över domen: fort är den döv), AG = 15 och DT = 5 dB.
 - **Upptäckt** (src/control/sonar.ts, en gång per sekund): korvettens vetskap växer med 0,04·(1 + SE/5) per sekund när SE > 0, och med 0,03, 0,06 och 0,3 per sekund när ett periskop (3,5 km), en snorkel (6 km) eller tornet i ytläge (12 km) syns. Annars minskar den med 0,005 per sekund. Vid 1 är ubåten upptäckt.
+
+## Torpeder, sjunkbomber och jakten (`torpedo.ts`, `depthCharge.ts`, `config/weapons.ts`, src/control)
+
+- **Torpeden** är kinematisk: 20,6 m/s (40 knop), 10 km räckvidd, 8°/s girhastighet och 2 m/s djupändring. Den skjuts från fören på ubåtens kurs och svänger till sin gyrokurs. Efter 300 m är den armerad. Den går rakt till `seekAfter` (träffpunkten minus 600 m) och lyssnar sedan inom ±30°: hörs ett fartyg med SE = SL − TL − 82 + 10 − 6 > 0 styr den rakt mot det (ren förföljning). Den träffar när den är inne i fartygets skrov och grundare än kölen + 0,5 m. Gångdjupet ställs till 60 % av målets djupgående, högst 4 m.
+- **Träffpunkten** är den minsta positiva roten till |p + v·t − s| = v_t·t, där p och v kommer ur lösningen.
+- **Målrörelseanalysen** (`fireControl.ts`) är en viktad minsta kvadrat-anpassning av en rät kurs (n₀, e₀, v_n, v_e) till observationerna. En bäring b ger raden (n − n_ubåt)·sin b − (e − e_ubåt)·cos b = 0, som är linjär i de okända (pseudolinjär skattning). Felet räknas om till meter vid det skattade avståndet (iterativt). Ett avstånd ger två rader. Svaga apriorivärden (farten ±8 m/s, och med bara bäringar avståndet 5 ± 6 km) gör systemet lösbart före ett andra ben. Kovariansens diagonal ger positions- och fartfel, och kvaliteten är bra (positionsfel < max(150 m, 10 % av avståndet) och fartfel < 1 m/s), ok (< max(400 m, 25 %) och < 2,5 m/s) eller dålig. Mätfelen är fasta funktioner av tiden: inga slumptal.
+- **Sjunkbomben** sjunker 3,5 m/s och smäller på inställt djup. Avståndet till skrovets yta ger hålet: 0,03 m² inom 8 m, och 4·10⁻³·(1 − (d − 8)/32)² m² ut till 40 m, i avdelningen närmast explosionen.
+- **Korvettens jakt** (`hunter.ts`, en gång per sekund) har lägena patrull, misstanke, sök och anfall, och styr fartygets `goal` och `goalSpeed`. Den tror att ubåten ligger i rätt bäring men med ett avståndsfel på 10–50 %. Aktiv sonar: SE = 210 − 2·TL + 10 − NL(v) + 15 − 10, högst 3 km och inte i akterns ±45°. Den fäller ett mönster om fyra sjunkbomber (30 m isär) inom 150 m från den tänkta positionen, högst var 45:e sekund och 24 bomber totalt.
 - **Bäringen** till en kontakt avviker med 4/(1 + SE/4) grader gånger en deterministisk sinus. Inget slumptal används.
 
 ## Grundstötning

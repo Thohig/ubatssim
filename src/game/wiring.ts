@@ -53,6 +53,8 @@ export function effectsInput(s: GameSession): EffectsInput {
     periscopeHead: a.periscope > 0.5 ? sim.periscopeHead() : null,
     snorkelHead: a.snorkel > 0.5 ? sim.snorkelHead() : null,
     dieselRunning: sim.systems.electrics.dieselRunning,
+    torpedoes: s.ctrl.world.torpedoes.map((t) => [t.state.north, t.state.east, t.state.depth] as [number, number, number]),
+    blasts: s.ctrl.blasts,
   };
 }
 

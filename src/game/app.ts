@@ -25,6 +25,7 @@ import { updateObjective } from '../ui/objective';
 import { createPerfMeter } from '../ui/perfMeter';
 import { createStatusBar } from '../ui/statusBar';
 import { createNavPanel } from '../ui/navPanel';
+import { createFirePanel } from '../ui/firePanel';
 import { loadSettings, saveSettings, type Settings } from '../ui/settings';
 import { isTouchDevice } from '../ui/button';
 import { createViewOverlay } from '../ui/viewOverlay';
@@ -236,7 +237,7 @@ export function startApp(): void {
   let cutawayInfoKey = '';
   /** The information box for the selected space (10 times a second, only on change). */
   const updateCutawayInfo = (s: GameSession) => {
-    const info = views.mode === 'cutaway' && views.selected ? cutawayInfo(SUBMARINE, views.selected, s.sim.telemetry(), { bridgeManned: s.ctrl.bridgeManned }) : null;
+    const info = views.mode === 'cutaway' && views.selected ? cutawayInfo(SUBMARINE, views.selected, s.sim.telemetry(), { bridgeManned: s.ctrl.bridgeManned, tubes: s.ctrl.fire.tubes, reserve: s.ctrl.fire.reserve }) : null;
     const key = info ? `${info.title}|${info.lines.join('|')}` : views.mode === 'cutaway' ? 'hint' : '';
     if (key === cutawayInfoKey) return;
     cutawayInfoKey = key;
@@ -256,7 +257,8 @@ export function startApp(): void {
     applySettings();
   };
   const logSwitch = { shown: () => settings.showLog, toggle: () => setLogShown(!settings.showLog) };
-  const nav = createNavPanel(el('nav'));
+  const nav = createNavPanel(el('nav'), (label) => activeCtrl()?.submit({ kind: 'markTarget', label }, 'touch'));
+  const updateFire = createFirePanel(el('fire'), activeCtrl, views, () => nav.mode !== null);
   const navSwitch = { mode: () => nav.mode, toggle: (m: 'chart' | 'sonar') => nav.toggle(m) };
   const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole, logSwitch, navSwitch);
   const helmEl = el('helm');
@@ -370,6 +372,7 @@ export function startApp(): void {
   flow.go('menu'); // shows the main menu, hides the HUD, turns the camera slowly
 
   let last = performance.now();
+  let lastPings = 0;
   let lastUi = 0;
 
   function frame(now: number): void {
@@ -393,6 +396,7 @@ export function startApp(): void {
       periscope: sim.actuators.periscope,
       snorkel: sim.actuators.snorkel,
       effects: views.mode === 'cutaway' ? null : effectsInput(s),
+      torpedoes: s.ctrl.world.torpedoes.map((t) => t.state),
       vessels: s.ctrl.world.vessels.map((v) => v.state),
       cutaway: views.mode === 'cutaway' ? cutawayState(s) : undefined,
     });
@@ -412,6 +416,12 @@ export function startApp(): void {
       updateViewButtons(s.ctrl);
       updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
       updateCutawayInfo(s);
+      updateFire(s.ctrl);
+      // A corvette's active sonar: one ping sound per new ping (heard only while playing).
+      if (s.ctrl.hunter.pings !== lastPings) {
+        if (flow.state === 'playing' && s.ctrl.hunter.pings > lastPings) audio.engine.cue('activePing');
+        lastPings = s.ctrl.hunter.pings;
+      }
       nav.update({ ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
       if (views.mode === 'cutaway') sampleCutaway(s);
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));

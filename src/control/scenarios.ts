@@ -59,7 +59,12 @@ export interface Scenario {
   traffic?: VesselDef[];
   /** The scenario fails when a patrol vessel finds the boat (sonar.ts). */
   failWhenDetected?: boolean;
+  /** Called once after the traffic is added (e.g. a corvette already hunting). */
+  setup?: (c: Controller) => void;
 }
+
+/** Water inside the hull [m^3] at which the boat is lost (it can no longer be kept up). */
+export const FLOODED = 120;
 
 /** Distance [m] and true bearing [deg] from the boat to the scenario waypoint. */
 export function waypointInfo(t: Telemetry, wp: [number, number]): { distance: number; bearing: number } {
@@ -103,6 +108,18 @@ const ASTERN_START: [number, number] = [0, -3000];
 const ASTERN_BUOY: [number, number] = [-450, -3000];
 /** Most the heading may differ from north in "Back" [deg]. */
 const ASTERN_MAX_YAW = 45;
+/** "Övningsskott": a slow target ship crossing 3 km ahead, east-bound. */
+const PRACTICE_TARGET: VesselDef = { ...freighter('ovning', 'målfartyget Övning', [[3000, -4000], [3000, 7000]]), speed: 6 * KN };
+/** "Nattanfall": a freighter 6 km off, west-bound across the bow. */
+const NIGHT_TARGET: VesselDef = { ...freighter('nordstjarnan', 'M/S Nordstjärnan', [[6000, 5000], [6000, -9000]]), speed: 9 * KN };
+/** "Jagad": a corvette already hunting, 1.5 km north. */
+const HUNTER = corvette('jagaren', 'korvetten Jägaren', [[1500, 0], [1500, 4000]]);
+/** "Konvojen": a freighter with a corvette escorting on its seaward side, both west-bound. */
+const CONVOY_SHIP: VesselDef = { ...freighter('lastaren', 'M/S Lastaren', [[4000, 4000], [4000, -12000]]), speed: 8 * KN };
+const ESCORT = corvette('eskorten', 'korvetten Eskort', [[4800, 4000], [4800, -12000]], 8);
+const sunk = (c: Controller, id: string) => c.world.vessels.find((v) => v.def.id === id)?.state.sinking === true;
+const lookoutUp = (t: Telemetry) => t.periscope > 0.99 && t.periscopeHeadDepth < 0;
+
 /** "Smyg förbi": the corvette shuttles east–west across the way to the buoy. */
 const STEALTH_BUOY: [number, number] = [2500, 0];
 const STEALTH_CORVETTE = corvette('vaktaren', 'korvetten Väktaren', [[1300, -3000], [1300, 3000]]);
@@ -493,6 +510,118 @@ export const SCENARIOS: Scenario[] = [
     timeLimit: 2700,
   },
   {
+    id: 'practice-shot',
+    title: 'Övningsskott',
+    description: 'Ett målfartyg går österut 3 km norr om dig i 6 knop. Hissa periskopet, markera målet, mät avståndet och skjut. Följ torpeden på sjökortet.',
+    difficulty: 'medel',
+    initial: { area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 },
+    traffic: [PRACTICE_TARGET],
+    objectives: [
+      {
+        text: 'Hissa periskopet',
+        hint: 'Tryck Per (eller P).',
+        check: (t) => lookoutUp(t),
+      },
+      {
+        text: 'Markera målfartyget',
+        hint: 'Vrid periskopet (dra i bilden eller ←/→) tills fartyget står i hårkorset och tryck Mål (eller T).',
+        check: (_t, c) => c.fire.target?.vesselId === PRACTICE_TARGET.id,
+      },
+      {
+        text: 'Få en lösning som är ok eller bra',
+        system: 'fireControl',
+        hint: 'Tryck Avst (eller R) med fartyget i hårkorset, gärna på 6× (Zoom). Mät igen efter en halv minut.',
+        hintCrew: 'Eldledaren mäter avståndet genom periskopet. Håll fartyget i sikte en stund, och markera det igen med Mål.',
+        check: (_t, c) => c.fire.target?.solution?.quality === 'ok' || c.fire.target?.solution?.quality === 'bra',
+      },
+      {
+        text: 'Skjut och träffa',
+        hint: 'Tryck Fyr (eller F). Torpeden går 40 knop: följ den på sjökortet (Karta eller K).',
+        check: (_t, c) => sunk(c, PRACTICE_TARGET.id),
+      },
+    ],
+    timeLimit: 1500,
+  },
+  {
+    id: 'night-attack',
+    title: 'Nattanfall',
+    description: 'Natt. Ett lastfartyg går västerut 6 km norr om dig, och periskopet ser inget i mörkret. Gör sonarkontakten till mål, byt kurs så att eldledningen får avstånd ur bäringarna, och skjut.',
+    difficulty: 'svår',
+    conditions: 'night',
+    initial: { area: 'atlantic', depth: 40, speed: 5 * KN, neutral: true, heading: 0 },
+    traffic: [NIGHT_TARGET],
+    objectives: [
+      {
+        text: 'Gör sonarkontakten till mål',
+        hint: 'Öppna Sonar (eller H) och tryck på S1 i listan under vattenfallet.',
+        check: (_t, c) => c.fire.target?.vesselId === NIGHT_TARGET.id,
+      },
+      {
+        text: 'Få en lösning som är ok eller bra',
+        hint: 'Byt kurs minst 30° och håll den några minuter. Bäringarna från två ben ger avståndet.',
+        check: (_t, c) => c.fire.target?.solution?.quality === 'ok' || c.fire.target?.solution?.quality === 'bra',
+      },
+      {
+        text: 'Skjut och träffa',
+        hint: 'Tryck Fyr (eller F). Med en sämre lösning: välj 2 eller 3 torpeder per salva.',
+        check: (_t, c) => sunk(c, NIGHT_TARGET.id),
+      },
+    ],
+    failure: (t) => (t.depth < 8 ? 'Ubåten bröt ytan och syntes i fartygets lanternor.' : null),
+    timeLimit: 2700,
+  },
+  {
+    id: 'hunted',
+    title: 'Jagad',
+    description: 'En korvett har hittat dig och går in för anfall. Gå djupt, under språngskiktet, sakta och tyst, och byt kurs. Klara dig tills den tappar dig eller har slut på sjunkbomber. Sjunkbomberna ger läckor.',
+    difficulty: 'svår',
+    initial: { area: 'atlantic', depth: 60, speed: 4 * KN, neutral: true, heading: 180 * DEG },
+    traffic: [HUNTER],
+    setup: (c) => {
+      c.sonar.alert(HUNTER.id, 0.9);
+    },
+    objectives: [
+      {
+        text: 'Gå djupare än 150 m',
+        system: 'depth',
+        hint: 'Djuproder ned och Halv fram tills du är under skiktet: på 50–150 m dämpar det korvettens sonar. Sakta sedan in.',
+        hintCrew: 'Tryck på djupskalan vid 200 m och Halv fram tills du är under skiktet. Sakta sedan in.',
+        check: (t) => t.depth > 150,
+      },
+      {
+        text: 'Skaka av dig korvetten',
+        hint: 'Håll 4 knop (tyst) och byt kurs. Sjunkbomberna ställs på det djup korvetten mätte: byt djup när den går över dig. Den ger upp när den tappat dig i fem minuter eller har slut på bomber.',
+        check: (_t, c) => c.hunter.state(HUNTER.id) === 'patrol' && (c.sonar.awareness[HUNTER.id] ?? 0) < 0.5,
+        holdSeconds: 30,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
+    timeLimit: 1500,
+  },
+  {
+    id: 'convoy',
+    title: 'Konvojen',
+    description: 'Ett lastfartyg går västerut med en korvett som eskort på havssidan. Sänk lastfartyget och ta dig undan eskorten.',
+    difficulty: 'svår',
+    initial: { area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 },
+    traffic: [CONVOY_SHIP, ESCORT],
+    objectives: [
+      {
+        text: 'Sänk M/S Lastaren',
+        hint: 'Periskop upp, Mål och Avst på lastfartyget (inte korvetten), Fyr. Ha periskopet uppe så kort tid som möjligt.',
+        check: (_t, c) => sunk(c, CONVOY_SHIP.id),
+      },
+      {
+        text: 'Ta dig undan eskorten',
+        hint: 'Sänk periskopet, gå djupt under skiktet, sakta, och byt kurs. Eskorten hörde avfyrningen.',
+        check: (_t, c) => c.hunter.state(ESCORT.id) === 'patrol' && (c.sonar.awareness[ESCORT.id] ?? 0) < 0.5,
+        holdSeconds: 30,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : t.depth < 8 ? 'Ubåten bröt ytan och upptäcktes av eskorten.' : null),
+    timeLimit: 3000,
+  },
+  {
     id: 'leak',
     title: 'Läckan',
     description: 'En rörgenomföring i maskinrummet har sprungit läck på 120 m. Gå upp så att länspumpen hinner med, medan besättningen tätar läckan, och länsa maskinrummet. Krossdjupet är 300 m.',
@@ -546,6 +675,7 @@ export class ScenarioRunner {
   ) {
     ctrl.options.locks = { ...scenario.locks };
     ctrl.world.add(scenario.traffic ?? []);
+    scenario.setup?.(ctrl);
   }
 
   onChange(fn: (p: ScenarioProgress) => void): void {
@@ -577,6 +707,7 @@ export class ScenarioRunner {
       (t.grounded ? 'Ubåten gick på grund.' : null) ??
       (c.collidedWith ? `Ubåten kolliderade med ${c.collidedWith}.` : null) ??
       (t.hullCollapsed ? 'Skrovet kollapsade under krossdjupet.' : null) ??
+      (c.sim.systems.flooding.water > FLOODED ? 'Ubåten tog in för mycket vatten och sjönk.' : null) ??
       (this.scenario.failWhenDetected && c.sonar.detectedBy ? `Ubåten upptäcktes av ${c.sonar.detectedBy}.` : null) ??
       this.scenario.failure?.(t, c) ??
       null;

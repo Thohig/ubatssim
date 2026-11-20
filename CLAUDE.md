@@ -4,7 +4,7 @@ En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i 
 
 ## Kommandon
 - `npm run dev`: utvecklingsserver på http://localhost:5173/ubatssim/ (observera sökvägen).
-- `npm test`: de snabba testerna (~20 s). `npm run test:all`: alla, också de långa i `tests/long/` (~2 min). Publiceringen kör `test:all`. Fysiktesterna körs utan grafik. `testTimeout` är 60 s eftersom testerna simulerar minuter av spelets tid och CI-maskinerna är långsamma.
+- `npm test`: de snabba testerna (~20 s). `npm run test:all`: alla, också de långa i `tests/long/` (~5 min). Publiceringen kör `test:all`. Fysiktesterna körs utan grafik. `testTimeout` är 60 s eftersom testerna simulerar minuter av spelets tid och CI-maskinerna är långsamma.
 - **Tester som simulerar mer än någon minut speltid** läggs i `tests/long/*.long.test.ts`. Inget test bör ta mer än ~20 s på en vanlig dator: korta tidsgränser i testet hellre än att simulera länge (se "Fyrljuset fails when time runs out").
 - `npm run lint`: ESLint. Kontrollerar bland annat lagergränserna.
 - `npm run build`: `tsc --noEmit` och Vite-bygge till `dist/`. Three.js hamnar i en egen fil, och terrängens Web Worker i en tredje.
@@ -23,15 +23,18 @@ src/sim/      Ren fysik. Inga beroenden på Three.js, DOM eller andra lager.
   hull, hydrostatics, tanks, massProperties, airSystem, hydrodynamics,
   controlSurfaces, propulsion, contact, terrain, terrainGrid, environment, waves, rk4,
   acoustics   Sonarekvationen (ren): källnivåer, utbredningsförlust med skikten, brus.
+  torpedo, depthCharge  Kinematiska vapen (config/weapons.ts); World stegar dem och samlar händelser.
   systems/    Delsystem: actuators (roder, master), mainBallast (och tryckluft), pumps, flooding
               (läckage), electrics (batteri och dieslar), masts (periskopets och snorkelns motstånd).
   simulation  Simulation: spelarens ubåt. Äger tillståndet och delsystemen, stegar 100 Hz.
   vessel      Andra farkoster: rutt, fart, girhastighet (kinematiska).
-  world       World: ubåten och farkosterna, stegas tillsammans; bäring, avstånd, kollision.
+  world       World: ubåten, farkosterna, torpederna och sjunkbomberna, stegas tillsammans; bäring, avstånd,
+              kollision, träff, skada; händelser (`drainEvents`).
 src/control/  orders (Order-union + kvitton), orderQueue, parser (svenska), autopilot (PID),
               controller (kö → börvärden → autopilot → ställdon → sim.step → assistent),
               crew (besättningen: system, låsningar, telegrafen), trimAssist (trimassistent och skyddsnät),
-              sonar (kontakter, klassning, korvetternas upptäckt), areas (startlägen, fyrar, väder), scenarios.
+              sonar (kontakter, klassning, korvetternas upptäckt), fireControl (mål, målrörelseanalys, tuber),
+              hunter (korvetternas jakt), areas (startlägen, fyrar, väder), scenarios.
 src/render/   Three.js. Läser bara simuleringens tillstånd och skriver aldrig till det.
               coords (NED↔Three), submarineModel (lager), terrain (+ terrainBuild, terrainWorker),
               environment, waveShader (vågor på grafikkortet), vessels, scene,
@@ -43,7 +46,8 @@ src/ui/       dom (html-mallar med escaping, h(), Component), menu + menuScreens
               skärm), instruments (komponenter, layout efter vem som sköter vad), console, log,
               keyboard, button (skärmknappar), helm (skärmkontroller och panelerna), inputMode,
               objective, settings, views, viewOverlay, perfMeter, compact (mobillayoutens
-              mediefråga), statusBar (statusraden på mobil), navPanel (sjökort och sonar).
+              mediefråga), statusBar (statusraden på mobil), navPanel (sjökort och sonar), firePanel
+              (eldledningen i periskopvyn).
 src/game/     session (GameSession: simulering, kontroll, scenario, trafik, omstart), flow
               (GameFlow: menu | playing | paused | ended och tillåtna övergångar), loop
               (FixedStepLoop), wiring (session → ljud och overlay), app (kopplingen till DOM).
@@ -54,10 +58,11 @@ src/main.ts   Bara uppstart (startApp).
 - **Delsystem** (`src/sim/systems/`, mönstret i `types.ts`): `update(dt)` en gång per tidssteg och/eller `forces(ctx, tau)` vid varje kraftberäkning, i fast ordning (`Simulation.updateOrder`: ställdon, huvudballast, pumpar, läckage, el; `forceOrder`: masterna). Nya system läggs till som delsystem, inte direkt i `Simulation`.
 - **El och läckage:** `Electrics` (batteriets laddning, dieslarna som behöver luft, motorns effektgräns `powerLimit`, som `propellerForces` och telemetrins cache använder). `Flooding` (hål i avdelningarna, Q = Cd·A·√(2Δp/ρ), länspump, tätning, kollaps på 360 m). Vattnet är punktmassor i `computeMassProperties` (`extra`). Händelser samlas i delsystemet (`drainEvents`) och loggas av kontrollern (`watchPlant`). `InitialConditions.battery` och `.leaks` sätter startläget.
 - **Sonar och upptäckt** (`src/control/sonar.ts`, en gång per sekund, deterministiskt): kontakter (S1, S2 …) med bäring och klassning, och korvetternas (`kind: 'patrol'`) vetskap om ubåten från ljud (sonarekvationen i `src/sim/acoustics.ts`) och från master eller torn i sikte. `Scenario.failWhenDetected` gör upptäckt till misslyckande.
+- **Anfall och jakt:** eldledningen (`Controller.fire`) har mål (M1 …) med observationer (bäringar från periskop, brygga och sonar, avstånd från stadimetern) och en lösning ur minsta kvadrat (`fitSolution`). Ordrarna `markTarget`, `rangeTarget`, `fireTorpedo` och `setSpread`. Periskopvyn är den primära platsen att anfalla (`firePanel.ts`, T/R/F). Torpeden går till träffpunkten och söker själv sista biten. Korvetterna (`Controller.hunter`) styr `Vessel.goal` och `goalSpeed` genom lägena patrull, misstanke, sök (aktiv sonar) och anfall (sjunkbomber, som ger läckor). En avfyrning hörs. Mätfel och osäkerhet är fasta funktioner av tiden: inga slumptal. Scenarier kan ha `setup` (till exempel en korvett som redan jagar).
 - **Världen:** `Controller.world` (`World`) stegar ubåten och farkosterna. Fritt spel har områdets trafik (`AREA_INFO[area].traffic`), scenarier sin egen (`Scenario.traffic`). Kollision med ett fartyg gör att ett scenario misslyckas, som grundstötning.
 - **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln, alltså Hand.
 - **Back:** propellern back har egna gränser (`propulsion.asternFactor`, `maxRpsAstern`), och `rpsForSpeed()` tar negativ fart. Med vattnet bakifrån verkar rodren omvänt, så djup- och kursautopiloten vänder tecken via `Autopilot.direction()` (hysteres ±0,2 m/s, regulatorerna nollställs vid bytet). Skyddsnätet tittar i färdriktningen. `back <knop>|sakta|halv|full` blir `setSpeed` med negativ fart.
-- **Besättningen** (`src/control/crew.ts`): ett spelläge. Varje system sköts av besättningen eller av spelaren: djup, kurs och fart (= autopiloten för axeln, `Controller.ap`; Auto / Hand), ballast, trim, laddning (`charging`: maskinisten kör dieslarna när de får luft, spelaren hissar alltid snorkeln själv) och skyddsnät (`Controller.options.crew`). Samma `Simulation` oavsett val.
+- **Besättningen** (`src/control/crew.ts`): ett spelläge. Varje system sköts av besättningen eller av spelaren: djup, kurs och fart (= autopiloten för axeln, `Controller.ap`; Auto / Hand), ballast, trim, laddning (`charging`: maskinisten kör dieslarna när de får luft, spelaren hissar alltid snorkeln själv), eldledning (`fireControl`: eldledaren mäter avstånd och ger råd, spelaren skjuter alltid själv) och skyddsnät (`Controller.options.crew`). Samma `Simulation` oavsett val.
   - Varje spel börjar med `Controller.crewTakesAll()` (i `GameSession`). En ny `Controller` låter spelaren sköta allt, så befintliga tester påverkas inte.
   - Byte sker med ordern `crew` (system eller `'all'`, kvitteras, konsolen: `besättning|själv <system>`). Manuella order tar över via `effects` i orderregistret: `rudder`, `planes`, `setRpm`, `mainBallast`, `trim`, `compensate`, `diesel`. Mål (`setDepth`, `setHeading`, `setSpeed`, telegrafen) lämnar axeln till besättningen. Order från `'assist'` tar aldrig över något. `pendingDuties()` räknar med order som väntar i kön (pausmenyn).
   - Scenariots låsningar (`Scenario.locks`, `Controller.options.locks`) gäller från start och vägrar order som skulle ändra dem (`LOCK_TEXT`).
@@ -73,7 +78,7 @@ src/main.ts   Bara uppstart (startApp).
 - **Sessioner:** `GameSession` (src/game/session.ts) skapar en ny `Simulation` och `Controller` per spelstart och vet hur den startas om. Den har ingen DOM och testas i `tests/game.test.ts`. `app.ts` kopplar sessionen till vyer, ljud och meny. Indata-bindningarna får kontrollern via en getter som returnerar `null` när inget spel pågår. Bakom menyn kör en demo-session.
 - **Spelflödet:** byt mellan meny, spel, paus och slut bara via `GameFlow.go()`. Otillåtna övergångar vägras.
 - **Gränssnittet:** HTML byggs med `html` från `src/ui/dom.ts`, som escapar allt som infogas. Använd aldrig vanliga mallsträngar till `innerHTML`. Nya instrument är en post i `INSTRUMENTS` och ett id i `instrumentLayout` (instruments.ts), nya menyskärmar en funktion i `SCREENS` (menuScreens.ts). Gränssnittstester körs med happy-dom (`// @vitest-environment happy-dom`, se `tests/ui.test.ts`).
-- **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid (med `system`: `hintCrew` när besättningen sköter systemet, annars `hint`), villkor för misslyckande, tidsgräns, boj och låsningar (`locks`). `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning, kollision och kollapsat skrov gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska, både när besättningen sköter allt och när spelaren sköter allt som låsningarna tillåter (`tests/long/`).
+- **Scenarier** är data i `src/control/scenarios.ts`: startläge (`InitialConditions`), mål med villkor och hålltid (med `system`: `hintCrew` när besättningen sköter systemet, annars `hint`), villkor för misslyckande, tidsgräns, boj och låsningar (`locks`). `ScenarioRunner` kontrollerar dem 10 gånger per sekund mot `Telemetry`. Grundstötning, kollision, kollapsat skrov och mer än 120 m³ vatten inne gör alltid att scenariot misslyckas. Varje scenario ska ha ett test som visar att det går att klara och att det misslyckas när det ska, både när besättningen sköter allt och när spelaren sköter allt som låsningarna tillåter (`tests/long/`).
 - **Prestanda:** `Simulation.telemetry()` gör en full kraftberäkning, men sparar den per tillstånd (`y`, tid, massegenskaper, ställdon, varvtalskommando), så flera anrop mellan två tidssteg kostar nästan inget. Ändra därför aldrig `sim.y` på plats efter konstruktionen: ersätt hela vektorn. Använd `kinematics()` när bara läge och hastighet behövs, till exempel i autopiloten och i orderregistret. Håll budgeten i `docs/prestanda.md`. Mät med `npm run bench` och `?perf` före och efter ändringar i fysik eller grafik.
 - **Gränssnittet och layout:** läs inte `clientWidth`, `offsetHeight` eller `getComputedStyle` i uppdateringen 10 gånger per sekund. Det tvingar fram en layout efter textändringarna. Använd `ResizeObserver` och läs färger en gång (se `src/ui/helm.ts`).
 - **Optimeringar ska vara exakta** eller ha ett test som jämför mot den enkla beräkningen: kontaktgenvägen mot `contactForces` utan `shallowestIn`, och vågshadern (`elevationFromPacked`) mot `waveElevation`.

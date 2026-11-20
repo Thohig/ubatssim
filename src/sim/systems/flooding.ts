@@ -39,7 +39,7 @@ export interface CompartmentFlood {
 export interface DamageEvent {
   kind: 'leak' | 'sealed' | 'pumpedOut' | 'collapse';
   compartment: string;
-  cause?: 'grounding' | 'collision' | 'depth';
+  cause?: 'grounding' | 'collision' | 'depth' | 'charge';
 }
 
 export class Flooding implements Subsystem {

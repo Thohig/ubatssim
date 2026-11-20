@@ -617,3 +617,34 @@ describe('chart, sonar and the El panel', () => {
     expect(text).toMatch(/länspumpen går/);
   });
 });
+
+describe('the fire control panel', () => {
+  it('shows in the periscope view; Mål marks the vessel in the cross hair and Fyr is off without a solution', async () => {
+    const { createFirePanel, solutionText } = await import('../src/ui/firePanel');
+    const { freighter } = await import('../src/control/areas');
+    const c = crewGame({ depth: 13, neutral: true, heading: 0, area: 'atlantic' });
+    c.world.add([{ ...freighter('m', 'målet', [[3000, 0], [3000, 1]]), speed: 0 }]);
+    c.submit({ kind: 'periscope', up: true }, 'keyboard');
+    for (let i = 0; i < 1000; i++) c.step();
+    const root = document.createElement('div');
+    const views = new ViewState();
+    const update = createFirePanel(root, () => c, views);
+    update(c);
+    expect(root.hidden).toBe(true);
+    views.set('periscope');
+    update(c);
+    expect(root.hidden).toBe(false);
+    expect(solutionText(c)).toMatch(/Inget mål/);
+    const fire = byTitle(root, 'Skjut mot målet (F)');
+    expect(fire.disabled).toBe(true);
+    byTitle(root, 'Markera fartyget i hårkorset (T)').click();
+    c.step();
+    expect(c.fire.target?.name).toBe('målet');
+    byTitle(root, 'Mät avståndet med stadimetern (R)').click();
+    c.step();
+    update(c);
+    expect(solutionText(c)).toMatch(/^M1 målet: 3,0 km/);
+    expect(fire.disabled).toBe(false);
+    expect(root.querySelectorAll('.fire-tube.loaded')).toHaveLength(4);
+  });
+});

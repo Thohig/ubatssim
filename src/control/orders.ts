@@ -48,6 +48,22 @@ export type Order =
   | { kind: 'bridge'; manned: boolean }
   /** Report a true bearing [deg] to something seen through the periscope or from the bridge. */
   | { kind: 'reportBearing'; bearing: number }
+  /**
+   * Mark a target: a vessel at a true bearing [deg] seen through the
+   * periscope or from the bridge, a sonar contact ("S1"), or an existing
+   * target ("M2") to aim at.
+   */
+  | { kind: 'markTarget'; bearing?: number; label?: string }
+  /**
+   * Range the current target: with the stadimeter at the periscope's
+   * bearing [deg] and magnification (index, null = by eye from the bridge),
+   * or a range [m] typed in.
+   */
+  | { kind: 'rangeTarget'; bearing?: number; magnification?: number | null; range?: number }
+  /** Fire at the current target from a tube (1–4; default the first loaded), as a salvo of `spread`. */
+  | { kind: 'fireTorpedo'; tube?: number }
+  /** Torpedoes per salvo, 1–3. */
+  | { kind: 'setSpread'; count: number }
   /** Hand a system (or all) to the crew (`crew: true`) or take it over (`crew: false`). See crew.ts. */
   | { kind: 'crew'; system: CrewSystem | 'all'; crew: boolean };
 
@@ -125,6 +141,14 @@ export function acknowledgement(o: Order): string {
       return `Bäring ${String(Math.round(o.bearing) % 360).padStart(3, '0')}, ja`;
     case 'crew':
       return CREW_ACK[o.system][o.crew ? 0 : 1];
+    case 'markTarget':
+      return o.label ? `Mål ${o.label.toUpperCase()}, ja` : `Mål i bäring ${String(Math.round(o.bearing ?? 0) % 360).padStart(3, '0')}, ja`;
+    case 'rangeTarget':
+      return o.range !== undefined ? `Avstånd ${fmt(o.range)} meter, ja` : 'Avståndsmätning, ja';
+    case 'fireTorpedo':
+      return o.tube ? `Fyr tub ${o.tube}, ja` : 'Fyr, ja';
+    case 'setSpread':
+      return o.count === 1 ? 'En torped per salva, ja' : `Spridning ${o.count} torpeder, ja`;
   }
 }
 
@@ -136,6 +160,7 @@ const CREW_ACK: Record<CrewSystem | 'all', [string, string]> = {
   ballast: ['Besättningen sköter ballasten, ja', 'Du sköter ballasten, ja'],
   trim: ['Trimassistenten tar trimmet, ja', 'Trimassistenten avlöst, ja'],
   charging: ['Maskinisten sköter laddningen, ja', 'Du sköter laddningen, ja'],
+  fireControl: ['Eldledaren mäter avstånd, ja', 'Du mäter avstånd själv, ja'],
   safetyNet: ['Skyddsnät på, ja', 'Skyddsnät av, ja'],
   all: ['Besättningen sköter allt, ja', 'Du sköter allt, ja'],
 };

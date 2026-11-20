@@ -2,14 +2,14 @@
 
 Förslag på vad som skulle förbättra spelet, med läge och en rekommenderad ordning. Det som är gjort beskrivs i README och de andra dokumenten. Här står bara det som återstår och varför.
 
-Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv sonar och sjökort. Det som saknas är framför allt ett **motstånd som reagerar** (fartyg som jagar ubåten) och **mer att göra med sonaren**.
+Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv sonar, sjökort, målrörelseanalys, torpeder och korvetter som jagar. Det som saknas är framför allt **mer variation i motståndet** och **en kampanj** som binder ihop uppdragen.
 
 ## Rekommenderad ordning
 
-1. **Korvetter som jagar.** En korvett som har upptäckt ubåten ändrar i dag inte kurs. Den borde gå mot den senaste kända positionen, sakta in för att höra bättre och söka i ett mönster. Det ger smygandet en följd och bygger på `Sonar.awareness` och `Vessel`.
-2. **Mer sonar:** målrörelseanalys (avstånd, kurs och fart ur flera bäringar, som en plott i sjökortet) och ett mål att "lösa" en kontakt i ett scenario.
+1. **Flera fartyg som samarbetar:** två korvetter som söker tillsammans, och en konvoj som sprider ut sig eller vänder när ett fartyg träffas.
+2. **Motmedel:** ett lockmål (decoy) som låter som ubåten och drar korvettens ping och sjunkbomber, i ett begränsat antal.
 3. **Läckaget i genomskärningen:** vattnet i avdelningarna och tätningsarbetet syns i snittet, som vattnet i tankarna.
-4. **Ljusstrålar** nära ytan under vattnet.
+4. **En kampanj:** uppdragen i ordning, där batteri, torpeder och skador följer med mellan dem.
 
 ## System
 
@@ -19,8 +19,10 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Passiv sonar och upptäckt** | Klar | Se README och `docs/fysikmodell.md` (Akustik). |
 | **Sjökort och plott** | Klar | Se README och `docs/grafik.md`. |
 | **Läckage och skador** | Klar | Se README och `docs/fysikmodell.md`. |
-| **Korvetter som jagar** | Återstår | Upptäckt ger i dag bara larm och, i Smyg förbi, ett misslyckat uppdrag. Se ovan. |
-| **Målrörelseanalys** | Återstår | Bäringar över tid ger avstånd, kurs och fart till en kontakt. En plott i sjökortet och ett kvitto när lösningen är bra nog. |
+| **Korvetter som jagar** | Klar | Se README och `docs/fysikmodell.md`. |
+| **Målrörelseanalys och torpeder** | Klar | Se README (Anfall) och `docs/fysikmodell.md`. |
+| **Trådstyrda torpeder** | Återstår | Styr om en torped efter avfyrningen via tråden, när lösningen blivit bättre. |
+| **Aktiv sonar på ubåten** | Återstår | En ping som ger avstånd direkt, men som hörs långt och avslöjar ubåten. |
 | **Skott och länsning** | Återstår | Vattentäta dörrar som besättningen stänger, så att en läcka hålls i en avdelning, och vatten som flyttar sig när ubåten lutar. |
 | **Besättningens reaktionstid** | Återstår | Order verkställs efter några sekunder (deterministiskt), och kvittot kommer då. Ger realism när spelaren sköter ett system själv. |
 
@@ -35,6 +37,8 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 
 ## Mindre idéer
 
+- **Torpedernas egen fara:** en torped som söker kan i dag inte vända mot ubåten själv. En verklig torped har skydd mot det (ett förbjudet område runt ubåten), men en runt-gående torped vore spännande.
+- **Långa tester:** `npm run test:all` tar nu ~5 min. Scenariotesterna kan köras parallellt i fler trådar, eller kortas med mindre avstånd.
 - **Djupstyraren nära ytan:** sedan integralzonen minskades till 1,5 m svänger den över högst ~1,5 m vid stigning till periskopdjup. Vid 3 knop orkar djuprodren ändå inte lyfta ubåten från 40 m. Ett tips eller en lägsta fart för djupstyraren på periskopdjup vore bra.
 - **Ljud i ljudlöst läge på iPhone:** Web Audio tystnar när ljudlös-knappen är på. Från iOS 17 kan `navigator.audioSession.type = 'playback'` låta ljudet höras ändå.
 - **Prova mobilvyn på en riktig telefon:** den är bara provad i webbläsarens telefonläge.

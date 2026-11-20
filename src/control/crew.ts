@@ -12,6 +12,10 @@
  *   charging  – the crew runs the diesels whenever they can get air (surfaced
  *               or snorkelling) and the battery needs it; or the player
  *               starts and stops them. Raising the snorkel is always the player's call.
+ *   fireControl – the fire controller ranges the current target through the
+ *               raised periscope and advises course changes for the target
+ *               motion analysis; or the player ranges (Avst). Firing is
+ *               always the player's order.
  *   safetyNet – emergency blow near crush depth, depth limit over the sea bed
  *               and the keel warning; or none.
  *
@@ -20,9 +24,9 @@
  * the heading, a trim order the trim), see `Controller.ORDERS`.
  */
 
-export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'charging' | 'safetyNet';
+export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'charging' | 'fireControl' | 'safetyNet';
 
-export const CREW_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'charging', 'safetyNet'];
+export const CREW_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'charging', 'fireControl', 'safetyNet'];
 
 /** Systems that are an autopilot axis (crew = autopilot on). */
 export const AXES = ['depth', 'heading', 'speed'] as const;
@@ -43,6 +47,7 @@ export const CREW_NAME: Record<CrewSystem, string> = {
   ballast: 'Ballast och brygga',
   trim: 'Trim',
   charging: 'Laddning',
+  fireControl: 'Eldledning',
   safetyNet: 'Skyddsnät',
 };
 
@@ -54,6 +59,7 @@ export const CREW_ROLE: Record<CrewSystem, [string, string]> = {
   ballast: ['Besättningen sköter ballasten och bryggan.', 'Du fyller, blåser och stänger huvudballasten och klarar bryggan.'],
   trim: ['Trimassistenten kompenserar och trimmar.', 'Du kompenserar och trimmar.'],
   charging: ['Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge.', 'Du startar och stoppar dieslarna.'],
+  fireControl: ['Eldledaren mäter avståndet till målet genom periskopet och ger råd om kursbyten.', 'Du mäter avståndet själv (Avst i periskopet).'],
   safetyNet: ['Nödblåsning nära krossdjupet och vid läckage, djupgräns över botten och varning för grunt vatten.', 'Inget skyddsnät.'],
 };
 
@@ -65,6 +71,7 @@ export const LOCK_TEXT: Record<CrewSystem, [string, string]> = {
   ballast: ['Här sköter besättningen ballasten.', 'Här sköter du ballasten själv.'],
   trim: ['Här sköter trimassistenten trimmet.', 'Här trimmar du själv.'],
   charging: ['Här sköter maskinisten laddningen.', 'Här startar och stoppar du dieslarna själv.'],
+  fireControl: ['Här sköter eldledaren avståndsmätningen.', 'Här mäter du avståndet själv.'],
   safetyNet: ['Här är skyddsnätet alltid på.', 'Här finns inget skyddsnät.'],
 };
 
@@ -76,6 +83,7 @@ export const CREW_NOUN: Record<CrewSystem, string> = {
   ballast: 'ballasten',
   trim: 'trimmet',
   charging: 'laddningen',
+  fireControl: 'eldledningen',
   safetyNet: 'utan skyddsnät',
 };
 

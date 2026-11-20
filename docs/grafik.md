@@ -69,6 +69,10 @@ Tre partikelsystem (`THREE.Points`) med fasta pooler: bubblor (1 600), stänk (5
 
 Snorkelmasten ritas i ubåtsmodellen som periskopet, med ett lådformat huvud med ventilen.
 
+- **Torpederna** är mörka cylindrar (533 mm × 6 m) ur en liten pool, placerade efter sitt läge och sin kurs. De lämnar en ström av bubblor.
+- **Explosioner** (torpedträffar och sjunkbomber) kommer som `Controller.blasts` med ökande id. Var och en ger en gång en bubbelsky under vattnet och en plym av stänk vid ytan. En träff ger också rök.
+- **Ett torpederat fartyg** sätter sig med aktern, sjunker allt fortare under 90 s och försvinner (`VesselState.sunk`).
+
 ## Sjökortet och sonaren (`src/ui/navPanel.ts`)
 
 En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden medan den är öppen. Storleken hålls av en `ResizeObserver`.
@@ -76,6 +80,10 @@ En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden 
 - **Sjökortet:** norr uppåt och ubåten i mitten, med fyra skalor (750 m, 2, 5 och 12 km till kanten). Djupet ritas från samma botten som fysiken använder (`sim.ground`), 72 × 72 prov i en bild som byggs om när ubåten flyttat en tiondel av skalan. Ovanpå ritas spåret (en punkt per 25 m), fyrarna, bojen eller en pil mot den vid kanten, sonarens bäringar som streckade linjer och fartyg i sikte från periskopet eller bryggan (inom 8 km).
 - **Sonaren:** ett vattenfall med bäringen från fören (−180…180°) tvärs över och en rad per sekund nedåt, 180 s historik. Ljusare för starkare signal. Under det står kontakterna, ubåtens ljudnivå och risken att bli upptäckt.
 - **På mobil** ligger panelen under statusraden, och målrutan och loggraden döljs medan den är öppen.
+
+## Eldledningspanelen (`src/ui/firePanel.ts`)
+
+En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
 
 ## Kameran och vyerna (`scene.ts`, `src/ui/views.ts`)
 

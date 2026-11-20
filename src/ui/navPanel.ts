@@ -17,6 +17,7 @@
 import type { Controller } from '../control/controller';
 import type { Lighthouse } from '../control/areas';
 import { strength } from '../control/sonar';
+import { solutionAt } from '../control/fireControl';
 import { cavitationSpeed } from '../sim/acoustics';
 import { h } from './dom';
 
@@ -63,7 +64,8 @@ export interface NavPanel {
   update(ctx: NavContext): void;
 }
 
-export function createNavPanel(root: HTMLElement): NavPanel {
+/** `onMark` makes a sonar contact the target (a tap on its line in the sonar list). */
+export function createNavPanel(root: HTMLElement, onMark?: (label: string) => void): NavPanel {
   let mode: NavMode | null = null;
   let zoom = 1;
   let size = { w: 0, h: 0 };
@@ -105,12 +107,23 @@ export function createNavPanel(root: HTMLElement): NavPanel {
     document.body.classList.toggle('nav-open', m !== null);
   }
 
-  const setInfo = (lines: (string | [string, string])[]) => {
+  /** Lines of text; a [class, text] pair is styled, a [class, text, label] triple is a button marking that sonar contact. */
+  const setInfo = (lines: (string | [string, string] | [string, string, string])[]) => {
     const key = JSON.stringify(lines);
     if (info.dataset.key === key) return;
     info.dataset.key = key;
-    info.replaceChildren(...lines.map((l) => (typeof l === 'string' ? h('div', null, l) : h('div', { class: l[0] }, l[1]))));
+    info.replaceChildren(
+      ...lines.map((l) => {
+        if (typeof l === 'string') return h('div', null, l);
+        if (l.length === 3) return h('button', { type: 'button', class: `nav-contact ${l[0]}`, 'data-label': l[2], title: `Gör ${l[2]} till mål` }, l[1]);
+        return h('div', { class: l[0] }, l[1]);
+      }),
+    );
   };
+  info.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-label]');
+    if (b?.dataset.label) onMark?.(b.dataset.label);
+  });
 
   function context2d(): CanvasRenderingContext2D | null {
     let g: CanvasRenderingContext2D | null;
@@ -203,6 +216,44 @@ export function createNavPanel(root: HTMLElement): NavPanel {
         g.fillStyle = '#ffd08a';
         g.fillText(k.label, lx + 3, ly - 3);
       }
+      // Targets: the solution's position now and two minutes of its course (fire control).
+      for (const tg of c.fire.targets) {
+        if (!tg.solution) continue;
+        const now = sim.t;
+        const p = solutionAt(tg.solution, now);
+        const [x, y] = pt(p);
+        const [x2, y2] = pt([p[0] + tg.solution.velocity[0] * 120, p[1] + tg.solution.velocity[1] * 120]);
+        const col = tg.solution.quality === 'bra' ? '#6be3a1' : tg.solution.quality === 'ok' ? '#5fd3ff' : '#ffb347';
+        g.strokeStyle = col;
+        g.fillStyle = col;
+        g.lineWidth = tg.label === c.fire.current ? 2 : 1;
+        g.beginPath();
+        g.moveTo(x, y - 6);
+        g.lineTo(x + 6, y);
+        g.lineTo(x, y + 6);
+        g.lineTo(x - 6, y);
+        g.closePath();
+        g.stroke();
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x2, y2);
+        g.stroke();
+        g.fillText(tg.label, x + 8, y + 4);
+      }
+      // Our torpedoes, with their heading.
+      for (const tp of c.world.torpedoes) {
+        const s = tp.state;
+        const [x, y] = pt([s.north, s.east]);
+        g.fillStyle = '#ffffff';
+        g.beginPath();
+        g.arc(x, y, 2.5, 0, 2 * Math.PI);
+        g.fill();
+        g.strokeStyle = 'rgba(255,255,255,0.7)';
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.sin(s.heading) * 10, y - Math.cos(s.heading) * 10);
+        g.stroke();
+      }
       // Lighthouses.
       for (const l of ctx.lighthouses) {
         const [x, y] = pt(l.position);
@@ -273,7 +324,13 @@ export function createNavPanel(root: HTMLElement): NavPanel {
       const de = ctx.waypoint[1] - pos[1];
       lines.push(`Bojen: ${Math.round(Math.hypot(dn, de))} m, bäring ${String(Math.round(((Math.atan2(de, dn) / DEG) + 360) % 360) % 360).padStart(3, '0')}°`);
     }
-    lines.push('Streckat: bäringar från sonaren. Rutor: fartyg i sikte från periskopet eller bryggan.');
+    for (const tg of c.fire.targets) {
+      if (!tg.solution) continue;
+      const v = tg.solution.velocity;
+      lines.push(`${tg.label}${tg.label === c.fire.current ? ' (valt)' : ''}: ${tg.name}, ${Math.round(Math.hypot(v[0], v[1]) / KN)} kn, lösning ${tg.solution.quality}`);
+    }
+    if (c.world.torpedoes.length) lines.push(`${c.world.torpedoes.length} torped${c.world.torpedoes.length > 1 ? 'er' : ''} i vattnet.`);
+    lines.push('Streckat: bäringar från sonaren. Rutor: fartyg i sikte. Romber: mål med lösning (färg efter kvaliteten).');
     setInfo(lines);
   }
 
@@ -329,7 +386,7 @@ export function createNavPanel(root: HTMLElement): NavPanel {
       t.snorkel > 0.99 && t.snorkelHeadDepth < 0 ? 'snorkeln syns' : '',
       t.periscope > 0.99 && t.periscopeHeadDepth < 0 ? 'periskopet syns' : '',
     ].filter(Boolean);
-    const lines: (string | [string, string])[] = [];
+    const lines: (string | [string, string] | [string, string, string])[] = [];
     lines.push(`Egen ljudnivå: ${loud}${reasons.length ? ` (${reasons.join(', ')})` : ''}`);
     if (Object.keys(s.awareness).length) {
       const r = Math.round(s.risk * 100);
@@ -337,8 +394,11 @@ export function createNavPanel(root: HTMLElement): NavPanel {
     }
     if (s.contacts.length === 0) lines.push('Inga kontakter.');
     for (const k of s.contacts) {
-      lines.push(`${k.label} · ${String(Math.round(k.bearing) % 360).padStart(3, '0')}° · ${strength(k.excess)}${k.classified ? ` · ${k.classified}, ${k.blades} blad, ${k.rpm} rpm` : ' · klassas …'}`);
+      const target = c.fire.targets.find((x) => x.vesselId === k.vesselId);
+      const text = `${k.label}${target ? ` = ${target.label}` : ''} · ${String(Math.round(k.bearing) % 360).padStart(3, '0')}° · ${strength(k.excess)}${k.classified ? ` · ${k.classified}, ${k.blades} blad, ${k.rpm} rpm` : ' · klassas …'}`;
+      lines.push([target && target.label === c.fire.current ? 'on' : '', text, k.label]);
     }
+    if (s.contacts.length) lines.push('Tryck på en kontakt för att göra den till mål.');
     setInfo(lines);
   }
 
