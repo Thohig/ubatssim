@@ -19,7 +19,7 @@ import { airForFill, updateMainBallast, type AirState } from './airSystem';
 import { finForce } from './controlSurfaces';
 import { contactForces, hullContactPoints, type ContactResult, type GroundDepth } from './contact';
 import { heightFunction, seabedDepth } from './terrain';
-import { AREAS, type AreaId } from './config/areas';
+import { AREAS, type AreaId, type CurrentDef } from './config/areas';
 import { DESIGN_WATER, type WaterProfile } from './config/waters';
 import { TerrainGrid } from './terrainGrid';
 
@@ -43,7 +43,7 @@ import { restoringForces, type HydrostaticResult } from './hydrostatics';
 import { computeMassProperties, type DryMass } from './massProperties';
 import { mat3Diag, mat3MulVec, type Mat3, type MatN } from './math/mat';
 import { quatFromEuler, quatToEuler, quatToMat3 } from './math/quat';
-import type { Vec3 } from './math/vec3';
+import { cross, type Vec3 } from './math/vec3';
 import { propellerForces } from './propulsion';
 import { rk4Step } from './rk4';
 import {
@@ -80,7 +80,7 @@ export interface InitialConditions {
   depth?: number;
   /** Heading [rad]. */
   heading?: number;
-  /** Forward speed [m/s]; the shaft starts at the matching speed. */
+  /** Forward speed through the water [m/s]; the shaft starts at the matching speed. The boat also drifts with the current. */
   speed?: number;
   /** Main ballast fill 0..1. Default 0 (surfaced) or 1 if depth is given. */
   mainBallastFill?: number;
@@ -96,8 +96,10 @@ export interface InitialConditions {
   /** Start position [m] north and east of the origin. */
   north?: number;
   east?: number;
-  /** Sea area (terrain and water). Default: the west coast. */
+  /** Sea area (terrain, water and current). Default: the west coast. */
   area?: AreaId;
+  /** Override the area's current (e.g. none in a test). */
+  current?: CurrentDef;
   /** Ground model (sea bed depth at north/east). Defaults to the area's terrain. */
   ground?: GroundDepth;
 }
@@ -138,7 +140,7 @@ export interface Telemetry {
   pitch: number;
   /** Heading 0..2π [rad]. */
   heading: number;
-  /** Body velocities [m/s] and rates [rad/s]. */
+  /** Body velocities through the water (the log) [m/s] and rates [rad/s]. */
   u: number;
   v: number;
   w: number;
@@ -147,6 +149,11 @@ export interface Telemetry {
   r: number;
   /** Vertical speed in world frame [m/s], positive down. */
   depthRate: number;
+  /** Speed [m/s] and course [rad, 0..2π] over the ground. */
+  speedOverGround: number;
+  courseOverGround: number;
+  /** Current at the boat, NED [m/s]. */
+  current: Vec3;
   rudder: number;
   rudderCmd: number;
   sternPlanes: number;
@@ -188,6 +195,7 @@ export class Simulation {
   readonly ground: GroundDepth;
   readonly areaId: AreaId;
   readonly water: WaterProfile;
+  readonly current: CurrentDef;
   readonly contactPoints: Vec3[];
 
   t = 0;
@@ -209,6 +217,7 @@ export class Simulation {
     this.cfg = cfg;
     this.areaId = init.area ?? 'westCoast';
     this.water = AREAS[this.areaId].water;
+    this.current = init.current ?? AREAS[this.areaId].current;
     this.ground = init.ground ?? areaGround(this.areaId);
     this.contactPoints = hullContactPoints(cfg);
     this.hull = buildHull(cfg.hull);
@@ -246,6 +255,9 @@ export class Simulation {
       this.y[IDX_SHAFT] = rps;
       this.commands.rps = rps;
     }
+    // The start speed is through the water: the boat already drifts with the current.
+    const vc = this.currentBody(getPos(this.y), quatToMat3(getQuat(this.y)));
+    for (let i = 0; i < 3; i++) this.y[IDX.NU + i]! += vc[i]!;
     this.refreshMass();
     if (init.neutral) this.trimNeutral();
   }
@@ -334,21 +346,48 @@ export class Simulation {
     const add = (f: ArrayLike<number>) => {
       for (let i = 0; i < 6; i++) tau[i]! += f[i]!;
     };
+    // Hydrodynamic forces act on the velocity relative to the water, ν_r = ν − ν_c [F21 §10.3].
+    const vc = this.currentBody(pos, R);
+    const nuR = Float64Array.from(nu);
+    for (let i = 0; i < 3; i++) nuR[i]! -= vc[i]!;
+    // Constant current in NED: ν̇_c = −ω × v_c in the body frame, so (M_RB + M_A)ν̇ gains M_A ν̇_c.
+    const w: Vec3 = [nu[3]!, nu[4]!, nu[5]!];
+    const wxv = cross(w, vc);
+    for (let i = 0; i < 3; i++) tau[i]! -= this.MA.get(i, i) * wxv[i]!;
 
     const hs = restoringForces(this.hull, pos, R, this.massProps.mass, this.massProps.cg, cfg.hull.compressibility, this.water);
     add(hs.tau);
-    add(hullDamping(cfg, this.hull, nu, rho));
+    add(hullDamping(cfg, this.hull, nuR, rho));
     for (const fin of cfg.fins) {
       const delta = fin.actuator === null ? 0 : this.actuators[fin.actuator];
-      add(finForce(fin, nu, delta, rho));
+      add(finForce(fin, nuR, delta, rho));
     }
-    const prop = propellerForces(cfg.propulsion, y[IDX_SHAFT]!, nu[0]!, this.commands.rps, rho);
+    const prop = propellerForces(cfg.propulsion, y[IDX_SHAFT]!, nuR[0]!, this.commands.rps, rho);
     tau[0]! += prop.thrust;
     tau[3]! -= prop.torque; // reaction torque on the hull
-    add(this.mastDrag(pos, R, nu));
+    add(this.mastDrag(pos, R, nuR));
     const contact = contactForces(this.contactPoints, pos, R, nu, this.ground, cfg.contact);
     add(contact.tau);
     return { tau, hydrostatics: hs, contact, propThrust: prop.thrust, propTorque: prop.torque, motorTorque: prop.motorTorque };
+  }
+
+  /** Current velocity in NED [m/s] at a position (depth = pos[2]). */
+  currentAt(pos: Vec3): Vec3 {
+    const c = this.current;
+    if (c.speed === 0) return [0, 0, 0];
+    const s = c.speed * Math.exp(-Math.max(0, pos[2]) / c.decay);
+    return [s * Math.cos(c.toward), s * Math.sin(c.toward), 0];
+  }
+
+  /** Current velocity in body axes at a position. */
+  private currentBody(pos: Vec3, R: Mat3): Vec3 {
+    const v = this.currentAt(pos);
+    // Rᵀ v (R is row-major body→NED).
+    return [
+      R[0] * v[0] + R[3] * v[1] + R[6] * v[2],
+      R[1] * v[0] + R[4] * v[1] + R[7] * v[2],
+      R[2] * v[0] + R[5] * v[1] + R[8] * v[2],
+    ];
   }
 
   /** Body-frame point of the periscope head at the present extension. */
@@ -522,17 +561,19 @@ export class Simulation {
   }
 
   /** Position, attitude and velocities only (no force evaluation). Cheap enough to call every step. */
+  /** `u` is the speed through the water (what the log and the autopilot use). */
   kinematics(): { depth: number; depthRate: number; pitch: number; heading: number; u: number; q: number; r: number } {
     const R = quatToMat3(getQuat(this.y));
     const [, pitch, yaw] = quatToEuler(getQuat(this.y));
     const nu = this.y.subarray(IDX.NU, IDX.NU + 6);
     const vWorld = mat3MulVec(R, [nu[0]!, nu[1]!, nu[2]!]);
+    const vc = this.currentBody(getPos(this.y), R);
     return {
       depth: this.y[2]!,
       depthRate: vWorld[2],
       pitch,
       heading: (yaw + 2 * Math.PI) % (2 * Math.PI),
-      u: nu[0]!,
+      u: nu[0]! - vc[0],
       q: nu[4]!,
       r: nu[5]!,
     };
@@ -546,6 +587,7 @@ export class Simulation {
     const R = quatToMat3(getQuat(this.y));
     const nu = this.y.subarray(IDX.NU, IDX.NU + 6);
     const vWorld = mat3MulVec(R, [nu[0]!, nu[1]!, nu[2]!]);
+    const vc = this.currentBody(pos, R);
     const n = this.y[IDX_SHAFT]!;
     const W = this.massProps.mass * E.g;
     return {
@@ -555,13 +597,16 @@ export class Simulation {
       roll,
       pitch,
       heading: (yaw + 2 * Math.PI) % (2 * Math.PI),
-      u: nu[0]!,
-      v: nu[1]!,
-      w: nu[2]!,
+      u: nu[0]! - vc[0],
+      v: nu[1]! - vc[1],
+      w: nu[2]! - vc[2],
       p: nu[3]!,
       q: nu[4]!,
       r: nu[5]!,
       depthRate: vWorld[2],
+      speedOverGround: Math.hypot(vWorld[0], vWorld[1]),
+      courseOverGround: (Math.atan2(vWorld[1], vWorld[0]) + 2 * Math.PI) % (2 * Math.PI),
+      current: this.currentAt(pos),
       rudder: this.actuators.rudder,
       rudderCmd: this.commands.rudder,
       sternPlanes: this.actuators.sternPlanes,

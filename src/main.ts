@@ -268,7 +268,7 @@ function updateViews(dt: number): void {
     views.set('external');
   }
   views.update(dt);
-  view.setView(inGame ? views.camera(sim.y[7]!, sim.cfg.periscope.vibrationSpeed) : { mode: 'external' });
+  view.setView(inGame ? views.camera(sim.kinematics().u, sim.cfg.periscope.vibrationSpeed) : { mode: 'external' });
 }
 
 function overlayState() {

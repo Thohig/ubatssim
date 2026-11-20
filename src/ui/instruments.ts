@@ -50,6 +50,8 @@ export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Teleme
     <div class="inst-more">
       ${simple ? row('Stampvinkel (°)', 'pitch') + surfaces + '<div class="inst-sep"></div>' : ''}
       ${row('Djupändring (m/min)', 'depthRate')}
+      ${row('Över grund (knop, °)', 'sog')}
+      ${row('Ström (knop, mot °)', 'current')}
       ${row('Krängning (°)', 'roll')}
       ${row('Varv (rpm)', 'rpm')}
       ${row('Axeleffekt (kW)', 'power')}
@@ -107,6 +109,9 @@ export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Teleme
     set('speed', f(t.u * KN, 1));
     set('speedSet', ctrl.ap.speed ? `→ ${f(ctrl.setpoints.speed, 1)}` : '');
     set('heading', String(Math.round(t.heading * DEG) % 360).padStart(3, '0'));
+    set('sog', `${f(t.speedOverGround * KN, 1)} ${String(Math.round(t.courseOverGround * DEG) % 360).padStart(3, '0')}`);
+    const cs = Math.hypot(t.current[0], t.current[1]);
+    set('current', cs < 0.01 ? '–' : `${f(cs * KN, 1)} ${String(Math.round(((Math.atan2(t.current[1], t.current[0]) * DEG) + 360) % 360)).padStart(3, '0')}`);
     set('headingSet', ctrl.ap.heading ? `→ ${String(Math.round(ctrl.setpoints.heading) % 360).padStart(3, '0')}` : '');
     ap('apDepth', ctrl.ap.depth);
     ap('apSpeed', ctrl.ap.speed);
