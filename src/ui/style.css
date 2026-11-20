@@ -487,8 +487,9 @@ body.cutaway #log { display: none; }
 }
 
 /* ------------------------------------------------------------ fire control (periscope, bridge) */
+/* Beside the periscope image, at the right above the screen controls, so the cross hair and the horizon stay clear. */
 #fire {
-  left: 50%; transform: translateX(-50%); bottom: calc(var(--helm-h, 200px) + 8px); width: min(560px, calc(100% - 24px));
+  right: 64px; bottom: calc(var(--helm-h, 200px) + 8px); width: 230px;
   display: flex; flex-direction: column; gap: 6px; pointer-events: auto; z-index: 3;
 }
 #fire[hidden] { display: none; }
@@ -496,7 +497,8 @@ body.cutaway #log { display: none; }
 .fire-solution[data-quality='dålig'] { color: var(--warn); }
 .fire-solution[data-quality='bra'] { color: var(--ok); }
 .fire-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.fire-row .touch-btn { height: 40px; flex: 1 1 0; min-width: 0; }
+.fire-buttons { display: grid; grid-template-columns: 1fr 1fr; }
+.fire-row .touch-btn { height: 40px; min-width: 0; }
 .fire-row .fire-go { background: var(--error); color: #fff; border-color: var(--error); }
 .fire-row .fire-go:disabled { opacity: 0.4; }
 .fire-label { color: var(--muted); font-size: 12px; }
@@ -507,13 +509,26 @@ body.cutaway #log { display: none; }
 .fire-tube.loaded { border-color: var(--ok); color: var(--ok); }
 .fire-tube.loading { border-color: var(--warn); color: var(--warn); }
 .fire-store { color: var(--muted); font-size: 12px; margin-left: auto; }
+/* Phones: one low strip above the screen controls; the solution on top, the buttons and the tubes side by side. */
 @media (max-width: 760px), (max-height: 500px) {
-  #fire { width: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); transform: none; padding: 6px 8px; font-size: 12px; }
-  .fire-row .touch-btn { height: 36px; font-size: 13px; }
-  .fire-solution { font-size: 12px; }
+  #fire {
+    width: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); padding: 5px 8px; font-size: 12px;
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; background: rgba(4, 16, 24, 0.6);
+  }
+  .fire-solution { grid-column: 1 / -1; font-size: 12px; }
+  .fire-buttons { grid-template-columns: 1fr 1fr 1.5fr 1fr; }
+  .fire-row .touch-btn { height: 34px; font-size: 12px; padding: 0 4px; white-space: nowrap; }
+  .fire-tubes { flex-wrap: nowrap; gap: 4px; }
+  .fire-tubes .fire-label { display: none; }
+  .fire-tube { min-width: 26px; padding: 2px 2px; }
 }
+@media (max-width: 420px) {
+  .fire-store { display: none; }
+}
+/* Phones on their side: in the free corner at the right, under Vyer ▾ and beside the periscope image. */
 @media (max-height: 500px) {
-  #fire { left: 50%; right: auto; transform: translateX(-50%); width: min(460px, calc(100% - 520px)); min-width: 300px; }
+  #fire { left: auto; right: max(8px, env(safe-area-inset-right)); top: calc(max(8px, env(safe-area-inset-top)) + 84px); bottom: auto; width: 236px; grid-template-columns: 1fr; }
+  .fire-solution { font-size: 11px; }
 }
 
 .nav-contact { display: block; width: 100%; text-align: left; font: inherit; font-size: 12px; color: var(--text); background: transparent; border: 1px solid var(--panel-border); border-radius: 4px; padding: 3px 6px; margin: 2px 0; cursor: pointer; }
@@ -522,6 +537,7 @@ body.nav-open #fire { z-index: 5; }
 @media (min-width: 761px) and (min-height: 501px) {
   /* Beside the chart, under it on the right. */
   body.nav-open #fire { left: auto; right: 64px; transform: none; width: min(400px, calc(100% - 90px)); }
+  body.nav-open .fire-buttons { grid-template-columns: repeat(4, 1fr); }
   body.nav-open #nav { height: min(400px, calc(100% - var(--helm-h, 200px) - 150px)); }
 }
 @media (max-width: 760px), (max-height: 500px) {

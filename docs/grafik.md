@@ -30,7 +30,7 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
 
 - **Två rutnät:**
   - ett detaljerat på 1,6 km med 8 m rutor runt ubåten
-  - ett grövre på 9 km med 60 m rutor ut till horisonten, sänkt under det detaljerade där de överlappar.
+  - ett grövre på 24 km med 120 m rutor ut till där diset döljer land, sänkt under det detaljerade där de överlappar.
 - **Höjd:** höjden kommer från samma höjdfunktion som fysiken använder, för det aktuella havsområdet (`heightFunction`). Det man ser är det man kan gå på grund mot.
 - **Färg** efter höjd och lutning:
   - dy på djupet och sand och silt på grunt vatten
@@ -44,14 +44,14 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
 
 - **Vattenytan:**
   - Ett vågnät på 560 m (160 × 160 rutor) följer kameran. Grafikkortet förskjuter det i en vertexshader med samma vågsumma som fysiken (`src/render/waveShader.ts`, `src/sim/waves.ts`) och räknar normalerna från vågornas lutning. Fasen vid nätets mitt räknas i dubbel precision varje bild, så att 32-bitarsprecisionen räcker även långt bort. Vågorna tonar ut mot nätets kant.
-  - Utanför nätet når en plan ram ut till horisonten.
+  - Utanför nätet når en plan ram (40 km) ut till horisonten.
   - Ytan är halvgenomskinlig och syns både ovanifrån och underifrån.
 - **Under vattnet:**
   - **Ljusstrålar** på dagen: 22 långa plan som hänger från ytan runt kameran, med en textur som är ljus upptill och tonar nedåt, additivt blandade, vända mot kameran och svajande. De syns bara med kameran under ytan och tonas ut mot 70 m djup, svagare i grumligt vatten (Östersjön). Inställningen "Ljusstrålar under ytan".
   - Dimma och bakgrundsfärg beror på kamerans djup under den lokala vågytan. Färgen går mot djupets färg med 1 − e^(−djup/90 m), och dimman tätnar med den.
   - Varje havsområde har sitt vatten (`WATER_LOOK`): en ton som blandas med ljusets vattenfärg och en extra dimma. Östersjön är grön och grumlig, fjorden grönbrun, Västerhavet blågrönt och Atlanten klar och blå.
   - Svävande partiklar ("havssnö") runt kameran visar rörelsen. De kan stängas av i inställningarna.
-- **Ljus och sikt:** dag, natt och dimma byter himmelsfärg, vattenfärg, ljusens styrka och dimmans täthet. Sikten i luft är ungefär 2 / täthet: ~3 km på dagen och ~200 m i dimma.
+- **Ljus och sikt:** dag, natt och dimma byter himmelsfärg, vattenfärg, ljusens styrka och dimmans täthet. Sikten i luft är ungefär 2 / täthet: ~15 km på dagen, ~5 km på natten och ~200 m i dimma. Kameran ritar ut till 20 km, så ett fartyg 5–6 km bort syns tydligt i periskopet (djupbuffertens precision beror på det nära planet, 0,5 m, inte på det bortre).
 - **Fyrarna:**
   - Ett vitt torn med rött band står på marken.
   - Lampan blinkar efter simuleringstiden, med fyrens period.
@@ -84,7 +84,7 @@ En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden 
 
 ## Eldledningspanelen (`src/ui/firePanel.ts`)
 
-En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
+En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen. Den ligger vid sidan av periskopbilden, så att hårkorset och horisonten är fria: på datorn som en smal kolumn till höger ovanför skärmkontrollerna, på mobil i stående läge som en låg list ovanför skärmkontrollerna (knappar och tuber på en rad) och i liggande läge i hörnet till höger under Vyer ▾. Med sjökortet öppet ligger den under kortet. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
 
 ## Loggboken (`src/ui/log.ts`)
 

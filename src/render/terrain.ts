@@ -44,7 +44,7 @@ export interface TerrainView {
 export function createTerrain(scene: THREE.Scene): TerrainView {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
   const near = makePatch(1600, 200, 0, 250, mat); // 8 m cells
-  const far = makePatch(9000, 150, 760, 1200, mat); // 60 m cells, sunk under the near patch
+  const far = makePatch(24000, 200, 760, 1200, mat); // 120 m cells out to where the day haze hides land, sunk under the near patch
   scene.add(near.mesh, far.mesh);
 
   let area: AreaId = 'westCoast';

@@ -60,7 +60,7 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
   const store = h('span', { class: 'fire-store' });
   root.replaceChildren(
     solution,
-    h('div', { class: 'fire-row' }, mark, range, spread, fire),
+    h('div', { class: 'fire-row fire-buttons' }, mark, range, spread, fire),
     h('div', { class: 'fire-row fire-tubes' }, h('span', { class: 'fire-label' }, 'Tuber'), ...tubes, store),
   );
   root.hidden = true;

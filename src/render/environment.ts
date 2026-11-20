@@ -26,7 +26,7 @@ interface Palette {
   /** Water colour just below the surface and in the deep. */
   shallow: number;
   deep: number;
-  /** FogExp2 density in air: visibility ≈ 2 / density. */
+  /** FogExp2 density in air: visibility ≈ 2 / density (day ~15 km, night ~5 km, fog ~200 m). */
   airFog: number;
   /** Extra fog density under water. */
   waterFog: number;
@@ -38,8 +38,8 @@ interface Palette {
 }
 
 const PALETTES: Record<ConditionsId, Palette> = {
-  day: { sky: 0x9cc9e4, shallow: 0x2a7fa8, deep: 0x020a12, airFog: 0.0006, waterFog: 0, hemi: 1.4, sun: 1.6, surface: 0x3c8fb5, lamps: false },
-  night: { sky: 0x060b16, shallow: 0x06202e, deep: 0x01050a, airFog: 0.0009, waterFog: 0.004, hemi: 0.14, sun: 0.08, surface: 0x0c2433, lamps: true },
+  day: { sky: 0x9cc9e4, shallow: 0x2a7fa8, deep: 0x020a12, airFog: 0.00013, waterFog: 0, hemi: 1.4, sun: 1.6, surface: 0x3c8fb5, lamps: false },
+  night: { sky: 0x060b16, shallow: 0x06202e, deep: 0x01050a, airFog: 0.0004, waterFog: 0.004, hemi: 0.14, sun: 0.08, surface: 0x0c2433, lamps: true },
   fog: { sky: 0xb4c0c4, shallow: 0x2f6f88, deep: 0x020a12, airFog: 0.01, waterFog: 0.002, hemi: 1.0, sun: 0.5, surface: 0x6d8d99, lamps: true },
 };
 
@@ -79,7 +79,7 @@ export interface SeaEnvironment {
 /** Wave grid around the camera: size [m] and segments; outside it a flat frame reaches the horizon. The GPU displaces it. */
 const WAVE_SIZE = 560;
 const WAVE_SEGMENTS = 160;
-const FAR_SIZE = 12000;
+const FAR_SIZE = 40000;
 
 /** A large square with a square hole in the middle (the far water). */
 function frameGeometry(outer: number, inner: number): THREE.BufferGeometry {

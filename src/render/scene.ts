@@ -93,7 +93,9 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.5, 6000);
+  // Far plane beyond the day visibility (~15 km): a ship hull-down on the horizon still shows.
+  // Depth precision depends on the near plane, not on this.
+  const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.5, 20000);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;

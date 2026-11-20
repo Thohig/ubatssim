@@ -264,7 +264,7 @@ Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
 
 ## Anfall: mål, lösning och torpeder
 
-Periskopet är eldledningens öga. I periskopvyn (och på bryggan) ligger eldledningspanelen med **Mål**, **Avst**, spridningen, **Fyr** och tuberna. Den visas också medan sjökortet eller sonaren är öppen.
+Periskopet är eldledningens öga. I periskopvyn (och på bryggan) ligger eldledningspanelen vid sidan av periskopbilden, med **Mål**, **Avst**, spridningen, **Fyr** och tuberna. Den visas också medan sjökortet eller sonaren är öppen.
 
 1. **Mål** (T): sätt hårkorset på ett fartyg och tryck Mål. Det blir ett mål (M1, M2 …) med en exakt bäring. En sonarkontakt blir mål med ett tryck på den i sonarlistan (eller `mål S1`). Då följer eldledningen dess bäringar var tionde sekund.
 2. **Avst** (R): stadimetern mäter avståndet med fartyget i hårkorset. Felet är ~8 % vid 1,5× och ~3 % vid 6×, och på bryggan ~12 % (ögonmått). Sköter besättningen eldledningen mäter eldledaren själv var 30:e sekund medan målet syns.
@@ -329,7 +329,7 @@ Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, ta
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
 - **Ljusstrålar** faller ner från ytan på dagen och tonas ut mot 70 m. De kan stängas av i Inställningar.
 - **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet.
-- **Ljus och sikt:** dag, natt eller dimma (sikt ~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
+- **Ljus och sikt:** dag (sikt ~15 km), natt (~5 km) eller dimma (~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
 - **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
 
 Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är det man kan krocka med.

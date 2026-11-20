@@ -72,7 +72,7 @@ export const SEA_CHOICES: { id: SeaStateId; title: string; description: string }
 ];
 
 export const CONDITIONS: { id: ConditionsId; title: string; description: string }[] = [
-  { id: 'day', title: 'Dag', description: 'God sikt.' },
+  { id: 'day', title: 'Dag', description: 'God sikt, ungefär 15 km.' },
   { id: 'night', title: 'Natt', description: 'Mörkt. Fyrarna blinkar.' },
   { id: 'fog', title: 'Dimma', description: 'Sikt ungefär 200 m.' },
 ];
