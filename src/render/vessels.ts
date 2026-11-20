@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import type { VesselDef, VesselState } from '../sim/vessel';
 import { nedToThree } from './coords';
+import { disposeTree } from './dispose';
 
 interface ShipModel {
   root: THREE.Group;
@@ -39,7 +40,7 @@ export class VesselView {
   }
 
   setVessels(defs: readonly VesselDef[]): void {
-    this.group.clear();
+    disposeTree(this.group);
     this.ships = defs.map((d) => this.build(d));
     for (const s of this.ships) this.group.add(s.root);
   }

@@ -13,6 +13,9 @@ Grafiken är medvetet enkel. Realismen ligger i simuleringen. Det finns inga tex
   2. kör de hela fysiksteg som har hunnit bli aktuella,
   3. skickar ett `RenderState` till renderingen: läge, orientering, roder- och djuproderutslag, propellervinkel och periskopets höjd.
 - **Instrumentpanelen** uppdateras tio gånger i sekunden.
+- **Fel i en bild:** `frame` ber om nästa bild först och fångar fel i resten. Det första felet (också från `window.onerror` och `unhandledrejection`) pausar spelet och visar menyskärmen `error` med en felrapport. Senare fel går bara till konsolen, högst fem, tills spelet startas om.
+- **Förlorad grafik:** webbläsaren kan ta tillbaka WebGL-kontexten (`webglcontextlost`). Spelet pausas och menyskärmen `graphics` visas. Three.js bygger upp buffertar, texturer och shaders igen vid `webglcontextrestored`, och då kan spelaren fortsätta. Esc gör ingenting medan grafiken är borta.
+- **Minnet på grafikkortet:** att ta bort ett objekt ur scenen frigör inte dess buffertar. Grupper som byggs om (fartygen, fyrarna) töms med `disposeTree` (`dispose.ts`), som lämnar delade material och texturer och spritarnas gemensamma geometri. Terrängen skriver nya normaler och färger i de befintliga buffertarna. `?perf` visar antalet geometrier, texturer och shaderprogram, som inte ska växa när ett spel startas om.
 
 ## Koordinater
 

@@ -62,8 +62,12 @@ export function createTerrain(scene: THREE.Scene): TerrainView {
     const pos = p.geo.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < pos.count; i++) pos.setY(i, d.heights[i]!);
     pos.needsUpdate = true;
-    p.geo.setAttribute('normal', new THREE.BufferAttribute(d.normals, 3));
-    p.geo.setAttribute('color', new THREE.BufferAttribute(d.colors, 3));
+    // Into the existing buffers: a new attribute each time would leave the old one on the graphics card.
+    for (const [name, data] of [['normal', d.normals], ['color', d.colors]] as const) {
+      const attr = p.geo.attributes[name] as THREE.BufferAttribute;
+      (attr.array as Float32Array).set(data);
+      attr.needsUpdate = true;
+    }
     p.mesh.position.set(centre[1], 0, -centre[0]);
     p.centre = centre;
   };

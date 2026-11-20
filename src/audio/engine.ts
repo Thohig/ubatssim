@@ -59,7 +59,7 @@ export class AudioEngine {
   unlock(): void {
     if (!this.available) return;
     if (!this.ctx) this.build();
-    if (this.running) void this.ctx!.resume();
+    if (this.running) this.ctx!.resume().catch(() => {}); // refused until a user gesture: tried again then
   }
 
   setOptions(o: AudioOptions): void {
@@ -81,7 +81,7 @@ export class AudioEngine {
   setRunning(on: boolean): void {
     this.running = on;
     if (!this.ctx) return;
-    if (on) void this.ctx.resume();
+    if (on) this.ctx.resume().catch(() => {});
     else void this.ctx.suspend();
   }
 

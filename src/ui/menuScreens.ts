@@ -13,7 +13,7 @@ import type { AreaId } from '../sim/config/areas';
 import { html, type SafeHtml } from './dom';
 import type { Settings } from './settings';
 
-export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'briefing';
+export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'briefing' | 'graphics' | 'error';
 
 /** What the pause menu and ☰ → Besättning need to know about the running game. */
 export interface PauseInfo {
@@ -47,6 +47,10 @@ export interface MenuState {
   result: ResultInfo | null;
   /** The scenario about to start (the briefing); null otherwise. */
   briefing: Scenario | null;
+  /** The error report after an unexpected error; null otherwise. */
+  error: string | null;
+  /** The graphics came back after they were lost (the WebGL context). */
+  graphicsBack: boolean;
   /** Free play: chosen area, light/visibility and sea state. */
   area: AreaId;
   conditions: ConditionsId;
@@ -297,6 +301,27 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <button class="menu-btn primary" data-action="briefingDone">Till sjöss</button>
         <button class="menu-btn" data-action="nav" data-arg="crew">Besättning</button>
         <button class="menu-btn secondary" data-action="main">Avbryt</button>
+      </div>`;
+  },
+  graphics: (m) => {
+    return html`
+      <h2 class="menu-title small">Grafiken försvann</h2>
+      <p class="menu-sub">${m.graphicsBack ? 'Grafiken är tillbaka.' : 'Webbläsaren tog tillbaka grafikkortet, till exempel när fliken låg i bakgrunden. Spelet står i paus och fortsätter när grafiken kommer tillbaka.'}</p>
+      <div class="menu-list">
+        ${m.graphicsBack ? html`<button class="menu-btn primary" data-action="graphicsOk">Fortsätt</button>` : ''}
+        <button class="menu-btn ${m.graphicsBack ? '' : 'primary'}" data-action="reload">Ladda om sidan</button>
+      </div>`;
+  },
+  error: (m) => {
+    return html`
+      <h2 class="menu-title small fail">Något gick fel</h2>
+      <p class="menu-sub">Spelet stötte på ett fel och står i paus. Starta om, eller ladda om sidan om felet kommer tillbaka.</p>
+      <textarea class="error-report" readonly rows="6" aria-label="Felrapport">${m.error ?? ''}</textarea>
+      <div class="menu-list">
+        <button class="menu-btn primary" data-action="restart">Starta om</button>
+        <button class="menu-btn" data-action="copyError">Kopiera felrapport</button>
+        <button class="menu-btn" data-action="reload">Ladda om sidan</button>
+        <button class="menu-btn secondary" data-action="main">Huvudmeny</button>
       </div>`;
   },
   result: (m) => {

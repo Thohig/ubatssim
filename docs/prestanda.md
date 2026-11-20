@@ -3,7 +3,7 @@
 ## Mätverktyg
 
 - **`npm run bench`:** fysikens tid per tidssteg (100 Hz) i typiska lägen, och tiden för en full telemetri. Körs i Node, utan grafik.
-- **`?perf` i adressen**, till exempel `http://localhost:5173/ubatssim/?perf`: en rad nederst i spelet med bilder per sekund och tiden per bild för fysik (alla tidssteg i bilden, och µs per steg), grafik (medel och längsta bild under sekunden) och gränssnitt och ljud.
+- **`?perf` i adressen**, till exempel `http://localhost:5173/ubatssim/?perf`: en rad nederst i spelet med bilder per sekund och tiden per bild för fysik (alla tidssteg i bilden, och µs per steg), grafik (medel och längsta bild under sekunden) och gränssnitt och ljud, och vad grafikkortet håller (geometrier, texturer och shaderprogram från `renderer.info`).
 - **Mobil:** i Chrome kan processorn strypas fyra gånger (Utvecklarverktyg → Performance → CPU: 4× slowdown), vilket ungefär motsvarar en mellanklasstelefon.
 
 ## Budget

@@ -8,6 +8,7 @@ import { AREAS, type AreaId } from '../sim/config/areas';
 import { waveElevation, type WaveComponent } from '../sim/waves';
 import { WAVE_GLSL, createPacked, packWaves } from './waveShader';
 import { nedToThree } from './coords';
+import { disposeTree } from './dispose';
 import { createTerrain } from './terrain';
 
 /** A lighthouse as the renderer needs it (see src/control/areas.ts). */
@@ -197,6 +198,7 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
   const glowTex = glowTexture();
   const towerMat = new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.7 });
   const bandMat = new THREE.MeshStandardMaterial({ color: 0xb02020, roughness: 0.7 });
+  const sharedLighthouse = new Set<THREE.Material>([towerMat, bandMat]);
   let lamps: { mark: LightMark; glow: THREE.Sprite; lamp: THREE.Mesh }[] = [];
 
   // Light rays: tall planes hanging from the surface, bright at the top and fading down, facing the
@@ -263,7 +265,7 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
       waveMat.color.setHex(palette.surface);
       hemi.intensity = palette.hemi;
       sun.intensity = palette.sun;
-      lighthouseGroup.clear();
+      disposeTree(lighthouseGroup, sharedLighthouse);
       lamps = [];
       for (const mark of lighthouses) {
         const base = Math.max(0.5, height(mark.position[0], mark.position[1]));

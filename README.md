@@ -409,7 +409,10 @@ npm run bench
 - `npm test` kör de snabba testerna med Vitest (~30 s). `npm run test:all` kör också de långa scenario- och simuleringstesterna i `tests/long/` (~2,5 min på 4 kärnor), som publiceringen alltid kör. Testerna är processorbundna och körs med en arbetare per kärna (`maxWorkers: '100%'`). Fysiken testas utan grafik.
 - `npm run lint` kör ESLint och kontrollerar bland annat att fysiklagret inte importerar Three.js eller DOM.
 - `npm run build` gör typkontroll och produktionsbygge till `dist/`.
+- `npm run test:e2e` bygger och kör spelet i Chromium med Playwright (`tests/e2e/`, ~1 min): genomgången och målrutan, paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, förlorad grafik och felrutan. Första gången: `npx playwright install chromium-headless-shell`.
 - `npm run bench` mäter fysikens tid per tidssteg. Lägg till `?perf` i adressen för att se tiden per bild i spelet. Budgeten finns i [docs/prestanda.md](docs/prestanda.md).
+
+**Om något går fel** pausas spelet och en ruta visar felet med en felrapport (meddelandet, läget, simuleringstiden och webbläsaren, inget personligt) som kan kopieras. Därifrån går det att starta om, ladda om sidan eller gå till huvudmenyn. Tar webbläsaren tillbaka grafikkortet, till exempel när en flik på mobilen legat i bakgrunden, pausas spelet tills grafiken är tillbaka.
 
 Testerna täcker bland annat:
 - RK4:s konvergensordning, bevarad energi och rörelsemängdsmoment och determinism

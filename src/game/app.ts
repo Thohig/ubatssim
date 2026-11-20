@@ -51,6 +51,7 @@ export function startApp(): void {
   const flow = new GameFlow();
   const loop = new FixedStepLoop();
   const view = createScene(el('app'), SUBMARINE);
+  perf.memory(() => ({ ...view.renderer.info.memory, programs: view.renderer.info.programs?.length ?? 0 }));
   const hud = el('hud');
   const logEl = el('log');
   const instrumentsEl = el('instruments');
@@ -127,9 +128,17 @@ export function startApp(): void {
         flow.go('playing');
       },
       restart() {
+        failed = false;
+        // After an error in the demo behind the menu there is no game to start again.
+        if (flow.state === 'menu') {
+          session = attach(demoSession());
+          menu.show('main');
+          return;
+        }
         startGame(session.restart());
       },
       toMainMenu() {
+        failed = false;
         session = attach(demoSession());
         flow.go('menu');
       },
@@ -146,6 +155,12 @@ export function startApp(): void {
       },
       introDone: finishIntro,
       briefingDone: afterBriefing,
+      reload: () => location.reload(),
+      graphicsOk() {
+        if (flow.state === 'menu') menu.show('main');
+        else if (flow.state === 'ended') menu.show('result');
+        else showPause();
+      },
     },
     settings,
   );
@@ -213,6 +228,52 @@ export function startApp(): void {
   const pause = () => {
     if (flow.state === 'playing') flow.go('paused');
   };
+
+  // ------------------------------------------------- errors and lost graphics
+
+  /** An unexpected error has been shown; later ones only go to the console until a new start. */
+  let failed = false;
+  /** Errors after the first (an error in the drawing comes back every frame): only a few to the console. */
+  let repeated = 0;
+  /** Pauses and shows the error with a report to copy (no personal information in it). */
+  function reportError(err: unknown): void {
+    if (failed) {
+      if (++repeated <= 5) console.error(err);
+      return;
+    }
+    console.error(err);
+    failed = true;
+    repeated = 0;
+    const e = err instanceof Error ? err : new Error(String(err));
+    const where = session?.scenario ? `scenario ${session.scenario.id}` : flow.state === 'menu' ? 'menyn' : 'fritt spel';
+    const report = [
+      `Fel: ${e.message}`,
+      `Läge: ${flow.state}, ${where}, simuleringstid ${session ? session.sim.t.toFixed(2) : '–'} s`,
+      `Webbläsare: ${navigator.userAgent}`,
+      `Adress: ${location.pathname}${location.search}`,
+      '',
+      e.stack ?? '',
+    ].join('\n');
+    pause();
+    menu.showError(report);
+  }
+  window.addEventListener('error', (ev) => {
+    // Harmless browser notice, and errors from extensions and other scripts.
+    if (/ResizeObserver loop/.test(ev.message)) return;
+    if (ev.filename && !ev.filename.startsWith(location.origin)) return;
+    reportError(ev.error ?? ev.message);
+  });
+  window.addEventListener('unhandledrejection', (ev) => reportError(ev.reason));
+
+  // The browser may take the graphics card back (a tab in the background on a phone).
+  // Three.js rebuilds what it needs when it comes back; until then the game waits.
+  view.renderer.domElement.addEventListener('webglcontextlost', () => {
+    pause();
+    menu.showGraphics(false);
+  });
+  view.renderer.domElement.addEventListener('webglcontextrestored', () => {
+    if (menu.current === 'graphics') menu.showGraphics(true);
+  });
 
   // ------------------------------------------------------------------ input
 
@@ -308,6 +369,8 @@ export function startApp(): void {
       return;
     }
     if (e.key !== 'Escape') return;
+    // Lost graphics: wait for them (or reload); Esc does nothing.
+    if (menu.visible && menu.current === 'graphics') return;
     // Esc folds the log's history first.
     if (logEl.classList.contains('expanded') && mode.current === 'steer') {
       e.preventDefault();
@@ -422,7 +485,17 @@ export function startApp(): void {
   let lastPings = 0;
   let lastUi = 0;
 
+  /** One frame, first asking for the next: an error does not stop the loop (it pauses the game). */
   function frame(now: number): void {
+    requestAnimationFrame(frame);
+    try {
+      drawFrame(now);
+    } catch (err) {
+      reportError(err);
+    }
+  }
+
+  function drawFrame(now: number): void {
     perf.begin();
     const elapsed = Math.min(0.25, (now - last) / 1000);
     last = now;
@@ -477,7 +550,6 @@ export function startApp(): void {
     }
     perf.mark('ui');
     perf.end();
-    requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }

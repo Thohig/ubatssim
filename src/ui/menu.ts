@@ -28,6 +28,10 @@ export interface MenuHandlers {
   introDone(): void;
   /** The scenario briefing was dismissed ("Till sjöss"). */
   briefingDone(): void;
+  /** Load the page again (after an error, or when the graphics did not come back). */
+  reload(): void;
+  /** The graphics came back and the player continues. */
+  graphicsOk(): void;
 }
 
 
@@ -37,6 +41,8 @@ export class Menu {
   private base: 'main' | 'pause' | 'briefing' = 'main';
   private result: ResultInfo | null = null;
   private briefing: Scenario | null = null;
+  private error: string | null = null;
+  private graphicsBack = false;
   private pauseInfo: PauseInfo = { duties: null, locks: {} };
   /** Free play: chosen area and light/visibility. */
   private area: AreaId = 'westCoast';
@@ -78,6 +84,8 @@ export class Menu {
       pauseInfo: this.pauseInfo,
       result: this.result,
       briefing: this.briefing,
+      error: this.error,
+      graphicsBack: this.graphicsBack,
       area: this.area,
       conditions: this.conditions,
       sea: this.sea,
@@ -96,6 +104,18 @@ export class Menu {
   showBriefing(s: Scenario): void {
     this.briefing = s;
     this.show('briefing');
+  }
+
+  /** After an unexpected error: what happened, with the report to copy. */
+  showError(report: string): void {
+    this.error = report;
+    this.show('error');
+  }
+
+  /** The graphics were lost (`back` false) or came back (true). */
+  showGraphics(back: boolean): void {
+    this.graphicsBack = back;
+    this.show('graphics');
   }
 
   /** Back to where the current screen was opened from (Esc, "Tillbaka"). */
@@ -155,6 +175,30 @@ export class Menu {
       case 'briefingDone':
         this.h.briefingDone();
         break;
+      case 'reload':
+        this.h.reload();
+        break;
+      case 'graphicsOk':
+        this.h.graphicsOk();
+        break;
+      case 'copyError':
+        this.copyError();
+        break;
+    }
+  }
+
+  /** Copies the report; where the clipboard is not allowed, selects the text instead. */
+  private copyError(): void {
+    const area = this.root.querySelector<HTMLTextAreaElement>('.error-report');
+    const button = this.root.querySelector<HTMLButtonElement>('[data-action="copyError"]');
+    const done = (ok: boolean) => {
+      if (button) button.textContent = ok ? 'Kopierad' : 'Markera och kopiera texten';
+      if (!ok) area?.select();
+    };
+    try {
+      navigator.clipboard.writeText(this.error ?? '').then(() => done(true), () => done(false));
+    } catch {
+      done(false);
     }
   }
 

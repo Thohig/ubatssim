@@ -37,6 +37,8 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   pauseInfo: { duties: allCrew(), locks: {} },
   result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312, selfHandled: ['trim', 'safetyNet'] },
   briefing: SCENARIOS.find((s) => s.id === 'trim-drill')!,
+  error: 'Fel: <test>\n  at frame',
+  graphicsBack: false,
   area: 'westCoast',
   conditions: 'day',
   sea: 'calm',
@@ -111,6 +113,8 @@ describe('menu screens', () => {
         crewChange: (system, crew) => calls.push(`crew ${system} ${crew}`),
         introDone: () => calls.push('intro'),
         briefingDone: () => calls.push('briefing'),
+        reload: () => calls.push('reload'),
+        graphicsOk: () => calls.push('graphicsOk'),
       },
       { ...DEFAULT_SETTINGS },
     );
@@ -133,7 +137,7 @@ describe('menu screens', () => {
     const noop = () => {};
     const menu = new Menu(
       root,
-      { startFree: noop, startScenario: noop, resume: noop, restart: noop, toMainMenu: () => calls.push('main'), settingsChanged: noop, crewChange: noop, introDone: noop, briefingDone: () => calls.push('briefing') },
+      { startFree: noop, startScenario: noop, resume: noop, restart: noop, toMainMenu: () => calls.push('main'), settingsChanged: noop, crewChange: noop, introDone: noop, briefingDone: () => calls.push('briefing'), reload: noop, graphicsOk: noop },
       { ...DEFAULT_SETTINGS },
     );
     const sc = SCENARIOS.find((s) => s.id === 'trim-drill')!;
@@ -206,6 +210,48 @@ describe('log history', () => {
     const text = [...el.children].map((c) => c.textContent ?? '');
     expect(text.some((t) => t.includes('Före hjälpen'))).toBe(true);
     expect(text.some((t) => t.includes(HELP_TEXT[0]!))).toBe(true);
+  });
+});
+
+describe('error and lost graphics', () => {
+  const handlers = (calls: string[]) => ({
+    startFree: () => {},
+    startScenario: () => {},
+    resume: () => {},
+    restart: () => calls.push('restart'),
+    toMainMenu: () => calls.push('main'),
+    settingsChanged: () => {},
+    crewChange: () => {},
+    introDone: () => {},
+    briefingDone: () => {},
+    reload: () => calls.push('reload'),
+    graphicsOk: () => calls.push('graphicsOk'),
+  });
+
+  it('the error screen shows the report as text and offers a new start', () => {
+    const root = document.createElement('div');
+    const calls: string[] = [];
+    const menu = new Menu(root, handlers(calls), { ...DEFAULT_SETTINGS });
+    menu.showError('Fel: <b>x</b>\nat frame (app.ts:1)');
+    expect(menu.current).toBe('error');
+    expect(root.querySelector('textarea')!.value).toBe('Fel: <b>x</b>\nat frame (app.ts:1)');
+    expect(root.querySelector('b')).toBeNull();
+    (root.querySelector('[data-action="restart"]') as HTMLElement).click();
+    (root.querySelector('[data-action="reload"]') as HTMLElement).click();
+    (root.querySelector('[data-action="main"]') as HTMLElement).click();
+    expect(calls).toEqual(['restart', 'reload', 'main']);
+  });
+
+  it('lost graphics: only Ladda om until they come back, then Fortsätt', () => {
+    const root = document.createElement('div');
+    const calls: string[] = [];
+    const menu = new Menu(root, handlers(calls), { ...DEFAULT_SETTINGS });
+    menu.showGraphics(false);
+    expect(root.querySelector('[data-action="graphicsOk"]')).toBeNull();
+    expect(root.querySelector('[data-action="reload"]')).not.toBeNull();
+    menu.showGraphics(true);
+    (root.querySelector('[data-action="graphicsOk"]') as HTMLElement).click();
+    expect(calls).toEqual(['graphicsOk']);
   });
 });
 
