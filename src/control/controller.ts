@@ -12,6 +12,7 @@ import { OrderQueue } from './orderQueue';
 import { acknowledgement, type Order, type OrderKind, type OrderOf, type OrderSource, type TankGroup } from './orders';
 import { LIMITS } from './parser';
 import { TrimAssist } from './trimAssist';
+import { World } from '../sim/world';
 
 const DEG = Math.PI / 180;
 /** The bridge deck must be at least this far above the water to man it [m]. */
@@ -72,7 +73,13 @@ export class Controller {
   manual = { rudder: 0, planes: 0, rpm: 0 };
   private rpsCmd = 0;
 
+  /** The submarine and the other vessels; `step()` advances all of them. */
+  readonly world: World;
+  /** The vessel the submarine has collided with, if any (stays set). */
+  collidedWith: string | null = null;
+
   constructor(readonly sim: Simulation) {
+    this.world = new World(sim);
     const tel = sim.telemetry();
     this.setpoints = { depth: Math.round(tel.depth), heading: Math.round(tel.heading / DEG) % 360, speed: 0 };
     this.manual.rpm = (sim.commands.rps * 60);
@@ -141,7 +148,14 @@ export class Controller {
   periscopeExposure = 0;
 
   /** The last reported bearing: where the boat was and whether anything could be seen. */
-  lastBearing: { bearing: number; t: number; position: [number, number]; lookout: boolean } | null = null;
+  lastBearing: {
+    bearing: number;
+    t: number;
+    position: [number, number];
+    lookout: boolean;
+    /** True bearings [deg] to the other vessels at that moment, by vessel id. */
+    contacts: Record<string, number>;
+  } | null = null;
 
   /** Main ballast vents shut automatically once the tanks are full (after "dyk"). */
   private shutVentsWhenFull = false;
@@ -199,7 +213,7 @@ export class Controller {
     this.rpsCmd += Math.max(-slew, Math.min(slew, target - this.rpsCmd));
     sim.commands.rps = this.rpsCmd;
 
-    sim.step();
+    this.world.step();
 
     if (this.shutVentsWhenFull) {
       // Air can stay trapped at the top of a tank at the surface; it vents once the boat is under way down.
@@ -218,6 +232,12 @@ export class Controller {
     const headUp = sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0;
     this.periscopeExposure = headUp ? this.periscopeExposure + DT : 0;
     if (this.options.mode === 'simplified') this.assist.step();
+
+    const hit = this.world.collision;
+    if (hit && this.collidedWith === null) {
+      this.collidedWith = hit.def.name;
+      this.addLog(`Kollision med ${hit.def.name}!`, 'error');
+    }
 
     const grounded = sim.groundContacts > 0;
     if (grounded && !this.grounded) {
@@ -412,7 +432,9 @@ export class Controller {
         const sim = c.sim;
         // Something can be seen from a raised periscope above the water or from the bridge.
         const lookout = c.bridgeManned || (sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0);
-        c.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout };
+        const contacts: Record<string, number> = {};
+        for (const k of c.world.contacts()) contacts[k.vessel.def.id] = (k.bearing * 180) / Math.PI;
+        c.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout, contacts };
         if (!lookout) c.addLog('Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.', 'error');
       },
     },

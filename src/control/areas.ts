@@ -6,6 +6,7 @@
 import type { AreaId } from '../sim/config/areas';
 import type { InitialConditions } from '../sim/simulation';
 import type { SeaStateId } from '../sim/config/seaStates';
+import type { VesselDef } from '../sim/vessel';
 
 const KN = 1852 / 3600;
 const DEG = Math.PI / 180;
@@ -36,7 +37,26 @@ export interface AreaInfo {
   description: string;
   starts: FreeStart[];
   lighthouses: Lighthouse[];
+  /** Ships in free play (scenarios bring their own). */
+  traffic: VesselDef[];
 }
+
+const KNOTS = (kn: number) => (kn * 1852) / 3600;
+const DEG_S = (deg: number) => (deg * Math.PI) / 180;
+
+/** Typical ships. Sizes and speeds are illustrative. */
+export const freighter = (id: string, name: string, route: [number, number][], length = 130): VesselDef => ({
+  id, name, kind: 'freighter', length, beam: length * 0.155, draft: length * 0.06, speed: KNOTS(12), turnRate: DEG_S(0.6),
+  route, repeat: 'shuttle', propellerRps: 2, blades: 4,
+});
+const ferry = (id: string, name: string, route: [number, number][], length: number, kn: number, turnDegS = 1.5): VesselDef => ({
+  id, name, kind: 'ferry', length, beam: length * 0.17, draft: Math.min(6.5, length * 0.045), speed: KNOTS(kn), turnRate: DEG_S(turnDegS),
+  route, repeat: 'shuttle', propellerRps: 2.5, blades: 5,
+});
+const fishing = (id: string, name: string, route: [number, number][]): VesselDef => ({
+  id, name, kind: 'fishing', length: 18, beam: 6, draft: 3, speed: KNOTS(5), turnRate: DEG_S(4),
+  route, repeat: 'loop', propellerRps: 6, blades: 3,
+});
 
 export type ConditionsId = 'day' | 'night' | 'fog';
 
@@ -85,6 +105,10 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
       { name: 'Västra fyren', position: [800, 2300], color: 'white', period: 5, lit: 0.6 },
       { name: 'Södra fyren', position: [-800, 2580], color: 'red', period: 3, lit: 1 },
     ],
+    traffic: [
+      freighter('skagerack', 'M/S Skagerack', [[-6000, -1500], [6000, -1500]]),
+      fishing('maja', 'fiskebåten Maja', [[-1500, 600], [-1500, 1200], [-900, 1200], [-900, 600]]),
+    ],
   },
   baltic: {
     id: 'baltic',
@@ -111,6 +135,7 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
       { name: 'Ytterskärs fyr', position: [0, 2980], color: 'white', period: 6, lit: 1 },
       { name: 'Norra prickens fyr', position: [1600, 2630], color: 'green', period: 4, lit: 0.5 },
     ],
+    traffic: [ferry('ostersjo', 'färjan Östersjö', [[3000, -6000], [3000, 1200]], 170, 17)],
   },
   fjord: {
     id: 'fjord',
@@ -143,6 +168,11 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
       { name: 'Västra mynningsfyren', position: [-480, -510], color: 'red', period: 4, lit: 1 },
       { name: 'Östra mynningsfyren', position: [-480, 480], color: 'green', period: 4, lit: 1 },
     ],
+    traffic: [
+      // A small, handy ferry across the fjord: tight turns between the steep sides.
+      ferry('fjordfarjan', 'fjordfärjan', [[2000, 100], [2000, 580]], 60, 7, 3),
+      fishing('fjordfiske', 'fiskebåten Fjord', [[-3200, -900], [-3200, 900], [-2400, 900], [-2400, -900]]),
+    ],
   },
   atlantic: {
     id: 'atlantic',
@@ -166,6 +196,7 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
       },
     ],
     lighthouses: [],
+    traffic: [freighter('atlantica', 'M/S Atlantica', [[-8000, 3000], [8000, 3000]], 200)],
   },
 };
 

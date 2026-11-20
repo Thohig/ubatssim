@@ -132,3 +132,42 @@ describe('fail cases', () => {
     expect(runner.status).toBe('failed');
   });
 });
+
+describe.each(['realistic', 'simplified'] as const)('"Fartyget" (%s)', (mode) => {
+  it('can be completed by reporting the bearing to the ship', () => {
+    const { c, runner, send, run } = start('ship-recce', mode);
+    expect(c.world.vessels).toHaveLength(1);
+    send({ kind: 'periscope', up: true });
+    run(15, () => runner.progress.index >= 1);
+    const k = c.world.contacts()[0]!;
+    send({ kind: 'reportBearing', bearing: Math.round((k.bearing * 180) / Math.PI) % 360 });
+    run(2, () => runner.progress.index >= 2);
+    expect(runner.progress.index).toBe(2);
+    send({ kind: 'periscope', up: false });
+    run(15);
+    expect(runner.status).toBe('completed');
+  });
+
+  it('fails on a bearing to the lighthouse instead of the ship', () => {
+    const { c, runner, send, run } = start('ship-recce', mode);
+    send({ kind: 'periscope', up: true });
+    run(15, () => runner.progress.index >= 1);
+    send({ kind: 'reportBearing', bearing: Math.round(bearing(c, light('Västra fyren'))) });
+    run(80);
+    expect(runner.progress.index).toBe(1);
+    expect(runner.status).toBe('failed');
+  });
+});
+
+describe('collision in a scenario', () => {
+  it('fails the scenario, like grounding', () => {
+    const { c, runner, run } = start('ship-recce', 'realistic');
+    // Put the boat in the ship's path at periscope depth.
+    c.world.vessels[0]!.state.north = c.sim.y[0]! - 300;
+    c.world.vessels[0]!.state.east = c.sim.y[1]!;
+    c.world.vessels[0]!.state.heading = 0;
+    run(120);
+    expect(runner.status).toBe('failed');
+    expect(runner.message).toMatch(/kolliderade med M\/S Skagerack/);
+  });
+});

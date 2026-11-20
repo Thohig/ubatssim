@@ -8,7 +8,8 @@ import { ENVIRONMENT } from '../sim/config/environment';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
 import { GAME_MODES, type GameMode } from './gameMode';
-import { AREA_INFO, type ConditionsId } from './areas';
+import { AREA_INFO, freighter, type ConditionsId } from './areas';
+import type { VesselDef } from '../sim/vessel';
 
 const G = ENVIRONMENT.g;
 const KN = 1852 / 3600;
@@ -48,6 +49,8 @@ export interface Scenario {
   waypoint?: [number, number];
   /** Light and visibility (default: day). The sea area is `initial.area` and the sea state `initial.sea`. */
   conditions?: ConditionsId;
+  /** Other vessels in the scenario (default: none; free play has the area's traffic). */
+  traffic?: VesselDef[];
 }
 
 /** Distance [m] and true bearing [deg] from the boat to the scenario waypoint. */
@@ -86,6 +89,8 @@ const SOUTH_LIGHT = lighthouse('westCoast', 'Södra fyren');
 /** Most time the periscope may show above the water in one go [s]. */
 export const PERISCOPE_EXPOSURE_LIMIT = 60;
 const FJORD_BUOY: [number, number] = [2400, 120];
+/** The freighter in "Fartyget": northbound west of the boat. */
+const RECCE_SHIP = freighter('skagerack', 'M/S Skagerack', [[-2500, -1500], [6000, -1500]]);
 
 export const SCENARIOS: Scenario[] = [
   {
@@ -254,6 +259,44 @@ export const SCENARIOS: Scenario[] = [
     timeLimit: 900,
   },
   {
+    id: 'ship-recce',
+    title: 'Fartyget',
+    description: `Ett lastfartyg, M/S Skagerack, går norrut väster om dig. Hissa periskopet, ta ut bäringen till fartyget (±3°) och sänk periskopet igen. Periskopet får inte synas mer än ${PERISCOPE_EXPOSURE_LIMIT} s i taget, och kom inte i vägen för fartyget.`,
+    difficulty: 'medel',
+    initial: { depth: 13, speed: 3 * KN, neutral: true, east: -800, heading: 330 * DEG },
+    traffic: [RECCE_SHIP],
+    autopilotAllowed: true,
+    objectives: [
+      {
+        text: 'Hissa periskopet',
+        hint: 'Skriv "periskop upp" eller tryck P.',
+        check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
+      },
+      {
+        text: 'Rapportera bäringen till M/S Skagerack (±3°)',
+        hint: 'Fartyget är sydväst om dig. Vrid periskopet med ←/→ tills det står i hårkorset och tryck B, eller skriv "bäring <grader>".',
+        hintSimplified: 'Fartyget är sydväst om dig. Vrid periskopet med ←/→ (eller dra) tills det står i hårkorset och tryck B (Brg).',
+        check: (_t, c) => {
+          const r = c.lastBearing;
+          const truth = r?.contacts[RECCE_SHIP.id];
+          return r !== null && r.lookout && truth !== undefined && bearingDiff(r.bearing, truth) <= 3;
+        },
+      },
+      {
+        text: 'Sänk periskopet',
+        hint: 'Skriv "periskop ned" eller tryck P.',
+        check: (t) => t.periscope < 0.01,
+      },
+    ],
+    failure: (t, c) =>
+      c.periscopeExposure > PERISCOPE_EXPOSURE_LIMIT
+        ? `Periskopet var uppe i mer än ${PERISCOPE_EXPOSURE_LIMIT} s och upptäcktes.`
+        : t.depth < 8
+          ? 'Ubåten bröt ytan och upptäcktes.'
+          : null,
+    timeLimit: 900,
+  },
+  {
     id: 'halocline',
     title: 'Saltsprånget',
     description: 'Östersjön: dyk genom saltsprångskiktet (60–80 m) till 90 m. Under det är vattnet saltare och tätare, och ubåten blir flera ton lättare. Håll 90 m ±3 m i en minut med högst 1 ton över- eller undervikt.',
@@ -351,6 +394,7 @@ export class ScenarioRunner {
   ) {
     ctrl.options.autopilotAllowed = scenario.autopilotAllowed;
     ctrl.options.safetyNet = scenario.safetyNet ?? true;
+    ctrl.world.add(scenario.traffic ?? []);
   }
 
   onChange(fn: (p: ScenarioProgress) => void): void {
@@ -378,7 +422,11 @@ export class ScenarioRunner {
     if (this.tick++ % 10 !== 0) return;
     const c = this.ctrl;
     const t = c.sim.telemetry();
-    const fail = (t.grounded ? 'Ubåten gick på grund.' : null) ?? this.scenario.failure?.(t, c) ?? null;
+    const fail =
+      (t.grounded ? 'Ubåten gick på grund.' : null) ??
+      (c.collidedWith ? `Ubåten kolliderade med ${c.collidedWith}.` : null) ??
+      this.scenario.failure?.(t, c) ??
+      null;
     if (fail || (this.scenario.timeLimit !== undefined && t.t > this.scenario.timeLimit)) {
       this.finish('failed', fail ?? 'Tiden tog slut.');
       return;

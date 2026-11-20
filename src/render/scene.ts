@@ -7,6 +7,8 @@ import { bodyToLocal, nedToThree, rotationToThree } from './coords';
 import { createEnvironment, type ConditionsId, type LightMark } from './environment';
 import type { HeightFn } from '../sim/terrain';
 import type { WaveComponent } from '../sim/waves';
+import type { VesselDef, VesselState } from '../sim/vessel';
+import { VesselView } from './vessels';
 import { buildSubmarineModel, updateSubmarineModel, type SubmarineModel } from './submarineModel';
 
 export interface RenderState {
@@ -19,6 +21,8 @@ export interface RenderState {
   propellerAngle: number;
   /** Periscope extension 0…1. */
   periscope: number;
+  /** Other vessels, in the order given to `setVessels`. */
+  vessels: readonly VesselState[];
 }
 
 /**
@@ -53,6 +57,8 @@ export interface SceneView {
   setView(view: CameraView): void;
   /** Terrain, lighthouses and light/visibility of the sea area. */
   setArea(height: HeightFn, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
+  /** The other vessels to draw (their states come with each render). */
+  setVessels(defs: readonly VesselDef[]): void;
   /** Depth of the camera [m], negative above the water (after the last render). */
   cameraDepth(): number;
 }
@@ -82,6 +88,7 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
   const model = buildSubmarineModel(cfg);
   scene.add(model.root);
   const env = createEnvironment(scene, hemi, sun);
+  const vesselView = new VesselView(scene);
 
   // Waypoint buoy: yellow spar buoy with a top mark, visible above and below water.
   const buoy = new THREE.Group();
@@ -160,6 +167,10 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     },
     setArea(height, lighthouses, conditions, waves) {
       env.setArea(height, lighthouses, conditions, waves);
+      vesselView.setLights(conditions !== 'day');
+    },
+    setVessels(defs) {
+      vesselView.setVessels(defs);
     },
     cameraDepth() {
       return env.surfaceAt(camera.position.x, camera.position.z) - camera.position.y;
@@ -209,6 +220,7 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
         }
       }
       env.update(state.position, camera, state.t);
+      vesselView.update(state.vessels, (x, z) => env.surfaceAt(x, z));
       renderer.render(scene, camera);
     },
   };

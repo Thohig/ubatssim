@@ -196,6 +196,23 @@ export class AudioEngine {
         return l.propeller.gain;
       };
     }
+    // Another ship: a low band beating at its blade rate, heard through the hull.
+    {
+      const g = this.channel('shipNoise', B, (l) => l.shipNoise.gain);
+      const am = ctx.createGain();
+      am.gain.value = 0.5;
+      am.connect(g);
+      this.noiseSource(this.filter('bandpass', 220, 1.5, am));
+      const lfo = this.osc('sine', 1, null);
+      const depth = ctx.createGain();
+      depth.gain.value = 0.5;
+      lfo.connect(depth);
+      depth.connect(am.gain);
+      this.ch.shipNoise!.set = (l) => {
+        lfo.frequency.setTargetAtTime(Math.max(0.1, l.shipNoise.bladeRate), ctx.currentTime, SMOOTH);
+        return l.shipNoise.gain;
+      };
+    }
     this.noiseChannel('cavitation', O, 'highpass', 2500, 0.7, (l) => l.cavitation);
     // Flow noise: brighter with speed.
     {

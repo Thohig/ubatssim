@@ -23,12 +23,16 @@ export interface AudioInput {
   seaHs: number;
   /** The area has an archipelago or coast in sight (gulls). */
   coastal: boolean;
+  /** The nearest other vessel: range [m] and its propeller blade rate [Hz]. */
+  ship?: { range: number; bladeRate: number };
 }
 
 export interface SoundLevels {
   motor: { gain: number; freq: number };
   /** Propeller: blade rate [Hz] modulates a noise band. */
   propeller: { gain: number; bladeRate: number };
+  /** Another ship's propeller, heard through the hull: louder when near and when submerged. */
+  shipNoise: { gain: number; bladeRate: number };
   cavitation: number;
   flow: { gain: number; cutoff: number };
   hydraulics: number;
@@ -58,6 +62,8 @@ const DEG = Math.PI / 180;
 
 /** Blades on the propeller (the blade rate is blades × rev/s). */
 export const PROPELLER_BLADES = 7;
+/** Ships are heard within this range [m]. */
+export const SHIP_AUDIBLE_RANGE = 4000;
 /** Depth [m] beyond which the hull creaks hard and the alarm sounds. */
 export const CRUSH_WARNING_DEPTH = 250;
 
@@ -73,6 +79,8 @@ export function soundLevels(a: AudioInput): SoundLevels {
   const motor = { gain: motorOn ? 0.12 + 0.5 * Math.sqrt(power) : 0, freq: 45 + 30 * rps };
 
   const propeller = { gain: 0.35 * clamp01(rps / 4), bladeRate: PROPELLER_BLADES * rps };
+  const near = a.ship ? clamp01(1 - a.ship.range / SHIP_AUDIBLE_RANGE) : 0;
+  const shipNoise = { gain: 0.4 * near * near * (t.submergedFraction > 0.99 ? 1 : 0.3), bladeRate: a.ship?.bladeRate ?? 0 };
   // Cavitation: a fast propeller near the surface, where the pressure is low.
   const cavitation = clamp01((rps - 2.6) / 1.4) * clamp01(1 - depth / 40) * 0.6;
 
@@ -110,6 +118,7 @@ export function soundLevels(a: AudioInput): SoundLevels {
   return {
     motor,
     propeller,
+    shipNoise,
     cavitation,
     flow,
     hydraulics,

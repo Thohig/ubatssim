@@ -108,3 +108,15 @@ describe('cues and speech', () => {
     expect(speechFor('Skriv "hjälp" i konsolen för kommandon.', 'info')).toBeNull();
   });
 });
+
+describe('ships', () => {
+  it('are heard louder when near and when submerged, not beyond the audible range', () => {
+    const sub = new Simulation({ depth: 30, designTrim: true });
+    const surfaced = new Simulation();
+    const at = (sim: Simulation, range: number) => soundLevels(input(sim, { ship: { range, bladeRate: 8 } })).shipNoise.gain;
+    expect(at(sub, 500)).toBeGreaterThan(at(sub, 2000));
+    expect(at(sub, 500)).toBeGreaterThan(at(surfaced, 500));
+    expect(at(sub, 5000)).toBe(0);
+    expect(soundLevels(input(sub)).shipNoise.gain).toBe(0);
+  });
+});

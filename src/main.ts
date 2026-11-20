@@ -102,6 +102,9 @@ function newSession(
   view.resetCamera();
   view.setWaypoint(scenario?.waypoint ?? null);
   const area = sim.areaId;
+  // Free play and the demo behind the menu have the area's traffic; scenarios bring their own.
+  if (!scenario) ctrl.world.add(AREA_INFO[area].traffic);
+  view.setVessels(ctrl.world.vessels.map((v) => v.def));
   view.setArea(heightFunction(AREAS[area].terrain), AREA_INFO[area].lighthouses, conditions, sim.waves);
   views.set('external');
   lastPeriscope = sim.actuators.periscope;
@@ -295,6 +298,11 @@ function updateViews(dt: number): void {
   view.setView(inGame ? views.camera(sim.kinematics().u, sim.cfg.periscope.vibrationSpeed) : { mode: 'external' });
 }
 
+function nearestShip(): { range: number; bladeRate: number } | undefined {
+  const k = session.ctrl.world.contacts()[0];
+  return k ? { range: k.range, bladeRate: k.vessel.def.propellerRps * k.vessel.def.blades } : undefined;
+}
+
 function overlayState() {
   if (state === 'menu' || views.mode === 'external') return null;
   const { sim, runner } = session;
@@ -353,6 +361,7 @@ function frame(now: number): void {
     sternPlanes: sim.actuators.sternPlanes,
     propellerAngle: session.propellerAngle,
     periscope: sim.actuators.periscope,
+    vessels: session.ctrl.world.vessels.map((v) => v.state),
   });
   drawOverlay(overlayState());
   perf.mark('render');
@@ -369,6 +378,7 @@ function frame(now: number): void {
       conditions: session.conditions,
       seaHs: sim.sea.hs,
       coastal: sim.areaId !== 'atlantic',
+      ship: nearestShip(),
     });
     updateObjective(objectiveEl, session.runner);
     lastUi = now;
