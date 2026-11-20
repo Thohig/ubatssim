@@ -88,13 +88,15 @@ En panelknapp eller flik som du sköter själv är gul. Panelens flikar byter me
 
 Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P, Z, B och C. Per och Vy visas när ubåten är grundare än 25 m eller periskopet är uppe. **>_** öppnar konsolen.
 
+**Logg** (eller L) döljer loggboken och visar den igen. Knappen lyser när loggen visas. Dold loggbok visar bara ett nytt felmeddelande, till exempel en vägrad order, i några sekunder. Loggen förs ändå och finns kvar när du visar den igen. Valet sparas och finns också under Inställningar ("Visa loggboken").
+
 ### Mobil
 
 På skärmar som är smalare än 760 px eller lägre än 500 px är vyn avskalad, så att 3D-bilden får plats:
 
 - **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen och trim. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
 - **Loggen** visar bara den senaste raden, ovanför kontrollerna, och tonas ned efter några sekunder (felmeddelanden står kvar längre). Tryck på raden för de senaste raderna.
-- **Vyer ▾** uppe till höger fäller ut Vy, Per, Zoom, Brg, Snitt och **>_**. Ett val fäller ihop dem igen.
+- **Vyer ▾** uppe till höger fäller ut Vy, Per, Zoom, Brg, Snitt, Logg och **>_**. Ett val fäller ihop dem igen.
 - **Auto / Hand** är en knapp per axel, panelerna ligger under **System ▾** och telegrafen är ett reglage.
 - **Stående telefon:** djupskalan till vänster, kompassen, Dyk / Håll / System till höger och telegrafen över hela bredden längst ner.
 - **Liggande telefon:** djupet och knapparna under vänster tumme, kompassen och telegrafen under höger, och mitten fri. En panel öppnas i mitten under statusraden.
@@ -120,6 +122,7 @@ Piltangenterna följer Auto / Hand.
 | Enter eller / | Öppna kommandokonsolen | Samma |
 | Esc | Lämna konsolen eller en vy, eller pausa | Samma |
 | M | Ljud av / på | Samma |
+| L | Visa / dölj loggboken | Samma |
 
 När konsolen är öppen visar lägesindikatorn överst **KONSOL**, och ↑/↓ bläddrar i kommandohistoriken. På mobil ersätts instrumentpanelen av statusraden (se [Mobil](#mobil)).
 

@@ -518,3 +518,39 @@ describe('the phone layout', () => {
     for (const sc of SCENARIOS) for (const o of sc.objectives) for (const hint of [o.hint, o.hintCrew ?? '']) expect(hint, `${sc.id}: ${o.text}`).not.toMatch(/▾/);
   });
 });
+
+describe('hiding the log book', () => {
+  it('the setting is shown by default, kept, and read back', async () => {
+    const { loadSettings, saveSettings, DEFAULT_SETTINGS } = await import('../src/ui/settings');
+    localStorage.clear();
+    expect(loadSettings().showLog).toBe(true);
+    saveSettings({ ...DEFAULT_SETTINGS, showLog: false });
+    expect(loadSettings().showLog).toBe(false);
+    localStorage.clear();
+  });
+
+  it('"Logg" shows or hides the log book and lights while it is shown', () => {
+    const root = document.createElement('div');
+    let shown = true;
+    const c = crewGame({ depth: 30, designTrim: true });
+    const update = bindViewButtons(root, () => c, new ViewState(), undefined, { shown: () => shown, toggle: () => (shown = !shown) });
+    update(c);
+    const btn = root.querySelector<HTMLButtonElement>('[data-v="log"]')!;
+    expect(btn.hidden).toBe(false);
+    expect(btn.classList.contains('on')).toBe(true);
+    btn.click();
+    expect(shown).toBe(false);
+    expect(btn.classList.contains('on')).toBe(false);
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+    // Changed elsewhere (settings, L): the next update follows.
+    shown = true;
+    update(c);
+    expect(btn.classList.contains('on')).toBe(true);
+  });
+
+  it('the panels keep their rows of controls: only the row of panel buttons is phone-hidden', () => {
+    const { root } = helm(crewGame());
+    expect(root.querySelectorAll('.helm-panel-btns').length).toBe(1);
+    expect(root.querySelector('.helm-panel .helm-panel-btns')).toBeNull();
+  });
+});

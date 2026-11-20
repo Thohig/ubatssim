@@ -15,6 +15,8 @@ export interface Settings {
   soundEffects: boolean;
   soundAmbience: boolean;
   voice: boolean;
+  /** The log book is shown; hidden, only errors show for a moment (style.css, body.log-hidden). */
+  showLog: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   soundEffects: true,
   soundAmbience: true,
   voice: false,
+  showLog: true,
 };
 
 const KEY = 'ubatssim.settings';
@@ -44,6 +47,7 @@ export function loadSettings(): Settings {
       soundEffects: s.soundEffects !== false,
       soundAmbience: s.soundAmbience !== false,
       voice: s.voice === true,
+      showLog: s.showLog !== false,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

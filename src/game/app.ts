@@ -243,7 +243,19 @@ export function startApp(): void {
     if (info) cutawayInfoEl.replaceChildren(h('h3', null, info.title), h('p', null, info.description), h('ul', null, ...info.lines.map((l) => h('li', null, l))));
     else cutawayInfoEl.replaceChildren(h('p', null, 'Tryck på ett rum, en tank eller tornet för att se vad som finns där.'));
   };
-  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole);
+  /**
+   * Shows or hides the log book (a setting). Hidden, only a new error shows
+   * for a moment; the lines already there are marked so they do not flash up.
+   */
+  const setLogShown = (show: boolean) => {
+    if (!show) for (const e of logEl.querySelectorAll('.log-entry')) e.classList.add('stale');
+    settings = { ...settings, showLog: show };
+    saveSettings(settings);
+    menu.setSettings(settings);
+    applySettings();
+  };
+  const logSwitch = { shown: () => settings.showLog, toggle: () => setLogShown(!settings.showLog) };
+  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole, logSwitch);
   const helmEl = el('helm');
   const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
   // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
@@ -256,6 +268,10 @@ export function startApp(): void {
     if ((e.key === 'm' || e.key === 'M') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const muted = audio.engine.toggleMute();
       session.ctrl.addLog(muted ? 'Ljudet är avstängt (M).' : 'Ljudet är på (M).', 'info');
+      return;
+    }
+    if ((e.key === 'l' || e.key === 'L') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      logSwitch.toggle();
       return;
     }
     if (e.key !== 'Escape') return;
@@ -283,6 +299,7 @@ export function startApp(): void {
   function applySettings(): void {
     touch = isTouchDevice();
     document.body.classList.toggle('touch', touch);
+    document.body.classList.toggle('log-hidden', !settings.showLog);
     consoleInput.placeholder = 'Skriv ett kommando, t.ex. "djup 120", eller "hjälp"';
     bindModeIndicator(el('mode'), mode, touch, views);
     view.setParticles(settings.particles);

@@ -262,11 +262,18 @@ export function togglePeriscope(ctrl: Controller, source: OrderSource): void {
   ctrl.submit({ kind: 'periscope', up: !ctrl.sim.commands.periscopeUp }, source);
 }
 
+/** Showing and hiding the log book (a setting, kept by the app). */
+export interface LogSwitch {
+  shown(): boolean;
+  toggle(): void;
+}
+
 /**
- * Buttons for the views next to the menu button (mouse and touch). On phones
- * (style.css) only "Vyer ▾" shows; it folds the others out, and a choice folds them in.
+ * Buttons for the views next to the menu button (mouse and touch), and
+ * "Logg", which shows or hides the log book. On phones (style.css) only
+ * "Vyer ▾" shows; it folds the others out, and a choice folds them in.
  */
-export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState, openConsole?: () => void): (ctrl: Controller) => void {
+export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState, openConsole?: () => void, log?: LogSwitch): (ctrl: Controller) => void {
   root.innerHTML = `
     <button type="button" data-v="menu" class="views-menu" title="Vyer och konsolen" aria-label="Vyer och konsolen" aria-expanded="false">Vyer ▾</button>
     <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
@@ -276,6 +283,7 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     <button type="button" data-v="cutaway" title="Genomskärning av ubåten (C)" aria-label="Genomskärning av ubåten">Snitt</button>
     <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
     <button type="button" data-v="whole" title="Hela ubåten" aria-label="Visa hela ubåten">Hela</button>
+    <button type="button" data-v="log" title="Visa eller dölj loggboken (L)" aria-label="Visa eller dölj loggboken" aria-pressed="false">Logg</button>
     <button type="button" data-v="console" class="console-btn" title="Kommandokonsolen (Enter)" aria-label="Öppna kommandokonsolen">&gt;_</button>`;
   const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
@@ -284,6 +292,8 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
   const cut = root.querySelector<HTMLButtonElement>('[data-v="cutaway"]')!;
   const plan = root.querySelector<HTMLButtonElement>('[data-v="plan"]')!;
   const whole = root.querySelector<HTMLButtonElement>('[data-v="whole"]')!;
+  const logBtn = root.querySelector<HTMLButtonElement>('[data-v="log"]')!;
+  logBtn.hidden = !log;
   /** Whether the boat is too deep for the periscope and the bridge. */
   let deep = false;
   const sync = () => {
@@ -296,6 +306,9 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     plan.textContent = views.cutPlan === 'side' ? 'Ovan' : 'Sida';
     per.hidden = deep;
     view.hidden = deep && views.mode === 'external';
+    const shown = log?.shown() ?? true;
+    logBtn.classList.toggle('on', shown);
+    logBtn.setAttribute('aria-pressed', String(shown));
   };
   sync();
   views.onChange(sync);
@@ -317,6 +330,11 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
       openConsole?.();
       return;
     }
+    if (b?.dataset.v === 'log') {
+      log?.toggle();
+      sync();
+      return;
+    }
     const ctrl = getCtrl();
     if (!b || !ctrl) return;
     if (b.dataset.v === 'cutaway') toggleCutaway(views);
@@ -335,7 +353,8 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
   return (ctrl) => {
     const k = ctrl.sim.kinematics();
     const next = k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01;
-    if (next !== deep) {
+    // The log setting may also change from the settings screen or the L key.
+    if (next !== deep || logBtn.classList.contains('on') !== (log?.shown() ?? true)) {
       deep = next;
       sync();
     }

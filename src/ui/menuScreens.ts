@@ -142,6 +142,10 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <label class="opt"><input type="checkbox" name="voice" ${s.voice ? 'checked' : ''}/> Uppläsning av order (svensk röst)</label>
         <p class="menu-note">M stänger av och sätter på ljudet under spelet.</p>
       </fieldset>
+      <fieldset><legend>Skärmen</legend>
+        <label class="opt"><input type="checkbox" name="showLog" ${s.showLog ? 'checked' : ''}/> Visa loggboken</label>
+        <p class="menu-note">Dold loggbok visar bara fel en kort stund. Knappen Logg (på mobil under Vyer ▾) och L visar och döljer den under spelet.</p>
+      </fieldset>
       <fieldset><legend>Grafik</legend>
         <label class="opt"><input type="checkbox" name="particles" ${s.particles ? 'checked' : ''}/> Svävande partiklar</label>
       </fieldset>
@@ -188,6 +192,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
           <tr><td>Esc</td><td colspan="2">Lämna konsolen eller en vy, eller pausa</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
+          <tr><td>L</td><td colspan="2">Visa / dölj loggboken (knappen Logg). Dold visar den bara fel en kort stund.</td></tr>
         </table>
         <h3>Vyer</h3>
         <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan i panelen Ballast.</p>

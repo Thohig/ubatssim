@@ -147,6 +147,7 @@ export class Menu {
     if (name === 'soundEffects') s.soundEffects = value === 'true';
     if (name === 'soundAmbience') s.soundAmbience = value === 'true';
     if (name === 'voice') s.voice = value === 'true';
+    if (name === 'showLog') s.showLog = value === 'true';
     this.settings = s;
     this.h.settingsChanged(s);
   }

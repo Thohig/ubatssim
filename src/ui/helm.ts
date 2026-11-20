@@ -438,7 +438,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     'div',
     { class: 'helm-actions' },
     h('div', { class: 'touch-row helm-context' }, ballastBtn, holdBtn, systemBtn),
-    h('div', { class: 'touch-row helm-panel-row' }, ...panelBtns.map((b) => b.el)),
+    h('div', { class: 'touch-row helm-panel-btns' }, ...panelBtns.map((b) => b.el)),
   );
 
   // ---- Panels.
