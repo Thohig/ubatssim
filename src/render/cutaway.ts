@@ -2,7 +2,10 @@
  * The cutaway view's 3D parts: the boat cut along its centre line (side) or
  * through the upper deck (top), with bulkheads, decks, the equipment from
  * interior.ts, water in the tanks (a level surface, see tankLevel.ts),
- * bubbles in the main ballast, pump flows and the HP air bottles. No people.
+ * bubbles in the main ballast, pump flows and the HP air bottles; water
+ * in leaking compartments (level as in the tanks), the battery cells lit
+ * after their charge, the diesels running, and the torpedo tubes' breech
+ * doors and the reserve torpedoes after the fire control. No people.
  *
  * Built on first use. Clipping planes (renderer.localClippingEnabled) cut
  * the hulls and everything inside; the cut objects are double-sided, so a
@@ -14,7 +17,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { SubmarineConfig, TankDef } from '../sim/config/submarine';
 import type { Vec3 } from '../sim/math/vec3';
 import { bodyToLocal } from './coords';
-import { interiorItems, type Item, type Material } from './interior';
+import { interiorItems, RACKS, TUBE_Y, TUBE_Z, type Item, type Material } from './interior';
 import type { SubmarineModel } from './submarineModel';
 import { tankSamples, waterLevel } from './tankLevel';
 
@@ -35,6 +38,15 @@ export interface CutawayState {
   propellerAngle: number;
   /** The tapped space, highlighted, or null. */
   selected: string | null;
+  /** Water in the compartments, fraction of the compartment's whole volume (0…1). */
+  compartments?: readonly { id: string; fill: number }[];
+  /** Battery state of charge 0…1 and whether it is being charged; the diesels running. */
+  battery?: number;
+  charging?: boolean;
+  dieselRunning?: boolean;
+  /** Torpedo tubes (loaded, or seconds of loading left) and the torpedoes left in the racks. */
+  tubes?: readonly { loaded: boolean; loading: number }[];
+  reserve?: number;
   /** Time [s], for the animations. */
   t: number;
 }
@@ -89,6 +101,12 @@ export function createCutaway(model: SubmarineModel, cfg: SubmarineConfig): Cuta
   const bubbles = new Map<string, THREE.Points>();
   let shaft: THREE.Mesh | null = null;
   let airMat: THREE.MeshStandardMaterial | null = null;
+  let batteryMat: THREE.MeshStandardMaterial | null = null;
+  let engineMesh: THREE.Mesh | null = null;
+  let engineMat: THREE.MeshStandardMaterial | null = null;
+  const compWater = new Map<string, { mesh: THREE.Mesh; plane: THREE.Plane; samples: Vec3[]; key: string }>();
+  const doors: THREE.MeshStandardMaterial[] = [];
+  const reserves: THREE.Mesh[] = [];
   const trimArrow = arrow(0x5fd3ff);
   const compArrow = arrow(0x5fd3ff);
   const highlight = new Map<string, THREE.Mesh>();
@@ -112,7 +130,13 @@ export function createCutaway(model: SubmarineModel, cfg: SubmarineConfig): Cuta
       const merged = mergeGeometries(list.map((g) => g.toNonIndexed()));
       const material = mat(COLORS[m], m === 'screen' ? { emissive: COLORS.screen, emissiveIntensity: 0.5 } : {});
       if (m === 'air') airMat = material;
-      group.add(new THREE.Mesh(merged, material));
+      if (m === 'battery') batteryMat = material;
+      const mesh = new THREE.Mesh(merged, material);
+      if (m === 'engine') {
+        engineMesh = mesh;
+        engineMat = material;
+      }
+      group.add(mesh);
     }
 
     // The pressure hull's inside, and the bulkheads with their doors.
@@ -174,6 +198,46 @@ export function createCutaway(model: SubmarineModel, cfg: SubmarineConfig): Cuta
         p.userData.extent = shape.type === 'box' ? shape.size : [shape.length, shape.radius * 1.4, shape.radius * 1.4];
         group.add(p);
         bubbles.set(def.id, p);
+      }
+    }
+
+    // Water in leaking compartments: the compartment's cylinder, cut at a level surface as in the tanks.
+    for (const c of cfg.compartments) {
+      const len = c.xRange[1] - c.xRange[0];
+      const g = new THREE.CylinderGeometry(R * 0.96, R * 0.96, len - 0.1, 40);
+      g.rotateX(-Math.PI / 2);
+      const plane = new THREE.Plane();
+      const m = new THREE.Mesh(g, mat(0x2f78b7, { transparent: true, opacity: 0.55, clippingPlanes: [cut, plane], depthWrite: false }));
+      m.position.copy(bodyToLocal([(c.xRange[0] + c.xRange[1]) / 2, 0, 0]));
+      m.visible = false;
+      group.add(m);
+      const shell: TankDef = {
+        id: c.id,
+        name: c.name,
+        kind: 'trim',
+        position: [(c.xRange[0] + c.xRange[1]) / 2, 0, 0],
+        shape: { type: 'cylinder', length: len, radius: R * 0.96 },
+        volume: Math.PI * R * R * len,
+        initialFill: 0,
+      };
+      compWater.set(c.id, { mesh: m, plane, samples: tankSamples(shell, 10), key: '' });
+    }
+
+    // Torpedo room: the tubes' breech doors (lit after their state) and the reserve torpedoes.
+    const tor = cfg.compartments.find((c) => c.id === 'torpedo');
+    if (tor) {
+      const [tx0, tx1] = tor.xRange;
+      for (const y of TUBE_Y)
+        for (const z of TUBE_Z) {
+          const dm = mat(0x5a4a3a, { emissive: 0x000000 });
+          doors.push(dm);
+          group.add(new THREE.Mesh(geometry({ space: 'torpedo', at: [tx1 - 6.15, y, z], shape: { type: 'cylinder', radius: 0.38, length: 0.12, axis: 'x' }, material: 'pipe' }), dm));
+        }
+      const tm = mat(COLORS.torpedo);
+      for (const r of RACKS) {
+        const t = new THREE.Mesh(geometry({ space: 'torpedo', at: [tx0 + 3.6, r[0], r[1]], shape: { type: 'cylinder', radius: 0.267, length: 5.8, axis: 'x' }, material: 'torpedo' }), tm);
+        reserves.push(t);
+        group.add(t);
       }
     }
 
@@ -299,6 +363,55 @@ export function createCutaway(model: SubmarineModel, cfg: SubmarineConfig): Cuta
       airMat.emissiveIntensity = 0.05 + 0.45 * Math.max(0, Math.min(1, s.air));
     }
     for (const [id, m] of highlight) m.visible = id === s.selected;
+
+    // Water in the compartments.
+    for (const c of s.compartments ?? []) {
+      const w = compWater.get(c.id);
+      if (!w) continue;
+      w.mesh.visible = c.fill > 0.001;
+      if (!w.mesh.visible) continue;
+      const key = `${c.fill.toFixed(3)} ${up.map((v) => v.toFixed(2)).join(',')}`;
+      if (key !== w.key) {
+        w.key = key;
+        w.mesh.userData.level = waterLevel(w.samples, up, c.fill);
+      }
+      const h = w.mesh.userData.level as number;
+      bodyToLocal([-up[0], -up[1], -up[2]], n);
+      bodyToLocal([up[0] * h, up[1] * h, up[2] * h], p);
+      w.plane.setFromNormalAndCoplanarPoint(n, p).applyMatrix4(world);
+    }
+    // The battery cells: green while charging (a slow pulse), amber and red as they run down.
+    if (batteryMat && s.battery !== undefined) {
+      const soc = s.battery;
+      if (s.charging) {
+        batteryMat.emissive.setHex(0x3ad17a);
+        batteryMat.emissiveIntensity = 0.25 + 0.2 * Math.sin(s.t * 2.5);
+      } else if (soc < 0.15) {
+        batteryMat.emissive.setHex(0xff4a4a);
+        batteryMat.emissiveIntensity = 0.35 + 0.25 * Math.max(0, Math.sin(s.t * 4));
+      } else if (soc < 0.3) {
+        batteryMat.emissive.setHex(0xffb347);
+        batteryMat.emissiveIntensity = 0.3;
+      } else {
+        batteryMat.emissive.setHex(0x3ad17a);
+        batteryMat.emissiveIntensity = 0.04 + 0.1 * soc;
+      }
+    }
+    // The diesels: shaking and warm while they run.
+    if (engineMesh && engineMat) {
+      const on = !!s.dieselRunning;
+      (engineMesh as THREE.Mesh).position.set(on ? 0.012 * Math.sin(s.t * 70) : 0, on ? 0.01 * Math.sin(s.t * 53) : 0, 0);
+      engineMat.emissive.setHex(0xff7a3a);
+      engineMat.emissiveIntensity = on ? 0.18 + 0.06 * Math.sin(s.t * 9) : 0;
+    }
+    // Torpedo tubes: green loaded, amber loading, dark empty; the racks show the reserve left.
+    (s.tubes ?? []).forEach((tb, i) => {
+      const dm = doors[i];
+      if (!dm) return;
+      dm.emissive.setHex(tb.loaded ? 0x3ad17a : tb.loading > 0 ? 0xffb347 : 0x000000);
+      dm.emissiveIntensity = tb.loaded ? 0.6 : tb.loading > 0 ? 0.35 + 0.25 * Math.sin(s.t * 3) : 0;
+    });
+    if (s.reserve !== undefined) reserves.forEach((m, i) => (m.visible = i < (s.reserve ?? 0)));
   }
 
   function animateBubbles(b: THREE.Points, on: boolean, t: number): void {

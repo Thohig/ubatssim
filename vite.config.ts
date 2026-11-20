@@ -19,5 +19,8 @@ export default defineConfig({
     environment: 'node',
     // Physics tests simulate minutes of sim time; CI runners are slower than dev machines.
     testTimeout: 60000,
+    // The tests are CPU-bound: one worker per core (the default leaves one idle). Measured on 4 cores:
+    // 182 s → 142 s for `npm run test:all`. Splitting the long files further did not help (all cores were busy).
+    maxWorkers: '100%',
   },
 });

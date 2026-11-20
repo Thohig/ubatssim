@@ -246,7 +246,7 @@ export function viewBearing(ctrl: Controller, views: ViewState): number {
   return ((deg % 360) + 360) % 360;
 }
 
-/** C / "Snitt": into the cutaway, or back to the external view. */
+/** C: into the cutaway, or back to the external view (Vy also reaches it, as the last view in the cycle). */
 export function toggleCutaway(views: ViewState): void {
   views.set(views.mode === 'cutaway' ? 'external' : 'cutaway');
 }
@@ -283,7 +283,6 @@ export function bindViewButtons(
   root: HTMLElement,
   getCtrl: () => Controller | null,
   views: ViewState,
-  openConsole?: () => void,
   log?: LogSwitch,
   nav?: NavSwitch,
 ): (ctrl: Controller) => void {
@@ -294,19 +293,16 @@ export function bindViewButtons(
     <button type="button" data-v="snorkel" title="Snorkel upp/ned (N)" aria-label="Snorkel upp eller ned">Snork</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
     <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>
-    <button type="button" data-v="cutaway" title="Genomskärning av ubåten (C)" aria-label="Genomskärning av ubåten">Snitt</button>
     <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
     <button type="button" data-v="whole" title="Hela ubåten" aria-label="Visa hela ubåten">Hela</button>
     <button type="button" data-v="chart" title="Sjökortet (K)" aria-label="Sjökortet">Karta</button>
     <button type="button" data-v="sonar" title="Sonaren (H)" aria-label="Sonaren">Sonar</button>
-    <button type="button" data-v="log" title="Visa eller dölj loggboken (L)" aria-label="Visa eller dölj loggboken" aria-pressed="false">Logg</button>
-    <button type="button" data-v="console" class="console-btn" title="Kommandokonsolen (Enter)" aria-label="Öppna kommandokonsolen">&gt;_</button>`;
+    <button type="button" data-v="log" title="Visa eller dölj loggboken (L)" aria-label="Visa eller dölj loggboken" aria-pressed="false">Logg</button>`;
   const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
   const snork = root.querySelector<HTMLButtonElement>('[data-v="snorkel"]')!;
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
-  const cut = root.querySelector<HTMLButtonElement>('[data-v="cutaway"]')!;
   const plan = root.querySelector<HTMLButtonElement>('[data-v="plan"]')!;
   const whole = root.querySelector<HTMLButtonElement>('[data-v="whole"]')!;
   const logBtn = root.querySelector<HTMLButtonElement>('[data-v="log"]')!;
@@ -320,13 +316,12 @@ export function bindViewButtons(
     zoom.hidden = views.mode !== 'periscope';
     brg.hidden = views.mode !== 'bridge' && views.mode !== 'periscope';
     const inCut = views.mode === 'cutaway';
-    cut.classList.toggle('on', inCut);
+    view.classList.toggle('on', views.mode !== 'external');
     plan.hidden = !inCut;
     whole.hidden = !inCut;
     plan.textContent = views.cutPlan === 'side' ? 'Ovan' : 'Sida';
     per.hidden = deep;
     snork.hidden = deep;
-    view.hidden = deep && views.mode === 'external';
     const shown = log?.shown() ?? true;
     logBtn.classList.toggle('on', shown);
     logBtn.setAttribute('aria-pressed', String(shown));
@@ -348,11 +343,6 @@ export function bindViewButtons(
       return;
     }
     fold(false);
-    // iOS shows the on-screen keyboard only for focus() inside a click handler.
-    if (b?.dataset.v === 'console') {
-      openConsole?.();
-      return;
-    }
     if (b?.dataset.v === 'log') {
       log?.toggle();
       sync();
@@ -365,8 +355,7 @@ export function bindViewButtons(
     }
     const ctrl = getCtrl();
     if (!b || !ctrl) return;
-    if (b.dataset.v === 'cutaway') toggleCutaway(views);
-    else if (b.dataset.v === 'plan') views.toggleCutPlan();
+    if (b.dataset.v === 'plan') views.toggleCutPlan();
     else if (b.dataset.v === 'whole') views.resetCut();
     else if (b.dataset.v === 'view') cycleView(ctrl, views, 'touch');
     else if (b.dataset.v === 'periscope') togglePeriscope(ctrl, 'touch');
@@ -375,9 +364,9 @@ export function bindViewButtons(
     else views.toggleZoom();
   });
   /**
-   * Call ~10 times a second. The buttons follow the situation: Per and Vy
-   * are hidden below PERISCOPE_BUTTON_DEPTH with the mast housed, where
-   * neither the periscope nor the bridge can be used.
+   * Call ~10 times a second. The buttons follow the situation: Per and Snork
+   * are hidden below PERISCOPE_BUTTON_DEPTH with the masts housed. Vy always
+   * shows: deep it switches between the external view and the cutaway.
    */
   return (ctrl) => {
     const k = ctrl.sim.kinematics();

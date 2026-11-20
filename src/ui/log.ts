@@ -49,6 +49,8 @@ export function bindLog(el: HTMLElement, ctrl: Controller): void {
     }
     el.append(div);
     while (el.childElementCount > MAX_KEPT) el.firstElementChild?.remove();
+    // The open history follows the newest line (the answer to what was just typed).
+    if (el.classList.contains('expanded')) el.scrollTop = el.scrollHeight;
     if (!fresh) return;
     div.classList.add('live');
     live.push(div);
@@ -65,9 +67,18 @@ export function bindLog(el: HTMLElement, ctrl: Controller): void {
   ctrl.onLog((e) => add(e, true));
 }
 
-/** A tap on the log shows the history; another folds it. Call once. */
-export function bindLogToggle(el: HTMLElement): void {
+/**
+ * The log and the console are one: a tap on the log (or on the "›_ Logg"
+ * handle under it) opens the console, which shows the history above its
+ * input line. Without `open` a tap just shows or folds the history. Call once.
+ * (iOS shows the on-screen keyboard only for focus() inside a click handler.)
+ */
+export function bindLogToggle(el: HTMLElement, open?: () => void): void {
   el.addEventListener('click', () => {
+    if (open) {
+      open();
+      return;
+    }
     el.classList.toggle('expanded');
     if (el.classList.contains('expanded')) el.scrollTop = el.scrollHeight;
   });

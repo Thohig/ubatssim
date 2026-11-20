@@ -163,6 +163,7 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 - **Back (n < 0):** alla fyra koefficienterna multipliceras med 0,6. Bladen möter vattnet med baksidan, och en fast propeller ger ungefär 55–70 % av dragkraften framåt vid samma varvtal [C12] (APPROX). Båda termerna är noll vid n = 0, så kraft och moment är kontinuerliga. Formen gäller också när axeln går mot fartriktningen, alltså vid inbromsning.
 - **Motorn:** varvtalsreglerad, med momentframkoppling och P-återkoppling, begränsad till 160 kNm och 2,9 MW. Back tillåter drivningen högst 1,8 varv/s (108 rpm) (APPROX). Ubåten är kursinstabil med aktern först, och back används bara för att manövrera.
 - **Reaktionsmomentet** −Q verkar på skrovet och ger en liten krängning.
+- **Inbromsning:** medan ubåten går framåt genom vattnet (u > 0,3 m/s) tillåter drivningen backvarv till 3,0 varv/s (180 rpm), eftersom stabilitetsskälet bakom 108 rpm gäller gång med aktern först. Motorns moment och effekt begränsar. Stopp (fartmål 0) backar för fullt tills u < 0,5 m/s och lämnar sedan till fartautopiloten, som nollställs. Från 8 knop: stilla efter ~58 s och 156 m (tidigare 205 s och 293 m).
 - **Resultat:** ~19 knop vid 240 rpm framåt och ~6,8 knop vid 108 rpm back.
 - **Skrovet back:** samma koefficienter som framåt. Termerna som beror på u byter tecken med farten, och fenorna får vattnet bakifrån (se Roder, djuproder och torn). Hur väl en fartygsmodell för framåtfart beskriver gång med aktern först är inte kontrollerat (APPROX).
 

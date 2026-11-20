@@ -29,7 +29,9 @@ export class Actuators implements Subsystem {
     this.state.rudder = move(this.state.rudder, commands.rudder, a.rudderMax);
     this.state.sternPlanes = move(this.state.sternPlanes, commands.sternPlanes, a.planesMax);
     const p = cfg.propulsion;
-    commands.rps = Math.max(-p.maxRpsAstern, Math.min(p.maxRps, commands.rps));
+    // Braking (still going ahead) the drive may run harder astern than when going stern first.
+    const astern = this.sim.kinematics().u > p.brakeSpeed ? p.maxRpsBrake : p.maxRpsAstern;
+    commands.rps = Math.max(-astern, Math.min(p.maxRps, commands.rps));
     const mastStep = dt / cfg.periscope.raiseTime;
     const mastTarget = commands.periscopeUp ? 1 : 0;
     this.state.periscope += Math.max(-mastStep, Math.min(mastStep, mastTarget - this.state.periscope));

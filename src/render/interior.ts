@@ -13,6 +13,20 @@ import type { SubmarineConfig } from '../sim/config/submarine';
 import { hullRadius } from '../sim/hull';
 import type { Vec3 } from '../sim/math/vec3';
 
+/** The torpedo tubes' positions across the bow (body y and z [m]), and the reserve racks (y, z). Used by cutaway.ts too. */
+export const TUBE_Y = [-0.5, 0.5] as const;
+export const TUBE_Z = [-0.3, 0.5] as const;
+export const RACKS: readonly [number, number][] = [
+  [-1.75, 0.55],
+  [-1.75, -0.25],
+  [-1.2, 0.55],
+  [-1.2, -0.25],
+  [1.2, 0.55],
+  [1.2, -0.25],
+  [1.75, 0.55],
+  [1.75, -0.25],
+];
+
 export type Material = 'steel' | 'deck' | 'furniture' | 'console' | 'screen' | 'torpedo' | 'battery' | 'engine' | 'electric' | 'pipe' | 'air' | 'fabric';
 
 export type Shape =
@@ -50,7 +64,7 @@ export const OUTSIDE = {
 } as const;
 
 const COMPARTMENT_TEXT: Record<string, string> = {
-  torpedo: 'Sex torpedtuber i två rader, reservtorpeder på ställningar, laddräls och lastlucka. Trimtanken för ligger under durken.',
+  torpedo: 'Fyra torpedtuber i två rader, åtta reservtorpeder på ställningar, laddräls och lastlucka. Trimtanken för ligger under durken.',
   control: 'Övre däck: periskopbrunn, roder- och djuproderpulpet, ballastpanel, plottbord, sonar- och radiohytt. Nedre däck: pumprummet och HP-luftflaskorna.',
   living: 'Övre däck: mäss, kabyss och kojer. Nedre däck: batterirummet med cellerna som driver huvudmotorn. Kompenseringstanken ligger under.',
   engine: 'Två dieselmotorer med generatorer som laddar batteriet vid snorkling.',
@@ -132,16 +146,11 @@ export function interiorItems(cfg: SubmarineConfig): Item[] {
   {
     const [x0, x1] = comp('torpedo');
     const floor = deck('torpedo', 0);
-    for (const y of [-0.8, 0, 0.8])
-      for (const z of [-0.3, 0.5]) {
-        cyl('torpedo', [x1 - 3.1, y, z], 0.3, 6.0, 'x', 'steel');
-        cyl('torpedo', [x1 - 6.15, y, z], 0.38, 0.12, 'x', 'pipe'); // breech door
-      }
-    // Reserve torpedoes on their racks along the port side.
-    for (const z of [0.55, -0.25]) {
-      cyl('torpedo', [x0 + 3.6, -1.75, z], 0.267, 5.8, 'x', 'torpedo');
-      box('torpedo', [x0 + 3.6, -1.75, z + 0.33], [5.0, 0.5, 0.06], 'steel');
-    }
+    // Four tubes in two rows; the breech doors (lit after the tube's state) and
+    // the reserve torpedoes (as many as are left) are drawn by cutaway.ts.
+    for (const y of TUBE_Y) for (const z of TUBE_Z) cyl('torpedo', [x1 - 3.1, y, z], 0.3, 6.0, 'x', 'steel');
+    // The racks for the reserve torpedoes, along both sides.
+    for (const r of RACKS) box('torpedo', [x0 + 3.6, r[0], r[1] + 0.33], [5.0, 0.5, 0.06], 'steel');
     box('torpedo', [x0 + 4, 0, -2.25], [7.0, 0.14, 0.14], 'pipe'); // loading rail
     cyl('torpedo', [x0 + 4, -0.9, -2.35], 0.35, 0.3, 'z', 'steel'); // loading hatch
     box('torpedo', [x0 + 0.8, -1.4, on(floor, 1.8)], [0.6, 0.8, 1.8], 'console'); // fire control panel

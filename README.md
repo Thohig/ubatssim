@@ -34,7 +34,7 @@ Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubå
 |---|---|
 | **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
-| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order) och svävande partiklar. Inställningarna sparas i webbläsaren. |
+| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order), loggboken, svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
 | **Hjälp** | Besättningen, kontrollerna, tangenterna, alla konsolkommandon och tips. |
 
 På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
@@ -95,9 +95,9 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 
 En panelknapp eller flik som du sköter själv är gul. Panelens flikar byter mellan de tre panelerna också på dator. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
 
-Knapparna Vy, Per, Snork, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P, N, Z, B och C. Per, Snork och Vy visas när ubåten är grundare än 25 m eller en mast är uppe. **Karta** (K) och **Sonar** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)). **>_** öppnar konsolen.
+Knapparna Vy, Per, Snork, Zoom och Brg uppe till höger gör samma sak som V, P, N, Z och B. **Vy** byter mellan yttre vy, brygga, periskop och genomskärning (C går direkt till snittet). Per och Snork visas när ubåten är grundare än 25 m eller en mast är uppe. Vy visas alltid: djupt byter den mellan yttre vy och snitt. **Karta** (K) och **Sonar** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)). Konsolen öppnas från loggboken (se [Kommandokonsolen](#kommandokonsolen)).
 
-**Loggboken** ligger överst i mitten, under målrutan, utan bakgrund. En ny rad syns en stund och tonas sedan ut och försvinner: kvitton efter 4 s, information efter 6 s och varningar och fel (röda) efter 10 s, långa rader lite längre. Högst tre rader syns samtidigt. När inget har hänt på en stund ligger ingenting över bilden. Tryck på loggen för historiken med de senaste raderna, och tryck igen (eller Esc) för att stänga den. Medan konsolen är öppen visas historiken, så att svaret på det du skriver syns.
+**Loggboken och konsolen** är ett: loggboken ligger överst i mitten, under målrutan, utan bakgrund. En ny rad syns en stund och tonas sedan ut och försvinner: kvitton efter 4 s, information efter 6 s och varningar och fel (röda) efter 10 s, långa rader lite längre. Högst tre rader syns samtidigt. När inget har hänt på en stund ligger ingenting över bilden. Tryck på loggen (eller på **›_ Logg** under den, eller Enter) för att öppna historiken med konsolens skrivrad under, så att svaret på det du skriver syns ovanför. Esc eller ett tryck utanför stänger den.
 
 **Logg** (eller L) döljer loggboken och visar den igen. Knappen lyser när loggen visas. Dold loggbok visar bara ett nytt felmeddelande, till exempel en vägrad order, i några sekunder. Loggen förs ändå och finns kvar när du visar den igen. Valet sparas och finns också under Inställningar ("Visa loggboken").
 
@@ -107,7 +107,7 @@ På skärmar som är smalare än 760 px eller lägre än 500 px är vyn avskalad
 
 - **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen (när det är under 300 m), trim, batteriet och, vid en läcka, vattnet som kommit in. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
 - **Loggboken** ligger under statusraden och målrutan (liggande: mellan statusraden och Vyer ▾). Varje rad kortas till två textrader, och hela texten finns i historiken.
-- **Vyer ▾** uppe till höger fäller ut Vy, Per, Snork, Zoom, Brg, Snitt, Karta, Sonar, Logg och **>_**. Ett val fäller ihop dem igen.
+- **Vyer ▾** uppe till höger fäller ut Vy, Per, Snork, Zoom, Brg, Karta, Sonar och Logg. Ett val fäller ihop dem igen.
 - **Auto / Hand** är en knapp per axel, panelerna ligger under **System ▾** och telegrafen är ett reglage.
 - **Stående telefon:** djupskalan till vänster, kompassen, Dyk / Håll / System till höger och telegrafen över hela bredden längst ner.
 - **Liggande telefon:** djupet och knapparna under vänster tumme, kompassen och telegrafen under höger, och mitten fri. En panel öppnas i mitten under statusraden.
@@ -147,6 +147,8 @@ Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att z
 
 Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med `back halv` i konsolen. På Hand går det med negativt varvtal i panelen Fart. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid varje ny fartorder.
 
+- **Stopp** gör som en besättning: maskinen backar för fullt tills farten är under ungefär 1 knop och går sedan till noll, utan att ubåten börjar gå bakåt. Från 8 knop står den still efter ~58 s och 156 m (från 19 knop ~90 s och 475 m).
+- **Inbromsning:** medan ubåten fortfarande går framåt får drivningen backa med upp till 180 rpm, begränsad av motorns moment och effekt. Gränsen på 108 rpm gäller när ubåten går med aktern först.
 - **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop (Full back), och det tar några minuter att komma upp i fart.
 - **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. På Hand får du styra omvänt.
 - **Djupstyraren och rorsmannen** (Auto) vet om att ubåten backar och vänder sina utslag själv. Den byter riktning när farten genom vattnet har passerat ±0,2 m/s och börjar då om från noll. Vid back tillåter den högst 5° stampvinkel, så djupändringar går långsamt.
@@ -160,7 +162,7 @@ Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med
 | **Yttre** | Bakom och ovanför ubåten. Dra för att vrida, nyp eller scrolla för att zooma. | Alltid |
 | **Bryggan** | Överst i tornet. Dra för att titta runt. Kompassband med bäring och bojens riktning. | När bryggan är bemannad, i ytläge |
 | **Periskopet** | I periskophuvudet: hårkors, bäringsskala och förstoring 1,5× eller 6×. Vrid med ←/→ eller genom att dra. | När periskopet är uppe |
-| **Genomskärning** | Utanför ubåten, som är uppskuren längs mittlinjen (från styrbord) eller genom övre däck (ovanifrån). | Alltid (Snitt eller C) |
+| **Genomskärning** | Utanför ubåten, som är uppskuren längs mittlinjen (från styrbord) eller genom övre däck (ovanifrån). | Alltid (Vy eller C) |
 
 - **Bryggan** är bemannad i ytläge. Den måste utrymmas innan ubåten dyker:
   - Sköter besättningen ballasten utryms bryggan automatiskt när du trycker Dyk (D).
@@ -170,12 +172,13 @@ Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med
 - **Genomskärningen** visar alla avdelningar utan människor: torpedrummet, manöverrummet (två däck: manövercentral med sonar och radio, pumprum och HP-luft), bostäder och batterirum (två däck), maskinrummet med två dieselgeneratorer och elmotorrummet med huvudmotorn. Utanför tryckskrovet syns sonardomen, huvudballasttankarna, tornet med masterna och bryggan, och akterpiken med styrmaskinerna.
   - **Det som rör sig:** vattnet i tankarna har en vågrät yta också när ubåten lutar. Bubblor syns när huvudballasten ventileras eller blåses, pilar när pumparna går, och HP-flaskorna lyser efter trycket. Axeln snurrar med propellern, och periskopmasten, rodren och djuprodren rör sig.
   - **Så används den:** dra för att vrida, och scrolla, nyp eller tryck + / − för att zooma. **Ovan** (Z) byter till snittet ovanifrån och **Hela** visar hela ubåten igen. Tryck på ett rum, en tank eller tornet, så markeras det, vyn zoomar dit och en ruta visar vad som finns där och läget just nu, till exempel tanknivå, pumpar, tryck på skrovet, HP-luft och motorvarv.
-  - **På små skärmar** döljs kontrollerna och instrumentpanelen medan snittet visas. Snitt eller Esc går tillbaka.
+  - **Det som lever:** vatten i en läckande avdelning (med vågrät yta), batterierna som lyser grönt när de laddas och gult och rött när de tar slut, dieslarna som skakar när de går, torpedtubernas luckor (grönt laddad, gult under omladdning) och reservtorpederna på ställningarna.
+  - **På små skärmar** döljs kontrollerna och instrumentpanelen medan snittet visas. Vy, C eller Esc går tillbaka.
 - **Periskopet** tar 8 s att hissa. Vyn öppnas när det är uppe. Huvudet når över vattnet ner till ungefär 14 m djup i stilla sjö. I grov sjö kan vågtopparna skölja över det. Över 6 knop vibrerar bilden, och den våta masten ger motstånd.
 
 ## Kommandokonsolen
 
-Konsolen öppnas med **>_** eller Enter. Den är ett annat sätt att ge order, för den som vill skriva exakta värden, och inget kräver den. En order tar över systemet den gäller, precis som en knapp (se [Besättningen och du](#besättningen-och-du)). Alla kommandon kvitteras i loggen med simuleringstid, till exempel `[00:03:12] Djup 120, ja`. Felaktiga kommandon ger ett felmeddelande som pekar ut fel ord och föreslår rätt form ("Menade du styrbord?").
+Konsolen öppnas med ett tryck på loggboken (eller **›_ Logg** under den), eller med Enter eller `/`. Den visar loggens historik med en skrivrad under. Den är ett annat sätt att ge order, för den som vill skriva exakta värden, och inget kräver den. En order tar över systemet den gäller, precis som en knapp (se [Besättningen och du](#besättningen-och-du)). Alla kommandon kvitteras i loggen med simuleringstid, till exempel `[00:03:12] Djup 120, ja`. Felaktiga kommandon ger ett felmeddelande som pekar ut fel ord och föreslår rätt form ("Menade du styrbord?").
 
 | Kommando | Exempel | Funktion |
 |---|---|---|
@@ -324,6 +327,7 @@ Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, ta
 
 - **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor och fiskebåtar, och i Östersjön en patrullerande korvett. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas. Torpederna fungerar också i fritt spel, och korvetten i Östersjön jagar den som avslöjar sig.
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
+- **Ljusstrålar** faller ner från ytan på dagen och tonas ut mot 70 m. De kan stängas av i Inställningar.
 - **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet.
 - **Ljus och sikt:** dag, natt eller dimma (sikt ~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
 - **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
@@ -397,7 +401,7 @@ npm run build
 npm run bench
 ```
 
-- `npm test` kör de snabba testerna med Vitest (~20 s). `npm run test:all` kör också de långa scenario- och simuleringstesterna i `tests/long/` (~5 min), som publiceringen alltid kör. Fysiken testas utan grafik.
+- `npm test` kör de snabba testerna med Vitest (~30 s). `npm run test:all` kör också de långa scenario- och simuleringstesterna i `tests/long/` (~2,5 min på 4 kärnor), som publiceringen alltid kör. Testerna är processorbundna och körs med en arbetare per kärna (`maxWorkers: '100%'`). Fysiken testas utan grafik.
 - `npm run lint` kör ESLint och kontrollerar bland annat att fysiklagret inte importerar Three.js eller DOM.
 - `npm run build` gör typkontroll och produktionsbygge till `dist/`.
 - `npm run bench` mäter fysikens tid per tidssteg. Lägg till `?perf` i adressen för att se tiden per bild i spelet. Budgeten finns i [docs/prestanda.md](docs/prestanda.md).

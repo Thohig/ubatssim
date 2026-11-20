@@ -8,6 +8,8 @@ export type TimeScale = 1 | 2 | 4;
 export interface Settings {
   timeScale: TimeScale;
   particles: boolean;
+  /** Light rays under the surface in daylight. */
+  lightRays: boolean;
   /** The introduction (the crew and taking over) has been shown. */
   crewIntroSeen: boolean;
   /** Sound: master volume 0…1, machinery and alarms, surroundings, spoken acknowledgements. */
@@ -22,6 +24,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   timeScale: 1,
   particles: true,
+  lightRays: true,
   crewIntroSeen: false,
   volume: 0.6,
   soundEffects: true,
@@ -42,6 +45,7 @@ export function loadSettings(): Settings {
     return {
       timeScale: s.timeScale === 2 || s.timeScale === 4 ? s.timeScale : 1,
       particles: s.particles !== false,
+      lightRays: s.lightRays !== false,
       crewIntroSeen: s.crewIntroSeen === true,
       volume: typeof s.volume === 'number' && s.volume >= 0 && s.volume <= 1 ? s.volume : DEFAULT_SETTINGS.volume,
       soundEffects: s.soundEffects !== false,

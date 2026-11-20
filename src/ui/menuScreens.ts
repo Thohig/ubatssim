@@ -148,6 +148,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </fieldset>
       <fieldset><legend>Grafik</legend>
         <label class="opt"><input type="checkbox" name="particles" ${s.particles ? 'checked' : ''}/> Svävande partiklar</label>
+        <label class="opt"><input type="checkbox" name="lightRays" ${s.lightRays ? 'checked' : ''}/> Ljusstrålar under ytan</label>
       </fieldset>
       <p class="menu-note">Inställningarna sparas i den här webbläsaren.</p>
       ${back}`;
@@ -174,7 +175,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Kompassen</b> (höger, Auto) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. På Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2 och 4 knop back, 4 och 8 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup på Auto.</li>
-          <li><b>Per</b>, <b>Snork</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller en mast är uppe. <b>Karta</b> och <b>Sonar</b> öppnar sjökortet och sonaren. <b>&gt;_</b> öppnar konsolen. På mobil ligger de under <b>Vyer ▾</b>.</li>
+          <li><b>Per</b>, <b>Snork</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller en mast är uppe. <b>Karta</b> och <b>Sonar</b> öppnar sjökortet och sonaren. På mobil ligger de under <b>Vyer ▾</b>. <b>Vy</b> byter också till genomskärningen.</li>
           <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen.</li>
           <li><b>Loggboken</b> ligger överst i mitten. Varje rad tonas bort efter några sekunder (varningar efter 10 s). Tryck på den för de senaste raderna, och tryck igen för att stänga.</li>
         </ul>
@@ -204,8 +205,8 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Vyer</h3>
         <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan i panelen Ballast.</p>
         <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
-        <p><b>Genomskärningen</b> (Snitt eller C) visar ubåten uppskuren med alla avdelningar, tankarna med vattnet, pumparna och maskinerna. Dra för att vrida, scrolla eller nyp för att zooma, och tryck på ett rum eller en tank för att se vad som finns där. Ovan byter till snittet ovanifrån och Hela visar hela ubåten.</p>
-        <p>Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger (på mobil under Vyer ▾) gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+        <p><b>Genomskärningen</b> (Vy eller C) visar ubåten uppskuren med alla avdelningar, tankarna med vattnet, pumparna och maskinerna. Dra för att vrida, scrolla eller nyp för att zooma, och tryck på ett rum eller en tank för att se vad som finns där. Ovan byter till snittet ovanifrån och Hela visar hela ubåten.</p>
+        <p>Knapparna Vy, Per, Zoom och Brg uppe till höger (på mobil under Vyer ▾) gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
         <h3>Batteri och snorkling</h3>
         <p>Under vattnet går ubåten på batteriet (6 MWh). Vid 4 knop räcker det i ungefär två dygn, vid full fart under två timmar. Dieslarna laddar det, men de behöver luft: i ytläge, eller på periskopdjup med snorkeln uppe (Snork eller N). Sköljer en våg över snorkelns huvud stannar de efter några sekunder. Med tomt batteri får motorn bara det dieslarna ger.</p>
         <h3>Läckage</h3>
@@ -230,7 +231,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <p>I fritt spel går fartyg i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision loggas, och i ett scenario misslyckas uppdraget.</p>
         <p>Instrumentpanelen visar farten genom vattnet, och längre ner fart och kurs över grund och strömmen (på mobil: tryck på statusraden). I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
         <h3>Konsolen</h3>
-        <p>Konsolen (<b>&gt;_</b> eller Enter) är ett annat sätt att ge order, för den som vill skriva exakta värden. Ingenting kräver den. En order i konsolen tar över systemet den gäller, precis som en knapp: <code>roder sb 10</code> sätter kursen på Hand.</p>
+        <p>Konsolen öppnas med ett tryck på loggboken (eller <b>›_ Logg</b> under den), Enter eller /. Den visar loggens historik med en skrivrad under. Den är ett annat sätt att ge order, för den som vill skriva exakta värden. Ingenting kräver den. En order i konsolen tar över systemet den gäller, precis som en knapp: <code>roder sb 10</code> sätter kursen på Hand.</p>
         <h3>Kommandon</h3>
         <pre>${HELP_TEXT.join('\n')}</pre>
         <h3>Att tänka på</h3>

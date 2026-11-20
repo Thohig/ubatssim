@@ -143,6 +143,7 @@ export class Menu {
     const s = { ...this.settings };
     if (name === 'timeScale') s.timeScale = Number(value) as Settings['timeScale'];
     if (name === 'particles') s.particles = value === 'true';
+    if (name === 'lightRays') s.lightRays = value === 'true';
     if (name === 'volume') s.volume = Number(value) / 100;
     if (name === 'soundEffects') s.soundEffects = value === 'true';
     if (name === 'soundAmbience') s.soundAmbience = value === 'true';

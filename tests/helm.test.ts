@@ -375,7 +375,7 @@ describe('the console and the keys', () => {
 });
 
 describe('view buttons follow the situation', () => {
-  it('Per and Vy are hidden deep down and shown near the surface', () => {
+  it('Per is hidden deep down and shown near the surface; Vy always shows', () => {
     const root = document.createElement('div');
     const views = new ViewState();
     const update = bindViewButtons(root, () => null, views);
@@ -383,11 +383,13 @@ describe('view buttons follow the situation', () => {
     const vy = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
     update(crewGame({ depth: PERISCOPE_BUTTON_DEPTH + 30, designTrim: true }));
     expect(per.hidden).toBe(true);
-    expect(vy.hidden).toBe(true);
+    expect(vy.hidden).toBe(false);
+    expect(root.querySelector('[data-v="cutaway"]')).toBeNull();
     update(crewGame({ depth: PERISCOPE_DEPTH, designTrim: true }));
     expect(per.hidden).toBe(false);
     expect(vy.hidden).toBe(false);
-    expect(root.querySelector('[data-v="console"]')).not.toBeNull();
+    // The console is opened from the log now, not from a view button.
+    expect(root.querySelector('[data-v="console"]')).toBeNull();
   });
 });
 
@@ -484,7 +486,7 @@ describe('the phone layout', () => {
     menu.click();
     expect(root.classList.contains('open')).toBe(true);
     expect(menu.getAttribute('aria-expanded')).toBe('true');
-    root.querySelector<HTMLButtonElement>('[data-v="cutaway"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-v="view"]')!.click(); // external → (no bridge, no periscope) → cutaway
     expect(views.mode).toBe('cutaway');
     expect(root.classList.contains('open')).toBe(false);
   });
@@ -519,7 +521,7 @@ describe('hiding the log book', () => {
     const root = document.createElement('div');
     let shown = true;
     const c = crewGame({ depth: 30, designTrim: true });
-    const update = bindViewButtons(root, () => c, new ViewState(), undefined, { shown: () => shown, toggle: () => (shown = !shown) });
+    const update = bindViewButtons(root, () => c, new ViewState(), { shown: () => shown, toggle: () => (shown = !shown) });
     update(c);
     const btn = root.querySelector<HTMLButtonElement>('[data-v="log"]')!;
     expect(btn.hidden).toBe(false);
@@ -555,7 +557,7 @@ describe('chart, sonar and the El panel', () => {
     const root = document.createElement('div');
     let mode: 'chart' | 'sonar' | null = null;
     const c = crewGame({ depth: 30, designTrim: true });
-    const update = bindViewButtons(root, () => c, new ViewState(), undefined, undefined, {
+    const update = bindViewButtons(root, () => c, new ViewState(), undefined, {
       mode: () => mode,
       toggle: (m) => (mode = mode === m ? null : m),
     });
@@ -666,6 +668,14 @@ describe('the log book', () => {
     expect(live()).toEqual([]);
     // The history keeps them.
     expect(el.querySelectorAll('.log-entry').length).toBeGreaterThan(5);
+  });
+
+  it('with the console bound, a tap on the log opens the console', () => {
+    const el = document.createElement('div');
+    let opened = 0;
+    bindLogToggle(el, () => opened++);
+    el.click();
+    expect(opened).toBe(1);
   });
 
   it('a tap shows the history and another folds it; a new game folds it too', () => {

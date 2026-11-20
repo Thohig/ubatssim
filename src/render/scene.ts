@@ -66,6 +66,7 @@ export interface SceneView {
   /** Slow automatic orbit, used behind the menu. */
   setAutoRotate(on: boolean): void;
   setParticles(on: boolean): void;
+  setLightRays(on: boolean): void;
   /** Show a yellow buoy at [north, east], or hide it with null. */
   setWaypoint(wp: [number, number] | null): void;
   setView(view: CameraView): void;
@@ -246,6 +247,9 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     },
     setParticles(on) {
       env.setParticles(on);
+    },
+    setLightRays(on) {
+      env.setLightRays(on);
     },
     setWaypoint(wp) {
       buoy.visible = wp !== null;

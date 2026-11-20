@@ -55,7 +55,6 @@ export function startApp(): void {
   const logEl = el('log');
   const instrumentsEl = el('instruments');
   const objectiveEl = el('objective');
-  bindLogToggle(logEl);
   // Phones: the status bar replaces the instrument panel; a tap shows the whole panel (style.css, body.inst-open).
   const statusEl = el<HTMLButtonElement>('status');
   const setInstrumentsOpen = (open: boolean) => {
@@ -66,8 +65,12 @@ export function startApp(): void {
 
   let touch = false;
   const mode = new InputModeState();
-  // The console shows the log's history while open, so the answer to what was typed is seen.
-  mode.onChange((m) => logEl.classList.toggle('expanded', m === 'console'));
+  // The console shows the log's history while open, above its input line.
+  mode.onChange((m) => {
+    logEl.classList.toggle('expanded', m === 'console');
+    document.body.classList.toggle('console-open', m === 'console');
+    if (m === 'console') logEl.scrollTop = logEl.scrollHeight;
+  });
   const views = new ViewState();
   // On-board views: the HUD makes room for the view on small screens (style.css).
   views.onChange((m) => {
@@ -203,6 +206,9 @@ export function startApp(): void {
   const consoleInput = el<HTMLInputElement>('console-input');
   const activeCtrl = () => (flow.state === 'playing' ? session.ctrl : null);
   const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode);
+  // The log is the way into the console: a tap on it or on the handle under it.
+  bindLogToggle(logEl, openConsole);
+  el('log-open').addEventListener('click', openConsole);
   bindKeyboard(activeCtrl, mode, openConsole, views);
   // Cutaway: a tap selects the space under it (interior.ts) and centres the view on it.
   bindViewPointer(view.renderer.domElement, views, (x, y) => {
@@ -261,7 +267,7 @@ export function startApp(): void {
   const nav = createNavPanel(el('nav'), (label) => activeCtrl()?.submit({ kind: 'markTarget', label }, 'touch'));
   const updateFire = createFirePanel(el('fire'), activeCtrl, views, () => nav.mode !== null);
   const navSwitch = { mode: () => nav.mode, toggle: (m: 'chart' | 'sonar') => nav.toggle(m) };
-  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole, logSwitch, navSwitch);
+  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, logSwitch, navSwitch);
   const helmEl = el('helm');
   const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
   // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
@@ -319,6 +325,7 @@ export function startApp(): void {
     consoleInput.placeholder = 'Skriv ett kommando, t.ex. "djup 120", eller "hjälp"';
     bindModeIndicator(el('mode'), mode, touch, views);
     view.setParticles(settings.particles);
+    view.setLightRays(settings.lightRays);
     audio.apply({ volume: settings.volume, effects: settings.soundEffects, ambience: settings.soundAmbience, voice: settings.voice });
   }
 
@@ -365,6 +372,12 @@ export function startApp(): void {
       trimRemaining: t.trimRemaining,
       compRemaining: t.compRemaining,
       air: t.airPressure / s.sim.cfg.air.bottlePressure,
+      compartments: t.compartments.map((c) => ({ id: c.id, fill: (c.water / c.volume) * s.sim.cfg.damage.floodableFraction })),
+      battery: t.battery,
+      charging: t.batteryPower < -1000,
+      dieselRunning: t.dieselRunning,
+      tubes: s.ctrl.fire.tubes.map((x) => ({ loaded: x.loaded, loading: x.loading })),
+      reserve: s.ctrl.fire.reserve,
     };
   }
   function cutawayState(s: GameSession): CutawayState {

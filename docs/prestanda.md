@@ -60,3 +60,7 @@ Skillnaderna ligger inom mätbruset. Partikeleffekterna (`render/effects.ts`) fl
 ## Genomskärningen
 
 Snittvyns JavaScript är litet: en profil med 4× strypt processor visar vattenytans beräkning på 0,1 % och resten som i den yttre vyn. I testmiljön (SwiftShader, grafik i mjukvara) blir "grafik" i `?perf` ändå ~11 ms mot ~5 ms i den yttre vyn, men nästan allt är rastrering av de genomskinliga och dubbelsidiga ytorna, som ett riktigt grafikkort gör. Mät med `?perf` på en telefon innan inredningen byggs ut. Om det behövs: färre genomskinliga ytor (tankarnas skal) och enklare cylindrar.
+
+## Testerna
+
+`npm run test:all` är processorbunden: med Vitests standard (en arbetare mindre än antalet kärnor) tog den 182 s på 4 kärnor, med användartid ~550 s. Med en arbetare per kärna (`maxWorkers: '100%'` i vite.config.ts) tar den 142 s, nära golvet 550 s / 4. Att dela upp de långa filerna per `describe` provades och gav inget (195 s), eftersom alla kärnor redan var upptagna och varje fil kostar uppstart. De snabba testerna tar ~30 s.

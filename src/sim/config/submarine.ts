@@ -421,6 +421,14 @@ export const SUBMARINE = {
      * of their effect, so astern is for manoeuvring only. APPROX.
      */
     maxRpsAstern: 1.8,
+    /**
+     * Astern shaft speed allowed while the boat still goes ahead [rev/s]
+     * (180 rpm): braking, not running stern first, so the stability limit
+     * above does not apply; the motor's torque and power limit it. APPROX.
+     */
+    maxRpsBrake: 3.0,
+    /** Ahead speed through the water [m/s] above which the braking limit applies. */
+    brakeSpeed: 0.3,
     /** Speed-loop gain of the motor drive [Nm per rev/s]. */
     speedGain: 2.0e5,
   },

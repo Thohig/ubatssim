@@ -26,6 +26,8 @@ const DIVE_TARGET_DEPTH = 5;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
 const SURFACE_HOLD_DEPTH = 6;
 const KNOT = 1852 / 3600;
+/** Stopp backs full until the speed through the water is below this [m/s] (~1 knot). */
+const CRASH_STOP_UNTIL = 0.5;
 /** Speed [knots] at which the planes can change the depth, and seconds stalled before the crew says so. */
 const PLANES_SPEED = 4;
 const STALL_TIME = 30;
@@ -267,17 +269,25 @@ export class Controller {
         : this.manual.planes * DEG;
     sim.commands.rudder = this.ap.heading ? this.autopilot.rudder(this.setpoints.heading * DEG, input, DT) : this.manual.rudder * DEG;
 
-    const { maxRps, maxRpsAstern } = sim.cfg.propulsion;
+    const { maxRps, maxRpsAstern, maxRpsBrake, brakeSpeed } = sim.cfg.propulsion;
+    // Still going ahead the drive may brake harder astern than it may run stern first.
+    const astern = tel.u > brakeSpeed ? maxRpsBrake : maxRpsAstern;
     let target: number;
     this.watchDepthStall(tel);
-    if (this.ap.speed) {
+    // Stopp, as a crew does it: full astern until the way is almost off, then the shaft to zero.
+    const crashStop = this.ap.speed && this.setpoints.speed === 0 && tel.u > CRASH_STOP_UNTIL;
+    if (this.crashStopping && !crashStop) this.autopilot.speedPid.reset();
+    this.crashStopping = crashStop;
+    if (crashStop) {
+      target = -astern;
+    } else if (this.ap.speed) {
       // While the crew lifts the boat with too little speed for the planes, the engine gives at least `PLANES_SPEED`.
       const v = (this.depthBoost ? Math.max(this.setpoints.speed, PLANES_SPEED) : this.setpoints.speed) * KNOT;
-      target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT, -maxRpsAstern, maxRps);
+      target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT, -astern, maxRps);
     } else {
       target = this.manual.rpm / 60;
     }
-    target = Math.max(-maxRpsAstern, Math.min(maxRps, target));
+    target = Math.max(-astern, Math.min(maxRps, target));
     const slew = this.autopilot.tuning.rpsSlew * DT;
     this.rpsCmd += Math.max(-slew, Math.min(slew, target - this.rpsCmd));
     sim.commands.rps = this.rpsCmd;
@@ -329,6 +339,9 @@ export class Controller {
   }
 
   private grounded = false;
+
+  /** True while Stopp runs the shaft full astern to take the way off. */
+  private crashStopping = false;
 
   /** Seconds the depth autopilot has had the planes hard over without the depth changing. */
   private stalled = 0;

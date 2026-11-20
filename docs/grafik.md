@@ -47,6 +47,7 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - Utanför nätet når en plan ram ut till horisonten.
   - Ytan är halvgenomskinlig och syns både ovanifrån och underifrån.
 - **Under vattnet:**
+  - **Ljusstrålar** på dagen: 22 långa plan som hänger från ytan runt kameran, med en textur som är ljus upptill och tonar nedåt, additivt blandade, vända mot kameran och svajande. De syns bara med kameran under ytan och tonas ut mot 70 m djup, svagare i grumligt vatten (Östersjön). Inställningen "Ljusstrålar under ytan".
   - Dimma och bakgrundsfärg beror på kamerans djup under den lokala vågytan. Färgen går mot djupets färg med 1 − e^(−djup/90 m), och dimman tätnar med den.
   - Varje havsområde har sitt vatten (`WATER_LOOK`): en ton som blandas med ljusets vattenfärg och en extra dimma. Östersjön är grön och grumlig, fjorden grönbrun, Västerhavet blågrönt och Atlanten klar och blå.
   - Svävande partiklar ("havssnö") runt kameran visar rörelsen. De kan stängas av i inställningarna.
@@ -90,7 +91,7 @@ En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller so
 Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil under statusraden, liggande mellan statusraden och Vyer ▾). Loggen har ingen bakgrund, bara text med skugga.
 
 - **En ny rad** får klassen `live` och lever enligt `lineLife(kind, text)`: kvitton 4 s, information 6 s, varningar och fel 10 s, plus lästid för långa rader (25 tecken per sekund över 60). Då får den `fading`, och opaciteten går till 0 med en CSS-övergång (1 s, fel 2 s). Därefter tas `live` bort och raden döljs. Högst `LIVE_LINES` (3) rader är levande: en ny skjuter ut den äldsta. Tiderna går på väggklockan, eftersom loggen är gränssnitt.
-- **Historiken** (`#log.expanded`, ett tryck eller konsolen) visar de 14 senaste raderna i en halvgenomskinlig panel. Ett tryck till eller Esc stänger den.
+- **Historiken och konsolen** är en ruta: ett tryck på loggen, på **›_ Logg** eller Enter öppnar konsolen (`#console` ligger i `#top-center` direkt under `#log`), och då visas historiken (`#log.expanded`, de 14 senaste raderna, rullad till den nyaste) med skrivraden under. Esc eller ett tryck utanför stänger.
 - **Dold loggbok** (inställningen `showLog`, knappen Logg och L) sätter `body.log-hidden`. Då visas bara levande felrader.
 
 ## Kameran och vyerna (`scene.ts`, `src/ui/views.ts`)
@@ -107,6 +108,8 @@ Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil unde
 - **Overlay** (`viewOverlay.ts`): hårkors, periskopmask, bäringsskala och bryggans kompassband ritas i 2D på en egen canvas ovanpå 3D-bilden och under panelerna. Bojens riktning visas som en gul markering på bandet.
 
 ## Genomskärningen (`cutaway.ts`, `interior.ts`, `tankLevel.ts`)
+
+Etapp 4 (vad som lever i snittet): vattnet i läckande avdelningar ritas som avdelningens cylinder klippt vid en vågrät yta (samma `waterLevel` som tankarna). Batteriernas material lyser efter laddningen (grönt pulserande vid laddning, gult under 30 %, rött och blinkande under 15 %). Dieslarnas material skakar och glöder när de går. Torpedtubernas luckor lyser efter tubens läge (grönt laddad, gult under omladdning, släckt tom), och reservtorpederna på de åtta ställningarna visas så många som finns kvar.
 
 - **Inredningen är data** (`interior.ts`, utan Three.js): varje utrymme (avdelningarna med däck från `config/submarine.ts`, tankarna och de fritt flödande utrymmena sonardom, torn och akterpik) och utrustningen i dem som lådor och cylindrar med läge och material. Upprepade saker (kojer, battericeller, torpeder) genereras. Inga människor. Testerna i `tests/cutaway.test.ts` kontrollerar att allt ligger inom sin avdelning och innanför tryckskrovet, och att möbler står på sitt däck.
 - **Bygget** (`cutaway.ts`) sker första gången vyn öppnas. Utrustningen slås ihop till ett nät per material. Skotten är skivor med en dörr på babordssidan, och tryckskrovets insida är ljus.
@@ -127,7 +130,7 @@ Smalare än 760 px eller lägre än 500 px gäller den kompakta layouten. Samma 
 
 - **Statusraden** (`src/ui/statusBar.ts`, `#status`) ersätter instrumentpanelen. Den visar bara det som kontrollerna inte visar: tid, fart genom vattnet, vatten under kölen och trim (`statusFields()` är ren och testad). Ett tryck sätter `body.inst-open` och visar hela instrumentpanelen under raden.
 - **Loggboken** kortar varje rad till två textrader.
-- **Vyknapparna** fälls ihop bakom **Vyer ▾** (`#view-btns.open`). Konsolen `>_` ligger där. Lägesindikatorn döljs, eftersom vyn syns på bilden.
+- **Vyknapparna** fälls ihop bakom **Vyer ▾** (`#view-btns.open`). Lägesindikatorn döljs, eftersom vyn syns på bilden.
 - **Skärmkontrollerna** har båda varianterna i DOM:en och CSS väljer: en Auto / Hand-knapp (`.helm-chip`) i stället för omkopplaren, **System ▾** i stället för tre panelknappar, och telegrafen som ett reglage. Reglaget är raden `.helm-bells`. Klockorna tar inte emot pekaren där, utan raden läser läget med `bindDrag` och `telegraphIndex()` och skickar ordern när fingret släpper. På bred skärm är draget avstängt, så en knapp ger fortfarande en order.
 - **Stående:** djupskalan till vänster, kompassen och Dyk / Håll / System till höger, och telegrafen över hela bredden. **Liggande:** en grupp per tumme (djup och knappar till vänster, kompass och telegraf till höger), mitten fri, och en panel öppnas i mitten under statusraden.
 - Kompassbandet skriver bara väderstrecken när det är smalt (mindre än 40 px per 30°), så att siffrorna inte flyter ihop.

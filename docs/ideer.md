@@ -8,8 +8,7 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 
 1. **Flera fartyg som samarbetar:** två korvetter som söker tillsammans, och en konvoj som sprider ut sig eller vänder när ett fartyg träffas.
 2. **Motmedel:** ett lockmål (decoy) som låter som ubåten och drar korvettens ping och sjunkbomber, i ett begränsat antal.
-3. **Läckaget i genomskärningen:** vattnet i avdelningarna och tätningsarbetet syns i snittet, som vattnet i tankarna.
-4. **En kampanj:** uppdragen i ordning, där batteri, torpeder och skador följer med mellan dem.
+3. **En kampanj:** uppdragen i ordning, där batteri, torpeder och skador följer med mellan dem.
 
 ## System
 
@@ -32,18 +31,17 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 |---|---|---|
 | **Genomskärning** | Klar | Se README (Vyer) och `docs/grafik.md`. |
 | **Livet under ytan** | Klar | Bubblor från huvudballasten, kölvatten, plym efter masterna och avgaser från snorkeln (`render/effects.ts`). |
-| **Sikt under vattnet** | Delvis | Mörker efter djupet och vattnets färg och klarhet per havsområde finns. Ljusstrålar nära ytan återstår. |
-| **Genomskärningen: etapp 4** | Delvis | Informationsrutan visar batteriet, dieslarna, snorkeln och vattnet i en läckande avdelning. Vattnet i avdelningarna ritas inte ännu. |
+| **Sikt under vattnet** | Klar | Mörker efter djupet, vattnets färg och klarhet per havsområde, och ljusstrålar nära ytan. |
+| **Genomskärningen: etapp 4** | Klar | Vatten i läckande avdelningar, batterierna, dieslarna, torpedtuberna och reservtorpederna. |
+| **Ytan underifrån** | Återstår | Ett ljust fönster rakt ovanför och mörkt utanför (totalreflektion), sett från under ytan. |
 
 ## Mindre idéer
 
 - **Torpedernas egen fara:** en torped som söker kan i dag inte vända mot ubåten själv. En verklig torped har skydd mot det (ett förbjudet område runt ubåten), men en runt-gående torped vore spännande.
-- **Långa tester:** `npm run test:all` tar nu ~5 min. Scenariotesterna kan köras parallellt i fler trådar, eller kortas med mindre avstånd.
+- **Kortare långa tester:** testerna går nu på alla kärnor (~2,5 min). Mer tid går bara att vinna genom att simulera mindre, till exempel med mål närmare starten i testerna.
 - **Ändra djupet utan fart:** vid mycket låg fart kan trimassistenten pumpa ut eller ta in vatten, så att ubåten stiger eller sjunker utan djuprodren (som när en ubåt "svävar"). Det går långsamt med pumparnas 6 l/s.
 - **Ljud i ljudlöst läge på iPhone:** Web Audio tystnar när ljudlös-knappen är på. Från iOS 17 kan `navigator.audioSession.type = 'playback'` låta ljudet höras ändå.
 - **Prova mobilvyn på en riktig telefon:** den är bara provad i webbläsarens telefonläge.
 - **Telegrafen:** steget från Halv fram (8 knop) till Full fram (19 knop) är stort. Halv fram kan höjas till 10–12 knop, eller så kan ett läge till läggas in.
-- **Stopp:** fartautopiloten lättar på backen mot slutet, så de sista knopen tar lång tid (från 8 knop: stilla efter 217 s med Stopp mot 95 s med Full back). Stopp kan göra som en besättning: full back och sedan stopp vid ungefär 1 knop.
-- **Back vid inbromsning:** motorn tillåter högst 108 rpm back (APPROX), vilket begränsar farten bakåt men också inbromsningen. Fullt varvtal bakåt medan ubåten fortfarande går framåt skulle ge ett kortare stopp, utan att ändra toppfarten bakåt.
 - **Prestanda i genomskärningen:** mät med `?perf` på en telefon med riktigt grafikkort (testmiljön ritar i mjukvara). Om det behövs: färre genomskinliga ytor och enklare cylindrar (se `docs/prestanda.md`).
 - **Ubåtens storlek:** 60 m räcker för alla avdelningar, eftersom verkliga ubåtar av samma storlek har samma indelning. Blir det trångt kan tryckskrovet förlängas något (41 → ~45 m) utan att den yttre formen ändras. En större ubåtsklass är ett eget arbete: fysikens värden, testerna och farlederna i scenarierna måste ses över.

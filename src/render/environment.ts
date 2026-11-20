@@ -57,12 +57,19 @@ export const WATER_LOOK: Record<AreaId, { tint: number; fog: number }> = {
   fjord: { tint: 0x355f4c, fog: 0.005 },
   atlantic: { tint: 0x1a5fb0, fog: -0.002 },
 };
+/** Light rays: how many, how far around the camera [m], how long [m], and the camera depth where they are gone [m]. */
+const RAY_COUNT = 22;
+const RAY_SPREAD = 45;
+const RAY_LENGTH = 70;
+export const RAY_FADE_DEPTH = 70;
 /** Light under water falls off with this depth scale [m]: the colour turns to the deep colour (1 − e^(−depth/scale)). */
 const LIGHT_DEPTH = 90;
 
 export interface SeaEnvironment {
   update(subNed: [number, number, number], camera: THREE.Camera, t: number): void;
   setParticles(on: boolean): void;
+  /** Light rays under the surface in daylight (a setting: they cost a little on weak phones). */
+  setLightRays(on: boolean): void;
   /** Area terrain, lighthouses, light/visibility and the waves. */
   setArea(area: AreaId, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
   /** Water surface elevation [m, up] at a Three.js (x, z) point now. */
@@ -192,10 +199,52 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
   const bandMat = new THREE.MeshStandardMaterial({ color: 0xb02020, roughness: 0.7 });
   let lamps: { mark: LightMark; glow: THREE.Sprite; lamp: THREE.Mesh }[] = [];
 
+  // Light rays: tall planes hanging from the surface, bright at the top and fading down, facing the
+  // camera, swaying slowly. Only in daylight with the camera under the surface; they fade out by ~40 m.
+  const rayTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 16;
+    c.height = 128;
+    const g = c.getContext('2d');
+    if (g) {
+      const grad = g.createLinearGradient(0, 0, 0, 128);
+      grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+      grad.addColorStop(0.35, 'rgba(255,255,255,0.35)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 16, 128);
+      const side = g.createLinearGradient(0, 0, 16, 0);
+      side.addColorStop(0, 'rgba(0,0,0,1)');
+      side.addColorStop(0.5, 'rgba(0,0,0,0)');
+      side.addColorStop(1, 'rgba(0,0,0,1)');
+      g.globalCompositeOperation = 'destination-out';
+      g.fillStyle = side;
+      g.fillRect(0, 0, 16, 128);
+    }
+    return new THREE.CanvasTexture(c);
+  })();
+  const rayMat = new THREE.MeshBasicMaterial({ map: rayTex, color: 0xcfefff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide });
+  const rays = new THREE.Group();
+  const rayGeo = new THREE.PlaneGeometry(1, RAY_LENGTH);
+  rayGeo.translate(0, -RAY_LENGTH / 2, 0); // hangs down from y = 0
+  const raySeeds: [number, number, number, number][] = [];
+  for (let i = 0; i < RAY_COUNT; i++) {
+    const m = new THREE.Mesh(rayGeo, rayMat);
+    m.frustumCulled = false;
+    rays.add(m);
+    raySeeds.push([rnd() * 2 - 1, rnd() * 2 - 1, 2.5 + rnd() * 6, rnd() * Math.PI * 2]);
+  }
+  rays.visible = false;
+  scene.add(rays);
+  let raysOn = true;
+
   let particlesOn = true;
   return {
     setParticles(on) {
       particlesOn = on;
+    },
+    setLightRays(on) {
+      raysOn = on;
     },
     surfaceAt(x, z) {
       return elevation(x, z);
@@ -271,6 +320,22 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
       (pGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       const camDepth = elevation(c.x, c.z) - c.y;
       particles.visible = particlesOn && camDepth > 0;
+
+      // Light rays near the surface, around the camera, in daylight.
+      const rayStrength = raysOn && camDepth > 0 ? palette.sun / 1.6 * Math.max(0, 1 - camDepth / RAY_FADE_DEPTH) * (1 - Math.min(1, areaFog * 60)) : 0;
+      rays.visible = rayStrength > 0.02;
+      if (rays.visible) {
+        rayMat.opacity = 0.4 * rayStrength;
+        rays.children.forEach((m, i) => {
+          const [a, b, w, ph] = raySeeds[i]!;
+          const x = c.x + a * RAY_SPREAD + Math.sin(t * 0.21 + ph) * 3;
+          const z = c.z + b * RAY_SPREAD + Math.cos(t * 0.17 + ph) * 3;
+          m.position.set(x, elevation(x, z), z);
+          m.scale.set(w * (0.8 + 0.2 * Math.sin(t * 0.5 + ph)), 1, 1);
+          // Face the camera around the vertical, and lean a little with the sun.
+          m.rotation.set(0, Math.atan2(c.x - x, c.z - z), 0.12);
+        });
+      }
 
       // Fog and colour by camera depth below the (wavy) surface.
       const depth = camDepth;

@@ -44,7 +44,7 @@ export function bindModeIndicator(el: HTMLElement, state: InputModeState, touch 
       return;
     }
     if (touch) {
-      el.innerHTML = m === 'steer' ? 'STYRNING<small>&gt;_ = konsol</small>' : 'KONSOL<small>tryck på en styrknapp för att stänga</small>';
+      el.innerHTML = m === 'steer' ? 'STYRNING<small>tryck på loggen = konsol</small>' : 'KONSOL<small>tryck utanför för att stänga</small>';
       return;
     }
     el.innerHTML =
