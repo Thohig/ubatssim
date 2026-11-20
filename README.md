@@ -110,7 +110,7 @@ Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att z
 
 ### Back
 
-Ubåten backar i båda spellägena: med telegrafen (Halv back) i förenklad simulering, och med Shift + ↓ (eller −) förbi noll eller `back halv` i konsolen i realistisk. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid en order om back.
+Ubåten backar i båda spellägena: med telegrafen (Halv back) i förenklad simulering, och med Shift + ↓ (eller −) förbi noll eller `back halv` i konsolen i realistisk. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid varje ny fartorder.
 
 - **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop, och det tar några minuter att komma upp i fart.
 - **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. I realistisk simulering med manuella roder får du styra omvänt.

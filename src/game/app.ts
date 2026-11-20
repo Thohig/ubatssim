@@ -202,7 +202,8 @@ export function startApp(): void {
   const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views);
   const helmEl = el('helm');
   const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
-  let helmHeight = -1;
+  // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
+  new ResizeObserver(() => document.body.style.setProperty('--helm-h', `${helmEl.offsetHeight}px`)).observe(helmEl);
   const drawOverlay = createViewOverlay(el<HTMLCanvasElement>('view-overlay'));
   bindTouchControls(el('touch'), activeCtrl, mode, openConsole);
   el('menu-btn').addEventListener('click', pause);
@@ -312,11 +313,6 @@ export function startApp(): void {
       updateViewButtons(s.ctrl);
       if (s.ctrl.options.mode === 'simplified') {
         updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
-        // The log and the objective sit above the screen controls (style.css).
-        if (helmEl.offsetHeight !== helmHeight) {
-          helmHeight = helmEl.offsetHeight;
-          document.body.style.setProperty('--helm-h', `${helmHeight}px`);
-        }
       }
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
       updateObjective(objectiveEl, s.runner);

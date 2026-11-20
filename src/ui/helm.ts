@@ -88,7 +88,20 @@ function colors(el: Element): Colors {
   };
 }
 
-/** A 2D context sized to the canvas's CSS box at device resolution, or null (no canvas support). */
+/**
+ * The CSS size of each canvas, kept by a ResizeObserver: reading clientWidth
+ * during an update would force a layout right after the panel's text changed.
+ */
+const sizes = new WeakMap<Element, { w: number; h: number }>();
+const observer =
+  typeof ResizeObserver === 'undefined'
+    ? null
+    : new ResizeObserver((entries) => {
+        for (const e of entries) sizes.set(e.target, { w: e.contentRect.width, h: e.contentRect.height });
+      });
+const sizeOf = (el: Element) => sizes.get(el) ?? { w: 0, h: 0 };
+
+/** A 2D context sized to the canvas's CSS box at device resolution, or null (no canvas support or no size yet). */
 function canvas2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   let ctx: CanvasRenderingContext2D | null;
   try {
@@ -98,15 +111,16 @@ function canvas2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
   }
   if (!ctx) return null;
   const dpr = window.devicePixelRatio || 1;
-  const w = Math.round(canvas.clientWidth * dpr);
-  const hgt = Math.round(canvas.clientHeight * dpr);
+  const size = sizeOf(canvas);
+  const w = Math.round(size.w * dpr);
+  const hgt = Math.round(size.h * dpr);
   if (w === 0 || hgt === 0) return null;
   if (canvas.width !== w || canvas.height !== hgt) {
     canvas.width = w;
     canvas.height = hgt;
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  ctx.clearRect(0, 0, size.w, size.h);
   return ctx;
 }
 
@@ -180,6 +194,12 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   };
   const button = (b: TouchButton) => makeButton(b, fire, mode);
   let last: { t: Telemetry; ctx: HelmContext } | null = null;
+  // The theme colours, read once: getComputedStyle forces a style recalculation.
+  let palette: Colors | null = null;
+  const pal = () => (palette ??= colors(root));
+  // What each canvas last showed: it is redrawn only when that changes.
+  let depthKey = '';
+  let bandKey = '';
   const redraw = () => {
     if (last) update(last.t, last.ctx);
   };
@@ -285,6 +305,8 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
 
   const centre = h('div', { class: 'helm-centre' }, context, telegraph);
   root.replaceChildren(depthGroup, centre, courseGroup);
+  observer?.observe(depthCanvas);
+  observer?.observe(band);
 
   function update(t: Telemetry, ctx: HelmContext): void {
     last = { t, ctx };
@@ -333,11 +355,16 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   }
 
   function drawDepth(t: Telemetry, c: Controller, target: number | null): void {
+    const limit = c.options.safetyNet ? c.assist.depthLimit() : HELM_MAX_DEPTH;
+    // Rounded to about a pixel: the scale is ~0.7 px/m at 30 m and coarser below.
+    const size = sizeOf(depthCanvas);
+    const key = `${size.w}x${size.h} ${Math.round(t.depth * 2)} ${target} ${depthPreview !== null} ${Math.round(t.seabedDepth)} ${limit}`;
+    if (key === depthKey) return;
+    depthKey = key;
     const g = canvas2d(depthCanvas);
     if (!g) return;
-    const col = colors(root);
-    const w = depthCanvas.clientWidth;
-    const H = depthCanvas.clientHeight;
+    const col = pal();
+    const { w, h: H } = size;
     const y = (d: number) => depthToFraction(d) * H;
     g.fillStyle = col.water;
     g.fillRect(0, 0, w, H);
@@ -347,8 +374,8 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
       g.fillRect(0, y(t.seabedDepth), w, H - y(t.seabedDepth));
     }
     // Safety-net limit.
-    if (c.options.safetyNet) {
-      const lim = c.assist.depthLimit();
+    {
+      const lim = limit;
       if (lim < HELM_MAX_DEPTH) {
         g.strokeStyle = col.error;
         g.setLineDash([3, 3]);
@@ -387,11 +414,16 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   }
 
   function drawBand(t: Telemetry, heading: number, target: number | null, waypoint: [number, number] | null): void {
+    const buoy = waypoint ? Math.round(bearingTo(t, waypoint) * 2) : null;
+    // Rounded to about a pixel: the band is ~2 px per degree.
+    const size = sizeOf(band);
+    const key = `${size.w}x${size.h} ${Math.round(heading * 2)} ${Math.round(bandCentre * 2)} ${target} ${coursePreview !== null} ${buoy}`;
+    if (key === bandKey) return;
+    bandKey = key;
     const g = canvas2d(band);
     if (!g) return;
-    const col = colors(root);
-    const w = band.clientWidth;
-    const H = band.clientHeight;
+    const col = pal();
+    const { w, h: H } = size;
     const x = (b: number) => {
       const f = bandFraction(b, bandCentre);
       return f === null ? null : f * w;
