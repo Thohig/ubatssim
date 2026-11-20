@@ -304,3 +304,56 @@ describe('depth target with empty main ballast', () => {
     expect(c.log.some((e) => e.kind === 'error' && /Huvudballasten är tom/.test(e.text))).toBe(true);
   });
 });
+
+describe('surface hold', () => {
+  it('on the surface the depth autopilot leaves the planes at zero and the boat floats', () => {
+    const { c, sim, run, send } = game({}, 'simplified');
+    send({ kind: 'setSpeed', knots: 5 });
+    let maxPlanes = 0;
+    run(180, () => (maxPlanes = Math.max(maxPlanes, Math.abs(sim.actuators.sternPlanes))));
+    expect(c.surfaceHold).toBe(true);
+    expect(maxPlanes).toBeLessThan(0.01);
+    expect(Math.abs(sim.y[2]! - 1.75)).toBeLessThan(0.3);
+  });
+
+  it('a depth target ends the surface hold and the boat dives', () => {
+    const { c, sim, run, send } = game({}, 'simplified');
+    send({ kind: 'setSpeed', knots: 6 });
+    run(10);
+    send({ kind: 'setDepth', depth: 25 });
+    run(420);
+    expect(c.surfaceHold).toBe(false);
+    expect(Math.abs(sim.y[2]! - 25)).toBeLessThan(3);
+  });
+});
+
+describe('depth target near the surface with flooded main ballast', () => {
+  it('simplified: ↑ to the surface blows the tanks, and the boat floats on the surface', () => {
+    const { c, sim, run, send } = game({ depth: 13, speed: 5 * 0.5144, neutral: true }, 'simplified');
+    send({ kind: 'adjustDepth', deltaMetres: -5 });
+    send({ kind: 'adjustDepth', deltaMetres: -5 });
+    run(1);
+    expect(c.setpoints.depth).toBe(3);
+    expect(c.log.some((e) => /blåses för ytläge/.test(e.text))).toBe(true);
+    run(240);
+    const mbt = sim.telemetry().tanks.filter((t) => t.kind === 'mainBallast');
+    expect(mbt.every((t) => t.fill < 0.4)).toBe(true);
+    expect(sim.y[2]!).toBeLessThan(3);
+    expect(c.surfaceHold).toBe(true);
+  });
+
+  it('simplified: periscope depth does not blow', () => {
+    const { sim, run, send } = game({ depth: 30, speed: 5 * 0.5144, neutral: true }, 'simplified');
+    send({ kind: 'setDepth', depth: 13 });
+    run(1);
+    expect(sim.tanks.some((t) => t.blowOpen)).toBe(false);
+  });
+
+  it('realistic: reminds the player instead', () => {
+    const { c, sim, run, send } = game({ depth: 13, speed: 5 * 0.5144, neutral: true }, 'realistic');
+    send({ kind: 'setDepth', depth: 2 });
+    run(1);
+    expect(sim.tanks.some((t) => t.blowOpen)).toBe(false);
+    expect(c.log.some((e) => e.kind === 'error' && /Huvudballasten är full/.test(e.text))).toBe(true);
+  });
+});

@@ -18,6 +18,8 @@ const DEG = Math.PI / 180;
 const BRIDGE_FREEBOARD = 0.5;
 /** Depth targets from this depth [m] need flooded main ballast. */
 const DIVE_TARGET_DEPTH = 5;
+/** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
+const SURFACE_HOLD_DEPTH = 6;
 const KNOT = 1852 / 3600;
 
 export type LogKind = 'ack' | 'error' | 'info';
@@ -187,7 +189,15 @@ export class Controller {
       speed: tel.u,
     };
 
-    sim.commands.sternPlanes = this.ap.depth ? this.autopilot.planes(this.setpoints.depth, input, DT) : this.manual.planes * DEG;
+    // Surfaced with empty main ballast and a shallow target, the boat simply floats:
+    // the depth autopilot keeps the planes at zero instead of fighting ~200 t of buoyancy.
+    this.surfaceHold = this.ap.depth && this.setpoints.depth < DIVE_TARGET_DEPTH && tel.depth < SURFACE_HOLD_DEPTH && this.mainBallastEmpty();
+    if (this.surfaceHold) this.resetDepthLoops();
+    sim.commands.sternPlanes = this.surfaceHold
+      ? 0
+      : this.ap.depth
+        ? this.autopilot.planes(this.setpoints.depth, input, DT)
+        : this.manual.planes * DEG;
     sim.commands.rudder = this.ap.heading ? this.autopilot.rudder(this.setpoints.heading * DEG, input, DT) : this.manual.rudder * DEG;
 
     const maxRps = sim.cfg.propulsion.maxRps;
@@ -371,6 +381,21 @@ export class Controller {
     }
   }
 
+  /**
+   * True while the depth autopilot holds the boat on the surface: planes at
+   * zero, the boat floats (shown as "→ yta" on the instruments).
+   */
+  surfaceHold = false;
+
+  /** Main ballast (mostly) empty, with vents and blows shut: the boat floats on the surface. */
+  private mainBallastEmpty(): boolean {
+    const sim = this.sim;
+    return sim.tankDefs.every((d, i) => {
+      const s = sim.tanks[i]!;
+      return d.kind !== 'mainBallast' || (s.water / d.volume <= 0.5 && !s.ventOpen && !s.blowOpen);
+    });
+  }
+
   /** Sim time of the last "the main ballast is empty" reminder (realistic mode). */
   private lastBallastHint = -Infinity;
 
@@ -382,13 +407,11 @@ export class Controller {
    */
   private checkBallastForDepth(): void {
     const sim = this.sim;
-    if (this.setpoints.depth < DIVE_TARGET_DEPTH) return;
-    let empty = true;
-    sim.tankDefs.forEach((d, i) => {
-      const s = sim.tanks[i]!;
-      if (d.kind === 'mainBallast' && (s.water / d.volume > 0.5 || s.ventOpen || s.blowOpen)) empty = false;
-    });
-    if (!empty) return;
+    if (this.setpoints.depth < DIVE_TARGET_DEPTH) {
+      this.checkBallastForSurface();
+      return;
+    }
+    if (!this.mainBallastEmpty()) return;
     if (this.options.mode === 'simplified') {
       if (this.bridgeManned) {
         this.bridgeManned = false;
@@ -400,6 +423,29 @@ export class Controller {
     } else if (sim.t - this.lastBallastHint > 10) {
       this.lastBallastHint = sim.t;
       this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Ge order "dyk" eller "klart bryggan" och "fyll huvudballast".', 'error');
+    }
+  }
+
+  /**
+   * The mirror image: a target near the surface with flooded main ballast.
+   * The boat is then neutral and the planes can only bring it up awash.
+   * The simplified mode blows the tanks (as "ytläge" does); the realistic
+   * mode reminds the player.
+   */
+  private checkBallastForSurface(): void {
+    const sim = this.sim;
+    const flooded = sim.tankDefs.some((d, i) => {
+      const s = sim.tanks[i]!;
+      return d.kind === 'mainBallast' && s.water / d.volume > 0.5 && !s.blowOpen;
+    });
+    if (!flooded || sim.tanks.some((t) => t.blowOpen)) return;
+    if (this.options.mode === 'simplified') {
+      sim.setBlow(true);
+      this.shutVentsWhenFull = false;
+      this.addLog('Huvudballasten blåses för ytläge.', 'info');
+    } else if (sim.t - this.lastBallastHint > 10) {
+      this.lastBallastHint = sim.t;
+      this.addLog('Huvudballasten är full, så ubåten kommer inte upp i ytläge. Ge order "ytläge" eller "blås huvudballast".', 'error');
     }
   }
 

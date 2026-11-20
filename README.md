@@ -43,7 +43,7 @@ Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik
 | | Förenklad simulering | Realistisk simulering |
 |---|---|---|
 | **Styrning** | Du anger mål för djup och kurs, och autopiloten styr roder och djuproder. | Du lägger roder och djuproder själv. |
-| **Ballast** | D dyker och S går till ytläge. Ett djupmål på 5 m eller mer i ytläge startar dykningen. | Du fyller och blåser huvudballasten med kommandon. Ett djupmål med tom huvudballast ger en påminnelse. |
+| **Ballast** | D dyker och S går till ytläge. Ett djupmål på 5 m eller mer i ytläge startar dykningen, och ett djupmål grundare än 5 m med fylld huvudballast blåser den. | Du fyller och blåser huvudballasten med kommandon. Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
 | **Trim** | Assistenten kompenserar och trimmar. | Du kompenserar och trimmar själv. |
 | **Skyddsnät** | Nödblåsning nära krossdjupet och varning för grunt vatten. | Inget. |
 | **Instrumentpanel** | Djup, fart och kurs med mål, Under köl och Trim (Tung / Neutral / Lätt). Roder och tankar finns under "Mer". | Hela panelen. |
@@ -141,7 +141,7 @@ Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 4
 
 ## Instrumentpanelen
 
-- **Djup, fart och kurs:** med autopilotens börvärde och AP-markering. Farten är farten genom vattnet, som loggen mäter.
+- **Djup, fart och kurs:** med autopilotens börvärde och AP-markering. I ytläge visar djupet "→ yta": ubåten flyter och djuprodret ligger i noll. Farten är farten genom vattnet, som loggen mäter.
 - **Stampvinkel och krängning.**
 - **Under köl:** ekolodets djup under kölen. Rött under 5 m och vid grundstötning.
 - **Roder och djuproder:** verkligt utslag och kommenderat utslag (orange markering). Rodren rör sig med begränsad hastighet, ~4°/s.

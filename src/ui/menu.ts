@@ -286,7 +286,7 @@ export class Menu {
           <h2 class="menu-title small">Hjälp</h2>
           <div class="help">
             <h3>Spelläge</h3>
-            <p><b>Förenklad simulering:</b> du anger djup och kurs, och autopiloten styr roder och djuproder. Sätter du ett djupmål i ytläge fylls huvudballasten automatiskt. Assistenten kompenserar och trimmar ubåten och nödblåser nära krossdjupet. Allt den gör syns i loggen.</p>
+            <p><b>Förenklad simulering:</b> du anger djup och kurs, och autopiloten styr roder och djuproder. Sätter du ett djupmål i ytläge fylls huvudballasten automatiskt, och går du mot ytan (grundare än 5 m) blåses den. Assistenten kompenserar och trimmar ubåten och nödblåser nära krossdjupet. Allt den gör syns i loggen.</p>
             <p><b>Realistisk simulering:</b> du styr roder och djuproder och sköter ballast, trim och kompensering själv.</p>
             <p>Läget väljs på startsidan och kan bytas i pausmenyn.</p>
             <h3>Tangentbord</h3>

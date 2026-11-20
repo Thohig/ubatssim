@@ -104,7 +104,7 @@ export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Teleme
   return (t) => {
     set('time', formatSimTime(t.t));
     set('depth', f(t.depth, 1));
-    set('depthSet', ctrl.ap.depth ? `→ ${f(ctrl.setpoints.depth)}` : '');
+    set('depthSet', ctrl.ap.depth ? (ctrl.surfaceHold ? '→ yta' : `→ ${f(ctrl.setpoints.depth)}`) : '');
     set('depthRate', signed(t.depthRate * 60, 1));
     set('speed', f(t.u * KN, 1));
     set('speedSet', ctrl.ap.speed ? `→ ${f(ctrl.setpoints.speed, 1)}` : '');

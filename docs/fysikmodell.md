@@ -184,6 +184,7 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 - **Djup:** kaskad. En djup-PID ger ett börvärde för stampvinkeln (högst ±12°), och en stamp-PID styr djuprodren.
 - **Kurs:** PID med kortaste vägen runt 360°.
 - **Fart:** PI på varvtalet, med framkoppling från jämviktsvarvtalet.
+- **Ytläge:** med tom huvudballast, djupmål grundare än 5 m och centrumlinjen grundare än 6 m flyter ubåten. Djupautopiloten håller då djuprodret i noll i stället för att försöka trycka ner ~200 t reservflytkraft.
 - **Gemensamt:** alla regulatorer har villkorlig integration (anti-windup) och en integrationszon. Förstärkningen för roder och djuproder skalas med 1/U², eftersom fenornas lyftkraft växer med U².
 
 ## Trimassistent (förenklad simulering, src/control)
