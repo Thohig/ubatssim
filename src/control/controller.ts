@@ -9,7 +9,7 @@ import { DT } from '../sim/simulation';
 import { Autopilot, type AutopilotInput } from './autopilot';
 import type { GameMode } from './gameMode';
 import { OrderQueue } from './orderQueue';
-import { acknowledgement, type Order, type OrderSource, type TankGroup } from './orders';
+import { acknowledgement, type Order, type OrderKind, type OrderOf, type OrderSource, type TankGroup } from './orders';
 import { LIMITS } from './parser';
 import { TrimAssist } from './trimAssist';
 
@@ -47,6 +47,17 @@ export interface AutopilotState {
   speed: boolean;
 }
 
+type Kinematics = ReturnType<Simulation['kinematics']>;
+
+/** How one kind of order is handled (see `Controller.ORDERS`). */
+interface OrderRule<O extends Order> {
+  apply(c: Controller, o: O, k: Kinematics): void;
+  /** True if the order engages the depth or heading autopilot. */
+  steering?: (o: O) => boolean;
+  /** A message if the order cannot be carried out now. */
+  refuse?: (c: Controller, o: O) => string | null;
+}
+
 export class Controller {
   readonly queue = new OrderQueue();
   readonly autopilot = new Autopilot();
@@ -71,24 +82,10 @@ export class Controller {
 
   /** Why an order cannot be carried out now, or null. */
   private refusal(o: Order): string | null {
+    const rule = Controller.ORDERS[o.kind] as OrderRule<Order>;
     const allowed = this.options.autopilotAllowed || this.options.mode === 'simplified';
-    if (!allowed && this.engagesSteeringAutopilot(o)) return 'Autopilot för djup och kurs är inte tillåten här. Styr med roder och djuproder.';
-    const floods = o.kind === 'dive' || (o.kind === 'mainBallast' && o.action === 'flood');
-    if (floods && this.bridgeManned) {
-      if (this.options.mode === 'simplified') {
-        this.bridgeManned = false;
-        this.addLog('Klart bryggan. Bryggan är utrymd inför dykningen.', 'info');
-        return null;
-      }
-      return 'Bryggan är bemannad. Ge order "klart bryggan" innan ubåten dyker.';
-    }
-    if (o.kind === 'bridge' && o.manned && this.sim.bodyPointDepth(this.sim.cfg.bridge.deck) > -BRIDGE_FREEBOARD) {
-      return 'Bryggan är under vatten. Gå till ytläge först.';
-    }
-    if (o.kind === 'bridge' && o.manned && this.sim.tanks.some((t) => t.ventOpen)) {
-      return 'Ubåten dyker: ventilerna till huvudballasten är öppna.';
-    }
-    return null;
+    if (!allowed && rule.steering?.(o)) return 'Autopilot för djup och kurs är inte tillåten här. Styr med roder och djuproder.';
+    return rule.refuse?.(this, o) ?? null;
   }
 
   onLog(fn: (e: LogEntry) => void): void {
@@ -151,18 +148,6 @@ export class Controller {
 
   submit(order: Order, source: OrderSource): void {
     this.queue.push(order, source);
-  }
-
-  /** True if the order would engage a depth or heading autopilot. */
-  private engagesSteeringAutopilot(o: Order): boolean {
-    return (
-      o.kind === 'setDepth' ||
-      o.kind === 'setHeading' ||
-      o.kind === 'adjustDepth' ||
-      o.kind === 'adjustHeading' ||
-      o.kind === 'holdCourse' ||
-      (o.kind === 'autopilot' && o.on && o.axis !== 'speed')
-    );
   }
 
   step(): void {
@@ -243,51 +228,73 @@ export class Controller {
 
   private grounded = false;
 
-  private apply(o: Order): void {
-    const sim = this.sim;
-    const tel = sim.telemetry();
-    switch (o.kind) {
-      case 'setDepth':
-        if (!this.ap.depth) this.resetDepthLoops();
-        this.setpoints.depth = o.depth;
-        this.ap.depth = true;
-        this.checkBallastForDepth();
-        break;
-      case 'setHeading':
-        if (!this.ap.heading) this.autopilot.headingPid.reset();
-        this.setpoints.heading = o.heading;
-        this.ap.heading = true;
-        break;
-      case 'setSpeed':
-        this.setpoints.speed = o.knots;
-        this.ap.speed = true;
-        break;
-      case 'adjustSpeed': {
-        const base = this.ap.speed ? this.setpoints.speed : Math.round(tel.u / KNOT);
-        this.setpoints.speed = Math.max(-6, Math.min(20, base + o.deltaKnots));
-        this.ap.speed = true;
-        break;
-      }
-      case 'setRpm':
-        this.manual.rpm = o.rpm;
-        this.ap.speed = false;
-        break;
-      case 'rudder': {
-        const current = this.ap.heading ? sim.commands.rudder / DEG : this.manual.rudder;
+  /**
+   * The order registry: for every kind of order, what it does (`apply`),
+   * when it is refused (`refuse`, a message) and whether it engages the depth
+   * or heading autopilot (`steering`, refused where those are not allowed).
+   * TypeScript refuses to compile if an order kind is missing. The
+   * acknowledgement texts are in orders.ts.
+   */
+  private static readonly ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
+    setDepth: {
+      steering: () => true,
+      apply: (c, o) => {
+        if (!c.ap.depth) c.resetDepthLoops();
+        c.setpoints.depth = o.depth;
+        c.ap.depth = true;
+        c.checkBallastForDepth();
+      },
+    },
+    setHeading: {
+      steering: () => true,
+      apply: (c, o) => {
+        if (!c.ap.heading) c.autopilot.headingPid.reset();
+        c.setpoints.heading = o.heading;
+        c.ap.heading = true;
+      },
+    },
+    setSpeed: {
+      apply: (c, o) => {
+        c.setpoints.speed = o.knots;
+        c.ap.speed = true;
+      },
+    },
+    adjustSpeed: {
+      apply: (c, o, k) => {
+        const base = c.ap.speed ? c.setpoints.speed : Math.round(k.u / KNOT);
+        c.setpoints.speed = Math.max(-6, Math.min(20, base + o.deltaKnots));
+        c.ap.speed = true;
+      },
+    },
+    setRpm: {
+      apply: (c, o) => {
+        c.manual.rpm = o.rpm;
+        c.ap.speed = false;
+      },
+    },
+    rudder: {
+      apply: (c, o) => {
+        const sim = c.sim;
+        const current = c.ap.heading ? sim.commands.rudder / DEG : c.manual.rudder;
         const max = sim.cfg.actuators.rudderMax / DEG;
-        this.manual.rudder = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
-        this.ap.heading = false;
-        break;
-      }
-      case 'planes': {
-        const current = this.ap.depth ? sim.commands.sternPlanes / DEG : this.manual.planes;
+        c.manual.rudder = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
+        c.ap.heading = false;
+      },
+    },
+    planes: {
+      apply: (c, o) => {
+        const sim = c.sim;
+        const current = c.ap.depth ? sim.commands.sternPlanes / DEG : c.manual.planes;
         const max = sim.cfg.actuators.planesMax / DEG;
-        this.manual.planes = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
-        this.ap.depth = false;
-        break;
-      }
-      case 'mainBallast': {
-        this.shutVentsWhenFull = false;
+        c.manual.planes = Math.max(-max, Math.min(max, o.relative ? Math.round(current + o.angle) : o.angle));
+        c.ap.depth = false;
+      },
+    },
+    mainBallast: {
+      refuse: (c, o) => (o.action === 'flood' ? c.refuseDiveWithBridgeManned() : null),
+      apply: (c, o) => {
+        const sim = c.sim;
+        c.shutVentsWhenFull = false;
         const ids = groupIds(o.group);
         if (o.action === 'flood') sim.setVents(true, ids);
         else if (o.action === 'blow') sim.setBlow(true, ids);
@@ -295,90 +302,137 @@ export class Controller {
           sim.setVents(false, ids);
           sim.setBlow(false, ids);
         }
-        break;
-      }
-      case 'trim':
-        sim.requestTrimTransfer(o.litres / 1000);
-        break;
-      case 'compensate':
-        sim.requestCompensation(o.litres / 1000);
-        break;
-      case 'autopilot': {
+      },
+    },
+    trim: {
+      apply: (c, o) => {
+        c.sim.requestTrimTransfer(o.litres / 1000);
+      },
+    },
+    compensate: {
+      apply: (c, o) => {
+        c.sim.requestCompensation(o.litres / 1000);
+      },
+    },
+    autopilot: {
+      steering: (o) => o.on && o.axis !== 'speed',
+      apply: (c, o, k) => {
+        const sim = c.sim;
         const axes = o.axis === 'all' ? (['depth', 'heading', 'speed'] as const) : ([o.axis] as const);
         for (const axis of axes) {
-          if (o.on && !this.ap[axis]) {
+          if (o.on && !c.ap[axis]) {
             if (axis === 'depth') {
-              this.setpoints.depth = Math.round(tel.depth);
-              this.resetDepthLoops();
+              c.setpoints.depth = Math.round(k.depth);
+              c.resetDepthLoops();
             } else if (axis === 'heading') {
-              this.setpoints.heading = Math.round(tel.heading / DEG) % 360;
-              this.autopilot.headingPid.reset();
+              c.setpoints.heading = Math.round(k.heading / DEG) % 360;
+              c.autopilot.headingPid.reset();
             } else {
-              this.setpoints.speed = Math.round(tel.u / KNOT);
-              this.autopilot.speedPid.reset();
+              c.setpoints.speed = Math.round(k.u / KNOT);
+              c.autopilot.speedPid.reset();
             }
           }
           if (!o.on) {
             // Hand over without a jump: keep the last automatic command.
-            if (axis === 'depth' && this.ap.depth) this.manual.planes = Math.round(sim.commands.sternPlanes / DEG);
-            if (axis === 'heading' && this.ap.heading) this.manual.rudder = Math.round(sim.commands.rudder / DEG);
-            if (axis === 'speed' && this.ap.speed) this.manual.rpm = Math.round(this.rpsCmd * 60);
+            if (axis === 'depth' && c.ap.depth) c.manual.planes = Math.round(sim.commands.sternPlanes / DEG);
+            if (axis === 'heading' && c.ap.heading) c.manual.rudder = Math.round(sim.commands.rudder / DEG);
+            if (axis === 'speed' && c.ap.speed) c.manual.rpm = Math.round(c.rpsCmd * 60);
           }
-          this.ap[axis] = o.on;
+          c.ap[axis] = o.on;
         }
-        break;
-      }
-      case 'adjustDepth': {
-        const base = this.ap.depth ? this.setpoints.depth : Math.round(tel.depth);
-        if (!this.ap.depth) this.resetDepthLoops();
+      },
+    },
+    adjustDepth: {
+      steering: () => true,
+      apply: (c, o, k) => {
+        const base = c.ap.depth ? c.setpoints.depth : Math.round(k.depth);
+        if (!c.ap.depth) c.resetDepthLoops();
         let depth = Math.max(0, Math.min(LIMITS.maxDepth, base + o.deltaMetres));
-        if (this.options.mode === 'simplified' && this.options.safetyNet && o.deltaMetres > 0) {
+        if (c.options.mode === 'simplified' && c.options.safetyNet && o.deltaMetres > 0) {
           // Shallow water: never deeper than the safety limit (or the present target, if already below it).
-          depth = Math.min(depth, Math.max(base, this.assist.depthLimit()));
+          depth = Math.min(depth, Math.max(base, c.assist.depthLimit()));
         }
-        this.setpoints.depth = depth;
-        this.ap.depth = true;
-        this.checkBallastForDepth();
-        break;
-      }
-      case 'adjustHeading': {
-        const base = this.ap.heading ? this.setpoints.heading : Math.round(tel.heading / DEG);
-        if (!this.ap.heading) this.autopilot.headingPid.reset();
-        this.setpoints.heading = (((base + o.deltaDegrees) % 360) + 360) % 360;
-        this.ap.heading = true;
-        break;
-      }
-      case 'holdCourse':
-        this.setpoints.depth = Math.round(tel.depth);
-        this.setpoints.heading = Math.round(tel.heading / DEG) % 360;
-        this.resetDepthLoops();
-        this.autopilot.headingPid.reset();
-        this.ap.depth = true;
-        this.ap.heading = true;
-        break;
-      case 'dive':
-        sim.setVents(true);
-        this.shutVentsWhenFull = true;
-        break;
-      case 'surface':
-        sim.setBlow(true);
-        this.shutVentsWhenFull = false;
-        if (this.ap.depth) this.setpoints.depth = 0;
-        break;
-      case 'periscope':
-        sim.commands.periscopeUp = o.up;
-        break;
-      case 'bridge':
-        this.bridgeManned = o.manned;
-        break;
-      case 'reportBearing': {
+        c.setpoints.depth = depth;
+        c.ap.depth = true;
+        c.checkBallastForDepth();
+      },
+    },
+    adjustHeading: {
+      steering: () => true,
+      apply: (c, o, k) => {
+        const base = c.ap.heading ? c.setpoints.heading : Math.round(k.heading / DEG);
+        if (!c.ap.heading) c.autopilot.headingPid.reset();
+        c.setpoints.heading = (((base + o.deltaDegrees) % 360) + 360) % 360;
+        c.ap.heading = true;
+      },
+    },
+    holdCourse: {
+      steering: () => true,
+      apply: (c, _o, k) => {
+        c.setpoints.depth = Math.round(k.depth);
+        c.setpoints.heading = Math.round(k.heading / DEG) % 360;
+        c.resetDepthLoops();
+        c.autopilot.headingPid.reset();
+        c.ap.depth = true;
+        c.ap.heading = true;
+      },
+    },
+    dive: {
+      refuse: (c) => c.refuseDiveWithBridgeManned(),
+      apply: (c) => {
+        c.sim.setVents(true);
+        c.shutVentsWhenFull = true;
+      },
+    },
+    surface: {
+      apply: (c) => {
+        c.sim.setBlow(true);
+        c.shutVentsWhenFull = false;
+        if (c.ap.depth) c.setpoints.depth = 0;
+      },
+    },
+    periscope: {
+      apply: (c, o) => {
+        c.sim.commands.periscopeUp = o.up;
+      },
+    },
+    bridge: {
+      refuse: (c, o) => {
+        if (!o.manned) return null;
+        if (c.sim.bodyPointDepth(c.sim.cfg.bridge.deck) > -BRIDGE_FREEBOARD) return 'Bryggan är under vatten. Gå till ytläge först.';
+        if (c.sim.tanks.some((t) => t.ventOpen)) return 'Ubåten dyker: ventilerna till huvudballasten är öppna.';
+        return null;
+      },
+      apply: (c, o) => {
+        c.bridgeManned = o.manned;
+      },
+    },
+    reportBearing: {
+      apply: (c, o) => {
+        const sim = c.sim;
         // Something can be seen from a raised periscope above the water or from the bridge.
-        const lookout = this.bridgeManned || (sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0);
-        this.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout };
-        if (!lookout) this.addLog('Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.', 'error');
-        break;
-      }
+        const lookout = c.bridgeManned || (sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0);
+        c.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout };
+        if (!lookout) c.addLog('Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.', 'error');
+      },
+    },
+  };
+
+  /** Applies an order (already checked by `refusal`). */
+  private apply(o: Order): void {
+    const rule = Controller.ORDERS[o.kind] as OrderRule<Order>;
+    rule.apply(this, o, this.sim.kinematics());
+  }
+
+  /** Flooding with the bridge manned: refused in the realistic mode, the bridge is cleared in the simplified mode. */
+  private refuseDiveWithBridgeManned(): string | null {
+    if (!this.bridgeManned) return null;
+    if (this.options.mode === 'simplified') {
+      this.bridgeManned = false;
+      this.addLog('Klart bryggan. Bryggan är utrymd inför dykningen.', 'info');
+      return null;
     }
+    return 'Bryggan är bemannad. Ge order "klart bryggan" innan ubåten dyker.';
   }
 
   /**

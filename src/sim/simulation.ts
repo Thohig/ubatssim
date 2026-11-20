@@ -15,7 +15,7 @@ import { SUBMARINE, type SubmarineConfig, type TankDef } from './config/submarin
 import { waterDensity } from './environment';
 import { addedMassMatrix, hullDamping } from './hydrodynamics';
 import { buildHull, type HullGeometry } from './hull';
-import { airForFill, updateMainBallast, type AirState } from './airSystem';
+import type { AirState } from './airSystem';
 import { finForce } from './controlSurfaces';
 import { contactForces, hullContactPoints, type ContactResult, type GroundDepth } from './contact';
 import { heightFunction, seabedDepth } from './terrain';
@@ -59,6 +59,11 @@ import {
   type MassProperties,
 } from './rigidBody';
 import { initialTankState, type TankState } from './tanks';
+import { Actuators, type ActuatorState } from './systems/actuators';
+import { MainBallast } from './systems/mainBallast';
+import { PeriscopeMast } from './systems/periscopeMast';
+import { Pumps } from './systems/pumps';
+import type { ForceContext, Subsystem } from './systems/types';
 
 export const DT = 0.01;
 /** Index of shaft speed n [rev/s] in the state vector. */
@@ -216,12 +221,14 @@ export class Simulation {
   y: Float64Array = new Float64Array(STATE_SIZE);
   tanks: TankState[];
   air: AirState;
-  actuators = { rudder: 0, sternPlanes: 0, periscope: 0 };
   commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false };
-  /** Remaining trim transfer [m^3], positive = aft → forward. */
-  trimRemaining = 0;
-  /** Remaining compensating transfer [m^3], positive = flood from sea. */
-  compRemaining = 0;
+
+  /** The boat's subsystems (see systems/types.ts). */
+  readonly systems: { actuators: Actuators; mainBallast: MainBallast; pumps: Pumps; periscopeMast: PeriscopeMast };
+  /** Run once per step, in this order, before the integration. */
+  private readonly updateOrder: Subsystem[];
+  /** Add their forces at every force evaluation, in this order (after the hull, before contact). */
+  private readonly forceOrder: Subsystem[];
 
   private massProps!: MassProperties;
   private body!: RigidBody;
@@ -229,6 +236,14 @@ export class Simulation {
 
   constructor(init: InitialConditions = {}, cfg: SubmarineConfig = SUBMARINE) {
     this.cfg = cfg;
+    this.systems = {
+      actuators: new Actuators(this),
+      mainBallast: new MainBallast(this),
+      pumps: new Pumps(this),
+      periscopeMast: new PeriscopeMast(this),
+    };
+    this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps];
+    this.forceOrder = [this.systems.periscopeMast];
     this.areaId = init.area ?? 'westCoast';
     this.water = AREAS[this.areaId].water;
     this.current = init.current ?? AREAS[this.areaId].current;
@@ -296,27 +311,36 @@ export class Simulation {
   // ---------------------------------------------------------------- commands
 
   setVents(open: boolean, ids?: string[]): void {
-    this.forMbt(ids, (s) => {
-      s.ventOpen = open;
-      if (open) s.blowOpen = false;
-    });
+    this.systems.mainBallast.setVents(open, ids);
   }
 
   setBlow(open: boolean, ids?: string[]): void {
-    this.forMbt(ids, (s) => {
-      s.blowOpen = open;
-      if (open) s.ventOpen = false;
-    });
+    this.systems.mainBallast.setBlow(open, ids);
   }
 
   /** Queue a trim transfer [m^3]; positive moves water aft → forward. Replaces any pending transfer. */
   requestTrimTransfer(volume: number): void {
-    this.trimRemaining = volume;
+    this.systems.pumps.trimRemaining = volume;
   }
 
   /** Queue a compensating transfer [m^3]; positive floods from sea, negative pumps out. */
   requestCompensation(volume: number): void {
-    this.compRemaining = volume;
+    this.systems.pumps.compRemaining = volume;
+  }
+
+  /** Rudder, planes and periscope as they are now. */
+  get actuators(): ActuatorState {
+    return this.systems.actuators.state;
+  }
+
+  /** Remaining trim transfer [m^3], positive = aft → forward. */
+  get trimRemaining(): number {
+    return this.systems.pumps.trimRemaining;
+  }
+
+  /** Remaining compensating transfer [m^3], positive = flood from sea. */
+  get compRemaining(): number {
+    return this.systems.pumps.compRemaining;
   }
 
   // ------------------------------------------------------------------- state
@@ -337,8 +361,7 @@ export class Simulation {
   // -------------------------------------------------------------------- step
 
   step(dt = DT): void {
-    this.updateActuators(dt);
-    this.updateTanks(dt);
+    for (const sys of this.updateOrder) sys.update!(dt);
     this.refreshMass();
     const f = (_t: number, y: Float64Array) => this.derivative(y);
     this.y = rk4Step(f, this.t, this.y, dt);
@@ -385,7 +408,10 @@ export class Simulation {
     const prop = propellerForces(cfg.propulsion, y[IDX_SHAFT]!, nuR[0]!, this.commands.rps, rho);
     tau[0]! += prop.thrust;
     tau[3]! -= prop.torque; // reaction torque on the hull
-    add(this.mastDrag(pos, R, nuR));
+    if (this.forceOrder.length) {
+      const ctx: ForceContext = { y, pos, R, nu, nuR };
+      for (const sys of this.forceOrder) sys.forces!(ctx, tau);
+    }
     const contact = contactForces(this.contactPoints, pos, R, nu, this.ground, cfg.contact);
     add(contact.tau);
     return { tau, hydrostatics: hs, contact, propThrust: prop.thrust, propTorque: prop.torque, motorTorque: prop.motorTorque };
@@ -428,39 +454,6 @@ export class Simulation {
     return this.surface ? d + this.surface(y[0]! + w[0], y[1]! + w[1]) : d;
   }
 
-  /**
-   * Drag of the wetted part of the raised periscope mast (circular
-   * cylinder, cross-flow in surge and sway), applied at the middle of the
-   * wetted length.
-   */
-  private mastDrag(pos: Vec3, R: Mat3, nu: Float64Array): Float64Array {
-    const tau = new Float64Array(6);
-    const ext = this.actuators.periscope;
-    if (ext <= 0) return tau;
-    const p = this.cfg.periscope;
-    const base = p.base;
-    const len = p.extension * ext;
-    const wave = this.surface ? this.surface(pos[0] + R[0] * base[0], pos[1] + R[3] * base[0]) : 0;
-    const depthOf = (z: number) => pos[2] + mat3MulVec(R, [base[0], base[1], z])[2] + wave;
-    const dFoot = depthOf(base[2]);
-    const dHead = depthOf(base[2] - len);
-    if (dFoot <= 0) return tau; // the whole mast is in the air
-    const wetFrac = dHead >= 0 ? 1 : dFoot / (dFoot - dHead);
-    const wet = len * wetFrac;
-    const zMid = base[2] - wet / 2;
-    const k = 0.5 * waterDensity(Math.max(0, dFoot), this.water) * p.dragCoefficient * p.diameter * wet;
-    const u = nu[0]! + nu[4]! * zMid; // local surge speed: u + q·z
-    const v = nu[1]! - nu[3]! * zMid + nu[5]! * base[0]; // local sway: v − p·z + r·x
-    const X = -k * u * Math.abs(u);
-    const Y = -k * v * Math.abs(v);
-    tau[0] = X;
-    tau[1] = Y;
-    tau[3] = -zMid * Y; // K = y·Z − z·Y
-    tau[4] = zMid * X; // M = z·X − x·Z
-    tau[5] = base[0] * Y; // N = x·Y − y·X
-    return tau;
-  }
-
   /** Number of hull points touching the ground at the last force evaluation. */
   groundContacts = 0;
 
@@ -473,54 +466,6 @@ export class Simulation {
     return out;
   }
 
-  private updateActuators(dt: number): void {
-    const a = this.cfg.actuators;
-    const maxStep = a.slewRate * dt;
-    const move = (cur: number, cmd: number, lim: number) => {
-      const target = Math.max(-lim, Math.min(lim, cmd));
-      return cur + Math.max(-maxStep, Math.min(maxStep, target - cur));
-    };
-    this.actuators.rudder = move(this.actuators.rudder, this.commands.rudder, a.rudderMax);
-    this.actuators.sternPlanes = move(this.actuators.sternPlanes, this.commands.sternPlanes, a.planesMax);
-    const p = this.cfg.propulsion;
-    this.commands.rps = Math.max(-p.maxRps, Math.min(p.maxRps, this.commands.rps));
-    const mastStep = dt / this.cfg.periscope.raiseTime;
-    const mastTarget = this.commands.periscopeUp ? 1 : 0;
-    this.actuators.periscope += Math.max(-mastStep, Math.min(mastStep, mastTarget - this.actuators.periscope));
-  }
-
-  private updateTanks(dt: number): void {
-    this.tankDefs.forEach((def, i) => {
-      const s = this.tanks[i]!;
-      if (def.kind !== 'mainBallast') return;
-      const d = this.tankWorldDepths(def);
-      updateMainBallast(def, s, this.air, this.cfg.air, d.bottom, d.top, waterDensity(Math.max(0, d.centre), this.water), dt, this.water, this.commands.lpBlower);
-    });
-
-    const fwd = this.tankById('trim_fwd');
-    const aft = this.tankById('trim_aft');
-    if (fwd && aft && this.trimRemaining !== 0) {
-      const dir = Math.sign(this.trimRemaining);
-      const [from, to] = dir > 0 ? [aft, fwd] : [fwd, aft];
-      const room = to.def.volume - to.s.water;
-      const dv = Math.min(this.cfg.pumps.trimRate * dt, Math.abs(this.trimRemaining), from.s.water, room);
-      from.s.water -= dv;
-      to.s.water += dv;
-      this.trimRemaining -= dir * dv;
-      if (dv <= 0 || Math.abs(this.trimRemaining) < 1e-9) this.trimRemaining = 0;
-    }
-
-    const comp = this.tankById('comp');
-    if (comp && this.compRemaining !== 0) {
-      const dir = Math.sign(this.compRemaining);
-      const limit = dir > 0 ? comp.def.volume - comp.s.water : comp.s.water;
-      const dv = Math.min(this.cfg.pumps.compRate * dt, Math.abs(this.compRemaining), limit);
-      comp.s.water += dir * dv;
-      this.compRemaining -= dir * dv;
-      if (dv <= 0 || Math.abs(this.compRemaining) < 1e-9) this.compRemaining = 0;
-    }
-  }
-
   private refreshMass(): void {
     this.massProps = computeMassProperties(this.dry, this.tankDefs, this.tanks, (def) =>
       def.kind === 'mainBallast' ? waterDensity(Math.max(0, this.tankWorldDepths(def).centre), this.water) : this.water.rhoSurface,
@@ -531,26 +476,15 @@ export class Simulation {
 
   // ----------------------------------------------------------------- helpers
 
-  private forMbt(ids: string[] | undefined, fn: (s: TankState) => void): void {
-    this.tankDefs.forEach((def, i) => {
-      if (def.kind === 'mainBallast' && (!ids || ids.includes(def.id))) fn(this.tanks[i]!);
-    });
-  }
-
-  private tankById(id: string): { def: TankDef; s: TankState } | null {
+  /** A tank's definition and state by id. */
+  tankById(id: string): { def: TankDef; s: TankState } | null {
     const i = this.tankDefs.findIndex((d) => d.id === id);
     return i < 0 ? null : { def: this.tankDefs[i]!, s: this.tanks[i]! };
   }
 
   /** Sets all main ballast tanks to a fill fraction with consistent air content. */
   setMainBallastFill(fill: number): void {
-    this.tankDefs.forEach((def, i) => {
-      if (def.kind !== 'mainBallast') return;
-      const s = this.tanks[i]!;
-      const d = this.tankWorldDepths(def);
-      s.water = fill * def.volume;
-      s.airPV = airForFill(def, fill, d.bottom, d.top, waterDensity(Math.max(0, d.centre), this.water), this.water);
-    });
+    this.systems.mainBallast.setFill(fill);
     this.refreshMass();
   }
 

@@ -43,6 +43,9 @@ export type Order =
   /** Report a true bearing [deg] to something seen through the periscope or from the bridge. */
   | { kind: 'reportBearing'; bearing: number };
 
+export type OrderKind = Order['kind'];
+export type OrderOf<K extends OrderKind> = Extract<Order, { kind: K }>;
+
 export interface QueuedOrder {
   order: Order;
   source: OrderSource;
