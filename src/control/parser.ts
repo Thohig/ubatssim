@@ -3,8 +3,10 @@
  *
  * Examples: "djup 120", "kurs 270", "fart 8 knop", "roder sb 15",
  * "djuproder ned 10", "fyll huvudballast", "blås hb akter",
- * "trimma för 200", "kompensera ut 300", "autopilot av", "dyk", "ytläge".
+ * "trimma för 200", "kompensera ut 300", "autopilot av", "dyk", "ytläge",
+ * "back halv".
  */
+import { SUBMARINE } from '../sim/config/submarine';
 import type { AutopilotAxis, Order, TankGroup } from './orders';
 
 export type ParseResult =
@@ -17,6 +19,8 @@ export const LIMITS = {
   maxSpeed: 20,
   minSpeed: -6,
   maxRpm: 240,
+  /** Astern shaft speed is limited by the drive [rpm]. */
+  maxRpmAstern: Math.round(SUBMARINE.propulsion.maxRpsAstern * 60),
   maxRudder: 30,
   maxPlanes: 30,
   maxTrimLitres: 7500,
@@ -27,6 +31,7 @@ export const HELP_TEXT = [
   'djup <m>                 – autopilot djup, t.ex. "djup 120"',
   'kurs <grader>            – autopilot kurs, t.ex. "kurs 270"',
   'fart <knop> [knop]       – autopilot fart, t.ex. "fart 8 knop", "fart stopp"',
+  'back <knop>|sakta|halv|full – back 2, 4 eller 6 knop, t.ex. "back 3"',
   'varv <rpm>               – propellervarv direkt (fartautopilot av)',
   'roder sb|bb <grader>     – t.ex. "roder styrbord 15", "roder midskepps"',
   'djuproder ned|upp <gr>   – t.ex. "djuproder ned 10", "djuproder noll"',
@@ -66,6 +71,7 @@ const COMMANDS: Record<string, string[]> = {
   kompensera: ['kompensera', 'komp'],
   autopilot: ['autopilot', 'ap'],
   stopp: ['stopp', 'stop'],
+  back: ['back', 'backa'],
   hjälp: ['hjälp', 'hjalp', 'help', '?'],
 };
 
@@ -108,6 +114,9 @@ function suggest(word: string, candidates: Iterable<string>): string | null {
   }
   return best !== null && bestD <= Math.max(1, Math.floor(word.length / 3)) ? best : null;
 }
+
+/** "back sakta|halv|full" [knots astern]. */
+const ASTERN_BELLS: Record<string, number> = { sakta: 2, halv: 4, full: 6 };
 
 const NUMBER_RE = /^[+-]?\d+(?:\.\d+)?$/;
 
@@ -239,8 +248,20 @@ export function parseCommand(input: string): ParseResult {
       return isResult(n) ? n : ok({ kind: 'setSpeed', knots: n });
     }
 
+    case 'back': {
+      const args = t.withoutUnits();
+      const named = args.length === 1 ? ASTERN_BELLS[args[0]!] : undefined;
+      if (named !== undefined) return ok({ kind: 'setSpeed', knots: -named });
+      if (args.length === 1 && parseNumber(args[0]) === null) {
+        const s = suggest(args[0]!, Object.keys(ASTERN_BELLS));
+        return err(`Förstår inte "${args[0]}" efter "back".${s ? ` Menade du "${s}"?` : ''} Exempel: "back 3", "back halv".`);
+      }
+      const n = parseNumberArg(args, 'en fart back i knop', 'back 3', 0, -LIMITS.minSpeed);
+      return isResult(n) ? n : ok({ kind: 'setSpeed', knots: n === 0 ? 0 : -n });
+    }
+
     case 'varv': {
-      const n = parseNumberArg(t.withoutUnits(), 'propellervarv (rpm)', 'varv 120', -LIMITS.maxRpm, LIMITS.maxRpm);
+      const n = parseNumberArg(t.withoutUnits(), 'propellervarv (rpm)', 'varv 120', -LIMITS.maxRpmAstern, LIMITS.maxRpm);
       return isResult(n) ? n : ok({ kind: 'setRpm', rpm: n });
     }
 

@@ -11,7 +11,7 @@
  */
 import type { SoundLevels } from './levels';
 
-export type Cue = 'grounding' | 'alarm' | 'splash' | 'clonk' | 'objective' | 'success' | 'failure' | 'ping';
+export type Cue = 'grounding' | 'alarm' | 'splash' | 'clonk' | 'telegraph' | 'objective' | 'success' | 'failure' | 'ping';
 
 export interface AudioOptions {
   /** Master volume 0…1. */
@@ -127,6 +127,13 @@ export class AudioEngine {
       case 'clonk':
         this.tone(90, t, 0.25, 0.35, 'triangle', this.inside);
         this.burst(t, 0.08, 0.3, 1200, 'bandpass', this.inside);
+        break;
+      case 'telegraph':
+        // Engine-order telegraph answering: two strokes on a small bell.
+        for (const dt of [0, 0.22]) {
+          this.tone(1480, t + dt, 0.6, 0.12, 'sine', this.inside);
+          this.tone(3700, t + dt, 0.25, 0.04, 'sine', this.inside);
+        }
         break;
       case 'objective':
         this.tone(660, t, 0.15, 0.2, 'sine', this.inside);

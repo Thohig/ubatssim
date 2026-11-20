@@ -10,6 +10,7 @@ Det här dokumentet beskriver hur simuleringen i `src/sim/` fungerar: ekvationer
 | [R90] | R. F. Roddy, *Investigation of the Stability and Control Characteristics of Several Configurations of the DARPA SUBOFF Model*, DTRC/SHD-1298-08, 1990. Storleksordningen på de linjära manöverkoefficienterna. |
 | [P01] | T. Prestero, *Verification of a Six-Degree of Freedom Simulation Model for the REMUS AUV*, MIT 2001. Upplägget av fen- och propellermodellen. |
 | [WB] | Wageningen B-serien, öppenvattendiagram. Linjäriserade K_T och K_Q. |
+| [C12] | J. Carlton, *Marine Propellers and Propulsion*, 3:e uppl., Butterworth-Heinemann 2012, kap. 6. Propellern back (fyrkvadrantdata). |
 | EOS-80 | UNESCO:s tillståndsekvation för havsvatten. Densitet och kompressibilitet. |
 
 ## Koordinatsystem och tillstånd
@@ -146,6 +147,7 @@ Lyftkraften är ½ρU²·A·C_L(α) med en linjär lyftkurva, överstegring vid 
 - **Lokal anströmning:** fenans hastighet är ν₁ + ν₂ × r_fena, vilket ger den lokala anfallsvinkeln.
 - **Rörliga fenor:** skrovkoefficienterna innehåller redan fasta fenors bidrag, så bara ökningen från utslaget läggs till: ΔC_L = C_L(δ + α_f) − C_L(α_f).
 - **Tornet** finns inte i skrovkoefficienterna och bidrar med hela sin lyftkraft. Det ger den typiska krängningen in i svängen.
+- **Back:** när vattnet kommer bakifrån räknas utslaget med omvänt tecken (−δ), eftersom fenans bakkant då möter vattnet först. Ett roderutslag åt styrbord vrider då fören åt babord, och djuproder ned lyfter fören.
 - **Utslagen** följer börvärdet med högst 4°/s, och max är ±30°.
 - **Tecken:** positivt roder = styrbord, positivt djuproder = dyk.
 
@@ -156,9 +158,11 @@ Lyftkraften är ½ρU²·A·C_L(α) med en linjär lyftkurva, överstegring vid 
 T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = u(1 − w)
 ```
 - **Propellern:** D = 3,0 m, w = 0,25 och t = 0,15. Formen ovan är linjära K_T(J) och K_Q(J) [WB] skrivna så att de är jämna genom n = 0.
-- **Motorn:** varvtalsreglerad, med momentframkoppling och P-återkoppling, begränsad till 160 kNm och 2,9 MW.
+- **Back (n < 0):** alla fyra koefficienterna multipliceras med 0,6. Bladen möter vattnet med baksidan, och en fast propeller ger ungefär 55–70 % av dragkraften framåt vid samma varvtal [C12] (APPROX). Båda termerna är noll vid n = 0, så kraft och moment är kontinuerliga. Formen gäller också när axeln går mot fartriktningen, alltså vid inbromsning.
+- **Motorn:** varvtalsreglerad, med momentframkoppling och P-återkoppling, begränsad till 160 kNm och 2,9 MW. Back tillåter drivningen högst 1,8 varv/s (108 rpm) (APPROX). Ubåten är kursinstabil med aktern först, och back används bara för att manövrera.
 - **Reaktionsmomentet** −Q verkar på skrovet och ger en liten krängning.
-- **Resultat:** ~19 knop vid 240 rpm.
+- **Resultat:** ~19 knop vid 240 rpm framåt och ~6,8 knop vid 108 rpm back.
+- **Skrovet back:** samma koefficienter som framåt. Termerna som beror på u byter tecken med farten, och fenorna får vattnet bakifrån (se Roder, djuproder och torn). Hur väl en fartygsmodell för framåtfart beskriver gång med aktern först är inte kontrollerat (APPROX).
 
 ## Periskop och brygga
 
@@ -183,7 +187,8 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 
 - **Djup:** kaskad. En djup-PID ger ett börvärde för stampvinkeln (högst ±12°), och en stamp-PID styr djuprodren.
 - **Kurs:** PID med kortaste vägen runt 360°.
-- **Fart:** PI på varvtalet, med framkoppling från jämviktsvarvtalet.
+- **Fart:** PI på varvtalet, med framkoppling från jämviktsvarvtalet (också back). Korrektionen får nå fullt varvtal, så att propellern bromsar vid stopp och vid byte mellan framåt och back.
+- **Back:** med vattnet bakifrån vänder ett roderutslag ubåten åt andra hållet, och en ubåt med fören nedåt stiger. Djup- och kursregulatorn vänder därför tecknet på sina utslag och på stampvinkelns börvärde, som begränsas till ±5°. Riktningen byts med hysteres när farten genom vattnet passerat ±0,2 m/s, och regulatorerna nollställs vid bytet, eftersom integralerna håller utslag för den gamla riktningen.
 - **Ytläge:** med tom huvudballast, djupmål grundare än 5 m och centrumlinjen grundare än 6 m flyter ubåten. Djupautopiloten håller då djuprodret i noll i stället för att försöka trycka ner ~200 t reservflytkraft.
 - **Gemensamt:** alla regulatorer har villkorlig integration (anti-windup) och en integrationszon. Förstärkningen för roder och djuproder skalas med 1/U², eftersom fenornas lyftkraft växer med U².
 
@@ -193,7 +198,7 @@ Assistenten ändrar inget i fysiken. Den ger samma order som spelaren kan ge, oc
 
 - **Kompensering:** när ubåten är helt nedsänkt under 8 m, huvudballasten är full och djupet har varit stilla i 15 s (vertikalfart under 0,15 m/s), filtreras flytkraftsöverskottet med tidskonstanten 10 s. Avviker det mer än 50 kg, pumpas skillnaden i portioner om högst 200 l. Assistenten väntar 10 s efter varje pumpning. Kravet på stilla djup finns eftersom luftresten i huvudballasten och skrovet trycks ihop medan ubåten byter djup. En ubåt som hänger stilla ovanför sitt djupmål, för att den är för lätt för djuprodren, räknas som stilla. Det är just då den behöver vatten.
 - **Trim:** djuprodrets medelutslag över 20 s, medan djupautopiloten håller djupet, ger det stampmoment som rodret står för: ½ρU²·A·C_Lα·δ·|x_fena|. Halva den vattenmängd som ger samma moment flyttas mellan trimtankarna, högst 200 l per gång.
-- **Skyddsnät:** nödblåsning under 255 m, eller om ubåten sjunker fortare än 2 m/s under 250 m. Djupbörvärdet begränsas till bottendjupet minus skrovradien minus 10 m, under ubåten och upp till 150 m framåt.
+- **Skyddsnät:** nödblåsning under 255 m, eller om ubåten sjunker fortare än 2 m/s under 250 m. Djupbörvärdet begränsas till bottendjupet minus skrovradien minus 10 m, under ubåten och upp till 150 m i färdriktningen (akterut när ubåten backar).
 
 ## Förenklingar och kända begränsningar
 

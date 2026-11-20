@@ -5,7 +5,9 @@
  *   T = ρD⁴ K_T(J) n|n|,  Q = ρD⁵ K_Q(J) n|n|,  J = V_a/(nD), V_a = u(1−w)
  *
  * With linear K_T = a − bJ the products are written so they stay smooth
- * through n = 0: K_T n|n| = a n|n| − b V_a |n| / D.
+ * through n = 0: K_T n|n| = a n|n| − b V_a |n| / D. Astern (n < 0) all four
+ * coefficients are scaled by `asternFactor`; both terms vanish at n = 0, so
+ * thrust and torque stay continuous.
  */
 import type { SubmarineConfig } from './config/submarine';
 
@@ -22,8 +24,9 @@ export function propellerForces(cfg: SubmarineConfig['propulsion'], n: number, u
   const D = cfg.diameter;
   const va = u * (1 - cfg.wake);
   const an = Math.abs(n);
-  const T = rho * D ** 4 * (cfg.kt0 * n * an - (cfg.kt1 * va * an) / D);
-  const Q = rho * D ** 5 * (cfg.kq0 * n * an - (cfg.kq1 * va * an) / D);
+  const f = n < 0 ? cfg.asternFactor : 1;
+  const T = f * rho * D ** 4 * (cfg.kt0 * n * an - (cfg.kt1 * va * an) / D);
+  const Q = f * rho * D ** 5 * (cfg.kq0 * n * an - (cfg.kq1 * va * an) / D);
   // Speed-controlled drive: torque feed-forward plus proportional speed loop.
   let Qm = Q + cfg.speedGain * (nCmd - n);
   Qm = Math.max(-cfg.maxTorque, Math.min(cfg.maxTorque, Qm));

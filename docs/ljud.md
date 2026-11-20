@@ -46,6 +46,7 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Vatten över bryggan | Ett plask och en larmsignal |
 | Nödblåsning | En larmsignal |
 | Huvudballasten full | Ett klonk när ventilerna stängs |
+| Order om back | Maskintelegrafens klocka, två slag |
 | Mål klart | Två stigande toner |
 | Uppdraget slutfört / misslyckat | Ett stigande ackord / tre fallande toner |
 

@@ -301,6 +301,13 @@ export const SUBMARINE = {
     kt1: 0.35,
     kq0: 0.050,
     kq1: 0.035,
+    /**
+     * Astern (n < 0): the coefficients above are scaled by this factor. A
+     * fixed-pitch propeller running astern meets the water with the back of
+     * its blades and gives roughly 55–70 % of the ahead thrust at the same
+     * shaft speed [C12 ch. 6, four-quadrant data]. APPROX.
+     */
+    asternFactor: 0.6,
     /** Wake fraction w and thrust deduction t. APPROX, single-screw body of revolution. */
     wake: 0.25,
     thrustDeduction: 0.15,
@@ -311,6 +318,12 @@ export const SUBMARINE = {
     maxPower: 2.9e6, // W
     /** Max shaft speed [rev/s] (240 rpm). */
     maxRps: 4.0,
+    /**
+     * Max shaft speed astern [rev/s]. The drive limits astern speed: going
+     * stern first the boat is directionally unstable and the fins lose much
+     * of their effect, so astern is for manoeuvring only. APPROX.
+     */
+    maxRpsAstern: 1.8,
     /** Speed-loop gain of the motor drive [Nm per rev/s]. */
     speedGain: 2.0e5,
   },

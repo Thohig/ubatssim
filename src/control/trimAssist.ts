@@ -59,7 +59,7 @@ export const ASSIST = {
   blowRearmDepth: 180,
   /** Least water under the keel the depth autopilot may aim for [m]. */
   keelMargin: 10,
-  /** Look-ahead distances for the sea bed check [m]. */
+  /** Look-ahead distances for the sea bed check [m], astern when the boat goes astern. */
   lookAhead: [0, 50, 100, 150],
   /** Keel warning below this [m], re-armed above `keelRearm` [m]. */
   keelWarn: 10,
@@ -106,14 +106,18 @@ export class TrimAssist {
     this.trim(k.u);
   }
 
-  /** Deepest depth setpoint that keeps `keelMargin` under the keel here and ahead [m]. */
+  /**
+   * Deepest depth setpoint that keeps `keelMargin` under the keel here and
+   * ahead [m]. "Ahead" is where the boat is going: astern when it backs.
+   */
   depthLimit(): number {
     const sim = this.ctrl.sim;
     const k = sim.kinematics();
     const n = sim.y[0]!;
     const e = sim.y[1]!;
+    const dir = k.u < -0.2 ? -1 : 1;
     let seabed = Infinity;
-    for (const d of ASSIST.lookAhead) seabed = Math.min(seabed, sim.ground(n + d * Math.cos(k.heading), e + d * Math.sin(k.heading)));
+    for (const d of ASSIST.lookAhead) seabed = Math.min(seabed, sim.ground(n + dir * d * Math.cos(k.heading), e + dir * d * Math.sin(k.heading)));
     return Math.max(0, Math.floor(seabed - sim.cfg.hull.radius - ASSIST.keelMargin));
   }
 

@@ -16,6 +16,7 @@ export function cueFor(text: string): Cue | null {
   if (/^Vatten över bryggan/.test(text)) return 'splash';
   if (/nödblåsning/.test(text)) return 'alarm';
   if (/^Huvudballasten är full/.test(text)) return 'clonk';
+  if (/^Back \d/.test(text)) return 'telegraph';
   if (/^Mål klart/.test(text)) return 'objective';
   return null;
 }

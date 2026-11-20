@@ -199,16 +199,15 @@ export class Controller {
         : this.manual.planes * DEG;
     sim.commands.rudder = this.ap.heading ? this.autopilot.rudder(this.setpoints.heading * DEG, input, DT) : this.manual.rudder * DEG;
 
-    const maxRps = sim.cfg.propulsion.maxRps;
+    const { maxRps, maxRpsAstern } = sim.cfg.propulsion;
     let target: number;
     if (this.ap.speed) {
       const v = this.setpoints.speed * KNOT;
-      const ff = Math.sign(v) * sim.rpsForSpeed(Math.abs(v));
-      target = this.autopilot.rps(v, ff, input, DT);
+      target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT);
     } else {
       target = this.manual.rpm / 60;
     }
-    target = Math.max(-maxRps, Math.min(maxRps, target));
+    target = Math.max(-maxRpsAstern, Math.min(maxRps, target));
     const slew = this.autopilot.tuning.rpsSlew * DT;
     this.rpsCmd += Math.max(-slew, Math.min(slew, target - this.rpsCmd));
     sim.commands.rps = this.rpsCmd;

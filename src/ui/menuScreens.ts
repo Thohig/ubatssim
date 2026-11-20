@@ -174,7 +174,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>Mellanslag</td><td>Håll kurs och djup</td><td>Roder midskepps</td></tr>
           <tr><td>D</td><td>Dyk (till periskopdjup, 13 m, om inget djupare mål finns)</td><td>–</td></tr>
           <tr><td>S</td><td>Ytläge</td><td>–</td></tr>
-          <tr><td>Shift + ↑ / ↓</td><td colspan="2">Fart ±1 knop</td></tr>
+          <tr><td>Shift + ↑ / ↓</td><td colspan="2">Fart ±1 knop. Under noll går ubåten back, högst 6 knop.</td></tr>
           <tr><td>V</td><td colspan="2">Byt vy: yttre, bryggan (i ytläge) och periskopet (när det är uppe)</td></tr>
           <tr><td>P</td><td colspan="2">Periskop upp / ned. Vyn öppnas när masten är uppe.</td></tr>
           <tr><td>Z</td><td colspan="2">Periskopets förstoring, 1,5× eller 6×</td></tr>
@@ -211,6 +211,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li>Under språngskiktet (40–70 m) är vattnet tätare. Ubåten blir då lättare och behöver ta in vatten.</li>
           <li>Skrovet trycks ihop mer än vattnet på djupet, så ubåten blir långsamt tyngre ju djupare den går.</li>
           <li>Tryckluften räcker inte till hur många blåsningar som helst. Håll koll på HP-luften.</li>
+          <li><b>Back</b> (<code>back halv</code>, eller Shift + ↓ under noll): propellern ger mindre kraft bakåt, och farten blir högst ungefär 6,5 knop. Rodren verkar omvänt: roder styrbord vrider fören åt babord, och djuprodren likaså. Autopiloten tar hänsyn till det. Ubåten glider länge, så slå stopp i god tid.</li>
         </ul>
       </div>
       ${back}`;
@@ -220,7 +221,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <h2 class="menu-title small">Förenklad simulering</h2>
       <ul class="intro">
         <li><b>↑ / ↓</b> (▲ / ▼) ändrar djupet 5 m, <b>← / →</b> ändrar kursen 10°.</li>
-        <li><b>Shift + ↑ / ↓</b> (− / +) ändrar farten.</li>
+        <li><b>Shift + ↑ / ↓</b> (− / +) ändrar farten. Under noll backar ubåten.</li>
         <li><b>D</b> dyker och <b>S</b> går till ytläge.</li>
         <li>Assistenten trimmar ubåten. Det den gör syns i loggen.</li>
       </ul>

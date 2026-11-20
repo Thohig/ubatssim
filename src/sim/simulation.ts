@@ -519,14 +519,18 @@ export class Simulation {
     return 0.5 * (lo + hi);
   }
 
-  /** Steady shaft speed for a forward speed (bisection on surge balance). */
+  /**
+   * Steady shaft speed for a speed through the water (bisection on surge
+   * balance). Negative speeds give a negative (astern) shaft speed. Speeds
+   * beyond what the shaft limits allow give the limit.
+   */
   rpsForSpeed(speed: number): number {
     const p = this.cfg.propulsion;
     const rho = this.water.rhoSurface;
     const L = this.cfg.hull.length;
-    const drag = -0.5 * rho * L * L * this.cfg.hydro.Xuu * speed * speed - this.cfg.hydro.lowSpeed.Xu * speed;
-    let lo = 0;
-    let hi: number = p.maxRps;
+    const drag = -0.5 * rho * L * L * this.cfg.hydro.Xuu * speed * Math.abs(speed) - this.cfg.hydro.lowSpeed.Xu * speed;
+    let lo: number = speed < 0 ? -p.maxRpsAstern : 0;
+    let hi: number = speed < 0 ? 0 : p.maxRps;
     for (let i = 0; i < 50; i++) {
       const n = 0.5 * (lo + hi);
       const t = propellerForces(p, n, speed, n, rho).thrust;

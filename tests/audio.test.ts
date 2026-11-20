@@ -96,6 +96,7 @@ describe('cues and speech', () => {
     expect(cueFor('Assistent: nödblåsning! Ubåten närmar sig krossdjupet.')).toBe('alarm');
     expect(cueFor('Huvudballasten är full. Ventilerna stängda.')).toBe('clonk');
     expect(cueFor('Mål klart: Hissa periskopet')).toBe('objective');
+    expect(cueFor('Back 4 knop, ja')).toBe('telegraph');
     expect(cueFor('Djup 32, ja')).toBeNull();
   });
 

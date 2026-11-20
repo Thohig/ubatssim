@@ -5,6 +5,12 @@
  * Depth is a cascade: an outer depth loop commands a pitch angle and an
  * inner pitch loop moves the stern planes. Plane and rudder gains are
  * scheduled with 1/U² because fin lift grows with U².
+ *
+ * Astern the water meets the fins from behind, so a rudder or plane angle
+ * turns the boat the other way, and a bow-down boat rises instead of
+ * diving. The depth and heading loops then flip the sign of their output
+ * and of the pitch reference. The direction switches with hysteresis
+ * around zero speed, and the loops are reset when it does.
  */
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -57,8 +63,16 @@ export const AUTOPILOT_TUNING = {
   pitch: { kp: 1.6, ki: 0.06, kd: 5.0, maxPlanes: 25 * DEG, integralZone: 5 * DEG },
   /** Heading → rudder. */
   heading: { kp: 1.2, ki: 0.01, kd: 18, maxRudder: 25 * DEG, integralZone: 10 * DEG },
-  /** Speed → shaft speed correction [rev/s per m/s]. */
-  speed: { kp: 0.4, ki: 0.03, integralZone: 0.5 },
+  /**
+   * Speed → shaft speed correction [rev/s per m/s], around the steady shaft
+   * speed. The correction may reach full shaft speed, so that stopping or
+   * going from ahead to astern uses the propeller as a brake.
+   */
+  speed: { kp: 1.0, ki: 0.03, integralZone: 0.5, maxCorrection: 4 },
+  /** Largest pitch reference astern [rad]: depth changes stern first are kept gentle. */
+  maxPitchAstern: 5 * DEG,
+  /** Speed through the water [m/s] beyond which the loops switch to astern (−) or ahead (+). */
+  directionHysteresis: 0.2,
   /** Reference speed for gain scheduling [m/s] and maximum gain multiplier. */
   scheduleSpeed: 4,
   maxGainScale: 3,
@@ -81,13 +95,15 @@ export class Autopilot {
   readonly pitchPid: PID;
   readonly headingPid: PID;
   readonly speedPid: PID;
+  /** +1 ahead, −1 astern (see `direction()`). */
+  private dir: 1 | -1 = 1;
 
   constructor(readonly tuning = AUTOPILOT_TUNING) {
     const t = tuning;
     this.depthPid = new PID(t.depth.kp, t.depth.ki, t.depth.kd, -t.depth.maxPitch, t.depth.maxPitch, t.depth.integralZone);
     this.pitchPid = new PID(t.pitch.kp, t.pitch.ki, t.pitch.kd, -t.pitch.maxPlanes, t.pitch.maxPlanes, t.pitch.integralZone);
     this.headingPid = new PID(t.heading.kp, t.heading.ki, t.heading.kd, -t.heading.maxRudder, t.heading.maxRudder, t.heading.integralZone);
-    this.speedPid = new PID(t.speed.kp, t.speed.ki, 0, -2, 2, t.speed.integralZone);
+    this.speedPid = new PID(t.speed.kp, t.speed.ki, 0, -t.speed.maxCorrection, t.speed.maxCorrection, t.speed.integralZone);
   }
 
   private gainScale(speed: number): number {
@@ -95,17 +111,39 @@ export class Autopilot {
     return Math.min(this.tuning.maxGainScale, (this.tuning.scheduleSpeed / u) ** 2);
   }
 
+  /**
+   * +1 ahead, −1 astern. Switches only when the speed through the water has
+   * passed ±`directionHysteresis`; on a switch the depth, pitch and heading
+   * loops are reset, since their integrals hold fin angles for the old
+   * direction. Deterministic: depends only on the speeds passed in.
+   */
+  direction(speed: number): 1 | -1 {
+    const h = this.tuning.directionHysteresis;
+    const next = this.dir === 1 ? (speed < -h ? -1 : 1) : speed > h ? 1 : -1;
+    if (next !== this.dir) {
+      this.dir = next;
+      this.depthPid.reset();
+      this.pitchPid.reset();
+      this.headingPid.reset();
+    }
+    return this.dir;
+  }
+
   /** Stern planes command [rad], positive = dive. */
   planes(targetDepth: number, s: AutopilotInput, dt: number): number {
-    // Deeper target → positive error → bow down → negative pitch reference.
-    const pitchRef = -this.depthPid.update(targetDepth - s.depth, s.depthRate, dt);
-    // Pitch above reference → planes dive (positive).
-    return this.pitchPid.update(s.pitch - pitchRef, -s.pitchRate, dt, 0, this.gainScale(s.speed));
+    const dir = this.direction(s.speed);
+    // Deeper target → positive error → negative pitch reference ahead (bow down),
+    // positive astern (stern down, the end the boat is moving towards).
+    const maxPitch = dir === 1 ? this.tuning.depth.maxPitch : this.tuning.maxPitchAstern;
+    const pitchRef = clamp(-dir * this.depthPid.update(targetDepth - s.depth, s.depthRate, dt), -maxPitch, maxPitch);
+    // Pitch above reference → bow down: planes dive (positive) ahead, rise astern.
+    return dir * this.pitchPid.update(s.pitch - pitchRef, -s.pitchRate, dt, 0, this.gainScale(s.speed));
   }
 
   /** Rudder command [rad], positive = starboard. */
   rudder(targetHeading: number, s: AutopilotInput, dt: number): number {
-    return this.headingPid.update(wrapAngle(targetHeading - s.heading), s.yawRate, dt, 0, this.gainScale(s.speed));
+    const dir = this.direction(s.speed);
+    return dir * this.headingPid.update(wrapAngle(targetHeading - s.heading), s.yawRate, dt, 0, this.gainScale(s.speed));
   }
 
   /** Shaft speed command [rev/s] around a feed-forward value. */

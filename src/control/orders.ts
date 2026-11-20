@@ -68,7 +68,7 @@ export function acknowledgement(o: Order): string {
     case 'setHeading':
       return `Kurs ${fmt(o.heading).padStart(3, '0')}, ja`;
     case 'setSpeed':
-      return `Fart ${fmt(o.knots)} knop, ja`;
+      return o.knots < 0 ? `Back ${fmt(-o.knots)} knop, ja` : `Fart ${fmt(o.knots)} knop, ja`;
     case 'adjustSpeed':
       return `Fart ${o.deltaKnots > 0 ? 'öka' : 'minska'} ${fmt(Math.abs(o.deltaKnots))} knop, ja`;
     case 'setRpm':

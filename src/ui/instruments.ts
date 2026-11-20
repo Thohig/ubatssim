@@ -16,6 +16,9 @@ const f = (v: number, d = 0) => v.toFixed(d).replace('.', ',').replace('-0,0', '
 const signed = (v: number, d = 1) => (v > 0 ? '+' : '') + f(v, d);
 const deg3 = (rad: number) => String(Math.round(((rad * DEG) % 360 + 360) % 360) % 360).padStart(3, '0');
 
+/** Knots as "4,0", or "BACK 4,0" astern (below −0.05 knots). */
+const knots = (kn: number) => (kn < -0.05 ? `BACK ${f(-kn, 1)}` : f(Math.max(0, kn), 1));
+
 /** Net buoyancy within this is shown as "Neutral" in the simplified panel [kg]. */
 const TRIM_NEUTRAL_KG = 100;
 
@@ -116,9 +119,9 @@ const INSTRUMENTS: Record<string, (c: Controller, simple: boolean) => Instrument
       ap: simple ? undefined : (k) => k.ap.depth,
     }),
   speed: (c, simple) =>
-    row('Fart (knop)', (t) => f(t.u * KN, 1), c, {
+    row('Fart (knop)', (t) => knots(t.u * KN), c, {
       big: true,
-      setpoint: (k) => (k.ap.speed ? `→ ${f(k.setpoints.speed, 1)}` : ''),
+      setpoint: (k) => (k.ap.speed ? `→ ${knots(k.setpoints.speed)}` : ''),
       ap: simple ? undefined : (k) => k.ap.speed,
     }),
   heading: (c, simple) =>

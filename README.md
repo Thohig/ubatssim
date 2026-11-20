@@ -75,7 +75,7 @@ Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik
 | Z | Periskopets förstoring, 1,5× / 6× | Samma |
 | B | Rapportera bäringen dit periskopet eller blicken pekar | Samma |
 | ← / → i periskopet | Vrid periskopet (Shift + ← / → styr) | Samma |
-| Shift + ↑ / ↓ | Fart ±1 knop (sätter fartautopiloten) | Samma |
+| Shift + ↑ / ↓ | Fart ±1 knop (sätter fartautopiloten). Under noll går ubåten back, högst 6 knop. | Samma |
 | Enter eller / | Öppna kommandokonsolen | Samma |
 | Esc | Lämna konsolen eller en vy, eller pausa | Samma |
 | M | Ljud av / på | Samma |
@@ -95,6 +95,16 @@ Längst ner finns knappar som motsvarar tangenterna:
 Håll in en knapp så upprepas den. `>_` öppnar konsolen med telefonens tangentbord, och ett tryck på en styrknapp stänger den igen. Instrumentpanelen är kompakt på smala skärmar, och "Mer ▾" visar resten.
 
 Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att zooma. Kameran följer ubåten.
+
+### Back
+
+Ubåten backar i båda spellägena: Shift + ↓ (eller −) förbi noll, eller `back halv` i konsolen. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid en order om back.
+
+- **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop, och det tar några minuter att komma upp i fart.
+- **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. I realistisk simulering med manuella roder får du styra omvänt.
+- **Autopiloten** för kurs och djup vet om att ubåten backar och vänder sina utslag själv. Den byter riktning när farten genom vattnet har passerat ±0,2 m/s och börjar då om från noll. Vid back tillåter den högst 5° stampvinkel, så djupändringar går långsamt.
+- **Skyddsnätet** i förenklad simulering tittar efter grunt vatten åt det håll ubåten rör sig, alltså akterut vid back. Trimassistenten flyttar inget trimvatten medan ubåten backar.
+- **Stoppa i god tid.** Ubåten glider länge. Fartautopiloten bromsar med propellern, men stoppet från 4 knop back tar ändå omkring en minut.
 
 ## Vyer
 
@@ -120,7 +130,8 @@ Alla kommandon kvitteras i loggen med simuleringstid, till exempel `[00:03:12] D
 | `djup <m>` | `djup 120` | Djupautopilot |
 | `kurs <grader>` | `kurs 270` | Kursautopilot |
 | `fart <knop> [knop]` | `fart 8 knop`, `fart stopp` | Fartautopilot |
-| `varv <rpm>` | `varv 120` | Propellervarv direkt (fartautopiloten kopplas ur) |
+| `back <knop>\|sakta\|halv\|full` | `back 3`, `back halv` | Fartautopiloten back: sakta 2, halv 4 och full 6 knop. Samma som `fart -4`. |
+| `varv <rpm>` | `varv 120`, `varv -60` | Propellervarv direkt (fartautopiloten kopplas ur). Back högst 108 rpm. |
 | `roder sb\|bb <grader>` | `roder styrbord 15`, `roder midskepps` | Roder |
 | `djuproder ned\|upp <grader>` | `djuproder ned 10`, `djuproder noll` | Djuproder |
 | `fyll huvudballast [för\|akter]` | `fyll hb` | Öppna ventilerna, så att tanken vattenfylls |
@@ -155,6 +166,7 @@ Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 4
 | Första dykningen | lätt | Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma neutralt och gå till ytläge igen. |
 | Trimövning | medel | Håll 50 m ±2 m i tre minuter utan djupautopilot. |
 | Språngskiktet | medel | Dyk genom termoklinen till 90 m och kompensera för att ubåten blir lättare där. |
+| Back | lätt | Backa 450 m till en boj rakt akterut och stanna vid den, utan att vända ubåten. |
 | Genom sundet | medel | Gå i ytläge genom ett smalt sund i skärgården till en gul boj, utan att gå på grund. |
 | Nödblåsning | svår | Ubåten är flera ton för tung på 200 m. Nå ytan innan krossdjupet 300 m. |
 | Periskopspaning | medel | Ta ut bäringen till en fyr genom periskopet. Periskopet får inte synas mer än 60 s i taget. |
@@ -253,7 +265,8 @@ Testerna täcker bland annat:
 - att en neutralt trimmad ubåt håller djupet, att en ubåt med tom huvudballast stiger och att energin inte växer utan drivkraft
 - Boyles lag vid blåsning, toppfart, gir och roderhastighet
 - kommandoparsern, orderkön och kvittona
-- autopiloten (djup 120 m och kurs 270° utan stor översläng)
+- autopiloten (djup 120 m och kurs 270° utan stor översläng), också back: kurs- och djupändring, omslag mellan framåt och back
+- propellern back (svagare dragkraft, varvtalsgräns, kontinuitet genom noll) och att skyddsnätet tittar akterut när ubåten backar
 - spellägena: att förenklad simulering dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att lägesbytet sker utan ryck och att simuleringen fortfarande är deterministisk
 - att varje scenario går att klara och att det misslyckas när det ska
 - terrängen, grundstötning och navigering genom sundet

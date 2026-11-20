@@ -89,6 +89,11 @@ const SOUTH_LIGHT = lighthouse('westCoast', 'Södra fyren');
 /** Most time the periscope may show above the water in one go [s]. */
 export const PERISCOPE_EXPOSURE_LIMIT = 60;
 const FJORD_BUOY: [number, number] = [2400, 120];
+/** "Back": the boat starts heading north; the buoy is straight astern. */
+const ASTERN_START: [number, number] = [0, -3000];
+const ASTERN_BUOY: [number, number] = [-450, -3000];
+/** Most the heading may differ from north in "Back" [deg]. */
+const ASTERN_MAX_YAW = 45;
 /** The freighter in "Fartyget": northbound west of the boat. */
 const RECCE_SHIP = freighter('skagerack', 'M/S Skagerack', [[-2500, -1500], [6000, -1500]]);
 
@@ -185,6 +190,43 @@ export const SCENARIOS: Scenario[] = [
       },
     ],
     failure: (t) => (t.depth > 250 ? 'Ubåten gick för djupt (250 m).' : null),
+  },
+  {
+    id: 'astern',
+    title: 'Back',
+    description: `Ett nät spärrar vägen framåt. Backa ubåten 450 m till den gula bojen rakt akterut och stanna vid den, på 30 m djup. Ubåten får inte vända: kursen ska hållas inom ${ASTERN_MAX_YAW}° från 000.`,
+    difficulty: 'lätt',
+    initial: { depth: 30, speed: 3 * KN, neutral: true, north: ASTERN_START[0], east: ASTERN_START[1], heading: 0 },
+    waypoint: ASTERN_BUOY,
+    autopilotAllowed: true,
+    objectives: [
+      {
+        text: 'Slå back',
+        hint: 'Skriv "back halv" (4 knop). Propellern bromsar först ubåten och driver den sedan bakåt.',
+        hintSimplified: 'Tryck Shift + ↓ (eller −) tills fartmålet visar BACK 4.',
+        check: (t) => t.u < -0.5 * KN,
+      },
+      {
+        text: 'Backa till den gula bojen',
+        hint: 'Håll kursen med "kurs 0" och djupet med "djup 30". Styr du själv verkar rodren omvänt: roder styrbord vrider fören åt babord.',
+        hintSimplified: 'Autopiloten håller kurs och djup åt dig, också när ubåten backar. Följ avståndet till bojen.',
+        check: (t) => waypointInfo(t, ASTERN_BUOY).distance < 60,
+      },
+      {
+        text: 'Stanna vid bojen',
+        hint: 'Skriv "fart stopp". Propellern går framåt en stund och bromsar ubåten.',
+        hintSimplified: 'Tryck Shift + ↑ (eller +) tills fartmålet visar 0.',
+        check: (t) => Math.abs(t.u) < 0.3 * KN && waypointInfo(t, ASTERN_BUOY).distance < 100,
+        holdSeconds: 5,
+      },
+    ],
+    failure: (t) => {
+      const yaw = Math.abs(((((t.heading * 180) / Math.PI) % 360) + 540) % 360 - 180);
+      if (yaw > ASTERN_MAX_YAW) return 'Ubåten vände. Uppdraget var att backa.';
+      if (t.depth < 15 || t.depth > 60) return 'Djupet avvek för mycket (15–60 m).';
+      return null;
+    },
+    timeLimit: 1200,
   },
   {
     id: 'sound-transit',
