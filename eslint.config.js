@@ -21,4 +21,17 @@ export default tseslint.config(
       'no-restricted-globals': ['error', 'window', 'document', 'performance', 'requestAnimationFrame'],
     },
   },
+  {
+    // Deterministic: the same start and orders give the same result (tests/long/determinism.long.test.ts).
+    files: ['src/sim/**/*.ts', 'src/control/**/*.ts'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        { object: 'Math', property: 'random', message: 'The simulation is deterministic: no random numbers in src/sim or src/control.' },
+        { object: 'Date', property: 'now', message: 'The simulation is deterministic: use simulation time, not the wall clock.' },
+        { object: 'performance', property: 'now', message: 'The simulation is deterministic: use simulation time, not the wall clock.' },
+      ],
+      'no-restricted-syntax': ['error', { selector: "NewExpression[callee.name='Date']", message: 'The simulation is deterministic: use simulation time, not the wall clock.' }],
+    },
+  },
 );
