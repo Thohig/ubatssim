@@ -40,6 +40,7 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   V  next view   P  periscope up/down   Z  periscope magnification (cutaway: side/top)
  *   C  cutaway on/off   + / −  cutaway zoom
  *   B  report the bearing of the cross hair / bridge look
+ *   N  snorkel up/down   G  diesels start/stop
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
 export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeState, openConsole: () => void, views: ViewState): void {
@@ -105,6 +106,12 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
         break;
       case 'd':
         submitDive(ctrl, 'keyboard');
+        break;
+      case 'n':
+        ctrl.submit({ kind: 'snorkel', up: !ctrl.sim.commands.snorkelUp }, 'keyboard');
+        break;
+      case 'g':
+        ctrl.submit({ kind: 'diesel', on: !ctrl.sim.commands.diesel }, 'keyboard');
         break;
       case 's':
         ctrl.submit({ kind: 'surface' }, 'keyboard');

@@ -24,6 +24,7 @@ import { Menu } from '../ui/menu';
 import { updateObjective } from '../ui/objective';
 import { createPerfMeter } from '../ui/perfMeter';
 import { createStatusBar } from '../ui/statusBar';
+import { createNavPanel } from '../ui/navPanel';
 import { loadSettings, saveSettings, type Settings } from '../ui/settings';
 import { isTouchDevice } from '../ui/button';
 import { createViewOverlay } from '../ui/viewOverlay';
@@ -31,7 +32,7 @@ import { ViewState, availableViews, bindViewButtons, bindViewPointer } from '../
 import { GameFlow, type GameState } from './flow';
 import { FixedStepLoop } from './loop';
 import { GameSession, demoSession, freePlaySpec, scenarioSpec } from './session';
-import { audioInput, overlayState } from './wiring';
+import { audioInput, effectsInput, overlayState } from './wiring';
 
 const el = <T extends HTMLElement>(id: string) => {
   const n = document.getElementById(id);
@@ -78,7 +79,7 @@ export function startApp(): void {
 
   /** The first log lines of a game: the crew handles everything, and where to take over. */
   const HELP_HINT =
-    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna panelerna Ballast, Trim och Fart (på mobil under System ▾) för att sköta något själv. ☰ → Hjälp förklarar.';
+    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna panelerna Ballast, Trim, Fart och El (på mobil under System ▾) för att sköta något själv. ☰ → Hjälp förklarar.';
 
   /** Shows a session: log, instruments, sound, camera, buoy, ships and the area. */
   const attach = (s: GameSession): GameSession => {
@@ -255,7 +256,9 @@ export function startApp(): void {
     applySettings();
   };
   const logSwitch = { shown: () => settings.showLog, toggle: () => setLogShown(!settings.showLog) };
-  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole, logSwitch);
+  const nav = createNavPanel(el('nav'));
+  const navSwitch = { mode: () => nav.mode, toggle: (m: 'chart' | 'sonar') => nav.toggle(m) };
+  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, openConsole, logSwitch, navSwitch);
   const helmEl = el('helm');
   const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
   // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
@@ -268,6 +271,10 @@ export function startApp(): void {
     if ((e.key === 'm' || e.key === 'M') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const muted = audio.engine.toggleMute();
       session.ctrl.addLog(muted ? 'Ljudet är avstängt (M).' : 'Ljudet är på (M).', 'info');
+      return;
+    }
+    if ((e.key === 'k' || e.key === 'K' || e.key === 'h' || e.key === 'H') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      nav.toggle(e.key.toLowerCase() === 'k' ? 'chart' : 'sonar');
       return;
     }
     if ((e.key === 'l' || e.key === 'L') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -384,6 +391,8 @@ export function startApp(): void {
       sternPlanes: sim.actuators.sternPlanes,
       propellerAngle: s.propellerAngle,
       periscope: sim.actuators.periscope,
+      snorkel: sim.actuators.snorkel,
+      effects: views.mode === 'cutaway' ? null : effectsInput(s),
       vessels: s.ctrl.world.vessels.map((v) => v.state),
       cutaway: views.mode === 'cutaway' ? cutawayState(s) : undefined,
     });
@@ -392,16 +401,18 @@ export function startApp(): void {
 
     if (now - lastUi > 100 && !hud.hidden) {
       const tel = sim.telemetry();
-      const key = layoutKey(s.ctrl.duties());
+      const flooded = tel.compartments.some((x) => x.water > 0.05 || x.holeArea > 0);
+      const key = layoutKey(s.ctrl.duties(), flooded);
       if (key !== instrumentsKey) {
         instrumentsKey = key;
-        updateInstruments = createInstruments(instrumentsEl, s.ctrl);
+        updateInstruments = createInstruments(instrumentsEl, s.ctrl, flooded);
       }
       updateInstruments(tel);
       statusBar.update(tel);
       updateViewButtons(s.ctrl);
       updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
       updateCutawayInfo(s);
+      nav.update({ ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
       if (views.mode === 'cutaway') sampleCutaway(s);
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
       updateObjective(objectiveEl, s.runner);

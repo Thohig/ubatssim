@@ -31,7 +31,10 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Vatten in | Samma | Ett bubblande, vobblande brusband |
 | Blåsning | Öppen blåsventil | Dånande brus, svagare när HP-luften tar slut |
 | Pumpar | Pågående trimning eller kompensering | Jämnt mekaniskt brummande |
-| Periskopet | Masten rör sig | Ett elmotorljud, och ett klonk vid ändläget |
+| Periskopet och snorkeln | En mast rör sig | Ett elmotorljud, och ett klonk vid periskopets ändläge |
+| Dieslarna | Går (snorkling eller ytläge) | En tung dunk i tändfrekvensen, 33–50 Hz efter lasten, med ett mullrande brus |
+| Läcka | Vatten strömmar in genom ett hål | Ett hårt väsande, starkare med inflödet |
+| Länspumpen | Går när det finns vatten i en avdelning | Ett lågt surr |
 | Lågtrycksblåsaren | Går när bryggan är bemannad | Ett fläktljud |
 | Andra fartyg | Närmaste fartygets avstånd och bladfrekvens | Ett lågt brus som pulserar i fartygets bladtakt. Hörs inom 4 km, starkast nära och när ubåten är under vattnet |
 | Skrovet | Djupändring, djup och krossdjup | Knakningar och dova smällar. De kommer tätare ju fortare och djupare ubåten går, och oavbrutet under 250 m |
@@ -45,6 +48,7 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Djupare än 250 m | En larmsignal när gränsen passeras |
 | Vatten över bryggan | Ett plask och en larmsignal |
 | Nödblåsning | En larmsignal |
+| Läckage, skrovet kollapsar | En larmsignal |
 | Huvudballasten full | Ett klonk när ventilerna stängs |
 | Ny fartorder (telegrafen, `fart`, `back`) | Maskintelegrafens klocka, två slag |
 | Mål klart | Två stigande toner |

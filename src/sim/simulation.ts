@@ -4,7 +4,7 @@
  *
  * Per step:
  *  1. actuators move toward their commands (rate-limited),
- *  2. tanks, pumps and the air system advance (explicit, at dt),
+ *  2. tanks, pumps, the air system, flooding and the electrics advance (explicit, at dt),
  *  3. mass properties are recomputed from the tanks and frozen,
  *  4. rigid body + shaft speed are integrated with RK4.
  *
@@ -61,8 +61,10 @@ import {
 import { initialTankState, type TankState } from './tanks';
 import { Actuators, type ActuatorState } from './systems/actuators';
 import { MainBallast } from './systems/mainBallast';
-import { PeriscopeMast } from './systems/periscopeMast';
+import { Mast } from './systems/masts';
 import { Pumps } from './systems/pumps';
+import { Electrics } from './systems/electrics';
+import { Flooding, type CompartmentFlood } from './systems/flooding';
 import type { ForceContext, Subsystem } from './systems/types';
 
 export const DT = 0.01;
@@ -82,6 +84,10 @@ export interface Commands {
   periscopeUp: boolean;
   /** Run the low-pressure blower that keeps surfaced main ballast tanks dry. */
   lpBlower: boolean;
+  /** Raise (true) or lower the snorkel mast. */
+  snorkelUp: boolean;
+  /** Run the diesel generators (they run only with air: surfaced or snorkelling). */
+  diesel: boolean;
 }
 
 export interface InitialConditions {
@@ -113,6 +119,10 @@ export interface InitialConditions {
   sea?: SeaStateId | SeaState;
   /** Ground model (sea bed depth at north/east). Defaults to the area's terrain. */
   ground?: GroundDepth;
+  /** Battery state of charge 0…1 (default `electrics.initialCharge`). */
+  battery?: number;
+  /** Open holes at the start: compartment id → hole area [m^2]. */
+  leaks?: Record<string, number>;
 }
 
 /**
@@ -179,6 +189,27 @@ export interface Telemetry {
   periscopeHeadDepth: number;
   /** World depth of the bridge deck [m]; negative = above the water. */
   bridgeDeckDepth: number;
+  /** Snorkel mast extension 0 … 1, and the depth of its head [m] (negative = above the water). */
+  snorkel: number;
+  snorkelHeadDepth: number;
+  /** Battery state of charge 0…1. */
+  battery: number;
+  /** Electrical load [W] and battery power [W, positive = discharge, negative = charge]. */
+  electricalLoad: number;
+  batteryPower: number;
+  /** Diesels ordered on, running, and their generators' output [W]. */
+  dieselOrdered: boolean;
+  dieselRunning: boolean;
+  generatorPower: number;
+  /** Air reaches the diesels (surfaced, or the snorkel head above the water). */
+  inductionAir: boolean;
+  /** What the motor may take now [W] (less than its rating with an empty battery). */
+  motorPowerLimit: number;
+  /** Water in the compartments of the pressure hull, open holes and inflow. */
+  compartments: CompartmentFlood[];
+  drainPumpRunning: boolean;
+  /** The hull has collapsed below collapse depth. */
+  hullCollapsed: boolean;
   thrust: number;
   shaftPower: number;
   tanks: { id: string; name: string; kind: TankDef['kind']; fill: number; water: number; volume: number; ventOpen: boolean; blowOpen: boolean }[];
@@ -221,10 +252,18 @@ export class Simulation {
   y: Float64Array = new Float64Array(STATE_SIZE);
   tanks: TankState[];
   air: AirState;
-  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false };
+  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false, snorkelUp: false, diesel: false };
 
   /** The boat's subsystems (see systems/types.ts). */
-  readonly systems: { actuators: Actuators; mainBallast: MainBallast; pumps: Pumps; periscopeMast: PeriscopeMast };
+  readonly systems: {
+    actuators: Actuators;
+    mainBallast: MainBallast;
+    pumps: Pumps;
+    flooding: Flooding;
+    electrics: Electrics;
+    periscopeMast: Mast;
+    snorkelMast: Mast;
+  };
   /** Run once per step, in this order, before the integration. */
   private readonly updateOrder: Subsystem[];
   /** Add their forces at every force evaluation, in this order (after the hull, before contact). */
@@ -246,6 +285,8 @@ export class Simulation {
     planes: number;
     periscope: number;
     rps: number;
+    snorkel: number;
+    powerLimit: number;
     ext: ReturnType<Simulation['externalForces']>;
   } | null = null;
 
@@ -255,10 +296,15 @@ export class Simulation {
       actuators: new Actuators(this),
       mainBallast: new MainBallast(this),
       pumps: new Pumps(this),
-      periscopeMast: new PeriscopeMast(this),
+      flooding: new Flooding(this),
+      electrics: new Electrics(this, init.battery),
+      periscopeMast: new Mast(this, 'periscope'),
+      snorkelMast: new Mast(this, 'snorkel'),
     };
-    this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps];
-    this.forceOrder = [this.systems.periscopeMast];
+    // Flooding before the electrics: the drain pump is part of the load.
+    this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps, this.systems.flooding, this.systems.electrics];
+    this.forceOrder = [this.systems.periscopeMast, this.systems.snorkelMast];
+    for (const [id, area] of Object.entries(init.leaks ?? {})) this.systems.flooding.damage(id, area, undefined);
     this.areaId = init.area ?? 'westCoast';
     this.water = AREAS[this.areaId].water;
     this.current = init.current ?? AREAS[this.areaId].current;
@@ -420,7 +466,7 @@ export class Simulation {
       const delta = fin.actuator === null ? 0 : this.actuators[fin.actuator];
       add(finForce(fin, nuR, delta, rho));
     }
-    const prop = propellerForces(cfg.propulsion, y[IDX_SHAFT]!, nuR[0]!, this.commands.rps, rho);
+    const prop = propellerForces(cfg.propulsion, y[IDX_SHAFT]!, nuR[0]!, this.commands.rps, rho, this.systems.electrics.powerLimit);
     tau[0]! += prop.thrust;
     tau[3]! -= prop.torque; // reaction torque on the hull
     if (this.forceOrder.length) {
@@ -455,6 +501,12 @@ export class Simulation {
     ];
   }
 
+  /** Body-frame point of the snorkel head at the present extension. */
+  snorkelHead(): Vec3 {
+    const p = this.cfg.snorkel;
+    return [p.base[0], p.base[1], p.base[2] - p.extension * this.actuators.snorkel];
+  }
+
   /** Body-frame point of the periscope head at the present extension. */
   periscopeHead(): Vec3 {
     const p = this.cfg.periscope;
@@ -482,8 +534,12 @@ export class Simulation {
   }
 
   private refreshMass(): void {
-    this.massProps = computeMassProperties(this.dry, this.tankDefs, this.tanks, (def) =>
-      def.kind === 'mainBallast' ? waterDensity(Math.max(0, this.tankWorldDepths(def).centre), this.water) : this.water.rhoSurface,
+    this.massProps = computeMassProperties(
+      this.dry,
+      this.tankDefs,
+      this.tanks,
+      (def) => (def.kind === 'mainBallast' ? waterDensity(Math.max(0, this.tankWorldDepths(def).centre), this.water) : this.water.rhoSurface),
+      this.systems.flooding.masses(),
     );
     const MRB = rigidBodyMassMatrix(this.massProps);
     this.body = new RigidBody(MRB.plus(this.MA), MRB);
@@ -570,6 +626,8 @@ export class Simulation {
       c.rudder !== a.rudder ||
       c.planes !== a.sternPlanes ||
       c.periscope !== a.periscope ||
+      c.snorkel !== a.snorkel ||
+      c.powerLimit !== this.systems.electrics.powerLimit ||
       c.rps !== this.commands.rps
     ) {
       c = {
@@ -580,6 +638,8 @@ export class Simulation {
         planes: a.sternPlanes,
         periscope: a.periscope,
         rps: this.commands.rps,
+        snorkel: a.snorkel,
+        powerLimit: this.systems.electrics.powerLimit,
         ext: this.externalForces(this.y),
       };
       this.telemetryForces = c;
@@ -621,6 +681,19 @@ export class Simulation {
       periscope: this.actuators.periscope,
       periscopeHeadDepth: this.bodyPointDepth(this.periscopeHead()),
       bridgeDeckDepth: this.bodyPointDepth(this.cfg.bridge.deck),
+      snorkel: this.actuators.snorkel,
+      snorkelHeadDepth: this.bodyPointDepth(this.snorkelHead()),
+      battery: this.systems.electrics.soc,
+      electricalLoad: this.systems.electrics.load,
+      batteryPower: this.systems.electrics.batteryPower,
+      dieselOrdered: this.commands.diesel,
+      dieselRunning: this.systems.electrics.dieselRunning,
+      generatorPower: this.systems.electrics.generator,
+      inductionAir: this.systems.electrics.airAtInduction(),
+      motorPowerLimit: this.systems.electrics.powerLimit,
+      compartments: this.systems.flooding.compartments.map((c) => ({ ...c })),
+      drainPumpRunning: this.systems.flooding.drainRunning,
+      hullCollapsed: this.systems.flooding.collapsed,
       thrust: ext.propThrust,
       shaftPower: 2 * Math.PI * n * ext.propTorque,
       tanks: this.tankDefs.map((def, i) => {

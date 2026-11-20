@@ -124,6 +124,87 @@ export const SUBMARINE = {
     vibrationSpeed: 3.1,
   },
 
+  /**
+   * Snorkel (induction) mast in the sail, beside the periscope. Raised, the
+   * head reaches about as high as the periscope's, so the boat snorkels at
+   * periscope depth. The head valve shuts when a wave covers the head. APPROX.
+   */
+  snorkel: {
+    base: [6.4, 0, -7.7] as Vec3,
+    extension: 7.2,
+    raiseTime: 10,
+    diameter: 0.5,
+    dragCoefficient: 1.0,
+    /** The head valve stays open while the head is at least this far above the local water surface [m]. */
+    headClearance: 0.15,
+    /** The diesels run on the boat's own air for this long when the head valve shuts [s]. */
+    airGrace: 4,
+  },
+
+  /**
+   * Batteries, diesel generators and the electrical load. A 60 m
+   * diesel-electric boat carries ~4–8 MWh in lead-acid cells and two diesel
+   * generators of ~0.5–0.8 MW. APPROX (typical of the class).
+   */
+  electrics: {
+    /** Usable battery energy [J] (6 MWh). APPROX. */
+    batteryCapacity: 6 * 3.6e9,
+    /** Start state of charge (0…1) when nothing else is given: charged in port. */
+    initialCharge: 1,
+    /** Hotel load: lights, ventilation, electronics, galley [W]. APPROX. */
+    hotelLoad: 60e3,
+    /** Motor and converter efficiency, shaft power / electrical power. APPROX. */
+    motorEfficiency: 0.92,
+    /** Two diesel generators together [W]. APPROX. */
+    generatorPower: 1.2e6,
+    /** Generator output ramps up at this rate after a start [W/s]. APPROX. */
+    generatorRamp: 80e3,
+    /**
+     * Charge acceptance of lead-acid cells: full charging current up to this
+     * state of charge, then falling linearly to `acceptAtFull` of it at 100 %. APPROX.
+     */
+    taperFrom: 0.8,
+    acceptAtFull: 0.1,
+    /** Below this state of charge the motor's power falls to what the generators give [0…1]. */
+    lowCharge: 0.02,
+    /** Power of the drain (bilge) pump while it runs [W]. APPROX. */
+    drainPumpPower: 25e3,
+  },
+
+  /**
+   * Flooding and damage. Leaks are holes in a compartment of the pressure
+   * hull: Q = Cd·A·√(2Δp/ρ). The drain pump empties the compartments; the
+   * crew seals the holes over time. APPROX (values chosen for play, of the
+   * right order for a 60 m boat).
+   */
+  damage: {
+    /** Discharge coefficient of a hole. */
+    holeCd: 0.6,
+    /** Drain pump capacity at the surface [m^3/s] (20 l/s), falling linearly to 0 at `drainMaxDepth`. APPROX. */
+    drainRate: 0.02,
+    drainMaxDepth: 250,
+    /** The crew seals a hole with this time constant [s] (damage control). APPROX. */
+    sealTime: 150,
+    /** A hole smaller than this is counted as sealed [m^2]. */
+    sealedArea: 2e-5,
+    /** Grounding faster than this gives a hole [m/s] (~2 knots). */
+    groundingSpeed: 1.0,
+    /** Hole area of a grounding at `groundingSpeed`; it grows with the speed squared [m^2]. APPROX. */
+    groundingHole: 4e-4,
+    /** Hole area of a collision with a ship [m^2]. APPROX. */
+    collisionHole: 1.5e-3,
+    /** Crush depth [m]; below it the hull leaks, more the deeper. */
+    crushDepth: 300,
+    /** Hole growth below crush depth [m^2 per s per m]. APPROX. */
+    crushLeakGrowth: 1e-5,
+    /** The hull collapses at this depth [m]. APPROX (~1.2 × crush depth). */
+    collapseDepth: 360,
+    /** Fraction of a compartment's volume that water can fill (machinery and decks take the rest). APPROX. */
+    floodableFraction: 0.75,
+    /** A compartment flooded beyond this fraction stops what is in it (motor, diesels). */
+    disableFill: 0.3,
+  },
+
   /** The open bridge in the top of the sail. */
   bridge: {
     /** Eye point of the officer of the watch, body frame [m]. */

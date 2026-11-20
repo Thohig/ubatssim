@@ -12,8 +12,8 @@ interface ShipModel {
   lights: THREE.Sprite[];
 }
 
-const HULL = { freighter: 0x5a2420, ferry: 0xf0f0ea, fishing: 0x1f4f7a } as const;
-const TOP = { freighter: 0xe8e4da, ferry: 0x1f5fa8, fishing: 0xf2f2ee } as const;
+const HULL = { freighter: 0x5a2420, ferry: 0xf0f0ea, fishing: 0x1f4f7a, patrol: 0x6b7378 } as const;
+const TOP = { freighter: 0xe8e4da, ferry: 0x1f5fa8, fishing: 0xf2f2ee, patrol: 0x8a9399 } as const;
 
 function glowTexture(): THREE.Texture {
   const c = document.createElement('canvas');
@@ -78,10 +78,10 @@ export class VesselView {
     const hull = new THREE.Mesh(hullGeo, hullMat);
     hull.position.y = (freeboard - d.draft) / 2;
     root.add(hull);
-    // Superstructure aft (freighter), midships (ferry) or forward (fishing boat).
-    const where = d.kind === 'freighter' ? L * 0.35 : d.kind === 'ferry' ? 0 : -L * 0.15;
-    const hTop = d.kind === 'ferry' ? L * 0.12 : L * 0.08;
-    const lTop = d.kind === 'ferry' ? L * 0.7 : L * 0.18;
+    // Superstructure aft (freighter), midships (ferry, corvette) or forward (fishing boat).
+    const where = d.kind === 'freighter' ? L * 0.35 : d.kind === 'ferry' ? 0 : d.kind === 'patrol' ? L * 0.05 : -L * 0.15;
+    const hTop = d.kind === 'ferry' ? L * 0.12 : d.kind === 'patrol' ? L * 0.1 : L * 0.08;
+    const lTop = d.kind === 'ferry' ? L * 0.7 : d.kind === 'patrol' ? L * 0.35 : L * 0.18;
     const top = new THREE.Mesh(new THREE.BoxGeometry(B * 0.85, hTop, lTop), topMat);
     top.position.set(0, freeboard + hTop / 2, where);
     root.add(top);
@@ -93,6 +93,12 @@ export class VesselView {
         h.position.set(0, freeboard + 0.6, -L * 0.35 + k * L * 0.17);
         root.add(h);
       }
+    }
+    if (d.kind === 'patrol') {
+      // A lattice mast with the radar: a slim box on the superstructure.
+      const mast = new THREE.Mesh(new THREE.BoxGeometry(1.2, L * 0.12, 1.2), topMat);
+      mast.position.set(0, freeboard + hTop + L * 0.06, where - lTop * 0.1);
+      root.add(mast);
     }
     const mastTop = freeboard + hTop + Math.max(3, L * 0.06);
     const lights = [

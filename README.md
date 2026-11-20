@@ -1,6 +1,6 @@
 # Ubåtssim
 
-En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus ligger på realistisk simulering av en dieselelektrisk ubåt på cirka 60 m: flytkraft, ballast och tryckluft, trim, hydrodynamik, roder, propeller och grundstötning. Grafiken är medvetet enkel.
+En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus ligger på realistisk simulering av en dieselelektrisk ubåt på cirka 60 m: flytkraft, ballast och tryckluft, trim, hydrodynamik, roder, propeller, batteri och dieslar, läckage, passiv sonar och grundstötning. Grafiken är medvetet enkel.
 
 **Spela:** https://thohig.github.io/ubatssim/
 
@@ -12,6 +12,9 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 - [Vyer](#vyer)
 - [Kommandokonsolen](#kommandokonsolen)
 - [Instrumentpanelen](#instrumentpanelen)
+- [Batteri, diesel och snorkling](#batteri-diesel-och-snorkling)
+- [Läckage och skador](#läckage-och-skador)
+- [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)
 - [Scenarier](#scenarier)
 - [Havsområden och väder](#havsområden-och-väder)
 - [Ljud](#ljud)
@@ -47,12 +50,13 @@ Det finns ett spel och en ubåt. För varje system väljer du om **besättningen
 | **Fart** | Maskinen följer telegrafen. | Du styr propellervarvet (Fart ▾). |
 | **Ballast och brygga** | Dyk / Yta. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (Ballast ▾). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
 | **Trim** | Trimassistenten kompenserar och trimmar. | Du kompenserar och trimmar (Trim ▾). |
-| **Skyddsnät** | På: nödblåsning nära krossdjupet, djupgräns över botten och varning för grunt vatten. | Av. |
+| **Laddning** | Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge, och stoppar dem när batteriet är fullt. | Du startar och stoppar dieslarna (El ▾). Att hissa snorkeln är alltid ditt beslut. |
+| **Skyddsnät** | På: nödblåsning nära krossdjupet och när ubåten tagit in mycket vatten, djupgräns över botten och varning för grunt vatten. | Av. |
 
-- **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾** och **Fart ▾** (på mobil under **System ▾**). Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
-- **Order tar över:** en manuell order tar över systemet den gäller, också i konsolen. `roder sb 10` sätter kursen på Hand, `trimma för 200` avlöser trimassistenten och `fyll hb` ger dig ballasten. Ett djup- eller kursmål och telegrafen lämnar axeln till besättningen igen.
+- **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾**, **Fart ▾** och **El ▾** (på mobil under **System ▾**). Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
+- **Order tar över:** en manuell order tar över systemet den gäller, också i konsolen. `roder sb 10` sätter kursen på Hand, `trimma för 200` avlöser trimassistenten, `fyll hb` ger dig ballasten och `diesel start` laddningen. Ett djup- eller kursmål och telegrafen lämnar axeln till besättningen igen.
 - **Utan ryck:** tar du över djup eller kurs ligger rodren kvar där autopiloten hade dem. Lämnar du tillbaka dem sätts målen till nuvarande djup och kurs.
-- **Instrumentpanelen** följer valen: tar du över kursen visas rodret, trimmet flytkraft och tankar, ballasten HP-luften.
+- **Instrumentpanelen** följer valen: tar du över kursen visas rodret, trimmet flytkraft och tankar, ballasten HP-luften, laddningen dieslarna, snorkeln och elförbrukningen.
 - **Första gången** visas en kort introduktion.
 - **Trimassistenten** ger vanliga order, och varje order kvitteras i loggen, till exempel `Kompensera ut 150 liter, ja`. Den är begränsad av pumparnas kapacitet (5–6 l/s), så den hinner inte rädda allt.
   - **Kompensering:** när ubåten är nedsänkt med full huvudballast och har legat stilla på sitt djup en stund, pumpar assistenten bort flytkraftsöverskottet i portioner om högst 200 l. Små avvikelser (±50 kg) lämnas.
@@ -82,11 +86,12 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Ballast ▾** | Mitten | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
 | **Trim ▾** | Mitten | Flytkraft, stampvinkel, pumparna, kompenserings- och trimtankarna. Kompensera in / ut och trimma för / akter, 100 eller 500 liter. |
 | **Fart ▾** | Mitten | Fart, varvtal och axeleffekt. Fartmålet ±1 knop, varvtalet ±10 rpm och Stopp. |
-| **System ▾** | Mitten (bara mobil) | Öppnar panelen som visades senast. Flikarna Ballast, Trim och Fart byter panel. |
+| **El ▾** | Mitten | Batteriets laddning, elförbrukningen, snorkeln (Upp / Ned), dieslarna (Start / Stopp) och länspumpen, med vattnet i varje avdelning som läcker. |
+| **System ▾** | Mitten (bara mobil) | Öppnar panelen som visades senast. Flikarna Ballast, Trim, Fart och El byter panel. |
 
 En panelknapp eller flik som du sköter själv är gul. Panelens flikar byter mellan de tre panelerna också på dator. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
 
-Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P, Z, B och C. Per och Vy visas när ubåten är grundare än 25 m eller periskopet är uppe. **>_** öppnar konsolen.
+Knapparna Vy, Per, Snork, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P, N, Z, B och C. Per, Snork och Vy visas när ubåten är grundare än 25 m eller en mast är uppe. **Karta** (K) och **Sonar** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)). **>_** öppnar konsolen.
 
 **Logg** (eller L) döljer loggboken och visar den igen. Knappen lyser när loggen visas. Dold loggbok visar bara ett nytt felmeddelande, till exempel en vägrad order, i några sekunder. Loggen förs ändå och finns kvar när du visar den igen. Valet sparas och finns också under Inställningar ("Visa loggboken").
 
@@ -94,9 +99,9 @@ Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P,
 
 På skärmar som är smalare än 760 px eller lägre än 500 px är vyn avskalad, så att 3D-bilden får plats:
 
-- **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen och trim. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
+- **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen (när det är under 300 m), trim, batteriet och, vid en läcka, vattnet som kommit in. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
 - **Loggen** visar bara den senaste raden, ovanför kontrollerna, och tonas ned efter några sekunder (felmeddelanden står kvar längre). Tryck på raden för de senaste raderna.
-- **Vyer ▾** uppe till höger fäller ut Vy, Per, Zoom, Brg, Snitt, Logg och **>_**. Ett val fäller ihop dem igen.
+- **Vyer ▾** uppe till höger fäller ut Vy, Per, Snork, Zoom, Brg, Snitt, Karta, Sonar, Logg och **>_**. Ett val fäller ihop dem igen.
 - **Auto / Hand** är en knapp per axel, panelerna ligger under **System ▾** och telegrafen är ett reglage.
 - **Stående telefon:** djupskalan till vänster, kompassen, Dyk / Håll / System till höger och telegrafen över hela bredden längst ner.
 - **Liggande telefon:** djupet och knapparna under vänster tumme, kompassen och telegrafen under höger, och mitten fri. En panel öppnas i mitten under statusraden.
@@ -121,6 +126,9 @@ Piltangenterna följer Auto / Hand.
 | ← / → i periskopet | Vrid periskopet (Shift + ← / → styr) | Samma |
 | Enter eller / | Öppna kommandokonsolen | Samma |
 | Esc | Lämna konsolen eller en vy, eller pausa | Samma |
+| N | Snorkel upp / ned | Samma |
+| G | Dieslarna start / stopp (tar över laddningen) | Samma |
+| K / H | Sjökortet / sonaren | Samma |
 | M | Ljud av / på | Samma |
 | L | Visa / dölj loggboken | Samma |
 
@@ -179,11 +187,13 @@ Konsolen öppnas med **>_** eller Enter. Den är ett annat sätt att ge order, f
 | `klart bryggan` | | Utrym bryggan inför dykning |
 | `bemanna bryggan` | | Gå upp på bryggan (bara i ytläge) |
 | `periskop upp\|ned` | `per upp` | Hissa eller sänk periskopet |
+| `snorkel upp\|ned` | `snorkla` | Hissa eller sänk snorkeln |
+| `diesel start\|stopp` | `ladda`, `diesel stopp` | Starta eller stoppa dieslarna. De går bara med luft: i ytläge eller med snorkeln uppe. |
 | `bäring <grader>` | `bäring 63` | Rapportera bäringen till något du ser genom periskopet eller från bryggan |
 | `trimma för\|akter <liter>` | `trimma för 200` | Pumpa vatten mellan trimtankarna |
 | `kompensera in\|ut <liter>` | `kompensera ut 300` | Ta in vatten eller pumpa ut det |
 | `autopilot på\|av [djup\|kurs\|fart]` | `autopilot av`, `ap på djup` | Slå på eller av autopilot (samma som Auto / Hand) |
-| `besättning <system>\|allt` | `besättning trim` | Lämna djup, kurs, fart, ballast, trim eller skyddsnät till besättningen |
+| `besättning <system>\|allt` | `besättning trim` | Lämna djup, kurs, fart, ballast, trim, laddning eller skyddsnät till besättningen |
 | `själv <system>\|allt` | `själv ballast`, `själv skyddsnät` | Ta över systemet själv (skyddsnät: stäng av det) |
 | `hjälp` | | Visa listan |
 
@@ -196,8 +206,47 @@ Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 4
 - **Under köl:** ekolodets djup under kölen. Rött under 5 m och vid grundstötning.
 - **Roder och djuproder:** verkligt utslag och kommenderat utslag (orange markering). Rodren rör sig med begränsad hastighet, ~4°/s.
 - **Trim:** Tung, Neutral eller Lätt (±100 kg), och Ytläge när ubåten inte är helt nedsänkt.
-- **Det du sköter själv** visas i huvudpanelen: djuproder och stampvinkel på Hand, roder på Hand, varvtal och effekt för farten, flytkraft och tankar för trimmet, tankar och HP-luft för ballasten.
-- **Under "Mer":** djupändring, fart och kurs över grund, strömmen, varvtal, axeleffekt, nivån i varje tank, ventil- och blåsstatus, HP-luftens tryck och flytkraftsöverskott (+ = lätt, − = tung).
+- **Batteri:** laddningen i procent, "↑ laddas" när dieslarna laddar. Gul under 30 %, röd under 10 %.
+- **Vatten inne:** visas när ubåten läcker, med inflödet i l/s.
+- **Det du sköter själv** visas i huvudpanelen: djuproder och stampvinkel på Hand, roder på Hand, varvtal och effekt för farten, flytkraft och tankar för trimmet, tankar och HP-luft för ballasten, dieslar, snorkel och elförbrukning för laddningen.
+- **Under "Mer":** djupändring, fart och kurs över grund, strömmen, varvtal, axeleffekt, elförbrukning, dieslar, snorkel, vatten inne, nivån i varje tank, ventil- och blåsstatus, HP-luftens tryck och flytkraftsöverskott (+ = lätt, − = tung).
+
+## Batteri, diesel och snorkling
+
+Under vattnet går ubåten på batteriet. Det rymmer 6 MWh och är fulladdat när spelet börjar.
+
+- **Förbrukning:** elmotorn (axeleffekten / 92 %), hotellasten (60 kW: ljus, ventilation, elektronik) och länspumpen. Vid 4 knop räcker batteriet i ungefär två dygn, vid 8 knop i 16 timmar och vid full fart under två timmar.
+- **Tomt batteri:** motorn får bara det dieslarna ger. Utan dieslar stannar propellern.
+- **Laddning:** två dieselgeneratorer ger tillsammans 1,2 MW. De behöver luft: i ytläge, eller på periskopdjup med **snorkeln** uppe (Snork, N eller `snorkel upp`). Snorkelns huvud når över vattnet till ungefär 14 m djup. Sköljer en våg över huvudet stängs ventilen, och dieslarna går några sekunder på luften i båten innan de stannar. Över 80 % tar cellerna emot allt mindre laddning.
+- **Varningar** i loggen vid 30, 15 och 5 % och när batteriet är tomt.
+- **Snorkling syns och hörs:** masten och avgaserna syns långt, och dieslarna är högljudda (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)).
+
+## Läckage och skador
+
+Vatten kan tränga in i tryckskrovets avdelningar genom hål. Inflödet är Q = Cd·A·√(2Δp/ρ), så det växer med djupet.
+
+- **Hål uppstår** vid en hård grundstötning (över ~2 knop: fören, aktern eller kölen efter rörelseriktningen), vid kollision med ett fartyg (manöverrummet under tornet) och under krossdjupet 300 m (maskinrummet, mer ju djupare). På 360 m kollapsar skrovet.
+- **Besättningen tätar** varje hål med en tidskonstant på 150 s, utom under krossdjupet. **Länspumpen** tar 20 l/s vid ytan och allt mindre ju djupare. På 250 m orkar den inte alls. Gå alltså grundare, så tätar besättningen fortare än vattnet kommer in.
+- **Vattnet väger:** det ligger i avdelningens botten och gör ubåten tyngre där. Över 15 ton varnar loggen, och skyddsnätet blåser huvudballasten.
+- **Följder:** ett maskinrum som är vattenfyllt till 30 % stoppar dieslarna, och ett elmotorrum till 30 % stoppar motorn.
+- **Visas** i statusraden (LÄCKA), i instrumentpanelen, i panelen El ▾ och i genomskärningen, och hörs som ett väsande och länspumpens surr.
+
+Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
+
+## Sonar, upptäckt och sjökort
+
+**Sonaren** lyssnar passivt med bogens hydrofoner. Varje fartyg vars ljud når fram över bruset blir en kontakt (S1, S2 …) med bäring. Efter 20 s klassar operatören den efter propellern, till exempel "S1 är troligen ett lastfartyg (4 blad, 120 rpm)". En kontakt som inte hörs på 20 s tappas.
+
+- **Sonarekvationen:** källans ljudnivå minus utbredningsförlusten (sfärisk spridning, absorption och 14 dB för varje skikt mellan källa och mottagare) minus bruset. Bruset kommer från havet och från ubåtens egen fart. Fort är alltså både högljutt och dövt.
+- **Sonarvyn** (Sonar, H) är ett vattenfall: bäringen från fören tvärs över, tiden nedåt, starkare signal ljusare. Under den syns kontakterna, ubåtens egen ljudnivå och risken att bli upptäckt.
+
+**Att bli upptäckt:** en korvett lyssnar med sin skrovsonar och ser med utkik och radar. Den märker ubåten mer ju starkare ubåtens ljud når fram, och när ett periskop (inom 3,5 km), en snorkel (inom 6 km) eller tornet i ytläge (inom 12 km) syns. Annars glömmer den långsamt.
+
+- **Ubåtens ljud** växer med farten (30 log), med kavitation över 6 knop + 1 knop per 10 m djup, och med 24 dB när dieslarna går.
+- **Varning** i loggen när en korvett kan ha hört eller sett något, och ett larm när den har upptäckt ubåten. I scenariot Smyg förbi misslyckas uppdraget då.
+- **Så smyger man:** gå sakta, djupt och under språngskiktet, och håll masterna nere.
+
+**Sjökortet** (Karta, K) har norr uppåt och ubåten i mitten, med fyra skalor (− / +). Det visar djupet ur samma botten som fysiken använder, spåret, bojen (eller en pil mot den), fyrarna, sonarens bäringar som streckade linjer och fartyg i sikte från periskopet eller bryggan.
 
 ## Scenarier
 
@@ -214,8 +263,11 @@ Kommandona tolererar alias (`sb`, `bb`, `hb`, `kn`, `ap`), decimalkomma (`djup 4
 | Saltsprånget | svår | Östersjön: dyk genom saltsprångskiktet till 90 m och kompensera för de tonnen ubåten blir lättare. |
 | Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
 | Fartyget | medel | Ta ut bäringen till ett lastfartyg genom periskopet, utan att bli sedd eller komma i vägen för det. |
+| Snorkling | medel | Atlanten: batteriet är på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda till 30 % utan att bryta ytan. |
+| Smyg förbi | svår | Atlanten: hör en patrullerande korvett på sonaren, gå under språngskiktet och smyg fram till en boj 2,5 km bort utan att bli upptäckt. |
+| Läckan | svår | Atlanten: maskinrummet läcker på 120 m. Gå upp så att länspumpen hinner med, och vänta tills läckan är tätad och rummet länsat. |
 
-Ett scenario misslyckas om ubåten går på grund eller kolliderar med ett fartyg. Ledtrådarna anpassas efter vem som sköter systemet målet gäller. I Trimövning sköter du djupet (Hand) och trimmet själv, och i Nödblåsning finns inget skyddsnät. Allt annat väljer du.
+Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg eller skrovet kollapsar. Ledtrådarna anpassas efter vem som sköter systemet målet gäller. I Trimövning sköter du djupet (Hand) och trimmet själv, och i Nödblåsning finns inget skyddsnät. Allt annat väljer du.
 
 ## Havsområden och väder
 
@@ -226,8 +278,9 @@ Ett scenario misslyckas om ubåten går på grund eller kolliderar med ett farty
 | **Fjorden** | En fjord som går norrut mellan 300 m höga berg. Tröskel på 55 m vid mynningen, 380 m djup bassäng innanför. | Sötare ytskikt (1 012 kg/m³) ovanpå atlantvatten under 9 m. | Ytvattnet strömmar ut, 0,4 m/s söderut i de översta metrarna. |
 | **Atlanten** | Djuphav, ~1 800 m. Ingen botten inom räckhåll. | Salt och kallt (1 027 kg/m³). | Nordatlantiska strömmen, 0,3 m/s mot nordost, ända ner till djupet. |
 
-- **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor och fiskebåtar. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas.
+- **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor och fiskebåtar, och i Östersjön en patrullerande korvett. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas.
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
+- **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet.
 - **Ljus och sikt:** dag, natt eller dimma (sikt ~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
 - **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
 
@@ -238,8 +291,8 @@ Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är
 Allt ljud syntetiseras i webbläsaren och följer simuleringen:
 
 - **Ubåten:** elmotorn och propellern följer varvtalet, strömningsbruset farten och kavitationen hörs vid högt varv nära ytan. Rodren surrar när de rör sig, och skrovet knakar när trycket ändras.
-- **System:** ventilering, vatten som strömmar in, blåsning, pumpar, periskopets motor och lågtrycksblåsaren hörs medan de arbetar.
-- **Larm och signaler:** grundstötning, ekolodets pip när det är mindre än 10 m under kölen, krossdjupet, vatten över bryggan, nödblåsning, klara mål och uppdragets resultat.
+- **System:** ventilering, vatten som strömmar in, blåsning, pumpar, masternas motor, lågtrycksblåsaren och dieslarna hörs medan de arbetar. En läcka väser, och länspumpen surrar.
+- **Larm och signaler:** grundstötning, läckage, ekolodets pip när det är mindre än 10 m under kölen, krossdjupet, vatten över bryggan, nödblåsning, klara mål och uppdragets resultat.
 - **Omgivningen:** vind och vågor efter sjögången, måsar på dagen nära land och mistlur i dimma. Under vattnet låter ljudet utifrån dovt.
 - **Röst:** spelarens order, larm och klara mål kan läsas upp med en svensk röst. Det slås på i inställningarna.
 
@@ -253,7 +306,10 @@ Ljudet startar vid första tryck, eftersom webbläsare kräver det, och är tyst
 - **Ström och vågor:** de hydrodynamiska krafterna räknas mot vattnet, inte mot botten. Vågorna är en summa av sju reguljära vågor, och varje skiva av skrovet räknas mot den lokala vattenytan. I ytläge dämpas hiv och stamp av de vågor skrovet själv strålar ut.
 - **Tankar som data:** två huvudballasttankar, två trimtankar och en kompenseringstank. Massa, tyngdpunkt och tröghet räknas om från tankarnas innehåll varje tidssteg.
 - **Tryckluft:** HP-luften följer Boyles lag. Luften i huvudballasten expanderar när ubåten stiger och trycks ihop när den dyker.
-- **Periskop:** masten hissas på 8 s och ger motstånd i vattnet.
+- **Periskop och snorkel:** masterna hissas på 8 och 10 s och ger motstånd i vattnet.
+- **Batteri och dieslar:** batteriets laddning följer motorns, hotellastens och länspumpens förbrukning och dieselgeneratorernas laddning. Dieslarna behöver luft. Med tomt batteri får motorn bara det generatorerna ger.
+- **Läckage:** vatten genom hål i tryckskrovets avdelningar efter trycket, länspumpen och besättningens tätning. Vattnet är punktmassor i avdelningarna.
+- **Akustik:** sonarekvationen med källnivåer, spridning, absorption, skikten i vattnet och brus. Den styr både sonaren och korvetternas lyssnande.
 - **Hydrodynamik:** medsvängande vattenmassa, linjär och kvadratisk dämpning, tvärströmsmotstånd, roder och djuproder med överstegring, tornets lyftkraft (ubåten krängar in i svängar) och en propeller med axeltröghet.
 - **Grundstötning:** kontaktkrafter med fjäder, dämpare och friktion mot terrängen.
 
@@ -305,7 +361,10 @@ Testerna täcker bland annat:
 - att en neutralt trimmad ubåt håller djupet, att en ubåt med tom huvudballast stiger och att energin inte växer utan drivkraft
 - Boyles lag vid blåsning, toppfart, gir och roderhastighet
 - kommandoparsern, orderkön och kvittona
-- autopiloten (djup 120 m och kurs 270° utan stor översläng), också back: kurs- och djupändring, omslag mellan framåt och back
+- autopiloten (djup 120 m och kurs 270° utan stor översläng, stigning till periskopdjup vid 4 knop utan att bryta ytan), också back: kurs- och djupändring, omslag mellan framåt och back
+- batteriet (förbrukning efter fart, energibalans, tomt batteri), dieslarna och snorkeln (luft, en våg över huvudet, laddning och avtagande laddning nära fullt)
+- läckage (inflöde efter trycket, vattnets massa, länspumpen, tätning, grundstötning, kollision, krossdjup och kollaps)
+- akustiken och sonaren (spridning och skikt, ubåtens ljud, kontakter, bäring och klassning) och att en korvett upptäcker en högljudd ubåt men inte en tyst under skiktet
 - propellern back (svagare dragkraft, varvtalsgräns, kontinuitet genom noll) och att skyddsnätet tittar akterut när ubåten backar
 - besättningen: att besättningen dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att övertagande och lämning sker utan ryck, att en order tar över rätt system, att låsningar vägras och att simuleringen fortfarande är deterministisk
 - att varje scenario går att klara och att det misslyckas när det ska
@@ -318,6 +377,7 @@ Testerna täcker bland annat:
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
 - skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta, panelerna Ballast, Trim och Fart), att tangenterna följer Auto / Hand och att inget scenariotips kräver konsolen eller nämner en panelknapp
 - mobilvyn: telegrafreglaget, Auto / Hand-knappen, System ▾ med flikarna, Vyer ▾, statusraden och loggraden
+- panelen El, sjökortet och sonarvyn, knapparna Karta och Sonar
 - spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom).
 
 ## Projektstruktur
@@ -326,16 +386,17 @@ Testerna täcker bland annat:
 src/
   sim/        Fysiken. Ren TypeScript utan Three.js eller DOM, deterministisk.
     config/   Parametrar för ubåt, vatten, havsområden, sjögång och terräng (SI-enheter, källa per värde).
-    systems/  Ubåtens delsystem: ställdon, huvudballast och tryckluft, pumpar, periskopmast.
-              world/vessel: världen med ubåten och andra farkoster.
+    systems/  Ubåtens delsystem: ställdon, huvudballast och tryckluft, pumpar, master (periskop och snorkel),
+              el (batteri och dieslar) och läckage.
+              world/vessel: världen med ubåten och andra farkoster. acoustics: sonarekvationen.
     math/     Vektorer, matriser (LU), quaternioner.
   control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller, besättningen (crew),
-              trimassistent och skyddsnät, havsområdenas startlägen och fyrar, scenarier.
+              trimassistent och skyddsnät, sonaren och upptäckten, havsområdenas startlägen och fyrar, scenarier.
   render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, terräng, vågor,
-              fyrar, ljus och dimma, kameravyer.
+              fyrar, ljus och dimma, vattnet per område, bubblor, kölvatten, plym och avgaser, kameravyer.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
   ui/         Meny, instrumentpanel, statusrad (mobil), konsol, logg, tangentbord, skärmkontroller (helm) och knappar, inställningar,
-              vyer och deras overlay (kompassband, periskop). HTML byggs med mallar som escapar.
+              vyer och deras overlay (kompassband, periskop), sjökort och sonar. HTML byggs med mallar som escapar.
   game/       Spelsessioner, spelflödet (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
   main.ts     Uppstart.
 tests/        Vitest.

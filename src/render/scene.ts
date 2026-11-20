@@ -10,6 +10,7 @@ import type { WaveComponent } from '../sim/waves';
 import type { VesselDef, VesselState } from '../sim/vessel';
 import { VesselView } from './vessels';
 import { buildSubmarineModel, updateSubmarineModel, type SubmarineModel } from './submarineModel';
+import { createEffects, type EffectsInput } from './effects';
 import { createCutaway, type CutawayState, type CutPlan } from './cutaway';
 
 export interface RenderState {
@@ -20,8 +21,11 @@ export interface RenderState {
   sternPlanes: number;
   /** Accumulated propeller angle [rad]. */
   propellerAngle: number;
-  /** Periscope extension 0…1. */
+  /** Periscope and snorkel extension 0…1. */
   periscope: number;
+  snorkel?: number;
+  /** Bubbles, wake, spray and exhaust (effects.ts); none in the cutaway. */
+  effects?: EffectsInput | null;
   /** Other vessels, in the order given to `setVessels`. */
   vessels: readonly VesselState[];
   /** What the cutaway view shows (only in that view). */
@@ -203,6 +207,9 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     renderer.setSize(container.clientWidth, container.clientHeight);
   });
 
+  const effects = createEffects(scene);
+  let lastEffectsT: number | null = null;
+
   return {
     scene,
     camera,
@@ -254,7 +261,7 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       nedToThree(state.position, subPos);
       model.root.position.copy(subPos);
       rotationToThree(state.rotation, model.root.quaternion);
-      updateSubmarineModel(model, state.rudder, state.sternPlanes, state.propellerAngle, state.periscope, cfg.periscope.extension);
+      updateSubmarineModel(model, state.rudder, state.sternPlanes, state.propellerAngle, state.periscope, cfg.periscope.extension, state.snorkel ?? 0, cfg.snorkel.extension);
       const wantCutaway = view.mode === 'cutaway';
       if (wantCutaway !== cutawayOn) {
         cutawayOn = wantCutaway;
@@ -305,6 +312,9 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
         }
       }
       env.update(state.position, camera, state.t);
+      // Effects run on simulation time: they stand still while the game is paused.
+      effects.update(state.effects ?? null, lastEffectsT === null ? 0 : state.t - lastEffectsT, (x, z) => env.surfaceAt(x, z));
+      lastEffectsT = state.t;
       vesselView.update(state.vessels, (x, z) => env.surfaceAt(x, z));
       renderer.render(scene, camera);
     },

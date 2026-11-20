@@ -12,6 +12,7 @@ import { OrderQueue } from './orderQueue';
 import { acknowledgement, type Order, type OrderKind, type OrderOf, type OrderSource, type TankGroup } from './orders';
 import { LIMITS } from './parser';
 import { TrimAssist } from './trimAssist';
+import { Sonar } from './sonar';
 import { World } from '../sim/world';
 
 const DEG = Math.PI / 180;
@@ -22,6 +23,14 @@ const DIVE_TARGET_DEPTH = 5;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
 const SURFACE_HOLD_DEPTH = 6;
 const KNOT = 1852 / 3600;
+/** The crew starts the diesels below this state of charge and stops them at the second. */
+const CHARGE_START = 0.95;
+const CHARGE_STOP = 0.99;
+/** Battery warnings at these states of charge (the last: empty). */
+const BATTERY_WARNINGS = [0.3, 0.15, 0.05, 0.005] as const;
+/** Water inside the hull [m^3, ~tonnes] that calls for blowing (and the safety net blows). */
+const FLOOD_WARNING = 15;
+const LEAK_CAUSE = { grounding: 'grundstötning', collision: 'kollision', depth: 'under krossdjupet' } as const;
 
 export type LogKind = 'ack' | 'error' | 'info';
 
@@ -67,6 +76,7 @@ interface OrderRule<O extends Order> {
 /** Logged when a manual order takes a system over from the crew. */
 const TAKEN_OVER: Partial<Record<CrewSystem, string>> = {
   ballast: 'Du sköter ballasten och bryggan nu.',
+  charging: 'Du sköter laddningen nu: starta och stoppa dieslarna själv.',
   trim: 'Trimassistenten avlöst. Du sköter trimmet nu.',
 };
 
@@ -74,6 +84,8 @@ export class Controller {
   readonly queue = new OrderQueue();
   readonly autopilot = new Autopilot();
   readonly assist: TrimAssist = new TrimAssist(this);
+  /** The passive sonar, and the patrol vessels looking for the boat. */
+  readonly sonar: Sonar = new Sonar(this);
   readonly log: LogEntry[] = [];
   private listeners: ((e: LogEntry) => void)[] = [];
 
@@ -127,8 +139,8 @@ export class Controller {
    * Controller has the player handling everything (as tests expect); a game
    * starts with `crewTakesAll()`.
    */
-  options: { crew: { ballast: boolean; trim: boolean; safetyNet: boolean }; locks: CrewLocks } = {
-    crew: { ballast: false, trim: false, safetyNet: false },
+  options: { crew: { ballast: boolean; trim: boolean; charging: boolean; safetyNet: boolean }; locks: CrewLocks } = {
+    crew: { ballast: false, trim: false, charging: false, safetyNet: false },
     locks: {},
   };
 
@@ -246,7 +258,16 @@ export class Controller {
     this.rpsCmd += Math.max(-slew, Math.min(slew, target - this.rpsCmd));
     sim.commands.rps = this.rpsCmd;
 
+    // The crew charges whenever the diesels can get air and the battery needs it (with hysteresis).
+    if (this.options.crew.charging) {
+      const soc = sim.systems.electrics.soc;
+      if (soc < CHARGE_START) sim.commands.diesel = true;
+      else if (soc >= CHARGE_STOP) sim.commands.diesel = false;
+    }
+
     this.world.step();
+    this.watchPlant();
+    this.sonar.update();
 
     if (this.shutVentsWhenFull) {
       // Air can stay trapped at the top of a tank at the surface; it vents once the boat is under way down.
@@ -281,6 +302,63 @@ export class Controller {
   }
 
   private grounded = false;
+
+  /** Battery warnings already given (state of charge thresholds), and what the diesels did last step. */
+  private batteryWarned = new Set<number>();
+  private dieselWasRunning = false;
+  private floodWarned = false;
+  /** Log a hint after the next acknowledgement: the diesels were ordered on without air. */
+  private dieselNeedsAir = false;
+
+  /**
+   * Reports what the plant did on its own: the diesels starting and
+   * stopping, the battery running low, leaks, sealing and pumping out. The
+   * safety net blows the main ballast when the boat takes in much water.
+   */
+  private watchPlant(): void {
+    const sim = this.sim;
+    const el = sim.systems.electrics;
+    if (this.dieselNeedsAir) {
+      this.dieselNeedsAir = false;
+      if (!el.dieselRunning) this.addLog('Dieslarna startar när snorkeln är uppe eller ubåten ligger i ytläge.', 'info');
+    }
+    if (el.dieselRunning !== this.dieselWasRunning) {
+      if (el.dieselRunning) this.addLog('Dieslarna går. Batteriet laddas.', 'info');
+      else if (sim.commands.diesel && el.starved > 0) this.addLog('Dieslarna har stannat: luftintaget är under vatten.', 'error');
+      else if (sim.commands.diesel) this.addLog('Dieslarna har stannat: maskinrummet tar in vatten.', 'error');
+      else if (el.soc >= CHARGE_STOP) this.addLog('Batteriet är laddat. Dieslarna stoppade.', 'info');
+      else this.addLog('Dieslarna stoppade.', 'info');
+      this.dieselWasRunning = el.dieselRunning;
+    }
+    for (const level of BATTERY_WARNINGS) {
+      if (el.soc < level && !this.batteryWarned.has(level)) {
+        this.batteryWarned.add(level);
+        const pct = Math.round(level * 100);
+        if (level === 0.005) this.addLog('Batteriet är tomt. Motorn får bara det dieslarna ger.', 'error');
+        else this.addLog(`Batteriet är under ${pct} %. Snorkla eller gå till ytläge och ladda.`, level <= 0.1 ? 'error' : 'info');
+      } else if (el.soc > level + 0.05) this.batteryWarned.delete(level);
+    }
+
+    const fl = sim.systems.flooding;
+    for (const ev of fl.drainEvents()) {
+      const name = fl.compartments.find((x) => x.id === ev.compartment)?.name.toLowerCase() ?? ev.compartment;
+      if (ev.kind === 'leak') this.addLog(`Läckage i ${name}${ev.cause ? ` (${LEAK_CAUSE[ev.cause]})` : ''}! Länspumpen går. Gå grundare, så tätar besättningen fortare än vattnet kommer in.`, 'error');
+      else if (ev.kind === 'sealed') this.addLog(`Läckan i ${name} är tätad.`, 'info');
+      else if (ev.kind === 'pumpedOut') this.addLog(`${name[0]!.toUpperCase()}${name.slice(1)} är länsat.`, 'info');
+      else this.addLog('Skrovet kollapsade!', 'error');
+    }
+    const water = fl.water;
+    if (water > FLOOD_WARNING && !this.floodWarned) {
+      this.floodWarned = true;
+      this.addLog(`Ubåten har tagit in ${Math.round(water)} ton vatten. Blås huvudballasten och gå upp.`, 'error');
+      // The safety net blows for the surface (as a crew would), unless the tanks already blow.
+      if (this.options.crew.safetyNet && !sim.tanks.some((t) => t.blowOpen)) {
+        this.addLog('Assistent: nödblåsning! Ubåten tar in vatten.', 'error', 'assist');
+        this.submit({ kind: 'surface' }, 'assist');
+        if (this.ap.speed && this.setpoints.speed < 8) this.submit({ kind: 'setSpeed', knots: 8 }, 'assist');
+      }
+    } else if (water < FLOOD_WARNING / 2) this.floodWarned = false;
+  }
 
   /**
    * The order registry: for every kind of order, what it does (`apply`),
@@ -456,6 +534,20 @@ export class Controller {
     periscope: {
       apply: (c, o) => {
         c.sim.commands.periscopeUp = o.up;
+      },
+    },
+    snorkel: {
+      apply: (c, o) => {
+        c.sim.commands.snorkelUp = o.up;
+      },
+    },
+    diesel: {
+      effects: () => ({ charging: false }),
+      refuse: (c, o) =>
+        o.on && c.sim.systems.flooding.fill('engine') > c.sim.cfg.damage.disableFill ? 'Maskinrummet är vattenfyllt. Dieslarna kan inte startas.' : null,
+      apply: (c, o) => {
+        c.sim.commands.diesel = o.on;
+        if (o.on && !c.sim.systems.electrics.airAtInduction()) c.dieselNeedsAir = true;
       },
     },
     bridge: {

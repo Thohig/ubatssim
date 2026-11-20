@@ -53,6 +53,11 @@ const ferry = (id: string, name: string, route: [number, number][], length: numb
   id, name, kind: 'ferry', length, beam: length * 0.17, draft: Math.min(6.5, length * 0.045), speed: KNOTS(kn), turnRate: DEG_S(turnDegS),
   route, repeat: 'shuttle', propellerRps: 2.5, blades: 5,
 });
+/** A corvette on patrol: a hull sonar and lookouts (control/sonar.ts). */
+export const corvette = (id: string, name: string, route: [number, number][], kn = 10): VesselDef => ({
+  id, name, kind: 'patrol', length: 72, beam: 10, draft: 3.5, speed: KNOTS(kn), turnRate: DEG_S(2.5),
+  route, repeat: 'shuttle', propellerRps: 4, blades: 5,
+});
 const fishing = (id: string, name: string, route: [number, number][]): VesselDef => ({
   id, name, kind: 'fishing', length: 18, beam: 6, draft: 3, speed: KNOTS(5), turnRate: DEG_S(4),
   route, repeat: 'loop', propellerRps: 6, blades: 3,
@@ -135,7 +140,10 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
       { name: 'Ytterskärs fyr', position: [0, 2980], color: 'white', period: 6, lit: 1 },
       { name: 'Norra prickens fyr', position: [1600, 2630], color: 'green', period: 4, lit: 0.5 },
     ],
-    traffic: [ferry('ostersjo', 'färjan Östersjö', [[3000, -6000], [3000, 1200]], 170, 17)],
+    traffic: [
+      ferry('ostersjo', 'färjan Östersjö', [[3000, -6000], [3000, 1200]], 170, 17),
+      corvette('spejaren', 'korvetten Spejaren', [[-2500, -5000], [-2500, 800]]),
+    ],
   },
   fjord: {
     id: 'fjord',

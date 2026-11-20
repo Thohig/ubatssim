@@ -16,7 +16,8 @@
  *  - Speed (centre): an engine-order telegraph, full astern to full ahead.
  *    On phones it is a lever: tap or drag along it, sent on release.
  *  - Dyk/Yta (follows the main ballast), Håll, and the panels Ballast ▾,
- *    Trim ▾ and Fart ▾ with each system's state and controls. A button in a
+ *    Trim ▾, Fart ▾ and El ▾ (battery, snorkel, diesels, leaks) with each
+ *    system's state and controls. A button in a
  *    panel takes that system over (as the order does); the panel's header
  *    hands it back to the crew. The panel's tabs switch between the three.
  *
@@ -204,9 +205,10 @@ export interface HelmContext {
   waypoint: [number, number] | null;
 }
 
-type Panel = 'ballast' | 'trim' | 'speed';
-const PANEL_SYSTEM: Record<Panel, CrewSystem> = { ballast: 'ballast', trim: 'trim', speed: 'speed' };
-const PANEL_TITLE: Record<Panel, string> = { ballast: 'Ballast', trim: 'Trim', speed: 'Fart' };
+type Panel = 'ballast' | 'trim' | 'speed' | 'power';
+const PANELS: readonly Panel[] = ['ballast', 'trim', 'speed', 'power'];
+const PANEL_SYSTEM: Record<Panel, CrewSystem> = { ballast: 'ballast', trim: 'trim', speed: 'speed', power: 'charging' };
+const PANEL_TITLE: Record<Panel, string> = { ballast: 'Ballast', trim: 'Trim', speed: 'Fart', power: 'El' };
 
 /**
  * Builds the screen controls in `root`. `getCtx` returns null while no game
@@ -426,13 +428,13 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   let open: Panel | null = null;
   /** The panel "System ▾" opens: the one last shown. */
   let lastPanel: Panel = 'ballast';
-  const panelBtns = (['ballast', 'trim', 'speed'] as const).map((p) => {
+  const panelBtns = PANELS.map((p) => {
     const el = tapButton(`${PANEL_TITLE[p]} ▾`, `${PANEL_TITLE[p]}: visa läget och reglagen`, () => toggle(p), 'helm-panel-btn');
     el.setAttribute('aria-expanded', 'false');
     return { p, el };
   });
   // Phones: one button for the three panels (the tabs switch between them).
-  const systemBtn = tapButton('System ▾', 'Ballast, trim och fart: visa läget och reglagen', () => toggle(open ? null : lastPanel), 'helm-system');
+  const systemBtn = tapButton('System ▾', 'Ballast, trim, fart och el: visa läget och reglagen', () => toggle(open ? null : lastPanel), 'helm-system');
   systemBtn.setAttribute('aria-expanded', 'false');
   const actions = h(
     'div',
@@ -442,7 +444,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   );
 
   // ---- Panels.
-  const tabs = (['ballast', 'trim', 'speed'] as const).map((p) => {
+  const tabs = PANELS.map((p) => {
     const el = h('button', { type: 'button', class: 'helm-tab', role: 'tab', 'aria-selected': 'false' }, PANEL_TITLE[p]);
     el.addEventListener('click', () => {
       if (open !== p) toggle(p);
@@ -457,7 +459,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   });
   const closeBtn = h('button', { type: 'button', class: 'helm-panel-close', 'aria-label': 'Stäng' }, '✕');
   closeBtn.addEventListener('click', () => toggle(null));
-  const panels = { ballast: ballastPanel(), trim: trimPanel(), speed: speedPanel() };
+  const panels = { ballast: ballastPanel(), trim: trimPanel(), speed: speedPanel(), power: powerPanel() };
   const panelEl = h(
     'div',
     { class: 'helm-panel panel', hidden: true },
@@ -600,6 +602,68 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
         ] as const) {
           const x = tank(id);
           if (x) lv.set(`${Math.round(x.water * 1000)} l`, x.fill);
+        }
+      },
+    };
+  }
+
+  /** Battery, diesels and snorkel, and the leaks with the drain pump. */
+  function powerPanel() {
+    const battery = level('Batteri');
+    const load = h('span', { class: 'helm-panel-value' });
+    const diesel = h('span', { class: 'helm-panel-value' });
+    const snorkel = h('span', { class: 'helm-panel-value' });
+    const drain = h('span', { class: 'helm-panel-value' });
+    const leaks = h('div', { class: 'helm-leaks' });
+    const el = h(
+      'div',
+      { class: 'helm-panel-body', hidden: true },
+      battery.el,
+      h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Last'), load),
+      h(
+        'div',
+        { class: 'helm-panel-row' },
+        h('span', { class: 'helm-panel-label' }, 'Snorkel'),
+        snorkel,
+        tapButton('Upp', 'Hissa snorkeln', (c) => c.submit({ kind: 'snorkel', up: true }, 'touch')),
+        tapButton('Ned', 'Sänk snorkeln', (c) => c.submit({ kind: 'snorkel', up: false }, 'touch')),
+      ),
+      h(
+        'div',
+        { class: 'helm-panel-row' },
+        h('span', { class: 'helm-panel-label' }, 'Diesel'),
+        diesel,
+        tapButton('Start', 'Starta dieslarna', (c) => c.submit({ kind: 'diesel', on: true }, 'touch')),
+        tapButton('Stopp', 'Stoppa dieslarna', (c) => c.submit({ kind: 'diesel', on: false }, 'touch')),
+      ),
+      h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Läns'), drain),
+      leaks,
+    );
+    const leakRows = new Map<string, ReturnType<typeof level>>();
+    return {
+      el,
+      update(t: Telemetry) {
+        const p = t.batteryPower;
+        battery.set(`${Math.round(t.battery * 100)} %`, t.battery, p < -1000 ? 'LADDAS' : t.battery < 0.15 ? 'LÅGT' : '');
+        setText(load, `${Math.round(t.electricalLoad / 1000)} kW${p < -1000 ? ` · laddar ${Math.round(-p / 1000)} kW` : ''}`);
+        setText(diesel, t.dieselRunning ? `går, ${Math.round(t.generatorPower / 1000)} kW` : t.dieselOrdered ? 'väntar på luft' : 'stopp');
+        setText(
+          snorkel,
+          t.snorkel > 0.99 ? (t.inductionAir ? 'uppe, luft' : 'uppe, ventilen stängd') : t.snorkel < 0.01 ? 'nere' : `${Math.round(t.snorkel * 100)} %`,
+        );
+        const wet = t.compartments.filter((x) => x.water > 0.001 || x.holeArea > 0);
+        setText(drain, wet.length === 0 ? 'torrt, ingen läcka' : t.drainPumpRunning ? 'länspumpen går' : 'länspumpen orkar inte på det här djupet');
+        for (const x of t.compartments) {
+          let row = leakRows.get(x.id);
+          const show = x.water > 0.001 || x.holeArea > 0;
+          if (show && !row) {
+            row = level(x.name);
+            leakRows.set(x.id, row);
+            leaks.append(row.el);
+          }
+          if (!row) continue;
+          row.el.hidden = !show;
+          if (show) row.set(`${fmt(x.water)} m³${x.inflow > 0 ? ` · ${Math.round(x.inflow * 1000)} l/s in` : ''}`, x.water / x.volume, x.holeArea > 0 ? 'LÄCKA' : '');
         }
       },
     };

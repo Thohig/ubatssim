@@ -7,8 +7,10 @@
 import { ENVIRONMENT } from '../sim/config/environment';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
-import { CREW_NAME, CREW_SYSTEMS, type CrewLocks, type CrewSystem } from './crew';
-import { AREA_INFO, freighter, type ConditionsId } from './areas';
+import { CREW_NAME, CREW_SYSTEMS, PERISCOPE_DEPTH, type CrewLocks, type CrewSystem } from './crew';
+
+const PERISCOPE_DEPTH_TEXT = `${PERISCOPE_DEPTH} m`;
+import { AREA_INFO, corvette, freighter, type ConditionsId } from './areas';
 import type { VesselDef } from '../sim/vessel';
 
 const G = ENVIRONMENT.g;
@@ -55,6 +57,8 @@ export interface Scenario {
   conditions?: ConditionsId;
   /** Other vessels in the scenario (default: none; free play has the area's traffic). */
   traffic?: VesselDef[];
+  /** The scenario fails when a patrol vessel finds the boat (sonar.ts). */
+  failWhenDetected?: boolean;
 }
 
 /** Distance [m] and true bearing [deg] from the boat to the scenario waypoint. */
@@ -99,6 +103,9 @@ const ASTERN_START: [number, number] = [0, -3000];
 const ASTERN_BUOY: [number, number] = [-450, -3000];
 /** Most the heading may differ from north in "Back" [deg]. */
 const ASTERN_MAX_YAW = 45;
+/** "Smyg förbi": the corvette shuttles east–west across the way to the buoy. */
+const STEALTH_BUOY: [number, number] = [2500, 0];
+const STEALTH_CORVETTE = corvette('vaktaren', 'korvetten Väktaren', [[1300, -3000], [1300, 3000]]);
 /** The freighter in "Fartyget": northbound west of the boat. */
 const RECCE_SHIP = freighter('skagerack', 'M/S Skagerack', [[-2500, -1500], [6000, -1500]]);
 
@@ -416,6 +423,98 @@ export const SCENARIOS: Scenario[] = [
     ],
     timeLimit: 1500,
   },
+  {
+    id: 'snorkel',
+    title: 'Snorkling',
+    description: 'Batteriet är nere på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda batteriet till 30 % med dieslarna. Bryt inte ytan.',
+    difficulty: 'medel',
+    initial: { area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, battery: 0.25 },
+    objectives: [
+      {
+        text: 'Gå upp på periskopdjup',
+        system: 'depth',
+        hint: 'Styr upp med djuprodret till 13 m och håll djupet där. Håll 4 knop: djuprodren behöver fart.',
+        hintCrew: `Tryck ${PERISCOPE_DEPTH_TEXT} på djupskalan och håll 4 knop (Sakta fram): djuprodren behöver fart.`,
+        check: (t) => t.depth < 15,
+        holdSeconds: 10,
+      },
+      {
+        text: 'Hissa snorkeln',
+        hint: 'Tryck Snork (eller N). Dieslarna behöver luft genom snorkelns huvud.',
+        check: (t) => t.snorkel > 0.99 && t.inductionAir,
+      },
+      {
+        text: 'Ladda batteriet till 30 %',
+        system: 'charging',
+        hint: 'Starta dieslarna i panelen El (eller G). Låg fart ger mer laddning åt batteriet.',
+        hintCrew: 'Maskinisten startar dieslarna när luften kommer in. Låg fart ger mer laddning åt batteriet.',
+        check: (t) => t.battery >= 0.3,
+      },
+      {
+        text: 'Sänk snorkeln',
+        hint: 'Tryck Snork (eller N) igen.',
+        check: (t) => t.snorkel < 0.01,
+      },
+    ],
+    failure: (t) => (t.depth < 8 ? 'Ubåten bröt ytan och upptäcktes.' : t.battery <= 0 ? 'Batteriet tog slut.' : null),
+    timeLimit: 2400,
+  },
+  {
+    id: 'stealth',
+    title: 'Smyg förbi',
+    description: 'En korvett patrullerar fram och tillbaka mellan dig och bojen 2,5 km norrut. Lyssna efter den på sonaren, gå under språngskiktet och smyg fram till bojen utan att bli upptäckt.',
+    difficulty: 'svår',
+    initial: { area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, heading: 0 },
+    waypoint: STEALTH_BUOY,
+    traffic: [STEALTH_CORVETTE],
+    failWhenDetected: true,
+    objectives: [
+      {
+        text: 'Hör korvetten på sonaren',
+        hint: 'Öppna Sonar (eller H) och vänta tills operatören har klassat kontakten som ett örlogsfartyg.',
+        check: (_t, c) => c.sonar.contacts.some((x) => x.vesselId === STEALTH_CORVETTE.id && x.classified !== null),
+      },
+      {
+        text: 'Gå djupare än 150 m, under språngskiktet',
+        system: 'depth',
+        hint: 'Styr ned med djuprodret. Skiktet på 50–150 m böjer av ljudet. Håll 4 knop: tystare.',
+        hintCrew: 'Tryck på djupskalan vid 200 m. Skiktet på 50–150 m böjer av ljudet. Håll 4 knop (Sakta fram): tystare.',
+        check: (t) => t.depth > 150,
+      },
+      {
+        text: 'Nå bojen 2,5 km norrut utan att bli upptäckt',
+        system: 'heading',
+        hint: 'Styr mot den gula pricken på kompassen. Fort är högljutt: håll farten nere.',
+        hintCrew: 'Tryck Mot bojen. Fort är högljutt: håll farten nere.',
+        check: (t) => waypointInfo(t, STEALTH_BUOY).distance < 120,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
+    timeLimit: 2700,
+  },
+  {
+    id: 'leak',
+    title: 'Läckan',
+    description: 'En rörgenomföring i maskinrummet har sprungit läck på 120 m. Gå upp så att länspumpen hinner med, medan besättningen tätar läckan, och länsa maskinrummet. Krossdjupet är 300 m.',
+    difficulty: 'svår',
+    initial: { area: 'atlantic', depth: 120, speed: 4 * KN, neutral: true, leaks: { engine: 2e-3 } },
+    objectives: [
+      {
+        text: 'Gå upp till 40 m eller grundare',
+        system: 'depth',
+        hint: 'Djuproder upp och mer fart. Blås huvudballasten om ubåten blir för tung (panelen Ballast).',
+        hintCrew: 'Tryck på djupskalan vid 30 m och tryck Halv fram. Ju grundare, desto mindre vatten kommer in.',
+        check: (t) => t.depth <= 40,
+      },
+      {
+        text: 'Läckan tätad och maskinrummet länsat',
+        hint: 'Besättningen tätar läckan och länspumpen tömmer rummet. Panelen El visar vattnet. Håll djupet grunt.',
+        check: (t) => t.compartments.every((x) => x.water === 0 && x.holeArea === 0),
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
+    timeLimit: 1500,
+  },
 ];
 
 export type ScenarioStatus = 'running' | 'completed' | 'failed';
@@ -477,6 +576,8 @@ export class ScenarioRunner {
     const fail =
       (t.grounded ? 'Ubåten gick på grund.' : null) ??
       (c.collidedWith ? `Ubåten kolliderade med ${c.collidedWith}.` : null) ??
+      (t.hullCollapsed ? 'Skrovet kollapsade under krossdjupet.' : null) ??
+      (this.scenario.failWhenDetected && c.sonar.detectedBy ? `Ubåten upptäcktes av ${c.sonar.detectedBy}.` : null) ??
       this.scenario.failure?.(t, c) ??
       null;
     if (fail || (this.scenario.timeLimit !== undefined && t.t > this.scenario.timeLimit)) {

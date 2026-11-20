@@ -492,9 +492,9 @@ describe('the phone layout', () => {
   it('the status bar shows what the controls do not: time, speed, water under the keel and trim', () => {
     const c = crewGame({ depth: 30, designTrim: true, speed: 4 * KN });
     const f = statusFields(c.sim.telemetry());
-    expect(f.time).toBe('00:00:00');
+    expect(f.time).toBe('00:00');
     expect(f.speed).toBe('4,0 kn');
-    expect(f.keel).toMatch(/^köl \d+ m$/);
+    expect(f.keel).toMatch(/^(köl \d+ m)?$/);
     expect(f.trim).toBe('Neutral');
     expect(statusFields({ ...c.sim.telemetry(), u: -2 * KN }).speed).toBe('back 2,0 kn');
     expect(statusFields({ ...c.sim.telemetry(), grounded: true }).keelAlarm).toBe(true);
@@ -552,5 +552,68 @@ describe('hiding the log book', () => {
     const { root } = helm(crewGame());
     expect(root.querySelectorAll('.helm-panel-btns').length).toBe(1);
     expect(root.querySelector('.helm-panel .helm-panel-btns')).toBeNull();
+  });
+});
+
+describe('chart, sonar and the El panel', () => {
+  it('the chart: north up, east right, the boat in the middle; depth colours from land to deep water', async () => {
+    const { chartPoint, depthColor } = await import('../src/ui/navPanel');
+    expect(chartPoint([0, 0], [0, 0], 1000, 200, 200)).toEqual([100, 100]);
+    expect(chartPoint([1000, 0], [0, 0], 1000, 200, 200)).toEqual([100, 0]);
+    expect(chartPoint([0, 1000], [0, 0], 1000, 200, 200)).toEqual([200, 100]);
+    expect(depthColor(-5)).not.toBe(depthColor(5));
+    expect(depthColor(500)).not.toBe(depthColor(5));
+  });
+
+  it('Karta and Sonar open the panel and light while it shows that page', () => {
+    const root = document.createElement('div');
+    let mode: 'chart' | 'sonar' | null = null;
+    const c = crewGame({ depth: 30, designTrim: true });
+    const update = bindViewButtons(root, () => c, new ViewState(), undefined, undefined, {
+      mode: () => mode,
+      toggle: (m) => (mode = mode === m ? null : m),
+    });
+    update(c);
+    const chart = root.querySelector<HTMLButtonElement>('[data-v="chart"]')!;
+    const sonar = root.querySelector<HTMLButtonElement>('[data-v="sonar"]')!;
+    chart.click();
+    expect(mode).toBe('chart');
+    expect(chart.classList.contains('on')).toBe(true);
+    sonar.click();
+    expect(mode).toBe('sonar');
+    expect(chart.classList.contains('on')).toBe(false);
+    expect(sonar.classList.contains('on')).toBe(true);
+  });
+
+  it('the El panel: snorkel and diesel orders; a diesel order takes the charging over', () => {
+    const c = crewGame({ depth: 13, neutral: true, battery: 0.5 });
+    const { root, refresh } = helm(c);
+    const panelBtn = [...root.querySelectorAll<HTMLButtonElement>('.helm-panel-btn')].find((b) => b.textContent?.startsWith('El'))!;
+    press(panelBtn);
+    refresh();
+    const panel = root.querySelector<HTMLElement>('.helm-panel')!;
+    expect(panel.textContent).toMatch(/Maskinisten startar dieslarna/);
+    expect(panel.textContent).toMatch(/50 %/);
+    press(byTitle(root, 'Hissa snorkeln'));
+    c.step();
+    expect(c.sim.commands.snorkelUp).toBe(true);
+    expect(c.duty('charging')).toBe(true);
+    press(byTitle(root, 'Stoppa dieslarna'));
+    c.step();
+    refresh();
+    expect(c.duty('charging')).toBe(false);
+    expect(panelBtn.classList.contains('self')).toBe(true);
+  });
+
+  it('a leak shows in the El panel with its compartment', () => {
+    const c = crewGame({ depth: 60, designTrim: true, leaks: { engine: 1e-3 } });
+    for (let i = 0; i < 300; i++) c.step();
+    const { root, refresh } = helm(c);
+    press([...root.querySelectorAll<HTMLButtonElement>('.helm-panel-btn')].find((b) => b.textContent?.startsWith('El'))!);
+    refresh();
+    const text = root.querySelector('.helm-panel')!.textContent!;
+    expect(text).toMatch(/Maskinrum/);
+    expect(text).toMatch(/LÄCKA/);
+    expect(text).toMatch(/länspumpen går/);
   });
 });

@@ -123,3 +123,22 @@ describe('ships', () => {
     expect(soundLevels(input(sub)).shipNoise.gain).toBe(0);
   });
 });
+
+describe('diesels, leaks and the drain pump', () => {
+  it('the diesels throb while they run; a leak hisses and the drain pump hums', () => {
+    const quiet = soundLevels(input(new Simulation({ depth: 40, designTrim: true })));
+    expect(quiet.diesel.gain).toBe(0);
+    expect(quiet.leak).toBe(0);
+    expect(quiet.drainPump).toBe(0);
+    const s = new Simulation({ battery: 0.5 });
+    s.commands.diesel = true;
+    for (let i = 0; i < 1500; i++) s.step();
+    expect(soundLevels(input(s)).diesel.gain).toBeGreaterThan(0.4);
+    const leak = new Simulation({ depth: 60, designTrim: true, leaks: { engine: 1e-3 } });
+    leak.step();
+    const l = soundLevels(input(leak));
+    expect(l.leak).toBeGreaterThan(0.25);
+    expect(l.drainPump).toBeGreaterThan(0);
+    expect(cueFor('Läckage i maskinrum (grundstötning)! Länspumpen går.')).toBe('alarm');
+  });
+});

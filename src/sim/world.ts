@@ -29,7 +29,10 @@ export class World {
   step(dt = DT): void {
     this.sub.step(dt);
     for (const v of this.vessels) v.step(dt);
-    this.collision = this.vessels.find((v) => this.touches(v)) ?? null;
+    const hit = this.vessels.find((v) => this.touches(v)) ?? null;
+    // A new collision holes the hull under the sail (the control room).
+    if (hit && hit !== this.collision) this.sub.systems.flooding.damage('control', this.sub.cfg.damage.collisionHole, 'collision');
+    this.collision = hit;
   }
 
   /** Range and bearing to every vessel, nearest first. */

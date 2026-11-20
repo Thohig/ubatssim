@@ -262,6 +262,12 @@ export function togglePeriscope(ctrl: Controller, source: OrderSource): void {
   ctrl.submit({ kind: 'periscope', up: !ctrl.sim.commands.periscopeUp }, source);
 }
 
+/** The chart and sonar panel (navPanel.ts). */
+export interface NavSwitch {
+  mode(): 'chart' | 'sonar' | null;
+  toggle(mode: 'chart' | 'sonar'): void;
+}
+
 /** Showing and hiding the log book (a setting, kept by the app). */
 export interface LogSwitch {
   shown(): boolean;
@@ -273,27 +279,41 @@ export interface LogSwitch {
  * "Logg", which shows or hides the log book. On phones (style.css) only
  * "Vyer ▾" shows; it folds the others out, and a choice folds them in.
  */
-export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState, openConsole?: () => void, log?: LogSwitch): (ctrl: Controller) => void {
+export function bindViewButtons(
+  root: HTMLElement,
+  getCtrl: () => Controller | null,
+  views: ViewState,
+  openConsole?: () => void,
+  log?: LogSwitch,
+  nav?: NavSwitch,
+): (ctrl: Controller) => void {
   root.innerHTML = `
     <button type="button" data-v="menu" class="views-menu" title="Vyer och konsolen" aria-label="Vyer och konsolen" aria-expanded="false">Vyer ▾</button>
     <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
     <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
+    <button type="button" data-v="snorkel" title="Snorkel upp/ned (N)" aria-label="Snorkel upp eller ned">Snork</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
     <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>
     <button type="button" data-v="cutaway" title="Genomskärning av ubåten (C)" aria-label="Genomskärning av ubåten">Snitt</button>
     <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
     <button type="button" data-v="whole" title="Hela ubåten" aria-label="Visa hela ubåten">Hela</button>
+    <button type="button" data-v="chart" title="Sjökortet (K)" aria-label="Sjökortet">Karta</button>
+    <button type="button" data-v="sonar" title="Sonaren (H)" aria-label="Sonaren">Sonar</button>
     <button type="button" data-v="log" title="Visa eller dölj loggboken (L)" aria-label="Visa eller dölj loggboken" aria-pressed="false">Logg</button>
     <button type="button" data-v="console" class="console-btn" title="Kommandokonsolen (Enter)" aria-label="Öppna kommandokonsolen">&gt;_</button>`;
   const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
+  const snork = root.querySelector<HTMLButtonElement>('[data-v="snorkel"]')!;
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
   const cut = root.querySelector<HTMLButtonElement>('[data-v="cutaway"]')!;
   const plan = root.querySelector<HTMLButtonElement>('[data-v="plan"]')!;
   const whole = root.querySelector<HTMLButtonElement>('[data-v="whole"]')!;
   const logBtn = root.querySelector<HTMLButtonElement>('[data-v="log"]')!;
   logBtn.hidden = !log;
+  const chartBtn = root.querySelector<HTMLButtonElement>('[data-v="chart"]')!;
+  const sonarBtn = root.querySelector<HTMLButtonElement>('[data-v="sonar"]')!;
+  chartBtn.hidden = sonarBtn.hidden = !nav;
   /** Whether the boat is too deep for the periscope and the bridge. */
   let deep = false;
   const sync = () => {
@@ -305,10 +325,13 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     whole.hidden = !inCut;
     plan.textContent = views.cutPlan === 'side' ? 'Ovan' : 'Sida';
     per.hidden = deep;
+    snork.hidden = deep;
     view.hidden = deep && views.mode === 'external';
     const shown = log?.shown() ?? true;
     logBtn.classList.toggle('on', shown);
     logBtn.setAttribute('aria-pressed', String(shown));
+    chartBtn.classList.toggle('on', nav?.mode() === 'chart');
+    sonarBtn.classList.toggle('on', nav?.mode() === 'sonar');
   };
   sync();
   views.onChange(sync);
@@ -335,6 +358,11 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
       sync();
       return;
     }
+    if (b?.dataset.v === 'chart' || b?.dataset.v === 'sonar') {
+      nav?.toggle(b.dataset.v);
+      sync();
+      return;
+    }
     const ctrl = getCtrl();
     if (!b || !ctrl) return;
     if (b.dataset.v === 'cutaway') toggleCutaway(views);
@@ -342,6 +370,7 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     else if (b.dataset.v === 'whole') views.resetCut();
     else if (b.dataset.v === 'view') cycleView(ctrl, views, 'touch');
     else if (b.dataset.v === 'periscope') togglePeriscope(ctrl, 'touch');
+    else if (b.dataset.v === 'snorkel') ctrl.submit({ kind: 'snorkel', up: !ctrl.sim.commands.snorkelUp }, 'touch');
     else if (b.dataset.v === 'bearing') reportViewBearing(ctrl, views, 'touch');
     else views.toggleZoom();
   });
@@ -352,9 +381,10 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
    */
   return (ctrl) => {
     const k = ctrl.sim.kinematics();
-    const next = k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01;
+    const next = k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01 && ctrl.sim.actuators.snorkel < 0.01;
     // The log setting may also change from the settings screen or the L key.
-    if (next !== deep || logBtn.classList.contains('on') !== (log?.shown() ?? true)) {
+    const navChanged = chartBtn.classList.contains('on') !== (nav?.mode() === 'chart') || sonarBtn.classList.contains('on') !== (nav?.mode() === 'sonar');
+    if (next !== deep || navChanged || logBtn.classList.contains('on') !== (log?.shown() ?? true)) {
       deep = next;
       sync();
     }

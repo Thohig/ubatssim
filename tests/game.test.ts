@@ -105,3 +105,27 @@ describe('wiring', () => {
     expect(o.waypointBearing).not.toBeNull();
   });
 });
+
+describe('effects input', () => {
+  it('the main ballast tanks, the propeller, and mast heads only when raised', async () => {
+    const { effectsInput } = await import('../src/game/wiring');
+    const { GameSession } = await import('../src/game/session');
+    const s = new GameSession({ initial: { depth: 13, neutral: true }, scenario: null, intro: '', conditions: 'day', helpHint: '' });
+    let e = effectsInput(s);
+    expect(e.tanks).toHaveLength(2);
+    expect(e.periscopeHead).toBeNull();
+    expect(e.snorkelHead).toBeNull();
+    s.ctrl.submit({ kind: 'snorkel', up: true }, 'keyboard');
+    for (let i = 0; i < 1100; i++) s.step();
+    e = effectsInput(s);
+    expect(e.snorkelHead).not.toBeNull();
+    expect(e.propeller).toEqual(s.sim.cfg.propulsion.position);
+  });
+
+  it('every area has its own water look', async () => {
+    const { WATER_LOOK } = await import('../src/render/environment');
+    const { AREA_IDS } = await import('../src/sim/config/areas');
+    for (const a of AREA_IDS) expect(WATER_LOOK[a]).toBeDefined();
+    expect(WATER_LOOK.baltic.fog).toBeGreaterThan(WATER_LOOK.atlantic.fog);
+  });
+});

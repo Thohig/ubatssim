@@ -9,6 +9,9 @@
  *   ballast   – the crew clears the bridge, dives on a depth target and blows
  *               for the surface; the player floods, blows and shuts the tanks.
  *   trim      – the trim assistant compensates and trims; or the player does.
+ *   charging  – the crew runs the diesels whenever they can get air (surfaced
+ *               or snorkelling) and the battery needs it; or the player
+ *               starts and stops them. Raising the snorkel is always the player's call.
  *   safetyNet – emergency blow near crush depth, depth limit over the sea bed
  *               and the keel warning; or none.
  *
@@ -17,9 +20,9 @@
  * the heading, a trim order the trim), see `Controller.ORDERS`.
  */
 
-export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'safetyNet';
+export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'charging' | 'safetyNet';
 
-export const CREW_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'safetyNet'];
+export const CREW_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'charging', 'safetyNet'];
 
 /** Systems that are an autopilot axis (crew = autopilot on). */
 export const AXES = ['depth', 'heading', 'speed'] as const;
@@ -39,6 +42,7 @@ export const CREW_NAME: Record<CrewSystem, string> = {
   speed: 'Fart',
   ballast: 'Ballast och brygga',
   trim: 'Trim',
+  charging: 'Laddning',
   safetyNet: 'Skyddsnät',
 };
 
@@ -49,7 +53,8 @@ export const CREW_ROLE: Record<CrewSystem, [string, string]> = {
   speed: ['Maskinen följer telegrafen.', 'Du styr propellervarvet.'],
   ballast: ['Besättningen sköter ballasten och bryggan.', 'Du fyller, blåser och stänger huvudballasten och klarar bryggan.'],
   trim: ['Trimassistenten kompenserar och trimmar.', 'Du kompenserar och trimmar.'],
-  safetyNet: ['Nödblåsning, djupgräns över botten och varning för grunt vatten.', 'Inget skyddsnät.'],
+  charging: ['Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge.', 'Du startar och stoppar dieslarna.'],
+  safetyNet: ['Nödblåsning nära krossdjupet och vid läckage, djupgräns över botten och varning för grunt vatten.', 'Inget skyddsnät.'],
 };
 
 /** Why a locked system cannot change: [the crew must handle it, the player must]. */
@@ -59,6 +64,7 @@ export const LOCK_TEXT: Record<CrewSystem, [string, string]> = {
   speed: ['Här följer maskinen telegrafen.', 'Här styr du varvtalet själv.'],
   ballast: ['Här sköter besättningen ballasten.', 'Här sköter du ballasten själv.'],
   trim: ['Här sköter trimassistenten trimmet.', 'Här trimmar du själv.'],
+  charging: ['Här sköter maskinisten laddningen.', 'Här startar och stoppar du dieslarna själv.'],
   safetyNet: ['Här är skyddsnätet alltid på.', 'Här finns inget skyddsnät.'],
 };
 
@@ -69,6 +75,7 @@ export const CREW_NOUN: Record<CrewSystem, string> = {
   speed: 'farten',
   ballast: 'ballasten',
   trim: 'trimmet',
+  charging: 'laddningen',
   safetyNet: 'utan skyddsnät',
 };
 

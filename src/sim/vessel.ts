@@ -5,7 +5,8 @@
  */
 import type { Vec3 } from './math/vec3';
 
-export type VesselKind = 'freighter' | 'ferry' | 'fishing';
+/** 'patrol': a corvette with a hull sonar and lookouts, which can find the submarine (control/sonar.ts). */
+export type VesselKind = 'freighter' | 'ferry' | 'fishing' | 'patrol';
 
 export interface VesselDef {
   id: string;

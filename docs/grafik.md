@@ -47,7 +47,8 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - Utanför nätet når en plan ram ut till horisonten.
   - Ytan är halvgenomskinlig och syns både ovanifrån och underifrån.
 - **Under vattnet:**
-  - Dimma och bakgrundsfärg beror på kamerans djup under den lokala vågytan och blir mörkare och tätare ner till 250 m.
+  - Dimma och bakgrundsfärg beror på kamerans djup under den lokala vågytan. Färgen går mot djupets färg med 1 − e^(−djup/90 m), och dimman tätnar med den.
+  - Varje havsområde har sitt vatten (`WATER_LOOK`): en ton som blandas med ljusets vattenfärg och en extra dimma. Östersjön är grön och grumlig, fjorden grönbrun, Västerhavet blågrönt och Atlanten klar och blå.
   - Svävande partiklar ("havssnö") runt kameran visar rörelsen. De kan stängas av i inställningarna.
 - **Ljus och sikt:** dag, natt och dimma byter himmelsfärg, vattenfärg, ljusens styrka och dimmans täthet. Sikten i luft är ungefär 2 / täthet: ~3 km på dagen och ~200 m i dimma.
 - **Fyrarna:**
@@ -56,6 +57,25 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - Skenet ritas som en glödande sprite utan dimma, så att det syns långt innan land syns på natten.
 - **Bojen** i scenarierna är en gul spirboj med toppmärke.
 - **Fartygen** (`vessels.ts`) är enkla modeller med skrov, överbyggnad och lastluckor. De följer vågytan i höjd och har lanternor i mörker och dimma: topplanterna, babord rött, styrbord grönt och akterlanterna.
+
+## Bubblor, kölvatten, plym och avgaser (`effects.ts`)
+
+Tre partikelsystem (`THREE.Points`) med fasta pooler: bubblor (1 600), stänk (500) och rök (240). De drivs av ett `EffectsInput` som `src/game/wiring.ts` bygger varje bild ur simuleringen, utan kraftberäkning. Effekterna går på simuleringstid och står still i paus. Slumptal är tillåtna här, eftersom grafiken inte påverkar simuleringen.
+
+- **Huvudballasten:** luft bubblar upp ur ventilerna ovanpå en tank som fylls, eller sprutar upp i ytläge. En tank som blåses torr läcker luft ur bottenluckorna.
+- **Kölvattnet:** bubblor blir kvar efter propellern, fler vid högt varvtal och nära ytan.
+- **Masterna:** ett periskop eller en snorkel som skär genom ytan i fart kastar upp en plym av stänk. Snorkeln ryker när dieslarna går.
+- **Bubblorna** försvinner vid ytan, stänket när det faller tillbaka och röken när den har levt ut.
+
+Snorkelmasten ritas i ubåtsmodellen som periskopet, med ett lådformat huvud med ventilen.
+
+## Sjökortet och sonaren (`src/ui/navPanel.ts`)
+
+En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden medan den är öppen. Storleken hålls av en `ResizeObserver`.
+
+- **Sjökortet:** norr uppåt och ubåten i mitten, med fyra skalor (750 m, 2, 5 och 12 km till kanten). Djupet ritas från samma botten som fysiken använder (`sim.ground`), 72 × 72 prov i en bild som byggs om när ubåten flyttat en tiondel av skalan. Ovanpå ritas spåret (en punkt per 25 m), fyrarna, bojen eller en pil mot den vid kanten, sonarens bäringar som streckade linjer och fartyg i sikte från periskopet eller bryggan (inom 8 km).
+- **Sonaren:** ett vattenfall med bäringen från fören (−180…180°) tvärs över och en rad per sekund nedåt, 180 s historik. Ljusare för starkare signal. Under det står kontakterna, ubåtens ljudnivå och risken att bli upptäckt.
+- **På mobil** ligger panelen under statusraden, och målrutan och loggraden döljs medan den är öppen.
 
 ## Kameran och vyerna (`scene.ts`, `src/ui/views.ts`)
 

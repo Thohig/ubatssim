@@ -170,21 +170,41 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
     };
   },
   air: (c) => level('HP-luft (bar)', (t) => f(t.airPressure / 1e5), (t) => t.airPressure / c.sim.cfg.air.bottlePressure),
+  battery: (c) =>
+    row('Batteri (%)', (t) => f(t.battery * 100), c, {
+      setpoint: () => {
+        const t = c.sim.telemetry();
+        return t.batteryPower < -1000 ? '↑ laddas' : '';
+      },
+      classes: (t) => ({ alarm: t.battery < 0.1, 'trim-heavy': t.battery >= 0.1 && t.battery < 0.3 }),
+    }),
+  load: (c) => row('Elförbrukning (kW)', (t) => f(t.electricalLoad / 1000), c),
+  diesel: (c) =>
+    row('Diesel', (t) => (t.dieselRunning ? `går, ${f(t.generatorPower / 1000)} kW` : t.dieselOrdered ? 'väntar på luft' : 'stopp'), c),
+  snorkel: (c) => row('Snorkel', (t) => (t.snorkel > 0.99 ? (t.inductionAir ? 'uppe, luft' : 'uppe, stängd') : t.snorkel < 0.01 ? 'nere' : `${f(t.snorkel * 100)} %`), c),
+  flood: (c) =>
+    row('Vatten inne (m³)', (t) => {
+      const water = t.compartments.reduce((s, x) => s + x.water, 0);
+      const inflow = t.compartments.reduce((s, x) => s + x.inflow, 0);
+      return `${f(water, 1)}${inflow > 0 ? ` +${f(inflow * 1000)} l/s` : ''}`;
+    }, c, { classes: (t) => ({ alarm: t.compartments.some((x) => x.holeArea > 0 || x.water > 0.5) }) }),
   net: (c) => row('Flytkraftsöverskott (kg)', (t) => signed(t.netBuoyancy / 9.80665, 0), c),
 };
 
 /** Every instrument under "Mer", in order (those in the main panel are left out there). */
-const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'net', 'tanks', 'air'];
+const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'load', 'diesel', 'snorkel', 'flood', 'sep', 'net', 'tanks', 'air'];
 
 /**
  * The panel for who handles what: the main panel leads with depth, speed,
  * course, the water under the keel and the trim; what the player takes over
  * joins it (planes and pitch for the depth, the rudder for the course, the
  * shaft for the speed, buoyancy and tanks for the trim, tanks and HP air for
- * the ballast). Everything else is under "Mer".
+ * the ballast, the diesels and the load for the charging). Water inside the
+ * hull joins it while there is any (`flooded`). Everything else is under "Mer".
  */
-export function instrumentLayout(d: CrewDuties): { main: string[]; more: string[] } {
-  const main = ['time', 'sep', 'depth', 'speed', 'heading', 'keel', 'trim'];
+export function instrumentLayout(d: CrewDuties, flooded = false): { main: string[]; more: string[] } {
+  const main = ['time', 'sep', 'depth', 'speed', 'heading', 'keel', 'trim', 'battery'];
+  if (flooded) main.push('flood');
   const extra: string[] = [];
   if (!d.depth) extra.push('pitch', 'planes');
   if (!d.heading) extra.push('rudder');
@@ -192,6 +212,7 @@ export function instrumentLayout(d: CrewDuties): { main: string[]; more: string[
   if (!d.trim) extra.push('net');
   if (!d.trim || !d.ballast) extra.push('tanks');
   if (!d.ballast) extra.push('air');
+  if (!d.charging) extra.push('diesel', 'snorkel', 'load');
   if (extra.length) main.push('sep', ...extra);
   main.push('sep');
   const more = ALL_MORE.filter((id) => id === 'sep' || !main.includes(id));
@@ -201,11 +222,11 @@ export function instrumentLayout(d: CrewDuties): { main: string[]; more: string[
 }
 
 /** A key that changes when the layout does (rebuild the panel then). */
-export const layoutKey = (d: CrewDuties): string => instrumentLayout(d).main.join(',');
+export const layoutKey = (d: CrewDuties, flooded = false): string => instrumentLayout(d, flooded).main.join(',');
 
 /** Builds the panel for who handles what now (create it again when that changes) and returns its update function. */
-export function createInstruments(el: HTMLElement, ctrl: Controller): (t: Telemetry) => void {
-  const layout = instrumentLayout(ctrl.duties());
+export function createInstruments(el: HTMLElement, ctrl: Controller, flooded = false): (t: Telemetry) => void {
+  const layout = instrumentLayout(ctrl.duties(), flooded);
   const make = (id: string) => INSTRUMENTS[id]!(ctrl);
   const main = layout.main.map(make);
   const more = layout.more.map(make);

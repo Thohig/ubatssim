@@ -163,16 +163,17 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Fart</b>: telegrafen ger maskinen ett fartmål. I panelen <b>Fart</b> styr du propellervarvet själv.</li>
           <li><b>Ballast och brygga</b>: Dyk / Yta låter besättningen sköta det. I panelen <b>Ballast</b> fyller, blåser och stänger du huvudballasten och klarar bryggan själv.</li>
           <li><b>Trim</b>: trimassistenten kompenserar och trimmar. I panelen <b>Trim</b> gör du det själv.</li>
-          <li><b>Skyddsnät</b>: nödblåsning nära krossdjupet, djupgräns över botten och varning för grunt vatten. Slås av under ☰ → Besättning.</li>
+          <li><b>Laddning</b>: maskinisten startar dieslarna när snorkeln är uppe eller ubåten ligger i ytläge. I panelen <b>El</b> startar och stoppar du dem själv. Snorkeln hissar alltid du.</li>
+          <li><b>Skyddsnät</b>: nödblåsning nära krossdjupet och när ubåten tagit in mycket vatten, djupgräns över botten och varning för grunt vatten. Slås av under ☰ → Besättning.</li>
         </ul>
-        <p>Panelerna öppnas med <b>Ballast ▾</b>, <b>Trim ▾</b> och <b>Fart ▾</b>, på mobil med <b>System ▾</b>. Flikarna överst byter panel. Trycker du på en knapp i en panel tar du över systemet. Panelens övre knapp lämnar det till besättningen. ☰ → Besättning visar alla på ett ställe. Vissa scenarier låser något, till exempel Trimövning.</p>
+        <p>Panelerna öppnas med <b>Ballast ▾</b>, <b>Trim ▾</b>, <b>Fart ▾</b> och <b>El ▾</b>, på mobil med <b>System ▾</b>. Flikarna överst byter panel. Trycker du på en knapp i en panel tar du över systemet. Panelens övre knapp lämnar det till besättningen. ☰ → Besättning visar alla på ett ställe. Vissa scenarier låser något, till exempel Trimövning.</p>
         <h3>Kontrollerna</h3>
         <ul>
           <li><b>Djupskalan</b> (vänster, Auto) visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och <b>13 m</b> går till periskopdjup. På Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
           <li><b>Kompassen</b> (höger, Auto) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. På Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2 och 4 knop back, 4 och 8 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup på Auto.</li>
-          <li><b>Per</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller periskopet är uppe. <b>&gt;_</b> öppnar konsolen. På mobil ligger de under <b>Vyer ▾</b>.</li>
+          <li><b>Per</b>, <b>Snork</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller en mast är uppe. <b>Karta</b> och <b>Sonar</b> öppnar sjökortet och sonaren. <b>&gt;_</b> öppnar konsolen. På mobil ligger de under <b>Vyer ▾</b>.</li>
           <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen. Loggen visar den senaste raden. Tryck på den för fler.</li>
         </ul>
         <h3>Tangentbord</h3>
@@ -191,6 +192,9 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
           <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
           <tr><td>Esc</td><td colspan="2">Lämna konsolen eller en vy, eller pausa</td></tr>
+          <tr><td>N</td><td colspan="2">Snorkel upp / ned</td></tr>
+          <tr><td>G</td><td colspan="2">Dieslarna start / stopp (du tar över laddningen)</td></tr>
+          <tr><td>K / H</td><td colspan="2">Sjökortet / sonaren</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
           <tr><td>L</td><td colspan="2">Visa / dölj loggboken (knappen Logg). Dold visar den bara fel en kort stund.</td></tr>
         </table>
@@ -199,6 +203,13 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
         <p><b>Genomskärningen</b> (Snitt eller C) visar ubåten uppskuren med alla avdelningar, tankarna med vattnet, pumparna och maskinerna. Dra för att vrida, scrolla eller nyp för att zooma, och tryck på ett rum eller en tank för att se vad som finns där. Ovan byter till snittet ovanifrån och Hela visar hela ubåten.</p>
         <p>Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger (på mobil under Vyer ▾) gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+        <h3>Batteri och snorkling</h3>
+        <p>Under vattnet går ubåten på batteriet (6 MWh). Vid 4 knop räcker det i ungefär två dygn, vid full fart under två timmar. Dieslarna laddar det, men de behöver luft: i ytläge, eller på periskopdjup med snorkeln uppe (Snork eller N). Sköljer en våg över snorkelns huvud stannar de efter några sekunder. Med tomt batteri får motorn bara det dieslarna ger.</p>
+        <h3>Läckage</h3>
+        <p>En hård grundstötning, en kollision eller ett djup under krossdjupet (300 m) ger en läcka i en avdelning. Vattnet strömmar in fortare ju djupare ubåten är. Besättningen tätar hålet och länspumpen länsar, men pumpen orkar mindre på djupet. Gå alltså grundare. Statusraden och panelen El visar vattnet. På 360 m kollapsar skrovet.</p>
+        <h3>Sonar och sjökort</h3>
+        <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, bojen, fyrarna och sonarens bäringar.</p>
+        <p>En <b>korvett</b> lyssnar efter ubåten och spanar efter master. Den hör dig bättre ju fortare du går (och när propellern kaviterar) och om dieslarna går, och den ser periskopet, snorkeln och tornet. Språngskiktet mellan er dämpar ljudet. Gå sakta, djupt och med masterna nere.</p>
         <h3>Ljud</h3>
         <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar.</p>
         <h3>Havsområden och väder</h3>

@@ -20,8 +20,10 @@ export function computeMassProperties(
   defs: readonly TankDef[],
   states: readonly TankState[],
   waterDensityOf: (def: TankDef) => number,
+  /** Other point masses, e.g. water in flooded compartments. */
+  extra: readonly { m: number; r: Vec3 }[] = [],
 ): MassProperties {
-  const items: { m: number; r: Vec3 }[] = [{ m: dry.mass, r: dry.cg }];
+  const items: { m: number; r: Vec3 }[] = [{ m: dry.mass, r: dry.cg }, ...extra];
   defs.forEach((def, i) => {
     const s = states[i]!;
     if (s.water > 0) items.push({ m: s.water * waterDensityOf(def), r: waterCentroid(def, s.water) });

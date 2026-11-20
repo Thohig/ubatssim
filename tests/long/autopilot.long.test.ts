@@ -130,3 +130,19 @@ describe('speed autopilot at the shaft limit', () => {
     expect(t.u / KN).toBeLessThan(-6.6);
   });
 });
+
+describe('climb to periscope depth', () => {
+  it('from 40 m at 4 knots overshoots less than 3 m (the sail stays under)', () => {
+    const c = new Controller(new Simulation({ area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true }));
+    c.crewTakesAll();
+    c.submit({ kind: 'setDepth', depth: 13 }, 'keyboard');
+    c.submit({ kind: 'setSpeed', knots: 4 }, 'keyboard');
+    let shallowest = Infinity;
+    for (let i = 0; i < 600 * 100; i++) {
+      c.step();
+      shallowest = Math.min(shallowest, c.sim.y[2]!);
+    }
+    expect(shallowest).toBeGreaterThan(10);
+    expect(Math.abs(c.sim.y[2]! - 13)).toBeLessThan(1.5);
+  });
+});

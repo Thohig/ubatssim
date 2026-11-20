@@ -19,7 +19,7 @@ const cases: [string, InitialConditions][] = [
 it('fysikens tid per tidssteg', () => {
 for (const [name, init] of cases) {
   const c = new Controller(new Simulation(init));
-  c.setMode('simplified');
+  c.crewTakesAll();
   c.submit({ kind: 'setSpeed', knots: 6 }, 'console');
   for (let i = 0; i < 500; i++) c.step(); // warm up the JIT and the terrain cache
   const n = 3000;

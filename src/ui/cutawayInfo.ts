@@ -32,15 +32,31 @@ export function cutawayInfo(cfg: SubmarineConfig, id: string, t: Telemetry, extr
   } else if (space.kind === 'compartment') {
     // Sea pressure on the pressure hull: about 1 bar per 10 m.
     lines.push(`Tryck på skrovet: ${f(1 + Math.max(0, t.depth) * 0.1, 1)} bar (${f(t.depth)} m djup).`);
+    const flood = t.compartments.find((c) => c.id === id);
+    if (flood && flood.holeArea > 0) lines.push(`Läckage: ${f(flood.inflow * 1000)} l/s strömmar in. Besättningen tätar.`);
+    if (flood && flood.water > 0.001) lines.push(`Vatten i rummet: ${f(flood.water, 1)} m³ (${f((flood.water / flood.volume) * 100)} %).${t.drainPumpRunning ? ' Länspumpen går.' : ''}`);
     if (id === 'control') {
       lines.push(`HP-luft: ${f(t.airPressure / 1e5)} bar.`);
       if (t.trimRemaining !== 0 || t.compRemaining !== 0) lines.push('Pumparna går.');
     }
-    if (id === 'living') lines.push('Batteriets laddning simuleras inte ännu.');
-    if (id === 'engine') lines.push('Dieselmotorerna och snorklingen simuleras inte ännu.');
+    if (id === 'living') {
+      const p = t.batteryPower;
+      lines.push(`Batteriet: ${f(t.battery * 100)} %, ${p < -1000 ? `laddas med ${f(-p / 1000)} kW` : `${f(p / 1000)} kW ut`}.`);
+    }
+    if (id === 'engine') {
+      lines.push(
+        t.dieselRunning
+          ? `Dieslarna går: ${f(t.generatorPower / 1000)} kW till batteriet och motorn.`
+          : t.dieselOrdered
+            ? 'Dieslarna väntar på luft: hissa snorkeln eller gå till ytläge.'
+            : 'Dieslarna står still.',
+      );
+      lines.push(`Snorkeln: ${t.snorkel > 0.99 ? (t.inductionAir ? 'uppe, luft kommer in' : 'uppe, huvudventilen stängd') : t.snorkel < 0.01 ? 'nere' : `${f(t.snorkel * 100)} % uppe`}.`);
+    }
     if (id === 'motor') lines.push(`Huvudmotorn: ${f(t.rps * 60)} rpm, ${f(t.shaftPower / 1000)} kW.`);
   } else if (id === 'sail') {
     lines.push(`Periskopet: ${t.periscope > 0.99 ? 'uppe' : t.periscope < 0.01 ? 'nere' : `${f(t.periscope * 100)} % uppe`}.`);
+    lines.push(`Snorkeln: ${t.snorkel > 0.99 ? 'uppe' : t.snorkel < 0.01 ? 'nere' : `${f(t.snorkel * 100)} % uppe`}.`);
     lines.push(`Bryggan: ${extra.bridgeManned ? 'bemannad' : 'utrymd'}.`);
   } else if (id === 'aftPeak') {
     lines.push(`Roder: ${f(t.rudder * DEG, 1)}°, djuproder: ${f(t.sternPlanes * DEG, 1)}°.`);

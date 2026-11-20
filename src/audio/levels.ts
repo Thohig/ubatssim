@@ -42,6 +42,11 @@ export interface SoundLevels {
   pump: number;
   periscopeMotor: number;
   blower: number;
+  /** Diesel generators: a heavy throb at the firing rate [Hz]. */
+  diesel: { gain: number; firing: number };
+  /** Water spraying in through a leak, and the drain pump. */
+  leak: number;
+  drainPump: number;
   /** Hull creaks per second (pressure changing). */
   creakRate: number;
   /** Echo sounder pings per second (0 = silent). */
@@ -97,7 +102,14 @@ export function soundLevels(a: AudioInput): SoundLevels {
   const blow = blowing ? 0.4 + 0.5 * clamp01(t.airPressure / 25e6) : 0;
 
   const pump = t.trimRemaining !== 0 || t.compRemaining !== 0 ? 0.2 : 0;
-  const periscopeMotor = t.periscope > 0.001 && t.periscope < 0.999 ? 0.25 : 0;
+  const masts = (x: number) => x > 0.001 && x < 0.999;
+  const periscopeMotor = masts(t.periscope) || masts(t.snorkel) ? 0.25 : 0;
+  // Two diesels at ~1 000 rpm: the throb at the firing rate, louder at full load.
+  const dieselLoad = clamp01(t.generatorPower / 1.2e6);
+  const diesel = { gain: t.dieselRunning ? 0.25 + 0.35 * dieselLoad : 0, firing: 33 + 17 * dieselLoad };
+  const inflow = t.compartments.reduce((s, x) => s + x.inflow, 0);
+  const leak = inflow > 0 ? 0.25 + 0.5 * clamp01(inflow / 0.05) : 0;
+  const drainPump = t.drainPumpRunning ? 0.2 : 0;
   const blower = a.lpBlower ? 0.15 : 0;
 
   // Creaks follow the change of pressure: faster depth changes and deeper water.
@@ -128,6 +140,9 @@ export function soundLevels(a: AudioInput): SoundLevels {
     pump,
     periscopeMotor,
     blower,
+    diesel,
+    leak,
+    drainPump,
     creakRate,
     pingRate,
     wind,

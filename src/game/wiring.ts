@@ -3,6 +3,10 @@
  * the session and the view state, so they can be tested without a browser.
  */
 import type { AudioInput } from '../audio/levels';
+import type { EffectsInput } from '../render/effects';
+import { quatToMat3 } from '../sim/math/quat';
+import { getQuat } from '../sim/rigidBody';
+import { IDX_SHAFT } from '../sim/simulation';
 import type { World } from '../sim/world';
 import type { ViewMode } from '../ui/views';
 import type { GameSession } from './session';
@@ -26,6 +30,29 @@ export function audioInput(s: GameSession, view: ViewMode, cameraUnderwater: boo
     seaHs: sim.sea.hs,
     coastal: sim.areaId !== 'atlantic',
     ship: nearestShip(s.ctrl.world),
+  };
+}
+
+/** What the particle effects need from the boat, every frame (cheap: no force evaluation). */
+export function effectsInput(s: GameSession): EffectsInput {
+  const sim = s.sim;
+  const a = sim.actuators;
+  return {
+    t: sim.t,
+    position: [sim.y[0]!, sim.y[1]!, sim.y[2]!],
+    rotation: quatToMat3(getQuat(sim.y)),
+    speed: sim.kinematics().u,
+    rps: sim.y[IDX_SHAFT]!,
+    propeller: sim.cfg.propulsion.position,
+    tanks: sim.tankDefs.flatMap((d, i) => {
+      if (d.kind !== 'mainBallast') return [];
+      const st = sim.tanks[i]!;
+      const radius = d.shape.type === 'cylinder' ? d.shape.radius : d.shape.size[2] / 2;
+      return [{ position: d.position, radius, vent: st.ventOpen, blow: st.blowOpen, fill: st.water / d.volume }];
+    }),
+    periscopeHead: a.periscope > 0.5 ? sim.periscopeHead() : null,
+    snorkelHead: a.snorkel > 0.5 ? sim.snorkelHead() : null,
+    dieselRunning: sim.systems.electrics.dieselRunning,
   };
 }
 

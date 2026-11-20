@@ -26,6 +26,8 @@ export interface SubmarineModel {
   /** Telescopic periscope mast and head; follow the mast extension. */
   periscopeMast: THREE.Mesh;
   periscopeHead: THREE.Mesh;
+  snorkelMast: THREE.Mesh;
+  snorkelHead: THREE.Mesh;
   /** Tank meshes by id, for showing fill levels later. */
   tankMeshes: Map<string, THREE.Mesh>;
 }
@@ -176,6 +178,16 @@ export function buildSubmarineModel(cfg: SubmarineConfig): SubmarineModel {
   const periscopeHead = new THREE.Mesh(new THREE.CylinderGeometry(per.diameter * 0.7, per.diameter * 0.7, 0.9, 12), materials.sail);
   periscopeHead.visible = false;
   appendages.add(periscopeMast, periscopeHead);
+  // Snorkel: a thicker mast beside the periscope with the head valve on top.
+  const sn = cfg.snorkel;
+  const snorkelGeo = new THREE.CylinderGeometry(sn.diameter / 2, sn.diameter / 2, 1, 12);
+  snorkelGeo.translate(0, 0.5, 0);
+  const snorkelMast = new THREE.Mesh(snorkelGeo, materials.fins);
+  snorkelMast.position.copy(bodyToLocal(sn.base));
+  snorkelMast.visible = false;
+  const snorkelHead = new THREE.Mesh(new THREE.BoxGeometry(sn.diameter * 1.3, 0.7, sn.diameter * 2.2), materials.sail);
+  snorkelHead.visible = false;
+  appendages.add(snorkelMast, snorkelHead);
   root.add(appendages);
 
   return {
@@ -187,6 +199,8 @@ export function buildSubmarineModel(cfg: SubmarineConfig): SubmarineModel {
     propeller,
     periscopeMast,
     periscopeHead,
+    snorkelMast,
+    snorkelHead,
     tankMeshes,
   };
 }
@@ -203,7 +217,15 @@ export function updateSubmarineModel(
   propellerAngle: number,
   periscope = 0,
   periscopeExtension = 7.5,
+  snorkel = 0,
+  snorkelExtension = 7.2,
 ): void {
+  const s = snorkel * snorkelExtension;
+  m.snorkelMast.visible = s > 0.05;
+  m.snorkelHead.visible = s > 0.05;
+  m.snorkelMast.scale.y = Math.max(0.01, s);
+  m.snorkelHead.position.copy(m.snorkelMast.position);
+  m.snorkelHead.position.y += s - 0.35;
   const h = periscope * periscopeExtension;
   m.periscopeMast.visible = h > 0.05;
   m.periscopeHead.visible = h > 0.05;

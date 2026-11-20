@@ -26,6 +26,18 @@ En bild får ta 16,7 ms vid 60 bilder per sekund. Fördelningen på en mellankla
 | Ytläge, grov sjö | 249 µs/steg | 152 µs/steg |
 | 100 m, 8 knop | 110 µs/steg | 113 µs/steg |
 
+Batteriet, dieslarna, läckaget, snorkelmasten och sonaren (en gång per sekund) kostar nästan inget. Elsystemet räknar propellerns moment en gång per steg, och läckaget lägger vattnet som punktmassor i massberäkningen. Mätt med `npm run bench` före och efter:
+
+| Läge | Före | Efter |
+|---|---|---|
+| Ytläge, lugnt | 138 µs/steg | 133 µs/steg |
+| Ytläge, grov sjö | 156 µs/steg | 173 µs/steg |
+| Periskopdjup, måttlig sjö | 136 µs/steg | 132 µs/steg |
+| 100 m, 8 knop | 119 µs/steg | 114 µs/steg |
+| Fjorden, 30 m | 100 µs/steg | 83 µs/steg |
+
+Skillnaderna ligger inom mätbruset. Partikeleffekterna (`render/effects.ts`) flyttar högst ~2 300 punkter per bild.
+
 | Skärmkontroller (4× strypt processor, per uppdatering var 100:e ms) | Före | Efter |
 |---|---|---|
 | Djupskala och kompassband | 1,9 ms | 0,27 ms |

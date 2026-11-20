@@ -45,11 +45,13 @@ export const HELP_TEXT = [
   'klart bryggan            – utrym bryggan före dykning',
   'bemanna bryggan          – gå upp på bryggan (i ytläge)',
   'periskop upp|ned',
+  'snorkel upp|ned          – hissa eller sänk snorkeln (dieslarna får luft på periskopdjup)',
+  'diesel start|stopp       – starta eller stoppa dieslarna och ladda batteriet, t.ex. "ladda"',
   'bäring <grader>          – rapportera bäringen till något du ser',
   'trimma för|akter <liter> – pumpa mellan trimtankarna',
   'kompensera in|ut <liter> – ta in eller pumpa ut vatten',
   'autopilot på|av [djup|kurs|fart]',
-  'besättning <system>|allt   – lämna djup, kurs, fart, ballast, trim eller skyddsnät till besättningen',
+  'besättning <system>|allt   – lämna djup, kurs, fart, ballast, trim, laddning eller skyddsnät till besättningen',
   'själv <system>|allt        – ta över systemet själv, t.ex. "själv trim"',
   'hjälp                    – visa denna lista',
 ];
@@ -68,6 +70,9 @@ const COMMANDS: Record<string, string[]> = {
   klart: ['klart', 'klara', 'utrym'],
   bemanna: ['bemanna'],
   periskop: ['periskop', 'per'],
+  snorkel: ['snorkel', 'snorkla', 'snork'],
+  diesel: ['diesel', 'dieslar', 'dieslarna', 'dieseln'],
+  ladda: ['ladda', 'laddning'],
   bäring: ['bäring', 'baring', 'brg'],
   blås: ['blås', 'blas'],
   stäng: ['stäng', 'stang'],
@@ -134,6 +139,10 @@ const CREW_WORDS: Record<string, CrewSystem | 'all'> = {
   hb: 'ballast',
   trim: 'trim',
   trimmet: 'trim',
+  laddning: 'charging',
+  laddningen: 'charging',
+  diesel: 'charging',
+  dieslarna: 'charging',
   skyddsnät: 'safetyNet',
   skyddsnätet: 'safetyNet',
   skyddsnat: 'safetyNet',
@@ -258,6 +267,24 @@ export function parseCommand(input: string): ParseResult {
       if (args.length === 1 && UP.has(args[0]!)) return ok({ kind: 'periscope', up: true });
       if (args.length === 1 && (DOWN.has(args[0]!) || args[0] === 'ned')) return ok({ kind: 'periscope', up: false });
       return err('Skriv "periskop upp" eller "periskop ned".');
+    }
+
+    case 'snorkel': {
+      const args = t.rest();
+      if (args.length === 0 && word.startsWith('snorkla')) return ok({ kind: 'snorkel', up: true });
+      if (args.length === 1 && UP.has(args[0]!)) return ok({ kind: 'snorkel', up: true });
+      if (args.length === 1 && DOWN.has(args[0]!)) return ok({ kind: 'snorkel', up: false });
+      return err('Skriv "snorkel upp" eller "snorkel ned".');
+    }
+
+    case 'diesel':
+    case 'ladda': {
+      const args = t.rest();
+      if (cmd === 'ladda' && args.length === 0) return ok({ kind: 'diesel', on: true });
+      const a = args.length === 1 ? args[0]! : '';
+      if (['start', 'starta', 'på', 'pa', 'igång', 'igang'].includes(a)) return ok({ kind: 'diesel', on: true });
+      if (['stopp', 'stop', 'stoppa', 'av'].includes(a)) return ok({ kind: 'diesel', on: false });
+      return err('Skriv "diesel start" eller "diesel stopp".');
     }
 
     case 'stopp':
@@ -388,7 +415,7 @@ export function parseCommand(input: string): ParseResult {
       const sys = args.length === 1 ? CREW_WORDS[args[0]!] : undefined;
       if (sys === undefined) {
         const s = args.length === 1 ? suggest(args[0]!, Object.keys(CREW_WORDS)) : null;
-        return err(`${args.length ? `Förstår inte "${args.join(' ')}". ` : ''}Ange djup, kurs, fart, ballast, trim, skyddsnät eller allt, t.ex. "${cmd} trim".${s ? ` Menade du "${s}"?` : ''}`);
+        return err(`${args.length ? `Förstår inte "${args.join(' ')}". ` : ''}Ange djup, kurs, fart, ballast, trim, laddning, skyddsnät eller allt, t.ex. "${cmd} trim".${s ? ` Menade du "${s}"?` : ''}`);
       }
       return ok({ kind: 'crew', system: sys, crew: cmd === 'besättning' });
     }

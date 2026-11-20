@@ -20,7 +20,8 @@ export interface PropellerOutput {
   motorTorque: number;
 }
 
-export function propellerForces(cfg: SubmarineConfig['propulsion'], n: number, u: number, nCmd: number, rho: number): PropellerOutput {
+/** `maxPower` [W] is the motor's power limit now (the batteries and generators may give less than the motor's rating). */
+export function propellerForces(cfg: SubmarineConfig['propulsion'], n: number, u: number, nCmd: number, rho: number, maxPower: number = cfg.maxPower): PropellerOutput {
   const D = cfg.diameter;
   const va = u * (1 - cfg.wake);
   const an = Math.abs(n);
@@ -31,6 +32,6 @@ export function propellerForces(cfg: SubmarineConfig['propulsion'], n: number, u
   let Qm = Q + cfg.speedGain * (nCmd - n);
   Qm = Math.max(-cfg.maxTorque, Math.min(cfg.maxTorque, Qm));
   const omega = 2 * Math.PI * an;
-  if (omega * Math.abs(Qm) > cfg.maxPower) Qm = (Math.sign(Qm) * cfg.maxPower) / omega;
+  if (omega * Math.abs(Qm) > maxPower) Qm = (Math.sign(Qm) * maxPower) / Math.max(omega, 1e-9);
   return { thrust: (1 - cfg.thrustDeduction) * T, torque: Q, motorTorque: Qm };
 }

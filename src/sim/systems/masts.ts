@@ -1,22 +1,30 @@
 /**
- * Drag of the wetted part of the raised periscope mast (circular cylinder,
- * cross-flow in surge and sway), applied at the middle of the wetted length.
+ * Drag of the wetted part of a raised mast (periscope or snorkel: a circular
+ * cylinder, cross-flow in surge and sway), applied at the middle of the
+ * wetted length.
  */
 import { waterDensity } from '../environment';
 import { mat3MulVec } from '../math/mat';
 import type { Simulation } from '../simulation';
 import type { ForceContext, Subsystem } from './types';
 
-export class PeriscopeMast implements Subsystem {
-  readonly name = 'periscopeMast';
+export type MastId = 'periscope' | 'snorkel';
 
-  constructor(private readonly sim: Simulation) {}
+export class Mast implements Subsystem {
+  readonly name: string;
+
+  constructor(
+    private readonly sim: Simulation,
+    readonly mast: MastId,
+  ) {
+    this.name = `${mast}Mast`;
+  }
 
   forces({ pos, R, nuR: nu }: ForceContext, tau: Float64Array): void {
     const sim = this.sim;
-    const ext = sim.actuators.periscope;
+    const ext = sim.actuators[this.mast];
     if (ext <= 0) return;
-    const p = sim.cfg.periscope;
+    const p = sim.cfg[this.mast];
     const base = p.base;
     const len = p.extension * ext;
     const wave = sim.surface ? sim.surface(pos[0] + R[0] * base[0], pos[1] + R[3] * base[0]) : 0;

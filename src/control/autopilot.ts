@@ -57,8 +57,13 @@ export const wrapAngle = (a: number): number => {
 const DEG = Math.PI / 180;
 
 export const AUTOPILOT_TUNING = {
-  /** Depth → pitch reference [rad per m], [rad per m·s], [rad per m/s]. */
-  depth: { kp: 0.012, ki: 0.0004, kd: 0.45, maxPitch: 12 * DEG, integralZone: 8 },
+  /**
+   * Depth → pitch reference [rad per m], [rad per m·s], [rad per m/s]. The
+   * integral works only within 1.5 m of the target: integrating through the
+   * approach wound up a bow-up reference, and a climb to periscope depth at
+   * 4 knots overshot by ~6 m and broke the surface.
+   */
+  depth: { kp: 0.012, ki: 0.0004, kd: 0.45, maxPitch: 12 * DEG, integralZone: 1.5 },
   /** Pitch → stern planes [rad/rad], [rad/(rad s)], [rad/(rad/s)]. */
   pitch: { kp: 1.6, ki: 0.06, kd: 5.0, maxPlanes: 25 * DEG, integralZone: 5 * DEG },
   /** Heading → rudder. */

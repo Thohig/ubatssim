@@ -12,6 +12,8 @@ Det här dokumentet beskriver hur simuleringen i `src/sim/` fungerar: ekvationer
 | [WB] | Wageningen B-serien, öppenvattendiagram. Linjäriserade K_T och K_Q. |
 | [C12] | J. Carlton, *Marine Propellers and Propulsion*, 3:e uppl., Butterworth-Heinemann 2012, kap. 6. Propellern back (fyrkvadrantdata). |
 | EOS-80 | UNESCO:s tillståndsekvation för havsvatten. Densitet och kompressibilitet. |
+| [U83] | R. J. Urick, *Principles of Underwater Sound*, 3:e uppl., 1983. Sonarekvationen, sfärisk spridning, omgivningsbrus efter sjögång. |
+| [R04] | D. Ross, *Mechanics of Underwater Noise*, 1987/2004. Fartygs utstrålade buller och hur det växer med farten. |
 
 ## Koordinatsystem och tillstånd
 
@@ -22,7 +24,7 @@ Det här dokumentet beskriver hur simuleringen i `src/sim/` fungerar: ekvationer
   - quaternion q = (w, x, y, z), kropp → värld
   - kroppshastigheter ν = (u, v, w, p, q, r)
   - propelleraxelns varvtal n [varv/s].
-- **Övrigt tillstånd** uppdateras explicit en gång per tidssteg: rodrens och djuprodrens utslag, tankarnas vatten- och luftinnehåll, HP-luften och kvarvarande pumpmängder.
+- **Övrigt tillstånd** uppdateras explicit en gång per tidssteg: rodrens och djuprodrens utslag, masternas läge, tankarnas vatten- och luftinnehåll, HP-luften, kvarvarande pumpmängder, vattnet och hålen i avdelningarna, batteriets laddning och generatorernas effekt. Ordningen är fast: ställdon, huvudballast, pumpar, läckage, el.
 
 ## Rörelseekvationer
 
@@ -164,11 +166,66 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 - **Resultat:** ~19 knop vid 240 rpm framåt och ~6,8 knop vid 108 rpm back.
 - **Skrovet back:** samma koefficienter som framåt. Termerna som beror på u byter tecken med farten, och fenorna får vattnet bakifrån (se Roder, djuproder och torn). Hur väl en fartygsmodell för framåtfart beskriver gång med aktern först är inte kontrollerat (APPROX).
 
-## Periskop och brygga
+## Periskop, snorkel och brygga
 
+- **Snorkeln** är en grövre mast (D = 0,5 m) bredvid periskopet, med foten på x = 6,4 m. Den hissas 7,2 m på 10 s, och huvudet når över stilla vatten ner till ~14 m djup. Masten ger motstånd på samma sätt som periskopet (`systems/masts.ts`, en klass för båda). Huvudventilen är öppen så länge huvudet ligger minst 0,15 m över den lokala vågytan.
 - **Periskopet** är en teleskopmast med foten överst i tornet (x = 8,6 m, 7,7 m över centrumlinjen). Den hissas 7,5 m på 8 s. Uppe sitter huvudet 15,2 m över centrumlinjen, så det når över stilla vatten ner till ~14 m djup (CO), med kölen på ~17 m. Periskopdjupet i spelet är 13 m.
 - **Mastens motstånd:** den våta delen av masten ger tvärströmsmotstånd ½ρC_D·D·L·u|u| (C_D = 1,0, D = 0,35 m) i fram- och sidled, med moment kring dess mitt. Vid 8 knop blir det några kN.
 - **Bryggan:** ögonpunkten sitter 8,6 m över centrumlinjen, durken på 7,4 m och brygglisten 1,1 m över durken. Når vattnet över listan utryms bryggan.
+
+## Batteri och dieslar (`systems/electrics.ts`)
+
+Ett delsystem som uppdateras en gång per tidssteg, efter läckaget.
+
+```
+last        = P_axel / η + P_hotell + P_läns          η = 0,92,  P_hotell = 60 kW,  P_läns = 25 kW
+generatorer = min(P_gen, last + P_gen · a(SoC))        P_gen = 1,2 MW (två dieslar), rampar upp 80 kW/s
+batteri     = last − generatorer                       (positivt = urladdning)
+SoC        ← SoC − batteri · dt / E                    E = 6 MWh (21,6 GJ)
+a(SoC)      = 1 under 80 %, sedan linjärt ned till 0,1 vid 100 %   (blybatteriets laddningsacceptans)
+```
+
+- **Axeleffekten** är motorns moment gånger axelns vinkelhastighet i det aktuella tillståndet (`propellerForces`). En motor som bromsar återvinner inget.
+- **Dieslarna** går när de är beordrade och får luft: i ytläge (bryggdurken minst 0,3 m över vattnet) eller med snorkelns huvud över vattnet. Dieslar som redan går klarar 4 s utan luft, när en våg sköljer över huvudet. Sedan stannar de. Stillastående dieslar startar bara med luft.
+- **Motorns effektgräns** är 2,9 MW så länge batteriet har mer än 2 %. Under det minskar gränsen linjärt mot det generatorerna ger utöver hotellasten och länspumpen (gånger η). Ett tomt batteri utan dieslar ger ingen effekt alls. Gränsen går in i `propellerForces` och i telemetrins cache.
+- **Ett vattenfyllt maskinrum** (över 30 %) stoppar dieslarna, och ett vattenfyllt elmotorrum stoppar motorn.
+- **Värdena** (APPROX) är typiska för klassen: 4–8 MWh blyceller och två generatorer på 0,5–0,8 MW. Batteriet räcker ~50 h vid 4 knop, ~16 h vid 8 knop och under 2 h vid full fart. Snorkling laddar ~1,1 MW.
+- **Besättningen** (src/control) startar dieslarna under 95 % och stoppar dem vid 99 %, men bara spelaren hissar snorkeln.
+
+## Läckage (`systems/flooding.ts`)
+
+Tryckskrovets fem avdelningar kan ta in vatten genom hål.
+
+```
+Q = C_d · A · √(2 Δp / ρ)        C_d = 0,6,  Δp = trycket vid avdelningens mitt − atmosfärstrycket
+A ← A · e^(−dt/τ)                τ = 150 s (besättningen tätar), utom under krossdjupet
+länspump = 20 l/s · max(0, 1 − djup/250 m)    den blötaste avdelningen först
+```
+
+- **Volymen** som kan fyllas är 75 % av π·R²·L för avdelningen (maskiner och däck tar resten, APPROX).
+- **Massan:** vattnet är en punktmassa mitt i avdelningen, på höjden R·(1 − f), där f är fyllnadsgraden. Det läggs till massegenskaperna (`computeMassProperties`, `extra`). Flytkraften ändras inte, eftersom skrovets volym är densamma. Fri vätskeyta försummas.
+- **Hål:**
+  - Hård grundstötning, över 1 m/s: A = 4 cm² · (v / 1 m/s)². I fören om ubåten gick framåt, i aktern om den backade, under bostäderna om den sjönk rakare än den gick.
+  - Kollision med ett fartyg: 15 cm² i manöverrummet (från `World`).
+  - Under krossdjupet 300 m växer ett hål i maskinrummet med 10⁻⁵ m² per sekund och meter under krossdjupet.
+  - På 360 m kollapsar skrovet: alla avdelningar får stora hål, och ett scenario misslyckas.
+- **Händelser** (läcka, tätad, länsad, kollaps) samlas i delsystemet och skrivs i loggen av kontrollern. Skyddsnätet blåser huvudballasten när det kommit in mer än 15 m³.
+
+## Akustik (`acoustics.ts`, `config/acoustics.ts`, src/control/sonar.ts)
+
+Sonarekvationen för bredbandsljud, i dB re 1 µPa [U83]:
+
+```
+SE = SL − TL − NL + AG − DT          (> 0: hörs)
+TL = 20·log₁₀ r + α·r + 14 dB per skikt mellan källa och mottagare        α = 1 dB/km
+```
+
+- **Fartygens källnivå** (SL): lastfartyg 172, färja 168, fiskebåt 150 och korvett 158 dB vid 12 knop, plus 50·log₁₀(v/v₀) [R04] (APPROX).
+- **Ubåtens källnivå:** 112 dB vid 4 knop, plus 30·log₁₀(v/4 knop). Över 6 knop + 1 knop per 10 m djup kaviterar propellern (+18 dB). Dieslarna ger +24 dB (APPROX).
+- **Skikten:** varje skikt i vattenprofilen (termoklin, haloklin, sötvattnets botten) vars mitt ligger mellan källans och mottagarens djup ger 14 dB extra förlust. Det är en grov bild av hur skiktet böjer av ljudet.
+- **Brus:** havet 55 dB + 4 dB per meter våghöjd, och ubåtens eget strömningsbrus 48 dB vid 4 knop, plus 40·log₁₀(v/4 knop), adderat som effekter. Ubåtens bogsonar har AG = 18 och DT = 6 dB. En korvetts skrovsonar har NL = 66, AG = 15 och DT = 5 dB.
+- **Upptäckt** (src/control/sonar.ts, en gång per sekund): korvettens vetskap växer med 0,04·(1 + SE/5) per sekund när SE > 0, och med 0,03, 0,06 och 0,3 per sekund när ett periskop (3,5 km), en snorkel (6 km) eller tornet i ytläge (12 km) syns. Annars minskar den med 0,005 per sekund. Vid 1 är ubåten upptäckt.
+- **Bäringen** till en kontakt avviker med 4/(1 + SE/4) grader gånger en deterministisk sinus. Inget slumptal används.
 
 ## Grundstötning
 
@@ -185,7 +242,7 @@ T = ρD⁴(a n|n| − b V_a|n|/D),   Q = ρD⁵(c n|n| − d V_a|n|/D),   V_a = 
 
 ## Autopilot (src/control)
 
-- **Djup:** kaskad. En djup-PID ger ett börvärde för stampvinkeln (högst ±12°), och en stamp-PID styr djuprodren.
+- **Djup:** kaskad. En djup-PID ger ett börvärde för stampvinkeln (högst ±12°), och en stamp-PID styr djuprodren. Djupslingans integral arbetar bara inom 1,5 m från målet. Med en zon på 8 m samlade den ett börvärde med fören uppåt under inflygningen, och en stigning från 40 m till periskopdjup vid 4 knop svängde över ~6 m och bröt ytan.
 - **Kurs:** PID med kortaste vägen runt 360°.
 - **Fart:** PI på varvtalet, med framkoppling från jämviktsvarvtalet (också back). Korrektionen får nå fullt varvtal, så att propellern bromsar vid stopp och vid byte mellan framåt och back. Varvtalet begränsas till axelns gränser inne i regulatorn, så integralen slutar växa där. Ett mål som inte går att nå, som Full fram (19 knop, strax över toppfarten), lämnar då inget kvar som stör nästa, lägre mål.
 - **Back:** med vattnet bakifrån vänder ett roderutslag ubåten åt andra hållet, och en ubåt med fören nedåt stiger. Djup- och kursregulatorn vänder därför tecknet på sina utslag och på stampvinkelns börvärde, som begränsas till ±5°. Riktningen byts med hysteres när farten genom vattnet passerat ±0,2 m/s, och regulatorerna nollställs vid bytet, eftersom integralerna håller utslag för den gamla riktningen.
@@ -200,7 +257,7 @@ Assistenten ändrar inget i fysiken. Den ger samma order som spelaren kan ge, oc
 
 - **Kompensering:** när ubåten är helt nedsänkt under 8 m, huvudballasten är full och djupet har varit stilla i 15 s (vertikalfart under 0,15 m/s), filtreras flytkraftsöverskottet med tidskonstanten 10 s. Avviker det mer än 50 kg, pumpas skillnaden i portioner om högst 200 l. Assistenten väntar 10 s efter varje pumpning. Kravet på stilla djup finns eftersom luftresten i huvudballasten och skrovet trycks ihop medan ubåten byter djup. En ubåt som hänger stilla ovanför sitt djupmål, för att den är för lätt för djuprodren, räknas som stilla. Det är just då den behöver vatten.
 - **Trim:** djuprodrets medelutslag över 20 s, medan djupautopiloten håller djupet, ger det stampmoment som rodret står för: ½ρU²·A·C_Lα·δ·|x_fena|. Halva den vattenmängd som ger samma moment flyttas mellan trimtankarna, högst 200 l per gång.
-- **Skyddsnät:** nödblåsning under 255 m, eller om ubåten sjunker fortare än 2 m/s under 250 m. Djupbörvärdet begränsas till bottendjupet minus skrovradien minus 10 m, under ubåten och upp till 150 m i färdriktningen (akterut när ubåten backar).
+- **Skyddsnät:** nödblåsning när ubåten tagit in mer än 15 m³ vatten (läckage), och under 255 m, eller om ubåten sjunker fortare än 2 m/s under 250 m. Djupbörvärdet begränsas till bottendjupet minus skrovradien minus 10 m, under ubåten och upp till 150 m i färdriktningen (akterut när ubåten backar).
 
 ## Förenklingar och kända begränsningar
 
@@ -213,6 +270,9 @@ Assistenten ändrar inget i fysiken. Den ger samma order som spelaren kan ge, oc
   - De hydrodynamiska koefficienterna minskas inte när ubåten går i ytläge.
 - **Strömmen** är konstant i tiden och har samma riktning överallt. Den följer inte sunden och fjordens form.
 - **Medsvängande massa** är konstant och diagonal och beror inte på djup eller närhet till ytan eller botten.
+- **Batteriet** har ingen inre resistans, temperatur eller spänningskurva, och laddningen följer bara en enkel acceptanskurva. Dieslarnas bränsle tar inte slut.
+- **Läckaget** har inga skott som kan stängas mellan avdelningarna, och vattnet flyttar sig inte när ubåten lutar.
+- **Akustiken** är bredbandig och utan frekvenser, riktverkan, bottenstuds eller ytkanaler. Skikten ger en fast förlust i stället för strålgång.
 - **Djuproder:** bara akterdjuproder. Ubåten har inga för- eller tornroder.
 - **Inte modellerat:** batteri, diesel, läckage, sonar och vapen.
 - **Grundstötning:** kontaktmodellen är en straffmetod. Den är avsedd för att ubåten ska stanna och vila realistiskt, inte för att beräkna skador.

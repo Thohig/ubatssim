@@ -40,6 +40,10 @@ export type Order =
   | { kind: 'surface' }
   /** Raise or lower the search periscope. */
   | { kind: 'periscope'; up: boolean }
+  /** Raise or lower the snorkel mast. */
+  | { kind: 'snorkel'; up: boolean }
+  /** Start or stop the diesel generators (they run only with air: surfaced or snorkelling). */
+  | { kind: 'diesel'; on: boolean }
   /** Man the bridge, or clear it before diving. */
   | { kind: 'bridge'; manned: boolean }
   /** Report a true bearing [deg] to something seen through the periscope or from the bridge. */
@@ -111,6 +115,10 @@ export function acknowledgement(o: Order): string {
       return 'Ytläge, ja';
     case 'periscope':
       return `Periskop ${o.up ? 'upp' : 'ned'}, ja`;
+    case 'snorkel':
+      return `Snorkel ${o.up ? 'upp' : 'ned'}, ja`;
+    case 'diesel':
+      return o.on ? 'Starta dieslarna, ja' : 'Stoppa dieslarna, ja';
     case 'bridge':
       return o.manned ? 'Bemanna bryggan, ja' : 'Klart bryggan, ja';
     case 'reportBearing':
@@ -127,6 +135,7 @@ const CREW_ACK: Record<CrewSystem | 'all', [string, string]> = {
   speed: ['Fart på telegraf, ja', 'Fart på varv, ja'],
   ballast: ['Besättningen sköter ballasten, ja', 'Du sköter ballasten, ja'],
   trim: ['Trimassistenten tar trimmet, ja', 'Trimassistenten avlöst, ja'],
+  charging: ['Maskinisten sköter laddningen, ja', 'Du sköter laddningen, ja'],
   safetyNet: ['Skyddsnät på, ja', 'Skyddsnät av, ja'],
   all: ['Besättningen sköter allt, ja', 'Du sköter allt, ja'],
 };

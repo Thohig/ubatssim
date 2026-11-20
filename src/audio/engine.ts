@@ -262,6 +262,23 @@ export class AudioEngine {
       const g = this.channel('periscopeMotor', B, (l) => l.periscopeMotor * 0.4);
       this.osc('sawtooth', 185, this.filter('lowpass', 900, 0.7, g));
     }
+    // Diesel generators: a low throb at the firing rate with a rumble of noise.
+    {
+      const g = this.channel('diesel', B, (l) => l.diesel.gain * 0.6);
+      const lp = this.filter('lowpass', 260, 0.9, g);
+      const fire = this.osc('sawtooth', 40, lp);
+      this.noiseSource(this.filter('lowpass', 180, 0.7, g));
+      this.ch.diesel!.set = (l) => {
+        fire.frequency.setTargetAtTime(l.diesel.firing, ctx.currentTime, SMOOTH);
+        return l.diesel.gain * 0.6;
+      };
+    }
+    // A leak: a hard hiss of water under pressure; the drain pump hums under it.
+    this.noiseChannel('leak', B, 'highpass', 1200, 0.9, (l) => l.leak);
+    {
+      const g = this.channel('drainPump', B, (l) => l.drainPump * 0.6);
+      this.osc('sawtooth', 75, this.filter('lowpass', 380, 0.7, g));
+    }
     {
       const g = this.channel('blower', B, (l) => l.blower);
       this.noiseSource(this.filter('bandpass', 650, 1.5, g));

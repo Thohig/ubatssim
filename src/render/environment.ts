@@ -45,6 +45,21 @@ const PALETTES: Record<ConditionsId, Palette> = {
 
 const LAMP_COLOURS = { white: 0xfff4d6, red: 0xff4030, green: 0x40ff70 } as const;
 
+/**
+ * How the water of each area looks under the surface: its tint (mixed
+ * half-and-half into the light's water colour) and extra fog. The Baltic
+ * is green and murky with plankton and humus, the fjord green-brown from
+ * the river, the Atlantic clear and blue. APPROX (illustrative).
+ */
+export const WATER_LOOK: Record<AreaId, { tint: number; fog: number }> = {
+  westCoast: { tint: 0x2a8a8a, fog: 0.002 },
+  baltic: { tint: 0x4f7d4f, fog: 0.01 },
+  fjord: { tint: 0x355f4c, fog: 0.005 },
+  atlantic: { tint: 0x1a5fb0, fog: -0.002 },
+};
+/** Light under water falls off with this depth scale [m]: the colour turns to the deep colour (1 − e^(−depth/scale)). */
+const LIGHT_DEPTH = 90;
+
 export interface SeaEnvironment {
   update(subNed: [number, number, number], camera: THREE.Camera, t: number): void;
   setParticles(on: boolean): void;
@@ -101,6 +116,7 @@ const skyColor = new THREE.Color(0x9cc9e4);
 
 export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLight, sun: THREE.DirectionalLight): SeaEnvironment {
   let palette = PALETTES.day;
+  let areaFog = 0;
   scene.fog = new THREE.FogExp2(surfaceColor.getHex(), 0.006);
   scene.background = surfaceColor.clone();
 
@@ -190,7 +206,9 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
       waves = w;
       palette = PALETTES[conditions];
       skyColor.setHex(palette.sky);
-      surfaceColor.setHex(palette.shallow);
+      const look = WATER_LOOK[area];
+      surfaceColor.setHex(palette.shallow).lerp(new THREE.Color(look.tint), 0.5);
+      areaFog = look.fog;
       deepColor.setHex(palette.deep);
       surfMat.color.setHex(palette.surface);
       waveMat.color.setHex(palette.surface);
@@ -261,10 +279,11 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
         fog.color.copy(skyColor);
         fog.density = palette.airFog;
       } else {
-        const k = Math.min(1, depth / 250);
+        // Darker with depth as the daylight is absorbed; each area's water has its own tint and clarity.
+        const k = 1 - Math.exp(-depth / LIGHT_DEPTH);
         bg.copy(surfaceColor).lerp(deepColor, k);
         fog.color.copy(bg);
-        fog.density = 0.006 + palette.waterFog + 0.012 * k;
+        fog.density = Math.max(0.002, 0.006 + palette.waterFog + areaFog + 0.012 * k);
       }
     },
   };
