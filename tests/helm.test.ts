@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Controller } from '../src/control/controller';
 import { LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH, telegraphStep } from '../src/control/crew';
 import { LIMITS } from '../src/control/parser';
@@ -7,7 +7,7 @@ import { SCENARIOS } from '../src/control/scenarios';
 import { Simulation, type InitialConditions } from '../src/sim/simulation';
 import { bindConsole } from '../src/ui/console';
 import { BAND_HALF_WIDTH, bandBearing, bandFraction, createHelm, depthToFraction, fractionToDepth, gaugeAngle, telegraphIndex, type HelmContext } from '../src/ui/helm';
-import { bindLog, bindLogToggle } from '../src/ui/log';
+import { bindLog, bindLogToggle, lineLife, LIVE_LINES } from '../src/ui/log';
 import { statusFields } from '../src/ui/statusBar';
 import { InputModeState } from '../src/ui/inputMode';
 import { bindKeyboard } from '../src/ui/keyboard';
@@ -500,20 +500,6 @@ describe('the phone layout', () => {
     expect(statusFields({ ...c.sim.telemetry(), grounded: true }).keelAlarm).toBe(true);
   });
 
-  it('a tap on the log line shows the recent log on phones, and a new game folds it', () => {
-    phone(true);
-    const el = document.createElement('div');
-    bindLogToggle(el);
-    bindLog(el, crewGame());
-    el.click();
-    expect(el.classList.contains('expanded')).toBe(true);
-    bindLog(el, crewGame());
-    expect(el.classList.contains('expanded')).toBe(false);
-    phone(false);
-    el.click();
-    expect(el.classList.contains('expanded')).toBe(false);
-  });
-
   it('no hint names a panel button: the buttons differ between phone and computer', () => {
     for (const sc of SCENARIOS) for (const o of sc.objectives) for (const hint of [o.hint, o.hintCrew ?? '']) expect(hint, `${sc.id}: ${o.text}`).not.toMatch(/▾/);
   });
@@ -646,5 +632,52 @@ describe('the fire control panel', () => {
     expect(solutionText(c)).toMatch(/^M1 målet: 3,0 km/);
     expect(fire.disabled).toBe(false);
     expect(root.querySelectorAll('.fire-tube.loaded')).toHaveLength(4);
+  });
+});
+
+describe('the log book', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('lines live longer for warnings and long texts', () => {
+    expect(lineLife('ack', 'Djup 120, ja').show).toBe(4);
+    expect(lineLife('info', 'Kort.').show).toBe(6);
+    expect(lineLife('error', 'Grundstötning!').show).toBe(10);
+    expect(lineLife('error', 'x').fade).toBeGreaterThan(lineLife('info', 'x').fade);
+    expect(lineLife('info', 'x'.repeat(160)).show).toBeGreaterThan(lineLife('info', 'x').show);
+  });
+
+  it('at most three lines show; each fades and goes after its time', () => {
+    vi.useFakeTimers();
+    const el = document.createElement('div');
+    const c = crewGame();
+    bindLog(el, c);
+    for (let i = 0; i < 5; i++) c.addLog(`Rad ${i}`, 'ack');
+    c.addLog('Varning!', 'error');
+    const live = () => [...el.querySelectorAll('.log-entry.live')].map((x) => x.textContent!.replace(/^\[.*?\]/, ''));
+    expect(live()).toHaveLength(LIVE_LINES);
+    expect(live().at(-1)).toBe('Varning!');
+    vi.advanceTimersByTime(4000);
+    expect(el.querySelectorAll('.log-entry.fading')).toHaveLength(2);
+    vi.advanceTimersByTime(1000);
+    expect(live()).toEqual(['Varning!']);
+    vi.advanceTimersByTime(7000);
+    expect(live()).toEqual([]);
+    // The history keeps them.
+    expect(el.querySelectorAll('.log-entry').length).toBeGreaterThan(5);
+  });
+
+  it('a tap shows the history and another folds it; a new game folds it too', () => {
+    const el = document.createElement('div');
+    bindLogToggle(el);
+    bindLog(el, crewGame());
+    el.click();
+    expect(el.classList.contains('expanded')).toBe(true);
+    el.click();
+    expect(el.classList.contains('expanded')).toBe(false);
+    el.click();
+    bindLog(el, crewGame());
+    expect(el.classList.contains('expanded')).toBe(false);
   });
 });

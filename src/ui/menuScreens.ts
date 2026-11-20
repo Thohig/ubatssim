@@ -175,7 +175,8 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2 och 4 knop back, 4 och 8 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup på Auto.</li>
           <li><b>Per</b>, <b>Snork</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller en mast är uppe. <b>Karta</b> och <b>Sonar</b> öppnar sjökortet och sonaren. <b>&gt;_</b> öppnar konsolen. På mobil ligger de under <b>Vyer ▾</b>.</li>
-          <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen. Loggen visar den senaste raden. Tryck på den för fler.</li>
+          <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen.</li>
+          <li><b>Loggboken</b> ligger överst i mitten. Varje rad tonas bort efter några sekunder (varningar efter 10 s). Tryck på den för de senaste raderna, och tryck igen för att stänga.</li>
         </ul>
         <h3>Tangentbord</h3>
         <table>

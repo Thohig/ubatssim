@@ -66,6 +66,8 @@ export function startApp(): void {
 
   let touch = false;
   const mode = new InputModeState();
+  // The console shows the log's history while open, so the answer to what was typed is seen.
+  mode.onChange((m) => logEl.classList.toggle('expanded', m === 'console'));
   const views = new ViewState();
   // On-board views: the HUD makes room for the view on small screens (style.css).
   views.onChange((m) => {
@@ -250,7 +252,6 @@ export function startApp(): void {
    * for a moment; the lines already there are marked so they do not flash up.
    */
   const setLogShown = (show: boolean) => {
-    if (!show) for (const e of logEl.querySelectorAll('.log-entry')) e.classList.add('stale');
     settings = { ...settings, showLog: show };
     saveSettings(settings);
     menu.setSettings(settings);
@@ -284,6 +285,12 @@ export function startApp(): void {
       return;
     }
     if (e.key !== 'Escape') return;
+    // Esc folds the log's history first.
+    if (logEl.classList.contains('expanded') && mode.current === 'steer') {
+      e.preventDefault();
+      logEl.classList.remove('expanded');
+      return;
+    }
     if (state === 'playing' && mode.current === 'steer' && views.mode !== 'external') {
       e.preventDefault();
       views.set('external');

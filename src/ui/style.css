@@ -50,7 +50,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 .tank-name .flags { color: var(--warn); }
 
 /* Log */
-#log { right: 12px; bottom: 64px; width: 380px; max-height: 40%; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
 .log-entry { white-space: pre-wrap; line-height: 1.45; }
 .log-entry .time { color: var(--muted); margin-right: 6px; }
 .log-entry.ack { color: var(--text); }
@@ -205,7 +204,6 @@ legend { color: var(--muted); padding: 0 4px; }
   padding: 8px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   pointer-events: none;
 }
-#log { bottom: calc(var(--helm-h, 200px) + 6px); }
 .helm-group, .helm-actions, .helm-panel { pointer-events: auto; }
 .helm-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .helm-depth { grid-area: depth; }
@@ -351,7 +349,7 @@ body.cutaway #log { display: none; }
   .inst-row { white-space: nowrap; gap: 4px; }
   .inst-value { font-size: 14px; }
   .inst-value.big { font-size: 17px; }
-  body.inst-open #log, body.inst-open #objective { display: none; }
+  body.inst-open #top-center { display: none; }
 
   /* The views and the console behind one button; the view in use shows on the screen itself. */
   .mode { display: none; }
@@ -361,34 +359,6 @@ body.cutaway #log { display: none; }
   #view-btns.open button:not([hidden]) { width: 56px; height: 38px; font-size: 12px; }
   #view-btns.open .views-menu { width: auto; height: 32px; }
   #view-btns button.on { border-color: var(--accent); color: var(--accent); }
-
-  /* -- Objective (scenarios): under the status bar. */
-  #objective {
-    top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px;
-    width: auto; transform: none; font-size: 12px; padding: 6px 10px; text-align: left;
-  }
-
-  /* -- Log: the latest line just above the controls; it dims after a while. A tap shows more. */
-  #log {
-    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
-    bottom: calc(var(--helm-h, 200px) + 4px); max-height: 45%; padding: 5px 8px; font-size: 12px;
-    pointer-events: auto; cursor: pointer;
-    overflow-y: auto; justify-content: flex-start;
-  }
-  #log:not(.expanded) { background: transparent; border-color: transparent; padding: 0; backdrop-filter: none; }
-  #log:not(.expanded) .log-entry { display: none; }
-  #log:not(.expanded) .log-entry:last-child {
-    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
-    /* A border, not padding, around the text: line-clamp leaves the next line visible in padding. */
-    padding: 0; border: solid transparent; border-width: 4px 8px; border-radius: 6px;
-    box-shadow: 0 0 0 1px var(--panel-border); background: rgba(4, 16, 24, 0.6);
-    animation: log-in 0.25s ease-out, log-dim 9s forwards;
-  }
-  /* Errors stay bright longer. */
-  #log:not(.expanded) .log-entry.error:last-child { animation-duration: 0.25s, 20s; }
-  #log:not(.expanded) .log-entry .src { display: none; }
-  #log.expanded { background: var(--panel-bg); }
-  #log.expanded .log-entry + .log-entry { margin-top: 2px; }
 
   /* -- Screen controls. */
   .helm { gap: 6px 8px; padding-top: 4px; }
@@ -478,10 +448,7 @@ body.cutaway #log { display: none; }
   .helm-course { grid-area: course; }
   .helm-depth-scale { height: 116px; }
   .helm-depth-side .touch-btn:not(.helm-small) { height: 34px; }
-  /* The log and the objective at the top, between the status bar and the view menu. */
-  #objective { top: max(8px, env(safe-area-inset-top)); left: 50%; right: auto; transform: translateX(-50%); width: min(420px, calc(100% - 520px)); min-width: 220px; }
   #status { max-width: 300px; }
-  #log { top: calc(max(8px, env(safe-area-inset-top)) + 46px); bottom: auto; right: auto; width: min(420px, 50%); max-height: calc(100% - var(--helm-h, 200px) - 70px); }
   /* Low screens: the panel takes the height under the status bar, over the controls' middle (✕ closes it). */
   .helm-panel {
     position: fixed; top: calc(max(8px, env(safe-area-inset-top)) + 46px); bottom: max(8px, env(safe-area-inset-bottom)); margin: 0;
@@ -491,18 +458,8 @@ body.cutaway #log { display: none; }
   #view-btns.open { flex-direction: row-reverse; align-items: flex-start; }
 }
 
-@keyframes log-dim { 0%, 80% { opacity: 1; } 100% { opacity: 0.45; } }
 @keyframes log-in { from { transform: translateY(4px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-/* ------------------------------------------------------------ hidden log book */
-/* Hidden (setting, "Logg", L): only a new error shows, for a few seconds, then nothing. */
-body.log-hidden #log { background: transparent; border-color: transparent; backdrop-filter: none; pointer-events: none; padding: 0; }
-body.log-hidden #log .log-entry { display: none !important; }
-body.log-hidden #log .log-entry.error:last-child:not(.stale) {
-  display: block !important; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--error);
-  background: rgba(4, 16, 24, 0.85); animation: log-flash 6s forwards;
-}
-@keyframes log-flash { 0%, 80% { opacity: 1; visibility: visible; } 100% { opacity: 0; visibility: hidden; } }
 
 /* ------------------------------------------------------------ chart and sonar */
 #nav {
@@ -518,13 +475,12 @@ body.log-hidden #log .log-entry.error:last-child:not(.stale) {
 .nav-info { font-size: 12px; color: var(--muted); line-height: 1.45; max-height: 30%; overflow-y: auto; }
 .nav-info .nav-warn { color: var(--warn); }
 .nav-info .nav-alarm { color: var(--error); font-weight: 700; }
-body.nav-open #log { max-height: 22%; }
 @media (max-width: 760px), (max-height: 500px) {
   #nav {
     top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px; width: auto;
     height: calc(100% - var(--helm-h, 200px) - 70px - max(8px, env(safe-area-inset-top)));
   }
-  body.nav-open #objective, body.nav-open #log:not(.expanded) { display: none; }
+  body.nav-open #top-center { display: none; }
 }
 @media (max-height: 500px) {
   #nav { left: 50%; right: auto; transform: translateX(-50%); width: min(460px, calc(100% - 16px)); height: calc(100% - 62px); z-index: 6; }
@@ -551,7 +507,6 @@ body.nav-open #log { max-height: 22%; }
 .fire-tube.loaded { border-color: var(--ok); color: var(--ok); }
 .fire-tube.loading { border-color: var(--warn); color: var(--warn); }
 .fire-store { color: var(--muted); font-size: 12px; margin-left: auto; }
-body.fire-open #log:not(.expanded) { display: none; }
 @media (max-width: 760px), (max-height: 500px) {
   #fire { width: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); transform: none; padding: 6px 8px; font-size: 12px; }
   .fire-row .touch-btn { height: 36px; font-size: 13px; }
@@ -572,3 +527,48 @@ body.nav-open #fire { z-index: 5; }
 @media (max-width: 760px), (max-height: 500px) {
   body.nav-open #nav { height: calc(100% - var(--helm-h, 200px) - 170px - max(8px, env(safe-area-inset-top))); }
 }
+
+/* ------------------------------------------------------------ objective and log book: top centre */
+#top-center {
+  position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+  width: min(560px, calc(100% - 720px)); min-width: min(360px, calc(100% - 24px));
+  display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 2;
+}
+#top-center > #objective { position: static; transform: none; width: auto; pointer-events: auto; }
+/* No background: the lines float over the view with a shadow, and fade away. */
+#log {
+  position: static; width: auto; display: flex; flex-direction: column; gap: 2px;
+  background: transparent; border-color: transparent; backdrop-filter: none; padding: 0;
+  pointer-events: auto; cursor: pointer;
+}
+#log .log-entry { line-height: 1.4; text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, 0.9); transition: opacity 1s ease; }
+#log .log-entry.error { color: #ff8a8a; font-weight: 700; }
+#log .log-entry.error.fading { transition-duration: 2s; }
+#log .log-entry.fading { opacity: 0; }
+#log:not(.expanded) .log-entry:not(.live) { display: none; }
+#log:not(.expanded) .log-entry.live { animation: log-in 0.25s ease-out; }
+/* The history: the recent lines in a half-transparent panel. */
+#log.expanded {
+  background: var(--panel-bg); border-color: var(--panel-border); backdrop-filter: blur(4px);
+  padding: 8px 10px; max-height: 45vh; overflow-y: auto;
+}
+#log.expanded .log-entry { opacity: 1; text-shadow: none; }
+/* Hidden (setting, Logg, L): only new errors. */
+body.log-hidden #log:not(.expanded) .log-entry:not(.error) { display: none; }
+@media (max-width: 760px), (max-height: 500px) {
+  #top-center {
+    top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px;
+    width: auto; min-width: 0; transform: none;
+  }
+  #top-center > #objective { font-size: 12px; padding: 6px 10px; text-align: left; }
+  #log { font-size: 12px; }
+  #log:not(.expanded) .log-entry .src { display: none; }
+  /* At most two rows of text per floating line on a phone; the history has it all. */
+  #log:not(.expanded) .log-entry.live { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+}
+@media (max-height: 500px) {
+  /* Sideways: between the status bar and the view menu. */
+  #top-center { top: max(8px, env(safe-area-inset-top)); left: calc(max(8px, env(safe-area-inset-left)) + 310px); right: 76px; width: auto; min-width: 0; transform: none; }
+}
+/* Floating over the sky and the sea, the grey information text would be faint. */
+#log:not(.expanded) .log-entry.info { color: #dbe9f0; }

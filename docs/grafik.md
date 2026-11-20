@@ -79,11 +79,19 @@ En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden 
 
 - **Sjökortet:** norr uppåt och ubåten i mitten, med fyra skalor (750 m, 2, 5 och 12 km till kanten). Djupet ritas från samma botten som fysiken använder (`sim.ground`), 72 × 72 prov i en bild som byggs om när ubåten flyttat en tiondel av skalan. Ovanpå ritas spåret (en punkt per 25 m), fyrarna, bojen eller en pil mot den vid kanten, sonarens bäringar som streckade linjer och fartyg i sikte från periskopet eller bryggan (inom 8 km).
 - **Sonaren:** ett vattenfall med bäringen från fören (−180…180°) tvärs över och en rad per sekund nedåt, 180 s historik. Ljusare för starkare signal. Under det står kontakterna, ubåtens ljudnivå och risken att bli upptäckt.
-- **På mobil** ligger panelen under statusraden, och målrutan och loggraden döljs medan den är öppen.
+- **På mobil** ligger panelen under statusraden, och målrutan och loggboken döljs medan den är öppen.
 
 ## Eldledningspanelen (`src/ui/firePanel.ts`)
 
 En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
+
+## Loggboken (`src/ui/log.ts`)
+
+Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil under statusraden, liggande mellan statusraden och Vyer ▾). Loggen har ingen bakgrund, bara text med skugga.
+
+- **En ny rad** får klassen `live` och lever enligt `lineLife(kind, text)`: kvitton 4 s, information 6 s, varningar och fel 10 s, plus lästid för långa rader (25 tecken per sekund över 60). Då får den `fading`, och opaciteten går till 0 med en CSS-övergång (1 s, fel 2 s). Därefter tas `live` bort och raden döljs. Högst `LIVE_LINES` (3) rader är levande: en ny skjuter ut den äldsta. Tiderna går på väggklockan, eftersom loggen är gränssnitt.
+- **Historiken** (`#log.expanded`, ett tryck eller konsolen) visar de 14 senaste raderna i en halvgenomskinlig panel. Ett tryck till eller Esc stänger den.
+- **Dold loggbok** (inställningen `showLog`, knappen Logg och L) sätter `body.log-hidden`. Då visas bara levande felrader.
 
 ## Kameran och vyerna (`scene.ts`, `src/ui/views.ts`)
 
@@ -118,8 +126,7 @@ Skärmkontrollerna (`src/ui/helm.ts`) är knappar, de utfällbara panelerna Ball
 Smalare än 760 px eller lägre än 500 px gäller den kompakta layouten. Samma mediefråga finns i `style.css` och i `src/ui/compact.ts` (`isCompact()`), som beteendet använder. Målet är att 3D-bilden får det mesta av skärmen och att inget värde visas två gånger:
 
 - **Statusraden** (`src/ui/statusBar.ts`, `#status`) ersätter instrumentpanelen. Den visar bara det som kontrollerna inte visar: tid, fart genom vattnet, vatten under kölen och trim (`statusFields()` är ren och testad). Ett tryck sätter `body.inst-open` och visar hela instrumentpanelen under raden.
-- **Loggen** visar bara sista raden (högst två rader text). Raden tonas ned med en CSS-animation på det nya elementet, så ingen timer behövs. Fel står kvar längre. Ett tryck växlar `#log.expanded` (`bindLogToggle`).
-- **Dold loggbok** (inställningen `showLog`, knappen Logg och L, på alla skärmar) sätter `body.log-hidden`. Då visas bara ett nytt fel, som tonas bort med `log-flash`. Raderna som fanns när loggen doldes märks `.stale`, så att ett gammalt fel inte blinkar till.
+- **Loggboken** kortar varje rad till två textrader.
 - **Vyknapparna** fälls ihop bakom **Vyer ▾** (`#view-btns.open`). Konsolen `>_` ligger där. Lägesindikatorn döljs, eftersom vyn syns på bilden.
 - **Skärmkontrollerna** har båda varianterna i DOM:en och CSS väljer: en Auto / Hand-knapp (`.helm-chip`) i stället för omkopplaren, **System ▾** i stället för tre panelknappar, och telegrafen som ett reglage. Reglaget är raden `.helm-bells`. Klockorna tar inte emot pekaren där, utan raden läser läget med `bindDrag` och `telegraphIndex()` och skickar ordern när fingret släpper. På bred skärm är draget avstängt, så en knapp ger fortfarande en order.
 - **Stående:** djupskalan till vänster, kompassen och Dyk / Håll / System till höger, och telegrafen över hela bredden. **Liggande:** en grupp per tumme (djup och knappar till vänster, kompass och telegraf till höger), mitten fri, och en panel öppnas i mitten under statusraden.

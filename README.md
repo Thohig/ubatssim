@@ -96,6 +96,8 @@ En panelknapp eller flik som du sköter själv är gul. Panelens flikar byter me
 
 Knapparna Vy, Per, Snork, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P, N, Z, B och C. Per, Snork och Vy visas när ubåten är grundare än 25 m eller en mast är uppe. **Karta** (K) och **Sonar** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)). **>_** öppnar konsolen.
 
+**Loggboken** ligger överst i mitten, under målrutan, utan bakgrund. En ny rad syns en stund och tonas sedan ut och försvinner: kvitton efter 4 s, information efter 6 s och varningar och fel (röda) efter 10 s, långa rader lite längre. Högst tre rader syns samtidigt. När inget har hänt på en stund ligger ingenting över bilden. Tryck på loggen för historiken med de senaste raderna, och tryck igen (eller Esc) för att stänga den. Medan konsolen är öppen visas historiken, så att svaret på det du skriver syns.
+
 **Logg** (eller L) döljer loggboken och visar den igen. Knappen lyser när loggen visas. Dold loggbok visar bara ett nytt felmeddelande, till exempel en vägrad order, i några sekunder. Loggen förs ändå och finns kvar när du visar den igen. Valet sparas och finns också under Inställningar ("Visa loggboken").
 
 ### Mobil
@@ -103,7 +105,7 @@ Knapparna Vy, Per, Snork, Zoom, Brg och Snitt uppe till höger gör samma sak so
 På skärmar som är smalare än 760 px eller lägre än 500 px är vyn avskalad, så att 3D-bilden får plats:
 
 - **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen (när det är under 300 m), trim, batteriet och, vid en läcka, vattnet som kommit in. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
-- **Loggen** visar bara den senaste raden, ovanför kontrollerna, och tonas ned efter några sekunder (felmeddelanden står kvar längre). Tryck på raden för de senaste raderna.
+- **Loggboken** ligger under statusraden och målrutan (liggande: mellan statusraden och Vyer ▾). Varje rad kortas till två textrader, och hela texten finns i historiken.
 - **Vyer ▾** uppe till höger fäller ut Vy, Per, Snork, Zoom, Brg, Snitt, Karta, Sonar, Logg och **>_**. Ett val fäller ihop dem igen.
 - **Auto / Hand** är en knapp per axel, panelerna ligger under **System ▾** och telegrafen är ett reglage.
 - **Stående telefon:** djupskalan till vänster, kompassen, Dyk / Håll / System till höger och telegrafen över hela bredden längst ner.
@@ -420,7 +422,8 @@ Testerna täcker bland annat:
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
 - skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta, panelerna Ballast, Trim och Fart), att tangenterna följer Auto / Hand och att inget scenariotips kräver konsolen eller nämner en panelknapp
-- mobilvyn: telegrafreglaget, Auto / Hand-knappen, System ▾ med flikarna, Vyer ▾, statusraden och loggraden
+- mobilvyn: telegrafreglaget, Auto / Hand-knappen, System ▾ med flikarna, Vyer ▾ och statusraden
+- loggboken: radernas livslängd, högst tre rader, uttoning och historiken
 - panelen El, sjökortet och sonarvyn, knapparna Karta och Sonar, eldledningspanelen i periskopvyn
 - spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom).
 
