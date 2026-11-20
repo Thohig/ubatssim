@@ -28,6 +28,15 @@ jobs:
       # All tests, including the long scenario tests in tests/long/.
       - run: npm run test:all
       - run: npm run build
+      # The game in a real browser against the build (tests/e2e, playwright.config.ts).
+      - run: npx playwright install --with-deps chromium-headless-shell
+      - run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

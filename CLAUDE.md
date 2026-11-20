@@ -6,12 +6,13 @@ En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i 
 - `npm run dev`: utvecklingsserver på http://localhost:5173/ubatssim/ (observera sökvägen).
 - `npm test`: de snabba testerna (~30 s). `npm run test:all`: alla, också de långa i `tests/long/` (~2,5 min). Testerna är processorbundna och går med en arbetare per kärna (`maxWorkers` i vite.config.ts); att dela upp filerna mer hjälper inte. Publiceringen kör `test:all`. Fysiktesterna körs utan grafik. `testTimeout` är 60 s eftersom testerna simulerar minuter av spelets tid och CI-maskinerna är långsamma.
 - **Tester som simulerar mer än någon minut speltid** läggs i `tests/long/*.long.test.ts`. Inget test bör ta mer än ~20 s på en vanlig dator: korta tidsgränser i testet hellre än att simulera länge (se "Fyrljuset fails when time runs out").
+- `npm run test:e2e`: bygger och kör `tests/e2e/*.spec.ts` med Playwright i Chromium mot `vite preview` (~1 min): scenariots genomgång och målrutan, paus, att panelerna inte överlappar på dator och mobil och att eldledningspanelen inte täcker periskopets hårkors. Utan grafikkort ritas 3D-vyn i mjukvara med ~10 bilder per sekund, så testerna stänger av partiklar och ljusstrålar, väntar på tillstånd (aldrig fasta tider) och har långa tidsgränser. Första gången: `npx playwright install chromium-headless-shell`. Publiceringen kör dem efter bygget.
 - `npm run lint`: ESLint. Kontrollerar bland annat lagergränserna.
 - `npm run build`: `tsc --noEmit` och Vite-bygge till `dist/`. Three.js hamnar i en egen fil, och terrängens Web Worker i en tredje.
 - `npm run bench`: fysikens tid per tidssteg (inte del av `npm test`). `?perf` i adressen visar tid per bild i spelet. Budget i `docs/prestanda.md`.
 - `scripts/make-mac-launcher.sh [mapp]`: bygger `Ubåtssim.app` (standard `~/Projekt/Github Pages`), som öppnar GitHub Pages-sidan med spelets ikon. Kör det igen om ikonen eller adressen ändras.
 - **Ikoner:** källan för appikoner är `assets/icon-square.svg` (kantfylld, utan rundade hörn). `public/icon.svg` är flikikonen med rundade hörn. PNG-filerna i `public/` renderas från källan med `qlmanage -t -s <px>`. Ändras ikonen, ska båda SVG-filerna och alla PNG-filer uppdateras.
-- **Publicering:** en push till `main` kör `.github/workflows/deploy.yml` (lint → test → build → GitHub Pages). Pages-källan är "GitHub Actions".
+- **Publicering:** en push till `main` kör `.github/workflows/deploy.yml` (lint → test → build → e2e → GitHub Pages). Pages-källan är "GitHub Actions".
 
 ## Arkitektur
 ```
