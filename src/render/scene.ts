@@ -6,6 +6,7 @@ import type { Vec3 } from '../sim/math/vec3';
 import { bodyToLocal, nedToThree, rotationToThree } from './coords';
 import { createEnvironment, type ConditionsId, type LightMark } from './environment';
 import type { HeightFn } from '../sim/terrain';
+import type { WaveComponent } from '../sim/waves';
 import { buildSubmarineModel, updateSubmarineModel, type SubmarineModel } from './submarineModel';
 
 export interface RenderState {
@@ -51,7 +52,7 @@ export interface SceneView {
   setWaypoint(wp: [number, number] | null): void;
   setView(view: CameraView): void;
   /** Terrain, lighthouses and light/visibility of the sea area. */
-  setArea(height: HeightFn, lighthouses: readonly LightMark[], conditions: ConditionsId): void;
+  setArea(height: HeightFn, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
   /** Depth of the camera [m], negative above the water (after the last render). */
   cameraDepth(): number;
 }
@@ -157,11 +158,11 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     setView(v) {
       view = v;
     },
-    setArea(height, lighthouses, conditions) {
-      env.setArea(height, lighthouses, conditions);
+    setArea(height, lighthouses, conditions, waves) {
+      env.setArea(height, lighthouses, conditions, waves);
     },
     cameraDepth() {
-      return -camera.position.y;
+      return env.surfaceAt(camera.position.x, camera.position.z) - camera.position.y;
     },
     render(state) {
       nedToThree(state.position, subPos);

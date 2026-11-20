@@ -46,7 +46,7 @@ export interface Scenario {
   timeLimit?: number;
   /** Optional target position [north, east] in metres, shown as a buoy. */
   waypoint?: [number, number];
-  /** Light and visibility (default: day). The sea area is `initial.area`. */
+  /** Light and visibility (default: day). The sea area is `initial.area` and the sea state `initial.sea`. */
   conditions?: ConditionsId;
 }
 

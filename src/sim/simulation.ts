@@ -39,11 +39,13 @@ export function areaGround(area: AreaId): GroundDepth {
 
 /** The west coast archipelago (the default area). */
 export const archipelagoGround = (): GroundDepth => areaGround('westCoast');
-import { restoringForces, type HydrostaticResult } from './hydrostatics';
+import { restoringForces, surfaceDamping, type HydrostaticResult } from './hydrostatics';
 import { computeMassProperties, type DryMass } from './massProperties';
 import { mat3Diag, mat3MulVec, type Mat3, type MatN } from './math/mat';
 import { quatFromEuler, quatToEuler, quatToMat3 } from './math/quat';
 import { cross, type Vec3 } from './math/vec3';
+import { SEA_STATES, type SeaState, type SeaStateId } from './config/seaStates';
+import { waveComponents, waveElevation, waveVelocity, type WaveComponent } from './waves';
 import { propellerForces } from './propulsion';
 import { rk4Step } from './rk4';
 import {
@@ -73,6 +75,8 @@ export interface Commands {
   rps: number;
   /** Raise (true) or lower the periscope. */
   periscopeUp: boolean;
+  /** Run the low-pressure blower that keeps surfaced main ballast tanks dry. */
+  lpBlower: boolean;
 }
 
 export interface InitialConditions {
@@ -100,6 +104,8 @@ export interface InitialConditions {
   area?: AreaId;
   /** Override the area's current (e.g. none in a test). */
   current?: CurrentDef;
+  /** Sea state (waves). Default: calm. */
+  sea?: SeaStateId | SeaState;
   /** Ground model (sea bed depth at north/east). Defaults to the area's terrain. */
   ground?: GroundDepth;
 }
@@ -152,8 +158,10 @@ export interface Telemetry {
   /** Speed [m/s] and course [rad, 0..2π] over the ground. */
   speedOverGround: number;
   courseOverGround: number;
-  /** Current at the boat, NED [m/s]. */
+  /** Current at the boat, NED [m/s] (without the waves' orbital motion). */
   current: Vec3;
+  /** Wave elevation at the boat [m, up]. */
+  waveElevation: number;
   rudder: number;
   rudderCmd: number;
   sternPlanes: number;
@@ -196,6 +204,10 @@ export class Simulation {
   readonly areaId: AreaId;
   readonly water: WaterProfile;
   readonly current: CurrentDef;
+  readonly sea: SeaState;
+  readonly waves: readonly WaveComponent[];
+  /** Wave elevation [m, up] at (north, east) now; undefined in a calm sea. */
+  readonly surface: ((north: number, east: number) => number) | undefined;
   readonly contactPoints: Vec3[];
 
   t = 0;
@@ -203,7 +215,7 @@ export class Simulation {
   tanks: TankState[];
   air: AirState;
   actuators = { rudder: 0, sternPlanes: 0, periscope: 0 };
-  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false };
+  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false };
   /** Remaining trim transfer [m^3], positive = aft → forward. */
   trimRemaining = 0;
   /** Remaining compensating transfer [m^3], positive = flood from sea. */
@@ -218,6 +230,9 @@ export class Simulation {
     this.areaId = init.area ?? 'westCoast';
     this.water = AREAS[this.areaId].water;
     this.current = init.current ?? AREAS[this.areaId].current;
+    this.sea = typeof init.sea === 'object' ? init.sea : SEA_STATES[init.sea ?? 'calm'];
+    this.waves = waveComponents(this.sea);
+    this.surface = this.waves.length > 0 ? (n, e) => waveElevation(this.waves, n, e, this.t) : undefined;
     this.ground = init.ground ?? areaGround(this.areaId);
     this.contactPoints = hullContactPoints(cfg);
     this.hull = buildHull(cfg.hull);
@@ -355,9 +370,10 @@ export class Simulation {
     const wxv = cross(w, vc);
     for (let i = 0; i < 3; i++) tau[i]! -= this.MA.get(i, i) * wxv[i]!;
 
-    const hs = restoringForces(this.hull, pos, R, this.massProps.mass, this.massProps.cg, cfg.hull.compressibility, this.water);
+    const hs = restoringForces(this.hull, pos, R, this.massProps.mass, this.massProps.cg, cfg.hull.compressibility, this.water, this.surface);
     add(hs.tau);
     add(hullDamping(cfg, this.hull, nuR, rho));
+    add(surfaceDamping(this.hull, pos, R, nuR, cfg.hydro.surfaceDamping, this.surface));
     for (const fin of cfg.fins) {
       const delta = fin.actuator === null ? 0 : this.actuators[fin.actuator];
       add(finForce(fin, nuR, delta, rho));
@@ -371,12 +387,16 @@ export class Simulation {
     return { tau, hydrostatics: hs, contact, propThrust: prop.thrust, propTorque: prop.torque, motorTorque: prop.motorTorque };
   }
 
-  /** Current velocity in NED [m/s] at a position (depth = pos[2]). */
-  currentAt(pos: Vec3): Vec3 {
+  /** Velocity of the water in NED [m/s] at a position: current plus wave orbital velocity. */
+  currentAt(pos: Vec3, withWaves = true): Vec3 {
     const c = this.current;
-    if (c.speed === 0) return [0, 0, 0];
-    const s = c.speed * Math.exp(-Math.max(0, pos[2]) / c.decay);
-    return [s * Math.cos(c.toward), s * Math.sin(c.toward), 0];
+    const s = c.speed === 0 ? 0 : c.speed * Math.exp(-Math.max(0, pos[2]) / c.decay);
+    const v: Vec3 = [s * Math.cos(c.toward), s * Math.sin(c.toward), 0];
+    if (withWaves && this.waves.length > 0) {
+      const w = waveVelocity(this.waves, pos[0], pos[1], pos[2], this.t);
+      for (let i = 0; i < 3; i++) v[i]! += w[i]!;
+    }
+    return v;
   }
 
   /** Current velocity in body axes at a position. */
@@ -396,10 +416,12 @@ export class Simulation {
     return [p.base[0], p.base[1], p.base[2] - p.extension * this.actuators.periscope];
   }
 
-  /** World depth [m] of a body-frame point. */
+  /** Depth [m] of a body-frame point below the local water surface (waves included); negative above it. */
   bodyPointDepth(p: Vec3, y: Float64Array = this.y): number {
     const R = quatToMat3(getQuat(y));
-    return y[2]! + mat3MulVec(R, p)[2];
+    const w = mat3MulVec(R, p);
+    const d = y[2]! + w[2];
+    return this.surface ? d + this.surface(y[0]! + w[0], y[1]! + w[1]) : d;
   }
 
   /**
@@ -414,7 +436,8 @@ export class Simulation {
     const p = this.cfg.periscope;
     const base = p.base;
     const len = p.extension * ext;
-    const depthOf = (z: number) => pos[2] + mat3MulVec(R, [base[0], base[1], z])[2];
+    const wave = this.surface ? this.surface(pos[0] + R[0] * base[0], pos[1] + R[3] * base[0]) : 0;
+    const depthOf = (z: number) => pos[2] + mat3MulVec(R, [base[0], base[1], z])[2] + wave;
     const dFoot = depthOf(base[2]);
     const dHead = depthOf(base[2] - len);
     if (dFoot <= 0) return tau; // the whole mast is in the air
@@ -467,7 +490,7 @@ export class Simulation {
       const s = this.tanks[i]!;
       if (def.kind !== 'mainBallast') return;
       const d = this.tankWorldDepths(def);
-      updateMainBallast(def, s, this.air, this.cfg.air, d.bottom, d.top, waterDensity(Math.max(0, d.centre), this.water), dt, this.water);
+      updateMainBallast(def, s, this.air, this.cfg.air, d.bottom, d.top, waterDensity(Math.max(0, d.centre), this.water), dt, this.water, this.commands.lpBlower);
     });
 
     const fwd = this.tankById('trim_fwd');
@@ -606,7 +629,8 @@ export class Simulation {
       depthRate: vWorld[2],
       speedOverGround: Math.hypot(vWorld[0], vWorld[1]),
       courseOverGround: (Math.atan2(vWorld[1], vWorld[0]) + 2 * Math.PI) % (2 * Math.PI),
-      current: this.currentAt(pos),
+      current: this.currentAt(pos, false),
+      waveElevation: this.surface ? this.surface(pos[0], pos[1]) : 0,
       rudder: this.actuators.rudder,
       rudderCmd: this.commands.rudder,
       sternPlanes: this.actuators.sternPlanes,

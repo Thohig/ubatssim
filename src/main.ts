@@ -87,7 +87,7 @@ function newSession(
   view.resetCamera();
   view.setWaypoint(scenario?.waypoint ?? null);
   const area = sim.areaId;
-  view.setArea(heightFunction(AREAS[area].terrain), AREA_INFO[area].lighthouses, conditions);
+  view.setArea(heightFunction(AREAS[area].terrain), AREA_INFO[area].lighthouses, conditions, sim.waves);
   views.set('external');
   lastPeriscope = sim.actuators.periscope;
   return s;
@@ -110,9 +110,9 @@ function demoSession(): Session {
 const menu = new Menu(
   el('menu'),
   {
-    startFree(area, start, conditions) {
+    startFree(area, start, conditions, sea) {
       const f = AREA_INFO[area].starts.find((s) => s.id === start);
-      if (f) startGame(newSession(f.initial, null, f.text, settings.mode, conditions));
+      if (f) startGame(newSession({ ...f.initial, sea }, null, f.text, settings.mode, conditions));
     },
     startScenario(id) {
       const sc = SCENARIOS.find((s) => s.id === id);

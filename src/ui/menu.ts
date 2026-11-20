@@ -7,11 +7,12 @@ import { SCENARIOS, scenarioModes, type Scenario } from '../control/scenarios';
 import { formatSimTime } from '../control/controller';
 import { GAME_MODES, GAME_MODE_NAME, GAME_MODE_TEXT, type GameMode } from '../control/gameMode';
 import type { Settings } from './settings';
-import { AREA_INFO, AREA_ORDER, CONDITIONS, type ConditionsId } from '../control/areas';
+import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } from '../control/areas';
+import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
 
 export interface MenuHandlers {
-  startFree(area: AreaId, start: string, conditions: ConditionsId): void;
+  startFree(area: AreaId, start: string, conditions: ConditionsId, sea: SeaStateId): void;
   startScenario(id: string): void;
   resume(): void;
   restart(): void;
@@ -51,6 +52,7 @@ export class Menu {
   /** Free play: chosen area and light/visibility. */
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
+  private sea: SeaStateId = 'calm';
 
   constructor(
     private readonly root: HTMLElement,
@@ -64,6 +66,7 @@ export class Menu {
     root.addEventListener('change', (e) => {
       const input = e.target as HTMLInputElement;
       if (input.name === 'conditions') this.conditions = input.value as ConditionsId;
+      else if (input.name === 'sea') this.sea = input.value as SeaStateId;
       else if (input.name) this.onSetting(input.name, input.type === 'checkbox' ? String(input.checked) : input.value);
     });
   }
@@ -118,7 +121,7 @@ export class Menu {
         this.show('free-area');
         break;
       case 'free':
-        this.h.startFree(this.area, arg!, this.conditions);
+        this.h.startFree(this.area, arg!, this.conditions, this.sea);
         break;
       case 'scenario':
         this.h.startScenario(arg!);
@@ -206,6 +209,9 @@ export class Menu {
           <fieldset><legend>Ljus och sikt</legend>
             ${CONDITIONS.map((c) => `<label class="opt"><input type="radio" name="conditions" value="${c.id}" ${this.conditions === c.id ? 'checked' : ''}/> ${esc(c.title)}</label>`).join('')}
           </fieldset>
+          <fieldset><legend>Sjögång</legend>
+            ${SEA_CHOICES.map((c) => `<label class="opt" title="${esc(c.description)}"><input type="radio" name="sea" value="${c.id}" ${this.sea === c.id ? 'checked' : ''}/> ${esc(c.title)}</label>`).join('')}
+          </fieldset>
           <p class="menu-sub">Välj var du vill börja.</p>
           <div class="menu-list">
             ${a.starts.map((st) => `<button class="menu-btn choice" data-action="free" data-arg="${esc(st.id)}"><b>${esc(st.title)}</b><span>${esc(st.description)}</span></button>`).join('')}
@@ -226,6 +232,8 @@ export class Menu {
           if (area !== 'westCoast') parts.unshift(AREA_INFO[area].title);
           if (s.conditions === 'night') parts.unshift('Natt');
           if (s.conditions === 'fog') parts.unshift('Dimma');
+          if (s.initial.sea === 'rough') parts.unshift('Grov sjö');
+          if (s.initial.sea === 'moderate') parts.unshift('Måttlig sjö');
           parts.push(`${s.objectives.length} mål`);
           return parts.join(' · ');
         };

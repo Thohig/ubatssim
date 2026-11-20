@@ -123,8 +123,10 @@ export const SUBMARINE = {
   bridge: {
     /** Eye point of the officer of the watch, body frame [m]. */
     eye: [10, 0, -8.6] as Vec3,
-    /** Bridge deck (cockpit floor), body frame [m]; water above it floods the bridge. */
+    /** Bridge deck (cockpit floor), body frame [m]. */
     deck: [10, 0, -7.4] as Vec3,
+    /** Height of the bridge coaming above the deck [m]; water over it floods the bridge. */
+    coaming: 1.1,
   },
 
   /**
@@ -193,6 +195,13 @@ export const SUBMARINE = {
     /** Vent valve area per MBT [m^2] and discharge coefficient. APPROX. */
     ventArea: 0.03,
     ventDischargeCoefficient: 0.6,
+    /**
+     * Low-pressure blower used on the surface to keep the main ballast tanks
+     * dry (waves pump air out through the flood ports). Free-air flow
+     * [m^3/s] and the overpressure it can deliver [Pa]. APPROX.
+     */
+    lpBlowerFlow: 1.5,
+    lpBlowerOverpressure: 0.7e5,
   },
 
   pumps: {
@@ -237,6 +246,11 @@ export const SUBMARINE = {
     },
     /** Quadratic roll damping [Nm/(rad/s)^2]. APPROX (sail + fins). */
     Kpp: -1.5e6,
+    /**
+     * Wave-radiation damping of the surfaced hull per m² of water plane
+     * [N s/m³]. Gives ζ ≈ 0.2 in heave at zero speed. APPROX.
+     */
+    surfaceDamping: 4000,
     /** Roll added inertia as fraction of dry roll inertia. APPROX. */
     rollAddedInertiaFraction: 0.1,
   },

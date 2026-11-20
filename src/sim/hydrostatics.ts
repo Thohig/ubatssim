@@ -71,6 +71,8 @@ export function restoringForces(
   cg: Vec3,
   hullCompressibility: number,
   water: WaterProfile = DESIGN_WATER,
+  /** Wave elevation [m, up] at (north, east); the water line follows it slice by slice. */
+  surface?: (north: number, east: number) => number,
 ): HydrostaticResult {
   // World "down" expressed in body axes = third row of R.
   const gb: Vec3 = [R[6], R[7], R[8]];
@@ -90,7 +92,9 @@ export function restoringForces(
   let vol0 = 0;
   const mB: Vec3 = [0, 0, 0];
   for (const sl of hull.slices) {
-    const zc = pos[2] + R[6] * sl.x; // depth of the slice centre
+    // Depth of the slice centre below the local water surface.
+    let zc = pos[2] + R[6] * sl.x;
+    if (surface) zc += surface(pos[0] + R[0] * sl.x, pos[1] + R[3] * sl.x);
     vol0 += Math.PI * sl.r * sl.r * sl.dx;
     let area: number;
     let offset: number;
@@ -119,4 +123,39 @@ export function restoringForces(
   }
   const cb: Vec3 = B > 0 ? [mB[0] / B, mB[1] / B, mB[2] / B] : [0, 0, 0];
   return { tau, buoyancy: B, displacedVolume: vol, submergedFraction: vol0 > 0 ? Math.min(1, vol / vol0) : 0, cb };
+}
+
+/**
+ * Wave-radiation damping of the hull where it cuts the water line (surfaced
+ * or awash): a vertical force −c·b·dx·w per slice, with b the water-plane
+ * width of the slice and w its vertical speed relative to the water. Gives
+ * heave and pitch damping ratios of ~0.2 for the surfaced hull, typical of
+ * slender hulls at zero speed. Deep down the hull does not cut the surface
+ * and the term vanishes.
+ *
+ * @param nuR body velocities relative to the water
+ * @param c   damping per unit water-plane area [N s/m^3]
+ */
+export function surfaceDamping(
+  hull: HullGeometry,
+  pos: Vec3,
+  R: Mat3,
+  nuR: ArrayLike<number>,
+  c: number,
+  surface?: (north: number, east: number) => number,
+): Float64Array {
+  const tau = new Float64Array(6);
+  const [u, v, w, , q, r] = [nuR[0]!, nuR[1]!, nuR[2]!, nuR[3]!, nuR[4]!, nuR[5]!];
+  for (const sl of hull.slices) {
+    let h = pos[2] + R[6] * sl.x;
+    if (surface) h += surface(pos[0] + R[0] * sl.x, pos[1] + R[3] * sl.x);
+    if (Math.abs(h) >= sl.r) continue;
+    const b = 2 * Math.sqrt(sl.r * sl.r - h * h);
+    // Vertical (world) speed of the slice centre: body velocity (u, v + r·x, w − q·x).
+    const vz = R[6] * u + R[7] * (v + r * sl.x) + R[8] * (w - q * sl.x);
+    const fz = -c * b * sl.dx * vz;
+    const f: Vec3 = [R[6] * fz, R[7] * fz, R[8] * fz];
+    addWrench(tau, f, cross([sl.x, 0, 0], f));
+  }
+  return tau;
 }

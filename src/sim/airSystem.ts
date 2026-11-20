@@ -59,6 +59,7 @@ export function updateMainBallast(
   rho: number,
   dt: number,
   water: WaterProfile = DESIGN_WATER,
+  lpBlower = false,
 ): void {
   const H = Math.max(0, zBottom - zTop);
   const pBottom = Math.max(E.pAtm, pressureAt(zBottom, water));
@@ -74,6 +75,11 @@ export function updateMainBallast(
     const dPV = Math.min(flow * dt, air.bottlePV);
     air.bottlePV -= dPV;
     s.airPV += dPV;
+  }
+
+  // Low-pressure blower (surfaced): atmosphere → tank, up to its overpressure.
+  if (lpBlower && !s.ventOpen && f > 0 && pAir < E.pAtm + cfg.lpBlowerOverpressure) {
+    s.airPV += cfg.lpBlowerFlow * E.pAtm * dt;
   }
 
   // Vent: tank → outside at the vent's depth.

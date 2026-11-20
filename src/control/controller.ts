@@ -163,6 +163,8 @@ export class Controller {
       this.addLog(acknowledgement(order), 'ack', source);
     }
     const sim = this.sim;
+    // On the surface with the bridge manned the low-pressure blower keeps the main ballast dry.
+    sim.commands.lpBlower = this.bridgeManned;
     const tel = sim.kinematics();
     const input: AutopilotInput = {
       depth: tel.depth,
@@ -203,7 +205,7 @@ export class Controller {
         this.addLog('Huvudballasten är full. Ventilerna stängda.', 'info');
       }
     }
-    if (this.bridgeManned && sim.bodyPointDepth(sim.cfg.bridge.deck) > 0) {
+    if (this.bridgeManned && sim.bodyPointDepth(sim.cfg.bridge.deck) > sim.cfg.bridge.coaming) {
       this.bridgeManned = false;
       this.addLog('Vatten över bryggan! Bryggan är utrymd.', 'error');
     }

@@ -5,6 +5,7 @@
  */
 import type { AreaId } from '../sim/config/areas';
 import type { InitialConditions } from '../sim/simulation';
+import type { SeaStateId } from '../sim/config/seaStates';
 
 const KN = 1852 / 3600;
 const DEG = Math.PI / 180;
@@ -38,6 +39,12 @@ export interface AreaInfo {
 }
 
 export type ConditionsId = 'day' | 'night' | 'fog';
+
+export const SEA_CHOICES: { id: SeaStateId; title: string; description: string }[] = [
+  { id: 'calm', title: 'Lugnt', description: 'Ingen sjögång.' },
+  { id: 'moderate', title: 'Måttlig sjö', description: 'Våghöjd 1,25 m.' },
+  { id: 'rough', title: 'Grov sjö', description: 'Våghöjd 3 m.' },
+];
 
 export const CONDITIONS: { id: ConditionsId; title: string; description: string }[] = [
   { id: 'day', title: 'Dag', description: 'God sikt.' },
