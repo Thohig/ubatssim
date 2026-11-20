@@ -19,10 +19,11 @@ import { createHelm } from '../ui/helm';
 import { InputModeState, bindModeIndicator } from '../ui/inputMode';
 import { createInstruments, layoutKey } from '../ui/instruments';
 import { bindKeyboard } from '../ui/keyboard';
-import { bindLog } from '../ui/log';
+import { bindLog, bindLogToggle } from '../ui/log';
 import { Menu } from '../ui/menu';
 import { updateObjective } from '../ui/objective';
 import { createPerfMeter } from '../ui/perfMeter';
+import { createStatusBar } from '../ui/statusBar';
 import { loadSettings, saveSettings, type Settings } from '../ui/settings';
 import { isTouchDevice } from '../ui/button';
 import { createViewOverlay } from '../ui/viewOverlay';
@@ -52,6 +53,14 @@ export function startApp(): void {
   const logEl = el('log');
   const instrumentsEl = el('instruments');
   const objectiveEl = el('objective');
+  bindLogToggle(logEl);
+  // Phones: the status bar replaces the instrument panel; a tap shows the whole panel (style.css, body.inst-open).
+  const statusEl = el<HTMLButtonElement>('status');
+  const setInstrumentsOpen = (open: boolean) => {
+    document.body.classList.toggle('inst-open', open);
+    statusEl.setAttribute('aria-expanded', String(open));
+  };
+  const statusBar = createStatusBar(statusEl, () => setInstrumentsOpen(!document.body.classList.contains('inst-open')));
 
   let touch = false;
   const mode = new InputModeState();
@@ -69,13 +78,13 @@ export function startApp(): void {
 
   /** The first log lines of a game: the crew handles everything, and where to take over. */
   const HELP_HINT =
-    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna Ballast ▾, Trim ▾ och Fart ▾ för att sköta något själv. ☰ → Hjälp förklarar.';
+    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna panelerna Ballast, Trim och Fart (på mobil under System ▾) för att sköta något själv. ☰ → Hjälp förklarar.';
 
   /** Shows a session: log, instruments, sound, camera, buoy, ships and the area. */
   const attach = (s: GameSession): GameSession => {
     const { sim, ctrl, runner } = s;
     bindLog(logEl, ctrl);
-    instrumentsEl.classList.remove('expanded');
+    setInstrumentsOpen(false);
     updateInstruments = createInstruments(instrumentsEl, ctrl);
     instrumentsKey = layoutKey(ctrl.duties());
     ctrl.onLog((e) => audio.onLog(e.text, e.kind, e.source));
@@ -206,6 +215,7 @@ export function startApp(): void {
       return r.width > 0 && r.height > 0 ? r : null;
     };
     const inst = box('instruments');
+    const status = box('status');
     const btns = box('view-btns');
     const helm = box('helm');
     const info = box('cutaway-info');
@@ -213,13 +223,13 @@ export function startApp(): void {
     view.setSafeArea({
       // On a narrow screen the instruments sit above the boat, not beside it.
       left: !narrow && inst ? Math.max(0, inst.right - c.left) : 0,
-      top: Math.max(56, narrow && inst ? inst.bottom - c.top : 0),
+      top: Math.max(56, narrow && inst ? inst.bottom - c.top : 0, status ? status.bottom - c.top : 0),
       right: btns ? Math.max(0, c.right - btns.left) : 0,
       bottom: Math.max(helm ? c.bottom - helm.top : 0, info && narrow ? c.bottom - info.top : 0),
     });
   };
   const safeAreaObserver = new ResizeObserver(measureSafeArea);
-  for (const id of ['instruments', 'view-btns', 'helm', 'cutaway-info']) safeAreaObserver.observe(el(id));
+  for (const id of ['instruments', 'status', 'view-btns', 'helm', 'cutaway-info']) safeAreaObserver.observe(el(id));
   window.addEventListener('resize', measureSafeArea);
   const cutawayInfoEl = el('cutaway-info');
   let cutawayInfoKey = '';
@@ -371,6 +381,7 @@ export function startApp(): void {
         updateInstruments = createInstruments(instrumentsEl, s.ctrl);
       }
       updateInstruments(tel);
+      statusBar.update(tel);
       updateViewButtons(s.ctrl);
       updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
       updateCutawayInfo(s);

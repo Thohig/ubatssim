@@ -68,15 +68,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 #console:not(.active) { display: none; }
 #console input { font-size: 16px; } /* ≥16px stops iOS zooming on focus */
 
-@media (max-width: 760px) {
-  #instruments { width: 200px; font-size: 11px; }
-  .inst-value { font-size: 14px; }
-  .inst-value.big { font-size: 18px; }
-  #log { width: calc(100% - 24px); max-height: 25%; bottom: 60px; }
-}
-
-/* ---------------------------------------------------------------- toggles */
-.inst-toggle { display: none; }
 
 /* ------------------------------------------------------------ screen buttons */
 /* The mode indicator only shows the console and the on-board views. */
@@ -96,27 +87,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 
 body.touch .mode { top: max(8px, env(safe-area-inset-top)); }
 body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); }
-
-/* --------------------------------------------------------- narrow screens */
-@media (max-width: 760px) {
-  .mode { left: auto; right: max(8px, env(safe-area-inset-right)); transform: none; font-size: 11px; padding: 4px 10px; }
-  .mode small { display: none; }
-  #instruments { width: 200px; padding: 6px 8px; font-size: 11px; }
-  .inst-row { white-space: nowrap; gap: 4px; }
-  .inst-row .ap { margin-left: 2px; }
-  #instruments:not(.expanded) .inst-more { display: none; }
-  #instruments.expanded { width: min(300px, calc(100% - 16px)); }
-  .inst-row .inst-label { font-size: 10px; }
-  .inst-value { font-size: 13px; }
-  .inst-value.big { font-size: 17px; }
-  .inst-set { font-size: 10px; }
-  .inst-toggle {
-    display: block; width: 100%; margin-top: 4px; padding: 4px 0; border-radius: 4px;
-    border: 1px solid var(--panel-border); background: transparent; color: var(--accent); font: inherit; font-size: 11px;
-  }
-  #log { left: 8px; right: 8px; width: auto; max-height: 22%; font-size: 11px; padding: 6px 8px; }
-  .touch-row { gap: 3px; }
-}
 
 /* ------------------------------------------------------------- menu / hud */
 #hud[hidden], #menu[hidden], #objective[hidden] { display: none !important; }
@@ -181,9 +151,6 @@ legend { color: var(--muted); padding: 0 4px; }
 .help code { color: var(--warn); }
 
 @media (max-width: 760px) {
-  .mode { right: 56px; }
-  /* Below the compact instrument panel, above the 3D view's centre. */
-  #objective { top: calc(322px + env(safe-area-inset-top)); left: 8px; right: 8px; width: auto; transform: none; font-size: 12px; padding: 6px 10px; }
   .menu-card { padding: 18px; }
   .menu-title { font-size: 28px; }
 }
@@ -224,9 +191,6 @@ legend { color: var(--muted); padding: 0 4px; }
   font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
 }
 #view-btns button[hidden] { display: none; }
-@media (max-width: 760px) {
-  body.onboard #log { max-height: 12%; opacity: 0.85; }
-}
 
 .perf-meter {
   position: fixed; left: 50%; bottom: 4px; transform: translateX(-50%); z-index: 50; pointer-events: none;
@@ -319,59 +283,19 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-level .tank-name { display: flex; justify-content: space-between; font-size: 12px; }
 .helm-level .flags { color: var(--warn); }
 
-/* Phones held upright: depth on the left; course, Dyk/Håll and the panels on the right; telegraph across the bottom. */
-@media (max-width: 760px) {
-  .helm {
-    grid-template-columns: auto 1fr; gap: 6px 8px;
-    grid-template-areas: "depth course" "depth centre" "tele tele";
-  }
-  .helm-centre { display: contents; }
-  .helm-actions { grid-area: centre; justify-self: stretch; align-self: end; }
-  .helm-actions .touch-row { justify-content: center; }
-  .helm-telegraph { grid-area: tele; width: 100%; }
-  .helm-head > .touch-label { display: none; }
-  .helm-course { align-self: start; width: 100%; }
-  .helm-band-row { width: 100%; }
-  .helm-band { flex: 1 1 auto; width: auto; min-width: 0; }
-  .helm .touch-btn { font-size: 14px; }
-  .helm-depth-scale { height: 164px; }
-  .helm-depth-side .touch-btn:not(.helm-seg) { height: 40px; }
-  .helm-panel .touch-btn.helm-small { height: 30px; min-width: 46px; font-size: 12px; }
-  .helm-panel { font-size: 12px; gap: 4px; }
-  /* Objective under the compact instruments, the log just above the controls. */
-  #objective { top: calc(212px + env(safe-area-inset-top)); }
-  #log { max-height: 13%; }
-}
 /* The instrument panel ends above the screen controls (it scrolls if it must). */
 #instruments { max-height: calc(100% - var(--helm-h, 200px) - 24px); overflow-y: auto; }
 
-/* Low screens (phones held sideways): everything in one row, compact. */
-@media (max-height: 500px) {
-  .helm {
-    grid-template-columns: auto 1fr auto; grid-template-areas: "depth centre course";
-    gap: 8px; padding-top: 4px;
-  }
-  .helm-centre { display: flex; gap: 4px; }
-  .helm-actions, .helm-telegraph { grid-area: auto; }
-  .helm-actions { flex-direction: row; }
-  .helm-group > .touch-label { display: none; }
-  .helm-depth-scale { height: 124px; }
-  .helm .touch-btn { height: 40px; min-width: 40px; }
-  .helm .touch-btn.helm-small { height: 30px; }
-  .helm-depth-side .touch-btn:not(.helm-seg) { height: 26px; }
-  .helm-switch.vertical .touch-btn.helm-seg { height: 20px; }
-  .helm-head { justify-content: center; }
-  /* The panel sits between the instruments and the menu button, so it may use the height. */
-  .helm-panel { max-height: calc(100vh - var(--helm-h, 200px) - 12px); max-height: calc(100dvh - var(--helm-h, 200px) - 12px); }
-  .helm-course { align-self: end; width: auto; }
-  .helm-band-row { width: auto; }
-  .helm-band { flex: none; width: 150px; height: 40px; }
-  .helm-telegraph { width: min(100%, 380px); }
-  /* The objective and the log go between the instrument panel and the menu button. */
-  #objective { top: max(8px, env(safe-area-inset-top)); left: 220px; right: 64px; width: auto; transform: none; }
-  #log { left: 220px; right: 64px; width: auto; max-height: 20%; }
+/* Phone-only controls, shown by the compact layout below. */
+#status, .helm .touch-btn.helm-chip, .helm .touch-btn.helm-system, #view-btns .views-menu { display: none; }
+.helm-tabs { display: flex; gap: 4px; }
+.helm-tab {
+  font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  background: transparent; border: 1px solid var(--panel-border); color: var(--muted);
 }
-
+.helm-tab.on { color: var(--accent); border-color: var(--accent); background: rgba(95, 211, 255, 0.12); }
+.helm-tab.self { color: var(--warn); }
+.helm-tab.self.on { border-color: var(--warn); }
 
 /* ------------------------------------------------------------ cutaway */
 #cutaway-info { right: 12px; bottom: calc(var(--helm-h, 200px) + 6px); width: 380px; max-height: 40%; overflow-y: auto; font-size: 13px; }
@@ -389,3 +313,180 @@ body.cutaway #log { display: none; }
     bottom: max(8px, env(safe-area-inset-bottom)); max-height: 30%; font-size: 12px;
   }
 }
+
+
+/* ======================================================================
+   Compact layout (phones): src/ui/compact.ts uses the same query.
+   A status bar instead of the instrument panel (a tap shows it), one log
+   line, one "Vyer" button, one Auto/Hand chip per axis, "System ▾" for the
+   three panels and a telegraph lever. Upright: depth on the left, course,
+   buttons and lever on the right. Sideways: one group per thumb, the middle free.
+   ====================================================================== */
+@media (max-width: 760px), (max-height: 500px) {
+  /* -- Top: status bar, menu button, view menu. */
+  #menu-btn { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); }
+  #status {
+    position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left));
+    display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; max-width: calc(100% - 64px);
+    font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden;
+    color: var(--text); cursor: pointer; pointer-events: auto; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  #status .st-time { color: var(--muted); }
+  #status .st-keel.alarm { color: var(--error); font-weight: 700; }
+  #status .st-trim.warn { color: var(--warn); }
+  #status .st-more { color: var(--accent); font-size: 11px; }
+  body.inst-open #status { border-color: var(--accent); }
+  body.inst-open #status .st-more { transform: rotate(180deg); }
+
+  /* The instrument panel only when the status bar is tapped: all of it, under the bar. */
+  #instruments { display: none; }
+  body.inst-open #instruments {
+    display: block; top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left));
+    width: min(320px, calc(100% - 16px)); font-size: 12px; padding: 6px 10px; z-index: 5;
+    max-height: calc(100% - var(--helm-h, 200px) - 70px);
+  }
+  .inst-row { white-space: nowrap; gap: 4px; }
+  .inst-value { font-size: 14px; }
+  .inst-value.big { font-size: 17px; }
+  body.inst-open #log, body.inst-open #objective { display: none; }
+
+  /* The views and the console behind one button; the view in use shows on the screen itself. */
+  .mode { display: none; }
+  #view-btns { top: calc(max(8px, env(safe-area-inset-top)) + 46px); right: max(8px, env(safe-area-inset-right)); gap: 4px; align-items: flex-end; }
+  #view-btns:not(.open) button:not(.views-menu) { display: none; }
+  #view-btns .views-menu { display: block; width: auto; padding: 0 8px; height: 32px; color: var(--accent); }
+  #view-btns.open button:not([hidden]) { width: 56px; height: 38px; font-size: 12px; }
+  #view-btns.open .views-menu { width: auto; height: 32px; }
+  #view-btns button.on { border-color: var(--accent); color: var(--accent); }
+
+  /* -- Objective (scenarios): under the status bar. */
+  #objective {
+    top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px;
+    width: auto; transform: none; font-size: 12px; padding: 6px 10px; text-align: left;
+  }
+
+  /* -- Log: the latest line just above the controls; it dims after a while. A tap shows more. */
+  #log {
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
+    bottom: calc(var(--helm-h, 200px) + 4px); max-height: 45%; padding: 5px 8px; font-size: 12px;
+    pointer-events: auto; cursor: pointer;
+    overflow-y: auto; justify-content: flex-start;
+  }
+  #log:not(.expanded) { background: transparent; border-color: transparent; padding: 0; backdrop-filter: none; }
+  #log:not(.expanded) .log-entry { display: none; }
+  #log:not(.expanded) .log-entry:last-child {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+    /* A border, not padding, around the text: line-clamp leaves the next line visible in padding. */
+    padding: 0; border: solid transparent; border-width: 4px 8px; border-radius: 6px;
+    box-shadow: 0 0 0 1px var(--panel-border); background: rgba(4, 16, 24, 0.6);
+    animation: log-in 0.25s ease-out, log-dim 9s forwards;
+  }
+  /* Errors stay bright longer. */
+  #log:not(.expanded) .log-entry.error:last-child { animation-duration: 0.25s, 20s; }
+  #log:not(.expanded) .log-entry .src { display: none; }
+  #log.expanded { background: var(--panel-bg); }
+  #log.expanded .log-entry + .log-entry { margin-top: 2px; }
+
+  /* -- Screen controls. */
+  .helm { gap: 6px 8px; padding-top: 4px; }
+  .helm .touch-btn { height: 40px; min-width: 40px; font-size: 14px; }
+  .helm .touch-btn.helm-small { height: 32px; font-size: 12px; }
+  .helm-head > .touch-label, .helm-switch { display: none; }
+  .helm-head { justify-content: space-between; gap: 6px; width: 100%; }
+  .helm .touch-btn.helm-chip {
+    display: block; height: 26px; min-width: 0; padding: 0 10px; border-radius: 13px; font-size: 12px;
+    color: var(--accent); border-color: var(--accent);
+  }
+  .helm .touch-btn.helm-chip.hand { color: #02121c; background: var(--warn); border-color: var(--warn); }
+  .helm .touch-btn.helm-chip:disabled { opacity: 0.45; }
+  .helm-readout { font-size: 13px; }
+  .helm-depth-side { gap: 4px; justify-content: space-between; }
+  .helm-depth-side .touch-btn:not(.helm-small) { height: 40px; }
+  .helm-depth-scale { width: 52px; height: 150px; }
+  .helm-course { width: 100%; }
+  .helm-band-row { width: 100%; }
+  .helm-band { flex: 1 1 auto; width: auto; min-width: 0; height: 40px; }
+  .helm-course-btns:not([hidden]) { display: flex; }
+  .helm-panel-row { display: none; }
+  .helm .touch-btn.helm-system { display: block; flex: 1 1 auto; }
+  .helm .touch-btn.helm-system.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
+  .helm .touch-btn.helm-system.self { border-color: var(--warn); color: var(--warn); }
+  .helm-context { width: 100%; }
+  .helm .helm-context .touch-btn { flex: 1 1 0; min-width: 0 !important; height: 40px; padding: 0 4px; font-size: 14px; white-space: nowrap; }
+  .helm .helm-context .touch-btn.helm-system { font-size: 13px; }
+
+  /* The telegraph as a lever: a track with seven detents; the ordered one is the handle. */
+  .helm-telegraph { width: 100%; gap: 2px; }
+  .helm-telegraph.exact .helm-telegraph-head { display: none; }
+  .helm-telegraph-head { justify-content: center; }
+  .helm-telegraph-head > span:not(.helm-readout) { display: none; }
+  .helm-bells {
+    position: relative; gap: 0; width: 100%; height: 40px; border-radius: 20px; border: 1px solid var(--panel-border);
+    background: linear-gradient(90deg, rgba(255, 107, 107, 0.18) 0%, rgba(255, 107, 107, 0.18) 42.86%, rgba(255, 179, 71, 0.16) 42.86%, rgba(255, 179, 71, 0.16) 57.14%, rgba(95, 211, 255, 0.14) 57.14%), var(--panel-bg);
+    touch-action: none; user-select: none; -webkit-user-select: none; cursor: ew-resize;
+  }
+  .helm .touch-btn.helm-bell {
+    pointer-events: none; height: 100%; border: none; border-radius: 20px; background: transparent;
+    font-size: 11px; font-weight: 600; color: var(--muted); padding: 0;
+  }
+  .helm-bell.astern { color: #ff9e9e; }
+  .helm-bell.stop { color: var(--warn); }
+  .helm-bell.near { box-shadow: inset 0 0 0 1px var(--accent); }
+  .helm .touch-btn.helm-bell.on { background: var(--accent); color: #02121c; font-size: 12px; box-shadow: 0 0 0 2px rgba(95, 211, 255, 0.35); }
+  .helm .touch-btn.helm-bell.astern.on { background: var(--error); }
+  .helm .touch-btn.helm-bell.stop.on { background: var(--warn); }
+  .helm .touch-btn.helm-bell.preview { background: rgba(255, 179, 71, 0.35); color: var(--text); }
+
+  /* Panels: above the controls, never over the status bar. */
+  .helm-panel {
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto; transform: none;
+    max-height: calc(100vh - var(--helm-h, 200px) - 64px); max-height: calc(100dvh - var(--helm-h, 200px) - 64px);
+    font-size: 12px; gap: 4px; padding: 8px 10px;
+  }
+  .helm-panel .touch-btn.helm-small { height: 32px; min-width: 46px; font-size: 12px; }
+  .helm-tab { padding: 6px 12px; }
+}
+
+/* Upright phones: depth on the left; course, buttons and the lever on the right. */
+@media (max-width: 760px) and (min-height: 501px) {
+  .helm {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "depth course" "depth actions" "tele tele";
+    align-items: end;
+  }
+  .helm-centre { display: contents; }
+  .helm-actions { grid-area: actions; width: 100%; }
+  .helm-telegraph { grid-area: tele; }
+  .helm-course { align-self: start; }
+}
+
+/* Phones held sideways: depth and the buttons under the left thumb, course and the lever under the right. */
+@media (max-height: 500px) {
+  .helm {
+    grid-template-columns: auto auto minmax(0, 1fr) minmax(0, 340px);
+    grid-template-areas: "depth actions . course" "depth actions . tele";
+    align-items: end; gap: 4px 8px;
+  }
+  .helm-centre { display: contents; }
+  .helm-actions { grid-area: actions; align-self: end; }
+  .helm-actions .helm-context { flex-direction: column; width: auto; }
+  .helm .helm-actions .helm-context .touch-btn { flex: none; min-width: 84px !important; }
+  .helm-telegraph { grid-area: tele; }
+  .helm-course { grid-area: course; }
+  .helm-depth-scale { height: 116px; }
+  .helm-depth-side .touch-btn:not(.helm-small) { height: 34px; }
+  /* The log and the objective at the top, between the status bar and the view menu. */
+  #objective { top: max(8px, env(safe-area-inset-top)); left: 50%; right: auto; transform: translateX(-50%); width: min(420px, calc(100% - 520px)); min-width: 220px; }
+  #status { max-width: 300px; }
+  #log { top: calc(max(8px, env(safe-area-inset-top)) + 46px); bottom: auto; right: auto; width: min(420px, 50%); max-height: calc(100% - var(--helm-h, 200px) - 70px); }
+  /* Low screens: the panel takes the height under the status bar, over the controls' middle (✕ closes it). */
+  .helm-panel {
+    position: fixed; top: calc(max(8px, env(safe-area-inset-top)) + 46px); bottom: max(8px, env(safe-area-inset-bottom)); margin: 0;
+    left: 50%; right: auto; width: min(440px, calc(100% - 16px)); transform: translateX(-50%); max-height: none; z-index: 6;
+  }
+  /* The view menu folds out to the left, clear of the course controls. */
+  #view-btns.open { flex-direction: row-reverse; align-items: flex-start; }
+}
+
+@keyframes log-dim { 0%, 80% { opacity: 1; } 100% { opacity: 0.45; } }
+@keyframes log-in { from { transform: translateY(4px); opacity: 0; } to { transform: none; opacity: 1; } }

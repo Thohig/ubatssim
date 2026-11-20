@@ -49,7 +49,7 @@ Det finns ett spel och en ubåt. För varje system väljer du om **besättningen
 | **Trim** | Trimassistenten kompenserar och trimmar. | Du kompenserar och trimmar (Trim ▾). |
 | **Skyddsnät** | På: nödblåsning nära krossdjupet, djupgräns över botten och varning för grunt vatten. | Av. |
 
-- **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾** och **Fart ▾**. Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
+- **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾** och **Fart ▾** (på mobil under **System ▾**). Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
 - **Order tar över:** en manuell order tar över systemet den gäller, också i konsolen. `roder sb 10` sätter kursen på Hand, `trimma för 200` avlöser trimassistenten och `fyll hb` ger dig ballasten. Ett djup- eller kursmål och telegrafen lämnar axeln till besättningen igen.
 - **Utan ryck:** tar du över djup eller kurs ligger rodren kvar där autopiloten hade dem. Lämnar du tillbaka dem sätts målen till nuvarande djup och kurs.
 - **Instrumentpanelen** följer valen: tar du över kursen visas rodret, trimmet flytkraft och tankar, ballasten HP-luften.
@@ -75,17 +75,29 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Djuproder** (Hand) | Vänster | Visar djuprodrets order och utslag. Tryck eller dra för en vinkel. **▲ Upp** / **▼ Ned** ändrar 5°, **Noll** lägger det i noll. |
 | **Kompass** (Auto) | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
 | **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
-| **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. |
-| **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. |
+| **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. På mobil en knapp som visar Auto eller Hand (gul) och växlar vid tryck. |
+| **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. På mobil är telegrafen ett reglage: tryck eller dra längs det, och läget skickas när du släpper. |
 | **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. |
 | **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
 | **Ballast ▾** | Mitten | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
 | **Trim ▾** | Mitten | Flytkraft, stampvinkel, pumparna, kompenserings- och trimtankarna. Kompensera in / ut och trimma för / akter, 100 eller 500 liter. |
 | **Fart ▾** | Mitten | Fart, varvtal och axeleffekt. Fartmålet ±1 knop, varvtalet ±10 rpm och Stopp. |
+| **System ▾** | Mitten (bara mobil) | Öppnar panelen som visades senast. Flikarna Ballast, Trim och Fart byter panel. |
 
-En panelknapp som du sköter själv är gul. På stående telefon ligger djupskalan till vänster, kompassen och knapparna till höger och telegrafen över hela bredden längst ner. På liggande telefon ligger allt i en rad. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
+En panelknapp eller flik som du sköter själv är gul. Panelens flikar byter mellan de tre panelerna också på dator. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
 
 Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger gör samma sak som V, P, Z, B och C. Per och Vy visas när ubåten är grundare än 25 m eller periskopet är uppe. **>_** öppnar konsolen.
+
+### Mobil
+
+På skärmar som är smalare än 760 px eller lägre än 500 px är vyn avskalad, så att 3D-bilden får plats:
+
+- **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen och trim. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
+- **Loggen** visar bara den senaste raden, ovanför kontrollerna, och tonas ned efter några sekunder (felmeddelanden står kvar längre). Tryck på raden för de senaste raderna.
+- **Vyer ▾** uppe till höger fäller ut Vy, Per, Zoom, Brg, Snitt och **>_**. Ett val fäller ihop dem igen.
+- **Auto / Hand** är en knapp per axel, panelerna ligger under **System ▾** och telegrafen är ett reglage.
+- **Stående telefon:** djupskalan till vänster, kompassen, Dyk / Håll / System till höger och telegrafen över hela bredden längst ner.
+- **Liggande telefon:** djupet och knapparna under vänster tumme, kompassen och telegrafen under höger, och mitten fri. En panel öppnas i mitten under statusraden.
 
 ### Tangentbord
 
@@ -109,13 +121,13 @@ Piltangenterna följer Auto / Hand.
 | Esc | Lämna konsolen eller en vy, eller pausa | Samma |
 | M | Ljud av / på | Samma |
 
-När konsolen är öppen visar lägesindikatorn överst **KONSOL**, och ↑/↓ bläddrar i kommandohistoriken. Instrumentpanelen är kompakt på smala skärmar, och "Mer ▾" visar resten.
+När konsolen är öppen visar lägesindikatorn överst **KONSOL**, och ↑/↓ bläddrar i kommandohistoriken. På mobil ersätts instrumentpanelen av statusraden (se [Mobil](#mobil)).
 
 Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att zooma. Kameran följer ubåten.
 
 ### Back
 
-Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med `back halv` i konsolen. På Hand går det med negativt varvtal under Fart ▾. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid varje ny fartorder.
+Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med `back halv` i konsolen. På Hand går det med negativt varvtal i panelen Fart. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid varje ny fartorder.
 
 - **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop (Full back), och det tar några minuter att komma upp i fart.
 - **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. På Hand får du styra omvänt.
@@ -134,7 +146,7 @@ Ubåten backar med telegrafen (Halv back), med Shift + ↓ förbi noll eller med
 
 - **Bryggan** är bemannad i ytläge. Den måste utrymmas innan ubåten dyker:
   - Sköter besättningen ballasten utryms bryggan automatiskt när du trycker Dyk (D).
-  - Sköter du ballasten själv trycker du Klart bryggan under Ballast ▾ (eller `klart bryggan`). Annars vägrar ubåten att fylla huvudballasten.
+  - Sköter du ballasten själv trycker du Klart bryggan i panelen Ballast (eller `klart bryggan`). Annars vägrar ubåten att fylla huvudballasten.
   - Når vattnet över brygglisten utryms bryggan, och vyn byter till den yttre.
 - **Lågtrycksblåsaren** går när bryggan är bemannad och håller huvudballasten torr i sjögång.
 - **Genomskärningen** visar alla avdelningar utan människor: torpedrummet, manöverrummet (två däck: manövercentral med sonar och radio, pumprum och HP-luft), bostäder och batterirum (två däck), maskinrummet med två dieselgeneratorer och elmotorrummet med huvudmotorn. Utanför tryckskrovet syns sonardomen, huvudballasttankarna, tornet med masterna och bryggan, och akterpiken med styrmaskinerna.
@@ -301,7 +313,8 @@ Testerna täcker bland annat:
 - genomskärningen: att all inredning ligger inom sin avdelning och tryckskrovet, att vattenytan i en lutande tank fyller rätt volym, att ett tryck hittar rätt utrymme och att informationsrutan har något att säga om varje utrymme
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
-- skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta, panelerna Ballast, Trim och Fart), att tangenterna följer Auto / Hand och att inget scenariotips kräver konsolen
+- skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta, panelerna Ballast, Trim och Fart), att tangenterna följer Auto / Hand och att inget scenariotips kräver konsolen eller nämner en panelknapp
+- mobilvyn: telegrafreglaget, Auto / Hand-knappen, System ▾ med flikarna, Vyer ▾, statusraden och loggraden
 - spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom).
 
 ## Projektstruktur
@@ -318,7 +331,7 @@ src/
   render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, terräng, vågor,
               fyrar, ljus och dimma, kameravyer.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
-  ui/         Meny, instrumentpanel, konsol, logg, tangentbord, skärmkontroller (helm) och knappar, inställningar,
+  ui/         Meny, instrumentpanel, statusrad (mobil), konsol, logg, tangentbord, skärmkontroller (helm) och knappar, inställningar,
               vyer och deras overlay (kompassband, periskop). HTML byggs med mallar som escapar.
   game/       Spelsessioner, spelflödet (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
   main.ts     Uppstart.

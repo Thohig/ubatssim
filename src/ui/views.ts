@@ -262,9 +262,13 @@ export function togglePeriscope(ctrl: Controller, source: OrderSource): void {
   ctrl.submit({ kind: 'periscope', up: !ctrl.sim.commands.periscopeUp }, source);
 }
 
-/** Buttons for the views next to the menu button (mouse and touch). */
+/**
+ * Buttons for the views next to the menu button (mouse and touch). On phones
+ * (style.css) only "Vyer ▾" shows; it folds the others out, and a choice folds them in.
+ */
 export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState, openConsole?: () => void): (ctrl: Controller) => void {
   root.innerHTML = `
+    <button type="button" data-v="menu" class="views-menu" title="Vyer och konsolen" aria-label="Vyer och konsolen" aria-expanded="false">Vyer ▾</button>
     <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
     <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
@@ -295,8 +299,19 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
   };
   sync();
   views.onChange(sync);
+  const menu = root.querySelector<HTMLButtonElement>('[data-v="menu"]')!;
+  const fold = (open: boolean) => {
+    root.classList.toggle('open', open);
+    menu.setAttribute('aria-expanded', String(open));
+    menu.textContent = open ? 'Vyer ▴' : 'Vyer ▾';
+  };
   root.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-v]');
+    if (b?.dataset.v === 'menu') {
+      fold(!root.classList.contains('open'));
+      return;
+    }
+    fold(false);
     // iOS shows the on-screen keyboard only for focus() inside a click handler.
     if (b?.dataset.v === 'console') {
       openConsole?.();

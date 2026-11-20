@@ -155,20 +155,21 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Besättningen och du</h3>
         <p>Varje spel börjar med att besättningen sköter ubåten. Du tar över det du vill sköta själv, och lämnar tillbaka det när du vill:</p>
         <ul>
-          <li><b>Djup</b> och <b>kurs</b>: omkopplaren <b>Auto / Hand</b> vid djupskalan och kompassen. På Auto håller djupstyraren och rorsmannen dina mål. På Hand styr du djuprodret och rodret själv.</li>
-          <li><b>Fart</b>: telegrafen ger maskinen ett fartmål. Under <b>Fart ▾</b> styr du propellervarvet själv.</li>
-          <li><b>Ballast och brygga</b>: Dyk / Yta låter besättningen sköta det. Under <b>Ballast ▾</b> fyller, blåser och stänger du huvudballasten och klarar bryggan själv.</li>
-          <li><b>Trim</b>: trimassistenten kompenserar och trimmar. Under <b>Trim ▾</b> gör du det själv.</li>
+          <li><b>Djup</b> och <b>kurs</b>: omkopplaren <b>Auto / Hand</b> vid djupskalan och kompassen (på mobil en knapp som visar Auto eller Hand). På Auto håller djupstyraren och rorsmannen dina mål. På Hand styr du djuprodret och rodret själv.</li>
+          <li><b>Fart</b>: telegrafen ger maskinen ett fartmål. I panelen <b>Fart</b> styr du propellervarvet själv.</li>
+          <li><b>Ballast och brygga</b>: Dyk / Yta låter besättningen sköta det. I panelen <b>Ballast</b> fyller, blåser och stänger du huvudballasten och klarar bryggan själv.</li>
+          <li><b>Trim</b>: trimassistenten kompenserar och trimmar. I panelen <b>Trim</b> gör du det själv.</li>
           <li><b>Skyddsnät</b>: nödblåsning nära krossdjupet, djupgräns över botten och varning för grunt vatten. Slås av under ☰ → Besättning.</li>
         </ul>
-        <p>Trycker du på en knapp i en panel tar du över systemet. Panelens övre knapp lämnar det till besättningen. ☰ → Besättning visar alla på ett ställe. Vissa scenarier låser något, till exempel Trimövning.</p>
+        <p>Panelerna öppnas med <b>Ballast ▾</b>, <b>Trim ▾</b> och <b>Fart ▾</b>, på mobil med <b>System ▾</b>. Flikarna överst byter panel. Trycker du på en knapp i en panel tar du över systemet. Panelens övre knapp lämnar det till besättningen. ☰ → Besättning visar alla på ett ställe. Vissa scenarier låser något, till exempel Trimövning.</p>
         <h3>Kontrollerna</h3>
         <ul>
           <li><b>Djupskalan</b> (vänster, Auto) visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och <b>13 m</b> går till periskopdjup. På Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
           <li><b>Kompassen</b> (höger, Auto) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. På Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
-          <li><b>Telegrafen</b> (mitten): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2 och 4 knop back, 4 och 8 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop).</li>
+          <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2 och 4 knop back, 4 och 8 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup på Auto.</li>
-          <li><b>Per</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller periskopet är uppe. <b>&gt;_</b> öppnar konsolen.</li>
+          <li><b>Per</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller periskopet är uppe. <b>&gt;_</b> öppnar konsolen. På mobil ligger de under <b>Vyer ▾</b>.</li>
+          <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen. Loggen visar den senaste raden. Tryck på den för fler.</li>
         </ul>
         <h3>Tangentbord</h3>
         <table>
@@ -189,10 +190,10 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
         </table>
         <h3>Vyer</h3>
-        <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan under Ballast ▾.</p>
+        <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan i panelen Ballast.</p>
         <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
         <p><b>Genomskärningen</b> (Snitt eller C) visar ubåten uppskuren med alla avdelningar, tankarna med vattnet, pumparna och maskinerna. Dra för att vrida, scrolla eller nyp för att zooma, och tryck på ett rum eller en tank för att se vad som finns där. Ovan byter till snittet ovanifrån och Hela visar hela ubåten.</p>
-        <p>Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
+        <p>Knapparna Vy, Per, Zoom, Brg och Snitt uppe till höger (på mobil under Vyer ▾) gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
         <h3>Ljud</h3>
         <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar.</p>
         <h3>Havsområden och väder</h3>
@@ -204,7 +205,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Atlanten:</b> ingen botten inom räckhåll. Krossdjupet 300 m är gränsen.</li>
         </ul>
         <p>I fritt spel går fartyg i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision loggas, och i ett scenario misslyckas uppdraget.</p>
-        <p>Instrumentpanelen visar farten genom vattnet. Under "Mer" finns fart och kurs över grund och strömmen. I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
+        <p>Instrumentpanelen visar farten genom vattnet, och längre ner fart och kurs över grund och strömmen (på mobil: tryck på statusraden). I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
         <h3>Konsolen</h3>
         <p>Konsolen (<b>&gt;_</b> eller Enter) är ett annat sätt att ge order, för den som vill skriva exakta värden. Ingenting kräver den. En order i konsolen tar över systemet den gäller, precis som en knapp: <code>roder sb 10</code> sätter kursen på Hand.</p>
         <h3>Kommandon</h3>
@@ -212,7 +213,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Att tänka på</h3>
         <ul>
           <li>Djuprodren verkar bara när ubåten har fart: lyftkraften växer med farten i kvadrat.</li>
-          <li><b>Flytkraft</b> (under Trim ▾) visar om ubåten är lätt (+) eller tung (−). Ta in eller pumpa ut vatten med In och Ut.</li>
+          <li><b>Flytkraft</b> (i panelen Trim) visar om ubåten är lätt (+) eller tung (−). Ta in eller pumpa ut vatten med In och Ut.</li>
           <li>Under språngskiktet (40–70 m) är vattnet tätare. Ubåten blir då lättare och behöver ta in vatten.</li>
           <li>Skrovet trycks ihop mer än vattnet på djupet, så ubåten blir långsamt tyngre ju djupare den går.</li>
           <li>Tryckluften räcker inte till hur många blåsningar som helst. Håll koll på HP-luften.</li>
@@ -227,10 +228,10 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <ul class="intro">
         <li><b>Djupskalan</b> till vänster: tryck eller dra för att välja djup. ▲ / ▼ ändrar 5 m.</li>
         <li><b>Kompassen</b> till höger: tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°.</li>
-        <li><b>Telegrafen</b> i mitten väljer fart, från Full back till Full fram.</li>
+        <li><b>Telegrafen</b> väljer fart, från Full back till Full fram. På mobil drar du längs reglaget.</li>
         <li><b>Dyk / Yta</b> sköter huvudballasten, och <b>Håll</b> behåller kurs och djup.</li>
         <li>Trimassistenten trimmar ubåten. Det den gör syns i loggen.</li>
-        <li>Vill du sköta något själv? Växla djup eller kurs till <b>Hand</b>, eller öppna <b>Ballast ▾</b>, <b>Trim ▾</b> och <b>Fart ▾</b>. ☰ → Besättning visar allt.</li>
+        <li>Vill du sköta något själv? Växla djup eller kurs till <b>Hand</b>, eller öppna panelerna <b>Ballast</b>, <b>Trim</b> och <b>Fart</b> (på mobil under <b>System ▾</b>). ☰ → Besättning visar allt.</li>
         <li>På dator fungerar också tangenterna: ↑ / ↓ djup, ← / → kurs, Shift + ↑ / ↓ fart, D dyk och S yta.</li>
       </ul>
       <div class="menu-list">

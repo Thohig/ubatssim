@@ -14,10 +14,15 @@
  *    and "Mot bojen" steers for the scenario's buoy.
  *    Hand: a rudder gauge, BB/SB 5°, Mitt.
  *  - Speed (centre): an engine-order telegraph, full astern to full ahead.
+ *    On phones it is a lever: tap or drag along it, sent on release.
  *  - Dyk/Yta (follows the main ballast), Håll, and the panels Ballast ▾,
  *    Trim ▾ and Fart ▾ with each system's state and controls. A button in a
  *    panel takes that system over (as the order does); the panel's header
- *    hands it back to the crew.
+ *    hands it back to the crew. The panel's tabs switch between the three.
+ *
+ * Phones (compact layout, compact.ts) show fewer controls: one Auto/Hand
+ * chip per axis instead of the switch, and one "System ▾" button for the
+ * three panels. Both are in the DOM everywhere; style.css picks.
  *
  * The mappings between screen position and depth or bearing are pure
  * functions (exported for the tests); drawing uses a 2D canvas when there is one.
@@ -29,7 +34,8 @@ import type { Telemetry } from '../sim/simulation';
 import { h } from './dom';
 import type { InputModeState } from './inputMode';
 import { submitDive } from './keyboard';
-import { makeButton, type ScreenButton } from './button';
+import { haptic, makeButton, type ScreenButton } from './button';
+import { isCompact } from './compact';
 
 const DEG = 180 / Math.PI;
 
@@ -50,6 +56,9 @@ export function fractionToDepth(f: number): number {
 
 /** Rudder or plane angle [deg] under a fraction 0…1 across a gauge (whole degrees, ±max). */
 export const gaugeAngle = (f: number, max: number): number => Math.round((Math.max(0, Math.min(1, f)) - 0.5) * 2 * max);
+
+/** The telegraph position (index in TELEGRAPH) under a fraction 0…1 along the lever. */
+export const telegraphIndex = (f: number): number => Math.max(0, Math.min(TELEGRAPH.length - 1, Math.floor(Math.max(0, Math.min(1, f)) * TELEGRAPH.length)));
 
 /** Half the compass band's width [deg]. */
 export const BAND_HALF_WIDTH = 60;
@@ -141,7 +150,14 @@ function canvas2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
  * the finger is down; `commit` gets the value on release. Cancelled drags
  * send nothing.
  */
-function bindDrag<T>(el: HTMLElement, pick: (fx: number, fy: number) => T, preview: (v: T | null) => void, commit: (v: T) => void, onStart?: () => void): void {
+function bindDrag<T>(
+  el: HTMLElement,
+  pick: (fx: number, fy: number) => T,
+  preview: (v: T | null) => void,
+  commit: (v: T) => void,
+  onStart?: () => void,
+  enabled: () => boolean = () => true,
+): void {
   let active = false;
   let value: T | null = null;
   const at = (e: PointerEvent) => {
@@ -152,6 +168,7 @@ function bindDrag<T>(el: HTMLElement, pick: (fx: number, fy: number) => T, previ
     preview(value);
   };
   el.addEventListener('pointerdown', (e) => {
+    if (!enabled()) return;
     e.preventDefault();
     active = true;
     onStart?.();
@@ -226,13 +243,18 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     if (last) update(last.t, last.ctx);
   };
 
-  /** The Auto/Hand switch of an axis: hands the axis to the crew or takes it over. */
+  /**
+   * The Auto/Hand switch of an axis: hands the axis to the crew or takes it
+   * over. `chip` is the phone version: one button that shows the state and toggles it.
+   */
   const axisSwitch = (axis: 'depth' | 'heading') => {
     const auto = tapButton('Auto', `${CREW_NAME[axis]}: besättningen håller målet`, (c) => c.submit({ kind: 'crew', system: axis, crew: true }, 'touch'), 'helm-seg');
     const hand = tapButton('Hand', `${CREW_NAME[axis]}: du styr ${axis === 'depth' ? 'djuprodret' : 'rodret'}`, (c) => c.submit({ kind: 'crew', system: axis, crew: false }, 'touch'), 'helm-seg');
     const el = h('div', { class: 'helm-switch', role: 'group', 'aria-label': `${CREW_NAME[axis]}: Auto eller Hand` }, auto, hand);
+    const chip = tapButton('Auto', `${CREW_NAME[axis]}: växla mellan Auto och Hand`, (c) => c.submit({ kind: 'crew', system: axis, crew: !c.duty(axis) }, 'touch'), 'helm-chip');
     return {
       el,
+      chip,
       update(c: Controller) {
         const crew = c.duty(axis);
         const lock = c.options.locks[axis];
@@ -242,6 +264,9 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
         hand.disabled = lock === true;
         const note = lock === undefined ? '' : LOCK_TEXT[axis][lock ? 0 : 1];
         if (el.title !== note) el.title = note;
+        setText(chip, crew ? 'Auto' : 'Hand');
+        chip.classList.toggle('hand', !crew);
+        chip.disabled = lock !== undefined;
       },
     };
   };
@@ -290,7 +315,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   const depthGroup = h(
     'div',
     { class: 'helm-group helm-depth' },
-    h('div', { class: 'helm-head' }, h('span', { class: 'touch-label' }, 'Djup'), depthReadout),
+    h('div', { class: 'helm-head' }, h('span', { class: 'touch-label' }, 'Djup'), depthReadout, depthSwitch.chip),
     h('div', { class: 'helm-depth-row' }, depthCanvas, planesGauge, h('div', { class: 'helm-depth-side' }, depthSwitch.el, depthAutoBtns, depthHandBtns)),
   );
 
@@ -353,7 +378,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   const courseGroup = h(
     'div',
     { class: 'helm-group helm-course' },
-    h('div', { class: 'helm-head' }, h('span', { class: 'touch-label' }, 'Kurs'), courseReadout, courseSwitch.el),
+    h('div', { class: 'helm-head' }, h('span', { class: 'touch-label' }, 'Kurs'), courseReadout, courseSwitch.chip, courseSwitch.el),
     courseAuto,
     courseHand,
     courseBtns,
@@ -365,11 +390,28 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     const el = button({ label: b.label, title: b.name, order: { kind: 'setSpeed', knots: b.knots }, className: `helm-bell${b.knots < 0 ? ' astern' : b.knots === 0 ? ' stop' : ''}` });
     return { bell: b, el };
   });
+  const bellRow = h('div', { class: 'touch-row helm-bells', 'aria-label': 'Maskintelegraf: tryck eller dra för att välja fart' }, ...bells.map((b) => b.el));
+  // Phones: the row is a lever. The bells do not take the pointer there (style.css), so tap or drag the row.
+  let bellPreview: number | null = null;
+  bindDrag(
+    bellRow,
+    (fx) => telegraphIndex(fx),
+    (i) => {
+      if (i !== null && i !== bellPreview) haptic();
+      bellPreview = i;
+      bells.forEach((b, k) => b.el.classList.toggle('preview', k === i));
+    },
+    (i) => submit((c) => c.submit({ kind: 'setSpeed', knots: TELEGRAPH[i]!.knots }, 'touch')),
+    () => {
+      if (mode.current === 'console') mode.set('steer');
+    },
+    isCompact,
+  );
   const telegraph = h(
     'div',
     { class: 'helm-group helm-telegraph' },
     h('div', { class: 'helm-telegraph-head' }, h('span', { class: 'astern' }, '◀ Back'), speedReadout, h('span', null, 'Fram ▶')),
-    h('div', { class: 'touch-row' }, ...bells.map((b) => b.el)),
+    bellRow,
   );
 
   // ---- Dyk/Yta, Håll and the panel buttons.
@@ -382,20 +424,31 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   });
   const holdBtn = button({ label: 'Håll', title: 'Håll nuvarande kurs och djup', order: { kind: 'holdCourse' } });
   let open: Panel | null = null;
+  /** The panel "System ▾" opens: the one last shown. */
+  let lastPanel: Panel = 'ballast';
   const panelBtns = (['ballast', 'trim', 'speed'] as const).map((p) => {
     const el = tapButton(`${PANEL_TITLE[p]} ▾`, `${PANEL_TITLE[p]}: visa läget och reglagen`, () => toggle(p), 'helm-panel-btn');
     el.setAttribute('aria-expanded', 'false');
     return { p, el };
   });
+  // Phones: one button for the three panels (the tabs switch between them).
+  const systemBtn = tapButton('System ▾', 'Ballast, trim och fart: visa läget och reglagen', () => toggle(open ? null : lastPanel), 'helm-system');
+  systemBtn.setAttribute('aria-expanded', 'false');
   const actions = h(
     'div',
     { class: 'helm-actions' },
-    h('div', { class: 'touch-row helm-context' }, ballastBtn, holdBtn),
+    h('div', { class: 'touch-row helm-context' }, ballastBtn, holdBtn, systemBtn),
     h('div', { class: 'touch-row helm-panel-row' }, ...panelBtns.map((b) => b.el)),
   );
 
   // ---- Panels.
-  const panelTitle = h('b');
+  const tabs = (['ballast', 'trim', 'speed'] as const).map((p) => {
+    const el = h('button', { type: 'button', class: 'helm-tab', role: 'tab', 'aria-selected': 'false' }, PANEL_TITLE[p]);
+    el.addEventListener('click', () => {
+      if (open !== p) toggle(p);
+    });
+    return { p, el };
+  });
   const panelRole = h('span', { class: 'helm-panel-role' });
   const panelToggle = tapButton('', '', (c) => {
     if (!open) return;
@@ -408,18 +461,25 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
   const panelEl = h(
     'div',
     { class: 'helm-panel panel', hidden: true },
-    h('div', { class: 'helm-panel-head' }, panelTitle, closeBtn),
+    h('div', { class: 'helm-panel-head' }, h('div', { class: 'helm-tabs', role: 'tablist' }, ...tabs.map((x) => x.el)), closeBtn),
     h('div', { class: 'helm-panel-crew' }, panelRole, panelToggle),
     ...Object.values(panels).map((x) => x.el),
   );
 
   function toggle(p: Panel | null): void {
     open = open === p ? null : p;
+    if (open) lastPanel = open;
     panelEl.hidden = open === null;
     for (const b of panelBtns) {
       b.el.classList.toggle('open', b.p === open);
       b.el.setAttribute('aria-expanded', String(b.p === open));
     }
+    for (const x of tabs) {
+      x.el.classList.toggle('on', x.p === open);
+      x.el.setAttribute('aria-selected', String(x.p === open));
+    }
+    systemBtn.classList.toggle('open', open !== null);
+    systemBtn.setAttribute('aria-expanded', String(open !== null));
     for (const [k, x] of Object.entries(panels)) x.el.hidden = k !== open;
     redraw();
   }
@@ -630,6 +690,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     // Telegraph: the ordered bell lit; a speed between two bells marks both neighbours.
     const above = order === null || bell ? undefined : TELEGRAPH.find((x) => x.knots > order)?.knots;
     const below = order === null || bell ? undefined : [...TELEGRAPH].reverse().find((x) => x.knots < order)?.knots;
+    telegraph.classList.toggle('exact', !!bell);
     for (const b of bells) {
       const on = order !== null && Math.abs(b.bell.knots - order) < 0.01;
       b.el.classList.toggle('on', on);
@@ -649,11 +710,12 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
 
     // Panel buttons are marked while the player handles that system.
     for (const b of panelBtns) b.el.classList.toggle('self', !c.duty(PANEL_SYSTEM[b.p]));
+    for (const x of tabs) x.el.classList.toggle('self', !c.duty(PANEL_SYSTEM[x.p]));
+    systemBtn.classList.toggle('self', panelBtns.some((b) => !c.duty(PANEL_SYSTEM[b.p])));
     if (open) {
       const sys = PANEL_SYSTEM[open];
       const crew = c.duty(sys);
       const lock = c.options.locks[sys];
-      setText(panelTitle, CREW_NAME[sys]);
       setText(panelRole, lock === undefined ? CREW_ROLE[sys][crew ? 0 : 1] : LOCK_TEXT[sys][lock ? 0 : 1]);
       setText(panelToggle, crew ? 'Ta över' : 'Lämna till besättningen');
       setTitle(panelToggle, crew ? `Du tar över: ${CREW_NAME[sys].toLowerCase()}` : `Besättningen tar över: ${CREW_NAME[sys].toLowerCase()}`);
@@ -740,6 +802,8 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     g.font = '10px system-ui, sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'top';
+    // A narrow band (phones) labels only the compass points, so the labels do not run together.
+    const numbers = (w / (2 * BAND_HALF_WIDTH)) * 30 >= 40;
     const start = Math.ceil((bandCentre - BAND_HALF_WIDTH) / 5) * 5;
     for (let b = start; b <= bandCentre + BAND_HALF_WIDTH; b += 5) {
       const px = x(b);
@@ -748,7 +812,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
       const major = n % 30 === 0 || n % 45 === 0;
       g.fillStyle = major ? col.text : col.muted;
       g.fillRect(px, H - (major ? 10 : 5), 1, major ? 10 : 5);
-      if (major) {
+      if (major && (numbers || COMPASS_POINTS[n])) {
         const label = COMPASS_POINTS[n] ?? bearing3(n);
         g.fillStyle = COMPASS_POINTS[n] ? col.text : col.muted;
         g.fillText(label, px, 3);

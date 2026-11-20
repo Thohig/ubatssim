@@ -113,21 +113,21 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Klara bryggan',
         system: 'ballast',
-        hint: 'Öppna Ballast ▾ och tryck Klart bryggan. Ingen får vara kvar på bryggan när ubåten dyker.',
+        hint: 'Öppna panelen Ballast och tryck Klart bryggan. Ingen får vara kvar på bryggan när ubåten dyker.',
         hintCrew: 'Tryck Dyk (eller D). Besättningen utrymmer bryggan.',
         check: (_t, c) => !c.bridgeManned,
       },
       {
         text: 'Öppna ventilerna till huvudballasten',
         system: 'ballast',
-        hint: 'Tryck Fyll vid Båda under Ballast ▾. Stäng ventilerna när tankarna är fulla.',
+        hint: 'Tryck Fyll vid Båda i panelen Ballast. Stäng ventilerna när tankarna är fulla.',
         hintCrew: 'Tryck Dyk (eller D). Ventilerna stängs när tankarna är fulla.',
         check: (t) => mbt(t).every((x) => x.ventOpen || x.fill > 0.95),
       },
       {
         text: 'Gå framåt med 5 knop',
         system: 'speed',
-        hint: 'Öka varvet under Fart ▾, eller tryck Sakta fram på telegrafen. Djuprodren behöver fart för att verka.',
+        hint: 'Öka varvet i panelen Fart, eller tryck Sakta fram på telegrafen. Djuprodren behöver fart för att verka.',
         hintCrew: 'Tryck Sakta fram på telegrafen (eller Shift + ↑). Djuprodren behöver fart för att verka.',
         check: (t) => t.u > 3 * KN,
       },
@@ -142,7 +142,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Trimma ubåten neutral (±300 kg)',
         system: 'trim',
-        hint: 'Öppna Trim ▾. Är ubåten tung (minus), tryck Ut för att pumpa ut vatten. 1 liter ≈ 1 kg.',
+        hint: 'Öppna panelen Trim. Är ubåten tung (minus), tryck Ut för att pumpa ut vatten. 1 liter ≈ 1 kg.',
         hintCrew: 'Trimassistenten pumpar ut vatten tills ubåten är neutral. Följ "Trim" och loggen.',
         check: (t) => Math.abs(t.netBuoyancy / G) < 300 && t.compRemaining === 0,
         holdSeconds: 5,
@@ -150,7 +150,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Gå till ytläge',
         system: 'ballast',
-        hint: 'Tryck Blås vid Båda under Ballast ▾ och sätt djupet till 0 m. Lite vatten blir kvar i tankarna när luften trycks ihop i ytläget.',
+        hint: 'Tryck Blås vid Båda i panelen Ballast och sätt djupet till 0 m. Lite vatten blir kvar i tankarna när luften trycks ihop i ytläget.',
         hintCrew: 'Tryck Yta (eller S). Huvudballasten blåses och djupmålet sätts till 0 m.',
         // Air blown at depth expands and partly escapes on the way up, so some water remains when surfaced.
         check: (t) => t.depth < 3 && mbt(t).every((x) => x.fill < 0.4),
@@ -169,7 +169,7 @@ export const SCENARIOS: Scenario[] = [
     objectives: [
       {
         text: 'Håll 50 m ±2 m i 3 minuter',
-        hint: 'Styr djuprodret med ▲ och ▼ (↑/↓) och pumpa ut vatten under Trim ▾ för att bli neutral.',
+        hint: 'Styr djuprodret med ▲ och ▼ (↑/↓) och pumpa ut vatten i panelen Trim för att bli neutral.',
         check: (t) => Math.abs(t.depth - 50) < 2,
         holdSeconds: 180,
       },
@@ -193,7 +193,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Håll 90 m ±3 m i en minut med neutral trim (±300 kg)',
         system: 'trim',
-        hint: 'Ubåten är lätt här. Tryck In under Trim ▾ för att ta in vatten (1 liter ≈ 1 kg).',
+        hint: 'Ubåten är lätt här. Tryck In i panelen Trim för att ta in vatten (1 liter ≈ 1 kg).',
         hintCrew: 'Ubåten blir lätt under språngskiktet. Trimassistenten tar in vatten, följ "Trim" och loggen.',
         check: (t) => Math.abs(t.depth - 90) < 3 && Math.abs(t.netBuoyancy / G) < 300,
         holdSeconds: 60,
@@ -212,7 +212,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Slå back',
         system: 'speed',
-        hint: 'Sänk varvet förbi noll under Fart ▾, eller tryck Halv back på telegrafen.',
+        hint: 'Sänk varvet förbi noll i panelen Fart, eller tryck Halv back på telegrafen.',
         hintCrew: 'Tryck Halv back på telegrafen (eller Shift + ↓ tre gånger).',
         check: (t) => t.u < -0.5 * KN,
       },
@@ -226,7 +226,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Stanna vid bojen',
         system: 'speed',
-        hint: 'Tryck Stopp på telegrafen, eller ge varv framåt under Fart ▾ tills farten är noll.',
+        hint: 'Tryck Stopp på telegrafen, eller ge varv framåt i panelen Fart tills farten är noll.',
         hintCrew: 'Tryck Stopp på telegrafen (eller Shift + ↑ två gånger). Propellern bromsar ubåten.',
         check: (t) => Math.abs(t.u) < 0.3 * KN && waypointInfo(t, ASTERN_BUOY).distance < 100,
         holdSeconds: 5,
@@ -268,7 +268,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Nå ytan',
         system: 'ballast',
-        hint: 'Tryck Blås vid Båda under Ballast ▾, tryck Full fram och styr uppåt.',
+        hint: 'Tryck Blås vid Båda i panelen Ballast, tryck Full fram och styr uppåt.',
         hintCrew: 'Tryck Yta (eller S) och Full fram. Här finns inget skyddsnät.',
         check: (t) => t.depth < 10,
       },
@@ -363,7 +363,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Håll 90 m ±3 m i en minut, neutral inom ±1 000 kg',
         system: 'trim',
-        hint: 'Ubåten är lätt under skiktet. Tryck In under Trim ▾ för att ta in vatten (1 liter ≈ 1 kg). Pumpen klarar 6 liter i sekunden.',
+        hint: 'Ubåten är lätt under skiktet. Tryck In i panelen Trim för att ta in vatten (1 liter ≈ 1 kg). Pumpen klarar 6 liter i sekunden.',
         hintCrew: 'Trimassistenten tar in vatten, men pumpen klarar bara 6 liter i sekunden. Ha tålamod, eller öka tidskomprimeringen.',
         check: (t) => Math.abs(t.depth - 90) < 3 && Math.abs(t.netBuoyancy / G) < 1000,
         holdSeconds: 60,

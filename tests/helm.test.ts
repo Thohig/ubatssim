@@ -1,12 +1,14 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { Controller } from '../src/control/controller';
 import { LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH, telegraphStep } from '../src/control/crew';
 import { LIMITS } from '../src/control/parser';
 import { SCENARIOS } from '../src/control/scenarios';
 import { Simulation, type InitialConditions } from '../src/sim/simulation';
 import { bindConsole } from '../src/ui/console';
-import { BAND_HALF_WIDTH, bandBearing, bandFraction, createHelm, depthToFraction, fractionToDepth, gaugeAngle, type HelmContext } from '../src/ui/helm';
+import { BAND_HALF_WIDTH, bandBearing, bandFraction, createHelm, depthToFraction, fractionToDepth, gaugeAngle, telegraphIndex, type HelmContext } from '../src/ui/helm';
+import { bindLog, bindLogToggle } from '../src/ui/log';
+import { statusFields } from '../src/ui/statusBar';
 import { InputModeState } from '../src/ui/inputMode';
 import { bindKeyboard } from '../src/ui/keyboard';
 import { repeatDelay, REPEAT_FASTEST, REPEAT_FIRST } from '../src/ui/button';
@@ -386,5 +388,133 @@ describe('view buttons follow the situation', () => {
     expect(per.hidden).toBe(false);
     expect(vy.hidden).toBe(false);
     expect(root.querySelector('[data-v="console"]')).not.toBeNull();
+  });
+});
+
+/** Pretends the screen is a phone (compact.ts reads the media query). */
+function phone(on: boolean) {
+  window.matchMedia = ((q: string) => ({ matches: on, media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+}
+
+describe('the phone layout', () => {
+  const realMatchMedia = window.matchMedia;
+  afterEach(() => {
+    window.matchMedia = realMatchMedia;
+  });
+
+  it('the telegraph is a lever: a tap or a drag along it orders the position on release', () => {
+    expect(telegraphIndex(0)).toBe(0);
+    expect(telegraphIndex(0.5)).toBe(TELEGRAPH.findIndex((b) => b.knots === 0));
+    expect(telegraphIndex(1)).toBe(TELEGRAPH.length - 1);
+    phone(true);
+    const c = crewGame();
+    const { root } = helm(c);
+    const lever = root.querySelector('.helm-bells')!;
+    drag(lever, [0.5, 0.5], [0.99, 0.5]);
+    c.step();
+    expect(c.setpoints.speed).toBe(TELEGRAPH.at(-1)!.knots);
+    drag(lever, [0.2, 0.5], [0.2, 0.5]);
+    c.step();
+    expect(c.setpoints.speed).toBe(TELEGRAPH[telegraphIndex(0.2)]!.knots);
+  });
+
+  it('on a wide screen the lever leaves the bells to themselves (one order per press)', () => {
+    phone(false);
+    const c = crewGame();
+    const { root } = helm(c);
+    const before = c.queue.length;
+    press(byTitle(root, 'Full fram'));
+    expect(c.queue.length).toBe(before + 1);
+  });
+
+  it('one Auto/Hand chip per axis shows the state and switches it; a lock disables it', () => {
+    const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
+    const { root, refresh } = helm(c);
+    const chip = byTitle(root, 'Kurs: växla mellan Auto och Hand');
+    expect(chip.textContent).toBe('Auto');
+    press(chip);
+    c.step();
+    refresh();
+    expect(c.ap.heading).toBe(false);
+    expect(chip.textContent).toBe('Hand');
+    expect(chip.classList.contains('hand')).toBe(true);
+    press(chip);
+    c.step();
+    refresh();
+    expect(c.ap.heading).toBe(true);
+
+    const locked = new Controller(new Simulation({ depth: 40, designTrim: true }));
+    locked.options.locks = { depth: false };
+    locked.crewTakesAll();
+    expect(byTitle(helm(locked).root, 'Djup: växla mellan Auto och Hand').disabled).toBe(true);
+  });
+
+  it('"System ▾" opens the panel last shown; the tabs switch between the three', () => {
+    const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
+    const { root, refresh } = helm(c);
+    const system = root.querySelector<HTMLButtonElement>('.helm-system')!;
+    const panel = root.querySelector<HTMLElement>('.helm-panel')!;
+    const tab = (name: string) => [...root.querySelectorAll<HTMLButtonElement>('.helm-tab')].find((t) => t.textContent === name)!;
+    press(system);
+    refresh();
+    expect(panel.hidden).toBe(false);
+    expect(tab('Ballast').classList.contains('on')).toBe(true);
+    tab('Fart').click();
+    refresh();
+    expect(panel.textContent).toMatch(/rpm/);
+    expect(tab('Fart').getAttribute('aria-selected')).toBe('true');
+    press(system);
+    expect(panel.hidden).toBe(true);
+    press(system);
+    expect(tab('Fart').classList.contains('on')).toBe(true);
+    // A system the player handles marks its tab and the button.
+    press(byTitle(root, 'Propellervarv +10 rpm'));
+    c.step();
+    refresh();
+    expect(tab('Fart').classList.contains('self')).toBe(true);
+    expect(system.classList.contains('self')).toBe(true);
+  });
+
+  it('"Vyer ▾" folds the view buttons out, and a choice folds them in', () => {
+    const root = document.createElement('div');
+    const views = new ViewState();
+    const c = crewGame({ depth: PERISCOPE_DEPTH, designTrim: true });
+    bindViewButtons(root, () => c, views)(c);
+    const menu = root.querySelector<HTMLButtonElement>('[data-v="menu"]')!;
+    menu.click();
+    expect(root.classList.contains('open')).toBe(true);
+    expect(menu.getAttribute('aria-expanded')).toBe('true');
+    root.querySelector<HTMLButtonElement>('[data-v="cutaway"]')!.click();
+    expect(views.mode).toBe('cutaway');
+    expect(root.classList.contains('open')).toBe(false);
+  });
+
+  it('the status bar shows what the controls do not: time, speed, water under the keel and trim', () => {
+    const c = crewGame({ depth: 30, designTrim: true, speed: 4 * KN });
+    const f = statusFields(c.sim.telemetry());
+    expect(f.time).toBe('00:00:00');
+    expect(f.speed).toBe('4,0 kn');
+    expect(f.keel).toMatch(/^köl \d+ m$/);
+    expect(f.trim).toBe('Neutral');
+    expect(statusFields({ ...c.sim.telemetry(), u: -2 * KN }).speed).toBe('back 2,0 kn');
+    expect(statusFields({ ...c.sim.telemetry(), grounded: true }).keelAlarm).toBe(true);
+  });
+
+  it('a tap on the log line shows the recent log on phones, and a new game folds it', () => {
+    phone(true);
+    const el = document.createElement('div');
+    bindLogToggle(el);
+    bindLog(el, crewGame());
+    el.click();
+    expect(el.classList.contains('expanded')).toBe(true);
+    bindLog(el, crewGame());
+    expect(el.classList.contains('expanded')).toBe(false);
+    phone(false);
+    el.click();
+    expect(el.classList.contains('expanded')).toBe(false);
+  });
+
+  it('no hint names a panel button: the buttons differ between phone and computer', () => {
+    for (const sc of SCENARIOS) for (const o of sc.objectives) for (const hint of [o.hint, o.hintCrew ?? '']) expect(hint, `${sc.id}: ${o.text}`).not.toMatch(/▾/);
   });
 });

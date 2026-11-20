@@ -517,7 +517,7 @@ export class Controller {
       this.addLog('Klart bryggan. Bryggan är utrymd inför dykningen.', 'info');
       return null;
     }
-    return 'Bryggan är bemannad. Tryck Klart bryggan under Ballast ▾ (eller skriv "klart bryggan") innan ubåten dyker.';
+    return 'Bryggan är bemannad. Tryck Klart bryggan i panelen Ballast (eller skriv "klart bryggan") innan ubåten dyker.';
   }
 
   /**
@@ -561,7 +561,7 @@ export class Controller {
       this.addLog('Huvudballasten fylls för dykning.', 'info');
     } else if (sim.t - this.lastBallastHint > 10) {
       this.lastBallastHint = sim.t;
-      this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Tryck Dyk, eller Klart bryggan och Fyll under Ballast ▾.', 'error');
+      this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Tryck Dyk, eller Klart bryggan och Fyll i panelen Ballast.', 'error');
     }
   }
 
