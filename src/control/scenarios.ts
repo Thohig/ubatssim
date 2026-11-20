@@ -109,25 +109,25 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Klara bryggan',
         hint: 'Skriv "klart bryggan". Ingen får vara kvar på bryggan när ubåten dyker.',
-        hintSimplified: 'Tryck D (eller Dyk). Bryggan utryms automatiskt.',
+        hintSimplified: 'Tryck Dyk (eller D). Bryggan utryms automatiskt.',
         check: (_t, c) => !c.bridgeManned,
       },
       {
         text: 'Öppna ventilerna till huvudballasten',
         hint: 'Skriv "fyll huvudballast" i konsolen.',
-        hintSimplified: 'Tryck D (eller Dyk). Ventilerna stängs själva när tankarna är fulla.',
+        hintSimplified: 'Tryck Dyk (eller D). Ventilerna stängs själva när tankarna är fulla.',
         check: (t) => mbt(t).every((x) => x.ventOpen || x.fill > 0.95),
       },
       {
         text: 'Gå framåt med 5 knop',
         hint: 'Skriv "fart 5 knop". Djuprodren behöver fart för att verka.',
-        hintSimplified: 'Öka farten till 5 knop med Shift + ↑ (eller +). Djuprodren behöver fart för att verka.',
+        hintSimplified: 'Tryck Sakta fram på telegrafen (eller Shift + ↑). Djuprodren behöver fart för att verka.',
         check: (t) => t.u > 3 * KN,
       },
       {
         text: 'Dyk till 30 meter och håll djupet',
         hint: 'Skriv "djup 30". Autopiloten styr djuprodren.',
-        hintSimplified: 'Tryck ↓ (eller ▼) tills djupmålet visar 30 m.',
+        hintSimplified: 'Tryck eller dra på djupskalan till 30 m (eller ↓ tills djupmålet visar 30 m).',
         check: (t) => Math.abs(t.depth - 30) < 2,
         holdSeconds: 10,
       },
@@ -141,7 +141,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Gå till ytläge',
         hint: 'Skriv "blås huvudballast" och "djup 0". Lite vatten blir kvar i tankarna när luften trycks ihop i ytläget.',
-        hintSimplified: 'Tryck S (eller Ytläge). Huvudballasten blåses och djupmålet sätts till 0 m.',
+        hintSimplified: 'Tryck Yta (eller S). Huvudballasten blåses och djupmålet sätts till 0 m.',
         // Air blown at depth expands and partly escapes on the way up, so some water remains when surfaced.
         check: (t) => t.depth < 3 && mbt(t).every((x) => x.fill < 0.4),
         holdSeconds: 5,
@@ -178,7 +178,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Dyk till 90 m',
         hint: 'Skriv "djup 90".',
-        hintSimplified: 'Tryck ↓ (eller ▼) tills djupmålet visar 90 m.',
+        hintSimplified: 'Tryck eller dra på djupskalan till 90 m (eller ↓ tills djupmålet visar 90 m).',
         check: (t) => t.depth > 85,
       },
       {
@@ -203,7 +203,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Slå back',
         hint: 'Skriv "back halv" (4 knop). Propellern bromsar först ubåten och driver den sedan bakåt.',
-        hintSimplified: 'Tryck Shift + ↓ (eller −) tills fartmålet visar BACK 4.',
+        hintSimplified: 'Tryck Halv back på telegrafen (eller Shift + ↓ tre gånger).',
         check: (t) => t.u < -0.5 * KN,
       },
       {
@@ -215,7 +215,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Stanna vid bojen',
         hint: 'Skriv "fart stopp". Propellern går framåt en stund och bromsar ubåten.',
-        hintSimplified: 'Tryck Shift + ↑ (eller +) tills fartmålet visar 0.',
+        hintSimplified: 'Tryck Stopp på telegrafen (eller Shift + ↑ två gånger). Propellern bromsar ubåten.',
         check: (t) => Math.abs(t.u) < 0.3 * KN && waypointInfo(t, ASTERN_BUOY).distance < 100,
         holdSeconds: 5,
       },
@@ -240,7 +240,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Gå genom sundet till den gula bojen',
         hint: 'Skriv "fart 4 knop" och styr med ←/→ eller "kurs <grader>". Sundet slingrar sig mot nordost.',
-        hintSimplified: 'Öka farten till 4 knop och styr med ←/→ (10° per tryck) mot bojens bäring. Sundet slingrar sig mot nordost.',
+        hintSimplified: 'Tryck Sakta fram och styr med kompassen eller ◀/▶. Bojen är den gula pricken på kompassen. Sundet slingrar sig mot nordost.',
         check: (t) => waypointInfo(t, [1200, 2848]).distance < 60,
       },
     ],
@@ -257,7 +257,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Nå ytan',
         hint: 'Blås huvudballasten ("blås huvudballast"), öka farten och styr uppåt med djuprodren.',
-        hintSimplified: 'Tryck S (ytläge) och öka farten. Här finns ingen automatisk nödblåsning.',
+        hintSimplified: 'Tryck Yta (eller S) och Full fram. Här finns ingen automatisk nödblåsning.',
         check: (t) => t.depth < 10,
       },
     ],
@@ -275,12 +275,13 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Hissa periskopet',
         hint: 'Skriv "periskop upp" eller tryck P. Håll farten under 6 knop, annars vibrerar bilden.',
+        hintSimplified: 'Tryck Per (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
         check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
       },
       {
         text: 'Rapportera bäringen till Västra fyren (±3°)',
         hint: 'Vrid periskopet med ←/→ tills fyren står i hårkorset och tryck B, eller skriv "bäring <grader>".',
-        hintSimplified: 'Vrid periskopet med ←/→ (eller dra) tills fyren står i hårkorset och tryck B (Brg).',
+        hintSimplified: 'Vrid periskopet genom att dra i bilden (eller ←/→) tills fyren står i hårkorset och tryck Brg (eller B).',
         check: (_t, c) => {
           const r = c.lastBearing;
           return r !== null && r.lookout && bearingDiff(r.bearing, bearingTo(r.position, WEST_LIGHT)) <= 3;
@@ -289,6 +290,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Sänk periskopet',
         hint: 'Skriv "periskop ned" eller tryck P.',
+        hintSimplified: 'Tryck Per (eller P) igen.',
         check: (t) => t.periscope < 0.01,
       },
     ],
@@ -312,12 +314,13 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Hissa periskopet',
         hint: 'Skriv "periskop upp" eller tryck P.',
+        hintSimplified: 'Tryck Per (eller P).',
         check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
       },
       {
         text: 'Rapportera bäringen till M/S Skagerack (±3°)',
         hint: 'Fartyget är sydväst om dig. Vrid periskopet med ←/→ tills det står i hårkorset och tryck B, eller skriv "bäring <grader>".',
-        hintSimplified: 'Fartyget är sydväst om dig. Vrid periskopet med ←/→ (eller dra) tills det står i hårkorset och tryck B (Brg).',
+        hintSimplified: 'Fartyget är sydväst om dig. Vrid periskopet genom att dra i bilden (eller ←/→) tills det står i hårkorset och tryck Brg (eller B).',
         check: (_t, c) => {
           const r = c.lastBearing;
           const truth = r?.contacts[RECCE_SHIP.id];
@@ -327,6 +330,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Sänk periskopet',
         hint: 'Skriv "periskop ned" eller tryck P.',
+        hintSimplified: 'Tryck Per (eller P) igen.',
         check: (t) => t.periscope < 0.01,
       },
     ],
@@ -349,7 +353,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Dyk till 90 m',
         hint: 'Skriv "djup 90". Följ "Flytkraftsöverskott" under "Mer" på vägen ner.',
-        hintSimplified: 'Tryck ↓ (eller ▼) tills djupmålet visar 90 m.',
+        hintSimplified: 'Tryck eller dra på djupskalan till 90 m (eller ↓ tills djupmålet visar 90 m).',
         check: (t) => t.depth > 86,
       },
       {
@@ -375,7 +379,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Passera tröskeln',
         hint: 'Håll 30–40 m djup och följ "Under köl". Tröskeln ligger kring mynningen (bojens bäring rakt norrut).',
-        hintSimplified: 'Håll 30–40 m med ↑/↓ och styr med ←/→. Följ "Under köl".',
+        hintSimplified: 'Håll 30–40 m med djupskalan och styr med kompassen eller ◀/▶. Följ "Under köl".',
         check: (t) => t.position[0] > 350,
       },
       {
@@ -399,7 +403,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Gå mot Södra fyren tills den är 700 m bort',
         hint: 'Skriv "fart 6 knop", tryck V för bryggan och styr mot det röda skenet.',
-        hintSimplified: 'Öka farten, tryck V för bryggan och styr med ←/→ mot det röda skenet.',
+        hintSimplified: 'Tryck Halv fram, Vy (eller V) för bryggan och styr med kompassen mot det röda skenet.',
         check: (t) => waypointInfo(t, SOUTH_LIGHT).distance < 700,
       },
     ],

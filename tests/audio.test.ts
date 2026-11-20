@@ -97,6 +97,8 @@ describe('cues and speech', () => {
     expect(cueFor('Huvudballasten är full. Ventilerna stängda.')).toBe('clonk');
     expect(cueFor('Mål klart: Hissa periskopet')).toBe('objective');
     expect(cueFor('Back 4 knop, ja')).toBe('telegraph');
+    expect(cueFor('Fart 8 knop, ja')).toBe('telegraph');
+    expect(cueFor('Fart öka 1 knop, ja')).toBeNull();
     expect(cueFor('Djup 32, ja')).toBeNull();
   });
 

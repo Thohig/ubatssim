@@ -2,13 +2,24 @@ import { HELP_TEXT, parseCommand } from '../control/parser';
 import type { Controller } from '../control/controller';
 import type { InputModeState } from './inputMode';
 
-/** Command console: Enter submits, ↑/↓ browse history, Esc returns to steering. */
-export function bindConsole(form: HTMLFormElement, input: HTMLInputElement, getCtrl: () => Controller | null, mode: InputModeState): () => void {
+/**
+ * Command console: Enter submits, ↑/↓ browse history, Esc returns to steering.
+ * `allowed` is false in the simplified simulation, which has no console:
+ * the console then neither opens nor takes focus.
+ */
+export function bindConsole(
+  form: HTMLFormElement,
+  input: HTMLInputElement,
+  getCtrl: () => Controller | null,
+  mode: InputModeState,
+  allowed: () => boolean = () => true,
+): () => void {
   const history: string[] = [];
   let hIndex = 0;
   let draft = '';
 
   const open = () => {
+    if (!allowed()) return;
     mode.set('console');
     input.focus();
   };
@@ -22,7 +33,10 @@ export function bindConsole(form: HTMLFormElement, input: HTMLInputElement, getC
     if (m === 'steer') input.blur();
   });
 
-  input.addEventListener('focus', () => mode.set('console'));
+  input.addEventListener('focus', () => {
+    if (allowed()) mode.set('console');
+    else input.blur();
+  });
   input.addEventListener('blur', () => mode.set('steer'));
 
   form.addEventListener('submit', (e) => {
@@ -34,7 +48,7 @@ export function bindConsole(form: HTMLFormElement, input: HTMLInputElement, getC
     draft = '';
     input.value = '';
     const ctrl = getCtrl();
-    if (!ctrl) return;
+    if (!ctrl || !allowed()) return;
     const r = parseCommand(text);
     if (!r.ok) {
       ctrl.addLog(`${text} – ${r.error}`, 'error', 'console');

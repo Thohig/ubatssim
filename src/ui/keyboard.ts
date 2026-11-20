@@ -1,5 +1,5 @@
 import type { Controller } from '../control/controller';
-import { PERISCOPE_DEPTH } from '../control/gameMode';
+import { PERISCOPE_DEPTH, telegraphStep } from '../control/gameMode';
 import type { OrderSource } from '../control/orders';
 import type { InputModeState } from './inputMode';
 import { cycleView, reportViewBearing, togglePeriscope, type ViewState } from './views';
@@ -13,6 +13,14 @@ export function submitDive(ctrl: Controller, source: OrderSource): void {
   if (!ctrl.ap.depth || ctrl.setpoints.depth < PERISCOPE_DEPTH) ctrl.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, source);
 }
 
+const KNOT = 1852 / 3600;
+
+/** Simplified mode: the telegraph one position ahead (+1) or astern (−1) of the present speed order. */
+export function submitTelegraphStep(ctrl: Controller, dir: 1 | -1, source: OrderSource): void {
+  const current = ctrl.ap.speed ? ctrl.setpoints.speed : Math.round(ctrl.sim.kinematics().u / KNOT);
+  ctrl.submit({ kind: 'setSpeed', knots: telegraphStep(current, dir) }, source);
+}
+
 /**
  * Steering keys. Every key press becomes an Order in the controller's queue.
  * `getCtrl` returns null while no game is running (menu open or paused).
@@ -23,8 +31,9 @@ export function submitDive(ctrl: Controller, source: OrderSource): void {
  * Simplified simulation:
  *   ←/→  heading ±10°                      ↑/↓  depth ∓5 m
  *   Space  hold present depth and heading  D  dive   S  surface
+ *   Shift+↑/↓  telegraph one position ahead/astern (no console)
  * Both:
- *   Shift+↑/↓  speed ±1 knot               Enter or /  open the console
+ *   Shift+↑/↓  speed ±1 knot (realistic)   Enter or /  open the console (realistic)
  *   V  next view   P  periscope up/down   Z  periscope magnification
  *   B  report the bearing of the cross hair / bridge look
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
@@ -69,12 +78,14 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
         else ctrl.submit({ kind: 'rudder', angle: 5, relative: true }, 'keyboard');
         break;
       case 'ArrowUp':
-        if (e.shiftKey) ctrl.submit({ kind: 'adjustSpeed', deltaKnots: 1 }, 'keyboard');
+        if (e.shiftKey && simple) submitTelegraphStep(ctrl, 1, 'keyboard');
+        else if (e.shiftKey) ctrl.submit({ kind: 'adjustSpeed', deltaKnots: 1 }, 'keyboard');
         else if (simple) ctrl.submit({ kind: 'adjustDepth', deltaMetres: -5 }, 'keyboard');
         else ctrl.submit({ kind: 'planes', angle: -5, relative: true }, 'keyboard');
         break;
       case 'ArrowDown':
-        if (e.shiftKey) ctrl.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'keyboard');
+        if (e.shiftKey && simple) submitTelegraphStep(ctrl, -1, 'keyboard');
+        else if (e.shiftKey) ctrl.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'keyboard');
         else if (simple) ctrl.submit({ kind: 'adjustDepth', deltaMetres: 5 }, 'keyboard');
         else ctrl.submit({ kind: 'planes', angle: 5, relative: true }, 'keyboard');
         break;
@@ -92,6 +103,7 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
         break;
       case 'Enter':
       case '/':
+        if (simple) return; // the simplified mode has no console
         openConsole();
         break;
       default:

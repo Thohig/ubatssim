@@ -166,17 +166,23 @@ export function togglePeriscope(ctrl: Controller, source: OrderSource): void {
 }
 
 /** Buttons for the views next to the menu button (mouse and touch). */
-export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState): void {
+export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | null, views: ViewState): (ctrl: Controller) => void {
   root.innerHTML = `
     <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
     <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
     <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>`;
+  const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
+  const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
+  /** Simplified mode only: whether the boat is too deep for the periscope and the bridge. */
+  let deep = false;
   const sync = () => {
     zoom.hidden = views.mode !== 'periscope';
     brg.hidden = views.mode === 'external';
+    per.hidden = deep;
+    view.hidden = deep && views.mode === 'external';
   };
   sync();
   views.onChange(sync);
@@ -189,4 +195,20 @@ export function bindViewButtons(root: HTMLElement, getCtrl: () => Controller | n
     else if (b.dataset.v === 'bearing') reportViewBearing(ctrl, views, 'touch');
     else views.toggleZoom();
   });
+  /**
+   * Call ~10 times a second. In the simplified mode the buttons follow the
+   * situation: Per and Vy are hidden below PERISCOPE_BUTTON_DEPTH with the
+   * mast housed, where neither the periscope nor the bridge can be used.
+   */
+  return (ctrl) => {
+    const k = ctrl.sim.kinematics();
+    const next = ctrl.options.mode === 'simplified' && k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01;
+    if (next !== deep) {
+      deep = next;
+      sync();
+    }
+  };
 }
+
+/** Simplified mode: the periscope and view buttons show above this CO depth [m]. */
+export const PERISCOPE_BUTTON_DEPTH = 25;

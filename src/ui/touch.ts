@@ -1,10 +1,8 @@
 import type { Controller } from '../control/controller';
-import type { GameMode } from '../control/gameMode';
 import type { Order } from '../control/orders';
 import type { InputModeState } from './inputMode';
-import { submitDive } from './keyboard';
 
-interface TouchButton {
+export interface TouchButton {
   label: string;
   title: string;
   order?: Order;
@@ -16,14 +14,73 @@ interface TouchButton {
   className?: string;
 }
 
+/** Hold this long before repeating [ms]. */
 const HOLD_DELAY = 450;
-const REPEAT_INTERVAL = 350;
+/** First repeat interval, and the shortest it speeds up to [ms]. */
+export const REPEAT_FIRST = 350;
+export const REPEAT_FASTEST = 120;
+
+/** The delay before repeat number `n` (0, 1, …) of a held button [ms]: it speeds up while held. */
+export const repeatDelay = (n: number): number => Math.max(REPEAT_FASTEST, Math.round(REPEAT_FIRST * 0.8 ** n));
+
+/** A short buzz on devices that support it (Android; not Safari on iOS). */
+export function haptic(): void {
+  try {
+    navigator.vibrate?.(8);
+  } catch {
+    // Not supported or not allowed: no feedback.
+  }
+}
 
 /**
- * On-screen controls for touch devices. Each button submits the same Order
- * objects as the keyboard, with source 'touch'. Holding a rudder, planes,
- * depth, heading or speed button repeats it. Both game modes' button sets
- * are built; `root.dataset.mode` (set by main.ts) shows one of them.
+ * A screen button. Steering buttons act on pointerdown (and repeat while
+ * held when `repeat` is set); buttons with an `action` act on click, since
+ * iOS only shows the on-screen keyboard for focus() inside a click handler.
+ */
+export function makeButton(b: TouchButton, fire: (b: TouchButton) => void, mode: InputModeState): HTMLButtonElement {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = `touch-btn ${b.className ?? ''}`;
+  el.textContent = b.label;
+  el.title = b.title;
+  el.setAttribute('aria-label', b.title);
+  let timer: number | undefined;
+  const stop = () => {
+    window.clearTimeout(timer);
+    el.classList.remove('pressed');
+  };
+  if (b.action) {
+    el.addEventListener('click', () => fire(b));
+    return el;
+  }
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    // Tapping a steering button closes the console, as Esc does.
+    if (mode.current === 'console') mode.set('steer');
+    el.classList.add('pressed');
+    haptic();
+    fire(b);
+    if (b.repeat) {
+      let n = 0;
+      const again = () => {
+        fire(b);
+        timer = window.setTimeout(again, repeatDelay(++n));
+      };
+      timer = window.setTimeout(again, HOLD_DELAY);
+    }
+  });
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointercancel', stop);
+  el.addEventListener('pointerleave', stop);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  return el;
+}
+
+/**
+ * On-screen buttons for the realistic simulation on touch devices (the
+ * simplified simulation has its own screen controls, see helm.ts). Each
+ * button submits the same Order objects as the keyboard, with source
+ * 'touch'. Holding a rudder, planes or speed button repeats it.
  */
 export function bindTouchControls(
   root: HTMLElement,
@@ -32,127 +89,54 @@ export function bindTouchControls(
   openConsole: () => void,
 ): void {
   type Group = { name: string; buttons: TouchButton[] };
-  const speed: Group = {
-    name: 'Fart',
-    buttons: [
-      { label: '−', title: 'Fart −1 knop', order: { kind: 'adjustSpeed', deltaKnots: -1 }, repeat: true },
-      { label: '+', title: 'Fart +1 knop', order: { kind: 'adjustSpeed', deltaKnots: 1 }, repeat: true },
-    ],
-  };
-  const consoleGroup: Group = {
-    name: 'Konsol',
-    buttons: [{ label: '>_', title: 'Öppna kommandokonsolen', action: openConsole, className: 'console-btn' }],
-  };
-  const sets: Record<GameMode, Group[]> = {
-    realistic: [
-      {
-        name: 'Roder',
-        buttons: [
-          { label: '◀ BB', title: 'Roder 5° babord', order: { kind: 'rudder', angle: -5, relative: true }, repeat: true },
-          { label: 'Mitt', title: 'Roder midskepps', order: { kind: 'rudder', angle: 0 } },
-          { label: 'SB ▶', title: 'Roder 5° styrbord', order: { kind: 'rudder', angle: 5, relative: true }, repeat: true },
-        ],
-      },
-      {
-        name: 'Djuproder',
-        buttons: [
-          { label: '▲ Upp', title: 'Djuproder 5° upp', order: { kind: 'planes', angle: -5, relative: true }, repeat: true },
-          { label: '▼ Ned', title: 'Djuproder 5° ned', order: { kind: 'planes', angle: 5, relative: true }, repeat: true },
-        ],
-      },
-      speed,
-      consoleGroup,
-    ],
-    simplified: [
-      {
-        name: 'Kurs',
-        buttons: [
-          { label: '◀', title: 'Kurs 10° babord', order: { kind: 'adjustHeading', deltaDegrees: -10 }, repeat: true },
-          { label: '▶', title: 'Kurs 10° styrbord', order: { kind: 'adjustHeading', deltaDegrees: 10 }, repeat: true },
-        ],
-      },
-      {
-        name: 'Djup',
-        buttons: [
-          { label: '▲', title: 'Djup 5 m grundare', order: { kind: 'adjustDepth', deltaMetres: -5 }, repeat: true },
-          { label: '▼', title: 'Djup 5 m djupare', order: { kind: 'adjustDepth', deltaMetres: 5 }, repeat: true },
-        ],
-      },
-      speed,
-      {
-        name: 'Ballast',
-        buttons: [
-          { label: 'Dyk', title: 'Dyk: fyll huvudballasten', run: (c) => submitDive(c, 'touch') },
-          { label: 'Yta', title: 'Ytläge: blås huvudballasten', order: { kind: 'surface' } },
-        ],
-      },
-      consoleGroup,
-    ],
-  };
+  const groups: Group[] = [
+    {
+      name: 'Roder',
+      buttons: [
+        { label: '◀ BB', title: 'Roder 5° babord', order: { kind: 'rudder', angle: -5, relative: true }, repeat: true },
+        { label: 'Mitt', title: 'Roder midskepps', order: { kind: 'rudder', angle: 0 } },
+        { label: 'SB ▶', title: 'Roder 5° styrbord', order: { kind: 'rudder', angle: 5, relative: true }, repeat: true },
+      ],
+    },
+    {
+      name: 'Djuproder',
+      buttons: [
+        { label: '▲ Upp', title: 'Djuproder 5° upp', order: { kind: 'planes', angle: -5, relative: true }, repeat: true },
+        { label: '▼ Ned', title: 'Djuproder 5° ned', order: { kind: 'planes', angle: 5, relative: true }, repeat: true },
+      ],
+    },
+    {
+      name: 'Fart',
+      buttons: [
+        { label: '−', title: 'Fart −1 knop', order: { kind: 'adjustSpeed', deltaKnots: -1 }, repeat: true },
+        { label: '+', title: 'Fart +1 knop', order: { kind: 'adjustSpeed', deltaKnots: 1 }, repeat: true },
+      ],
+    },
+    {
+      name: 'Konsol',
+      buttons: [{ label: '>_', title: 'Öppna kommandokonsolen', action: openConsole, className: 'console-btn' }],
+    },
+  ];
 
-  root.innerHTML = '';
-  for (const [gameMode, groups] of Object.entries(sets)) {
-    const set = document.createElement('div');
-    set.className = 'touch-set';
-    set.dataset.mode = gameMode;
-    for (const g of groups) {
-      const group = document.createElement('div');
-      group.className = 'touch-group';
-      const label = document.createElement('div');
-      label.className = 'touch-label';
-      label.textContent = g.name;
-      const row = document.createElement('div');
-      row.className = 'touch-row';
-      for (const b of g.buttons) row.append(makeButton(b));
-      group.append(label, row);
-      set.append(group);
-    }
-    root.append(set);
-  }
-
-  function fire(b: TouchButton): void {
+  const fire = (b: TouchButton) => {
     const ctrl = getCtrl();
     if (ctrl && b.order) ctrl.submit(b.order, 'touch');
     if (ctrl && b.run) b.run(ctrl);
     b.action?.();
-  }
+  };
 
-  function makeButton(b: TouchButton): HTMLButtonElement {
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = `touch-btn ${b.className ?? ''}`;
-    el.textContent = b.label;
-    el.title = b.title;
-    el.setAttribute('aria-label', b.title);
-    let holdTimer: number | undefined;
-    let repeatTimer: number | undefined;
-    const stop = () => {
-      window.clearTimeout(holdTimer);
-      window.clearInterval(repeatTimer);
-      el.classList.remove('pressed');
-    };
-    if (b.action) {
-      // iOS only shows the on-screen keyboard for focus() inside a click handler.
-      el.addEventListener('click', () => fire(b));
-      return el;
-    }
-    el.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      // Tapping a steering button closes the console, as Esc does.
-      if (mode.current === 'console') mode.set('steer');
-      el.classList.add('pressed');
-      fire(b);
-      if (b.repeat) {
-        holdTimer = window.setTimeout(() => {
-          repeatTimer = window.setInterval(() => fire(b), REPEAT_INTERVAL);
-        }, HOLD_DELAY);
-      }
-    });
-    el.addEventListener('pointerup', stop);
-    el.addEventListener('pointercancel', stop);
-    el.addEventListener('pointerleave', stop);
-    el.addEventListener('contextmenu', (e) => e.preventDefault());
-    return el;
+  root.innerHTML = '';
+  for (const g of groups) {
+    const row = document.createElement('div');
+    row.className = 'touch-row';
+    for (const b of g.buttons) row.append(makeButton(b, fire, mode));
+    const label = document.createElement('div');
+    label.className = 'touch-label';
+    label.textContent = g.name;
+    const group = document.createElement('div');
+    group.className = 'touch-group';
+    group.append(label, row);
+    root.append(group);
   }
 }
 

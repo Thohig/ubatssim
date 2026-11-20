@@ -29,8 +29,8 @@ På startsidan väljer du spelläge, **förenklad** eller **realistisk simulerin
 |---|---|
 | **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
-| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order), autopilot tillåten i fritt spel (realistisk simulering), pekknappar (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna och valt spelläge sparas i webbläsaren. |
-| **Hjälp** | Kontroller, alla konsolkommandon och tips. |
+| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order), autopilot tillåten i fritt spel (realistisk simulering), pekknappar i realistisk simulering (automatiskt, alltid, aldrig) och svävande partiklar. Inställningarna och valt spelläge sparas i webbläsaren. |
+| **Hjälp** | Kontroller, skärmkontrollerna, alla konsolkommandon och tips. |
 
 På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
 
@@ -42,8 +42,8 @@ Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik
 
 | | Förenklad simulering | Realistisk simulering |
 |---|---|---|
-| **Styrning** | Du anger mål för djup och kurs, och autopiloten styr roder och djuproder. | Du lägger roder och djuproder själv. |
-| **Ballast** | D dyker och S går till ytläge. Ett djupmål på 5 m eller mer i ytläge startar dykningen, och ett djupmål grundare än 5 m med fylld huvudballast blåser den. | Du fyller och blåser huvudballasten med kommandon. Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
+| **Styrning** | Skärmkontroller: djupskala, kompass och maskintelegraf. Du anger mål för djup, kurs och fart, och autopiloten styr roder och djuproder. Ingen konsol. | Du lägger roder och djuproder själv, med tangenter, pekknappar och konsolen. |
+| **Ballast** | Dyk / Yta (D och S). Ett djupmål på 5 m eller mer i ytläge startar dykningen, och ett djupmål grundare än 5 m med fylld huvudballast blåser den. | Du fyller och blåser huvudballasten med kommandon. Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
 | **Trim** | Assistenten kompenserar och trimmar. | Du kompenserar och trimmar själv. |
 | **Skyddsnät** | Nödblåsning nära krossdjupet och varning för grunt vatten. | Inget. |
 | **Instrumentpanel** | Djup, fart och kurs med mål, Under köl och Trim (Tung / Neutral / Lätt). Roder och tankar finns under "Mer". | Hela panelen. |
@@ -75,22 +75,34 @@ Båda lägena kör samma simulering. Ballast, pumpar, tryckluft och hydrodynamik
 | Z | Periskopets förstoring, 1,5× / 6× | Samma |
 | B | Rapportera bäringen dit periskopet eller blicken pekar | Samma |
 | ← / → i periskopet | Vrid periskopet (Shift + ← / → styr) | Samma |
-| Shift + ↑ / ↓ | Fart ±1 knop (sätter fartautopiloten). Under noll går ubåten back, högst 6 knop. | Samma |
-| Enter eller / | Öppna kommandokonsolen | Samma |
+| Shift + ↑ / ↓ | Telegrafen ett läge fram / back | Fart ±1 knop (sätter fartautopiloten). Under noll går ubåten back, högst 6 knop. |
+| Enter eller / | – (ingen konsol) | Öppna kommandokonsolen |
 | Esc | Lämna konsolen eller en vy, eller pausa | Samma |
 | M | Ljud av / på | Samma |
 
-Lägesindikatorn överst visar om piltangenterna styr ubåten (**STYRNING**) eller konsolen (**KONSOL**). I konsolen bläddrar ↑/↓ i kommandohistoriken.
+I realistisk simulering visar lägesindikatorn överst om piltangenterna styr ubåten (**STYRNING**) eller konsolen (**KONSOL**). I konsolen bläddrar ↑/↓ i kommandohistoriken.
 
-Ett manuellt roder- eller djuproderutslag kopplar ur autopiloten för just den axeln. De andra axlarna fortsätter som förut. Det gäller också i förenklad simulering, om du ger roderkommandon i konsolen.
+Ett manuellt roder- eller djuproderutslag kopplar ur autopiloten för just den axeln. De andra axlarna fortsätter som förut.
 
-Knapparna Vy, Per, Zoom och Brg under ☰ gör samma sak som V, P, Z och B.
+Knapparna Vy, Per, Zoom och Brg uppe till höger gör samma sak som V, P, Z och B. I förenklad simulering visas Per och Vy bara när ubåten är grundare än 25 m eller periskopet är uppe.
 
-### Pekskärm (iPhone, iPad)
+### Skärmkontroller (förenklad simulering)
 
-Längst ner finns knappar som motsvarar tangenterna:
-- **Förenklad simulering:** kurs (◀, ▶), djup (▲, ▼), fart (−, +) och ballast (Dyk, Yta).
-- **Realistisk simulering:** roder (BB, Mitt, SB), djuproder (Upp, Ned) och fart (−, +).
+Förenklad simulering har ingen konsol. Den styrs med kontrollerna längst ner, på dator och mobil, och med tangenterna ovan.
+
+| Kontroll | Var | Funktion |
+|---|---|---|
+| **Djupskala** | Vänster | Visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Skalan är kvadratisk, så de grunda metrarna får plats. Tryck eller dra för att välja djup i steg om 5 m. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och **13 m** går till periskopdjup. |
+| **Kompass** | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
+| **Maskintelegraf** | Mitten | Full, Halv och Sakta back (6, 4 och 2 knop), Stopp, och Sakta, Halv och Full fram (4, 8 och 12 knop). Läget som gäller lyser, och klockan slår vid varje ny order. |
+| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. |
+| **Håll** | Mitten | Behåller nuvarande kurs och djup. |
+
+På stående telefon ligger djupskalan till vänster, kompassen till höger och telegrafen över hela bredden längst ner. På liggande telefon ligger allt i en rad. Håll in ▲ ▼ ◀ ▶ så upprepas de, och fortare ju längre du håller.
+
+### Pekskärm, realistisk simulering (iPhone, iPad)
+
+Längst ner finns knappar som motsvarar tangenterna: roder (BB, Mitt, SB), djuproder (Upp, Ned) och fart (−, +). Inställningen Pekknappar (automatiskt, alltid, aldrig) styr om de visas.
 
 Håll in en knapp så upprepas den. `>_` öppnar konsolen med telefonens tangentbord, och ett tryck på en styrknapp stänger den igen. Instrumentpanelen är kompakt på smala skärmar, och "Mer ▾" visar resten.
 
@@ -98,7 +110,7 @@ Mus och finger styr kameran: dra för att vrida och nyp eller scrolla för att z
 
 ### Back
 
-Ubåten backar i båda spellägena: Shift + ↓ (eller −) förbi noll, eller `back halv` i konsolen. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid en order om back.
+Ubåten backar i båda spellägena: med telegrafen (Halv back) i förenklad simulering, och med Shift + ↓ (eller −) förbi noll eller `back halv` i konsolen i realistisk. Instrumentpanelen visar då **BACK** framför farten, och maskintelegrafens klocka slår vid en order om back.
 
 - **Propellern** ger ungefär 60 % av dragkraften bakåt, och motorn tillåter högst 108 rpm back. Toppfarten bakåt blir ~6,8 knop, och det tar några minuter att komma upp i fart.
 - **Rodren verkar omvänt**, eftersom vattnet kommer bakifrån. Roder styrbord vrider fören åt babord, och djuproder ned lyfter fören. I realistisk simulering med manuella roder får du styra omvänt.
@@ -275,6 +287,7 @@ Testerna täcker bland annat:
 - periskopet, bryggan och vyerna
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
+- skärmkontrollerna i förenklad simulering (djupskala, kompass, telegraf, Dyk/Yta), att konsolen inte går att öppna där och att scenariotipsen inte nämner konsolkommandon
 - spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom).
 
 ## Projektstruktur
@@ -290,7 +303,7 @@ src/
               trimassistent och skyddsnät, havsområdenas startlägen och fyrar, scenarier.
   render/     Three.js: ubåtsmodell i lager, terräng, vågor, fyrar, ljus och dimma, kameravyer.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
-  ui/         Meny, instrumentpanel, konsol, logg, tangentbord, pekknappar, inställningar,
+  ui/         Meny, instrumentpanel, konsol, logg, tangentbord, pekknappar, skärmkontroller (helm), inställningar,
               vyer och deras overlay (kompassband, periskop). HTML byggs med mallar som escapar.
   game/       Spelsessioner, spellägen (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
   main.ts     Uppstart.

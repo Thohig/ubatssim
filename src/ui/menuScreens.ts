@@ -142,7 +142,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <fieldset><legend>Realistisk simulering, fritt spel</legend>
         <label class="opt"><input type="checkbox" name="autopilot" ${s.autopilot ? 'checked' : ''}/> Tillåt autopilot för djup och kurs</label>
       </fieldset>
-      <fieldset><legend>Pekknappar</legend>
+      <fieldset><legend>Pekknappar (realistisk simulering)</legend>
         ${radio('touch', 'auto', 'Automatiskt', s.touch === 'auto')}${radio('touch', 'on', 'Alltid', s.touch === 'on')}${radio('touch', 'off', 'Aldrig', s.touch === 'off')}
       </fieldset>
       <fieldset><legend>Ljud</legend>
@@ -174,16 +174,25 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>Mellanslag</td><td>Håll kurs och djup</td><td>Roder midskepps</td></tr>
           <tr><td>D</td><td>Dyk (till periskopdjup, 13 m, om inget djupare mål finns)</td><td>–</td></tr>
           <tr><td>S</td><td>Ytläge</td><td>–</td></tr>
-          <tr><td>Shift + ↑ / ↓</td><td colspan="2">Fart ±1 knop. Under noll går ubåten back, högst 6 knop.</td></tr>
+          <tr><td>Shift + ↑ / ↓</td><td>Telegrafen ett läge fram / back</td><td>Fart ±1 knop. Under noll går ubåten back, högst 6 knop.</td></tr>
           <tr><td>V</td><td colspan="2">Byt vy: yttre, bryggan (i ytläge) och periskopet (när det är uppe)</td></tr>
           <tr><td>P</td><td colspan="2">Periskop upp / ned. Vyn öppnas när masten är uppe.</td></tr>
           <tr><td>Z</td><td colspan="2">Periskopets förstoring, 1,5× eller 6×</td></tr>
           <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
           <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
-          <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
+          <tr><td>Enter eller /</td><td>– (ingen konsol)</td><td>Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
           <tr><td>Esc</td><td colspan="2">Lämna konsolen eller en vy, eller pausa</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
         </table>
+        <h3>Förenklad simulering: kontrollerna</h3>
+        <p>Förenklad simulering har ingen konsol. Allt styrs med kontrollerna längst ner, på dator och mobil, eller med tangenterna ovan.</p>
+        <ul>
+          <li><b>Djupskalan</b> (vänster) visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och <b>13 m</b> går till periskopdjup.</li>
+          <li><b>Kompassen</b> (höger) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den.</li>
+          <li><b>Telegrafen</b> (mitten): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2, 4 och 6 knop back, 4, 8 och 12 knop fram).</li>
+          <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup.</li>
+          <li><b>Per</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller periskopet är uppe.</li>
+        </ul>
         <h3>Vyer</h3>
         <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker: skriv <code>klart bryggan</code> i realistisk simulering. I förenklad simulering sköts det automatiskt.</p>
         <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
@@ -201,8 +210,8 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <p>I fritt spel går fartyg i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision loggas, och i ett scenario misslyckas uppdraget.</p>
         <p>Instrumentpanelen visar farten genom vattnet. Under "Mer" finns fart och kurs över grund och strömmen. I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
         <h3>Pekskärm</h3>
-        <p>Knapparna längst ner har samma funktioner som tangenterna. I förenklad simulering ändrar ◀ / ▶ kursen och ▲ / ▼ djupet, och Dyk och Yta sköter huvudballasten. Håll in för att upprepa. <code>&gt;_</code> öppnar konsolen och ☰ pausar.</p>
-        <h3>Kommandon</h3>
+        <p>I realistisk simulering har knapparna längst ner samma funktioner som tangenterna: roder, djuproder och fart. Håll in för att upprepa. <code>&gt;_</code> öppnar konsolen och ☰ pausar. Inställningen Pekknappar gäller bara realistisk simulering.</p>
+        <h3>Kommandon (realistisk simulering)</h3>
         <pre>${HELP_TEXT.join('\n')}</pre>
         <h3>Att tänka på</h3>
         <ul>
@@ -220,10 +229,12 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
     return html`
       <h2 class="menu-title small">Förenklad simulering</h2>
       <ul class="intro">
-        <li><b>↑ / ↓</b> (▲ / ▼) ändrar djupet 5 m, <b>← / →</b> ändrar kursen 10°.</li>
-        <li><b>Shift + ↑ / ↓</b> (− / +) ändrar farten. Under noll backar ubåten.</li>
-        <li><b>D</b> dyker och <b>S</b> går till ytläge.</li>
+        <li><b>Djupskalan</b> till vänster: tryck eller dra för att välja djup. ▲ / ▼ ändrar 5 m.</li>
+        <li><b>Kompassen</b> till höger: tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°.</li>
+        <li><b>Telegrafen</b> i mitten väljer fart, från Full back till Full fram.</li>
+        <li><b>Dyk / Yta</b> sköter huvudballasten, och <b>Håll</b> behåller kurs och djup.</li>
         <li>Assistenten trimmar ubåten. Det den gör syns i loggen.</li>
+        <li>På dator fungerar också tangenterna: ↑ / ↓ djup, ← / → kurs, Shift + ↑ / ↓ fart, D dyk och S yta.</li>
       </ul>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="introDone">Kör</button>

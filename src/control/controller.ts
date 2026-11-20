@@ -128,7 +128,7 @@ export class Controller {
       // Hold the present depth and heading; the player then moves the targets.
       this.apply({ kind: 'autopilot', axis: 'depth', on: true });
       this.apply({ kind: 'autopilot', axis: 'heading', on: true });
-      this.addLog('Förenklad simulering: ↑/↓ ändrar djupet, ←/→ ändrar kursen. Assistenten trimmar ubåten.', 'info');
+      this.addLog('Förenklad simulering: välj djup, kurs och fart med kontrollerna längst ner (eller ↑/↓, ←/→ och Shift). Assistenten trimmar ubåten.', 'info');
     } else {
       // Hand over with the last automatic rudder and plane angles, as "autopilot av" does.
       this.apply({ kind: 'autopilot', axis: 'depth', on: false });

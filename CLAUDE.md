@@ -36,7 +36,8 @@ src/audio/    Web Audio, syntetiserat. levels (ren: telemetri → ljudnivåer), 
               voice (talsyntes), director (kopplar ihop). Läser simuleringen, skriver aldrig.
 src/ui/       dom (html-mallar med escaping, h(), Component), menu + menuScreens (en funktion per
               skärm), instruments (komponenter, layout per spelläge som data), console, log,
-              keyboard, touch, inputMode, objective, settings, views, viewOverlay, perfMeter.
+              keyboard, touch (realistiskt läge), helm (förenklat läges skärmkontroller), inputMode,
+              objective, settings, views, viewOverlay, perfMeter.
 src/game/     session (GameSession: simulering, kontroll, scenario, trafik, omstart), flow
               (GameFlow: menu | playing | paused | ended och tillåtna övergångar), loop
               (FixedStepLoop), wiring (session → ljud och overlay), app (kopplingen till DOM).
@@ -49,7 +50,7 @@ src/main.ts   Bara uppstart (startApp).
 - **Manuell styrning:** ett manuellt utslag kopplar ur autopiloten för den axeln. `Controller.options.autopilotAllowed = false` spärrar djup- och kursautopiloten i realistisk simulering (fartautopiloten tillåts).
 - **Back:** propellern back har egna gränser (`propulsion.asternFactor`, `maxRpsAstern`), och `rpsForSpeed()` tar negativ fart. Med vattnet bakifrån verkar rodren omvänt, så djup- och kursautopiloten vänder tecken via `Autopilot.direction()` (hysteres ±0,2 m/s, regulatorerna nollställs vid bytet). Skyddsnätet tittar i färdriktningen. `back <knop>|sakta|halv|full` blir `setSpeed` med negativ fart.
 - **Spellägen** (`GameMode`: `'simplified' | 'realistic'`) kör samma `Simulation`. Skillnaden ligger bara i `src/control` och `src/ui`:
-  - Förenklad simulering bygger på djup- och kursautopiloten. Tangenter och pekknappar ger `adjustDepth`, `adjustHeading`, `holdCourse`, `dive` och `surface`. Ett djupmål ≥ 5 m med tom huvudballast startar dykningen, och ett djupmål < 5 m med fylld huvudballast blåser den (realistiskt läge: en påminnelse i loggen). I ytläge med tom ballast och grunt mål håller djupautopiloten djuprodret i noll (`Controller.surfaceHold`).
+  - Förenklad simulering bygger på djup- och kursautopiloten och har **ingen konsol** (`bindConsole(..., allowed)`, `body.simplified` döljer den). Den styrs med skärmkontrollerna i `src/ui/helm.ts` (djupskala, kompassband, maskintelegraf `TELEGRAPH` i gameMode.ts, Dyk/Yta, Håll), som alltid visas, och med tangenterna. De ger `setDepth`, `adjustDepth`, `setHeading`, `adjustHeading`, `setSpeed`, `holdCourse`, `dive` och `surface`. Scenariotips för förenklat läge (`hintSimplified`) får inte nämna konsolkommandon (test i `tests/helm.test.ts`). Ett djupmål ≥ 5 m med tom huvudballast startar dykningen, och ett djupmål < 5 m med fylld huvudballast blåser den (realistiskt läge: en påminnelse i loggen). I ytläge med tom ballast och grunt mål håller djupautopiloten djuprodret i noll (`Controller.surfaceHold`).
   - `TrimAssist` körs efter `sim.step()` i förenklat läge och ger vanliga order med källan `'assist'` (kompensering, trim, nödblåsning). Den ändrar aldrig simuleringens tillstånd direkt och är deterministisk. Undantaget är djupbörvärdet, som skyddsnätet begränsar på grunt vatten.
   - Byt läge med `Controller.setMode()`, som tar över utan ryck. `Controller` startar i realistiskt läge, så befintliga tester påverkas inte.
   - Valt läge sparas i inställningarna. Standard är förenklad simulering.
@@ -80,7 +81,7 @@ src/main.ts   Bara uppstart (startApp).
 - `strict` TypeScript med `noUncheckedIndexedAccess`.
 - Ny fysik ska ha Vitest-tester i `tests/`.
 - `localStorage` används bara för inställningar (inklusive spelläge och ljud), alltid inom try/catch (`src/ui/settings.ts`). Bästa tider sparas inte längre.
-- Pekskärm: `body.touch` styr pekknapparna. Konsolens textfält ska ha teckenstorlek ≥ 16 px på iOS, annars zoomar Safari.
+- Pekskärm: `body.touch` styr pekknapparna i realistiskt läge. Förenklat läges skärmkontroller visas alltid (`body.simplified`), och `--helm-h` (deras höjd) håller loggen och instrumentpanelen ovanför dem. Konsolens textfält ska ha teckenstorlek ≥ 16 px på iOS, annars zoomar Safari.
 
 ## Integritetsregler
 - Inga absoluta lokala sökvägar, användarnamn, e-postadresser eller annan personlig information i kod, kommentarer, README, docs eller CLAUDE.md.

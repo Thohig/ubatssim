@@ -16,7 +16,8 @@ export function cueFor(text: string): Cue | null {
   if (/^Vatten över bryggan/.test(text)) return 'splash';
   if (/nödblåsning/.test(text)) return 'alarm';
   if (/^Huvudballasten är full/.test(text)) return 'clonk';
-  if (/^Back \d/.test(text)) return 'telegraph';
+  // A new speed order rings the engine-order telegraph (not "Fart öka 1 knop").
+  if (/^(Back|Fart) \d[\d,]* knop, ja/.test(text)) return 'telegraph';
   if (/^Mål klart/.test(text)) return 'objective';
   return null;
 }

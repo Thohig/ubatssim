@@ -5,13 +5,14 @@
  */
 import { AudioDirector } from '../audio/director';
 import type { GameMode } from '../control/gameMode';
-import { SCENARIOS, scenarioModes } from '../control/scenarios';
+import { SCENARIOS, scenarioMode, scenarioModes } from '../control/scenarios';
 import { AREA_INFO } from '../control/areas';
 import { createScene } from '../render/scene';
 import { quatToMat3 } from '../sim/math/quat';
 import { getQuat } from '../sim/rigidBody';
 import { SUBMARINE } from '../sim/config/submarine';
 import { bindConsole } from '../ui/console';
+import { createHelm } from '../ui/helm';
 import { InputModeState, bindModeIndicator } from '../ui/inputMode';
 import { createInstruments } from '../ui/instruments';
 import { bindKeyboard } from '../ui/keyboard';
@@ -58,7 +59,13 @@ export function startApp(): void {
   let session: GameSession;
   let updateInstruments: ReturnType<typeof createInstruments>;
 
-  const helpHint = () => (touch ? 'Tryck >_ och skriv "hjälp" för kommandon.' : 'Skriv "hjälp" i konsolen för kommandon.');
+  /** The first log line of a game: where to find the controls. The simplified mode has no console. */
+  const helpHint = (m: GameMode) =>
+    m === 'simplified'
+      ? 'Styr med kontrollerna längst ner. ☰ → Hjälp förklarar dem.'
+      : touch
+        ? 'Tryck >_ och skriv "hjälp" för kommandon.'
+        : 'Skriv "hjälp" i konsolen för kommandon.';
 
   /** Shows a session: log, instruments, sound, camera, buoy, ships and the area. */
   const attach = (s: GameSession): GameSession => {
@@ -88,12 +95,12 @@ export function startApp(): void {
     el('menu'),
     {
       startFree(area, start, conditions, sea) {
-        const spec = freePlaySpec(area, start, conditions, sea, settings.mode, settings.autopilot, helpHint());
+        const spec = freePlaySpec(area, start, conditions, sea, settings.mode, settings.autopilot, helpHint(settings.mode));
         if (spec) startGame(new GameSession(spec));
       },
       startScenario(id) {
         const sc = SCENARIOS.find((s) => s.id === id);
-        if (sc) startGame(new GameSession(scenarioSpec(sc, settings.mode, settings.autopilot, helpHint())));
+        if (sc) startGame(new GameSession(scenarioSpec(sc, settings.mode, settings.autopilot, helpHint(scenarioMode(sc, settings.mode)))));
       },
       resume() {
         flow.go('playing');
@@ -145,9 +152,16 @@ export function startApp(): void {
     flow.go('playing');
   }
 
-  /** Shows the touch buttons for the running game's mode. */
+  /**
+   * Shows the controls for the running game's mode: the screen controls and
+   * no console in the simplified mode, the console (and touch buttons) in the
+   * realistic mode.
+   */
   function applyGameMode(): void {
+    const simple = session.ctrl.options.mode === 'simplified';
+    document.body.classList.toggle('simplified', simple);
     el('touch').dataset.mode = session.ctrl.options.mode;
+    if (simple) mode.set('steer');
   }
 
   function showPause(): void {
@@ -182,10 +196,13 @@ export function startApp(): void {
 
   const consoleInput = el<HTMLInputElement>('console-input');
   const activeCtrl = () => (flow.state === 'playing' ? session.ctrl : null);
-  const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode);
+  const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode, () => session.ctrl.options.mode !== 'simplified');
   bindKeyboard(activeCtrl, mode, openConsole, views);
   bindViewPointer(view.renderer.domElement, views);
-  bindViewButtons(el('view-btns'), activeCtrl, views);
+  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views);
+  const helmEl = el('helm');
+  const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
+  let helmHeight = -1;
   const drawOverlay = createViewOverlay(el<HTMLCanvasElement>('view-overlay'));
   bindTouchControls(el('touch'), activeCtrl, mode, openConsole);
   el('menu-btn').addEventListener('click', pause);
@@ -290,7 +307,17 @@ export function startApp(): void {
     perf.mark('render');
 
     if (now - lastUi > 100 && !hud.hidden) {
-      updateInstruments(sim.telemetry());
+      const tel = sim.telemetry();
+      updateInstruments(tel);
+      updateViewButtons(s.ctrl);
+      if (s.ctrl.options.mode === 'simplified') {
+        updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
+        // The log and the objective sit above the screen controls (style.css).
+        if (helmEl.offsetHeight !== helmHeight) {
+          helmHeight = helmEl.offsetHeight;
+          document.body.style.setProperty('--helm-h', `${helmHeight}px`);
+        }
+      }
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
       updateObjective(objectiveEl, s.runner);
       lastUi = now;
