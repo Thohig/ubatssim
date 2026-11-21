@@ -73,9 +73,13 @@ const DEG = Math.PI / 180;
 export const PROPELLER_BLADES = 7;
 /** Ships are heard within this range [m]. */
 export const SHIP_AUDIBLE_RANGE = 4000;
-/** Animals are heard within this range [m] (whales far, herring close), and how often each kind calls [1/s]. */
-export const BIO_AUDIBLE_RANGE = { clicks: 6000, song: 8000, pulse: 4000, whistle: 4000, frt: 600 } as const;
-const BIO_RATE = { clicks: 1.3, song: 0.2, pulse: 0.4, whistle: 0.35, frt: 1.5 } as const;
+/** Animals are heard within this range [m] (whales far, herring close), and how often each kind calls when near [1/s]. */
+export const BIO_AUDIBLE_RANGE = { clicks: 3000, song: 4000, pulse: 2000, whistle: 2000, frt: 300 } as const;
+const BIO_RATE = { clicks: 1.0, song: 0.2, pulse: 0.3, whistle: 0.3, frt: 1.0 } as const;
+/** Loudest animal call (alongside the boat). */
+export const BIO_MAX_GAIN = 0.15;
+/** The flow noise masks the animals: fully heard below the first speed, not at all above the second [m/s] (~3 and ~10 knots). */
+export const BIO_MASK_SPEED = [1.5, 5] as const;
 
 /** Depth [m] beyond which the hull creaks hard and the alarm sounds. */
 export const CRUSH_WARNING_DEPTH = 250;
@@ -135,8 +139,14 @@ export function soundLevels(a: AudioInput): SoundLevels {
   // Outside sounds are muffled through the water when the camera is under it.
   const outsideCutoff = a.cameraUnderwater ? 700 : 12000;
   // Whales and fish are heard through the hull only with the boat under water.
-  const heardBio = a.bio && t.submergedFraction > 0.9 ? clamp01(1 - a.bio.range / BIO_AUDIBLE_RANGE[a.bio.sound]) : 0;
-  const bio = heardBio > 0 && a.bio ? { rate: BIO_RATE[a.bio.sound], sound: a.bio.sound, gain: 0.05 + 0.25 * heardBio } : { rate: 0, sound: null, gain: 0 };
+  // They fade with the square of the closeness, call less often far away, and drown in the flow noise at speed.
+  const nearBio = a.bio && t.submergedFraction > 0.9 ? clamp01(1 - a.bio.range / BIO_AUDIBLE_RANGE[a.bio.sound]) : 0;
+  const masked = clamp01((BIO_MASK_SPEED[1] - u) / (BIO_MASK_SPEED[1] - BIO_MASK_SPEED[0]));
+  const heardBio = nearBio * nearBio * masked;
+  const bio =
+    heardBio > 0.02 && a.bio
+      ? { rate: BIO_RATE[a.bio.sound] * (0.3 + 0.7 * nearBio), sound: a.bio.sound, gain: BIO_MAX_GAIN * heardBio }
+      : { rate: 0, sound: null, gain: 0 };
 
   return {
     motor,

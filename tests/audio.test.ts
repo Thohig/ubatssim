@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cueFor } from '../src/audio/director';
-import { PROPELLER_BLADES, soundLevels, type AudioInput } from '../src/audio/levels';
+import { BIO_AUDIBLE_RANGE, BIO_MAX_GAIN, PROPELLER_BLADES, soundLevels, type AudioInput } from '../src/audio/levels';
 import { speechFor } from '../src/audio/voice';
 import { Controller } from '../src/control/controller';
 import { Simulation } from '../src/sim/simulation';
@@ -140,5 +140,29 @@ describe('diesels, leaks and the drain pump', () => {
     expect(l.leak).toBeGreaterThan(0.25);
     expect(l.drainPump).toBeGreaterThan(0);
     expect(cueFor('Läckage i maskinrum (grundstötning)! Länspumpen går.')).toBe('alarm');
+  });
+});
+
+describe('animals', () => {
+  const deep = (knots: number) => new Simulation({ depth: 50, speed: knots * KN, designTrim: true });
+  const at = (sim: Simulation, range: number) => soundLevels(input(sim, { bio: { sound: 'song', range } })).bio;
+
+  it('are heard louder and more often when near, and not beyond the audible range', () => {
+    const sim = deep(2);
+    const near = at(sim, 200);
+    const far = at(sim, 0.6 * BIO_AUDIBLE_RANGE.song);
+    expect(near.sound).toBe('song');
+    expect(near.gain).toBeGreaterThan(far.gain);
+    expect(near.gain).toBeLessThanOrEqual(BIO_MAX_GAIN);
+    expect(near.rate).toBeGreaterThan(far.rate);
+    expect(at(sim, BIO_AUDIBLE_RANGE.song + 100).sound).toBeNull();
+    // The square falloff: halfway out, a quarter as loud as alongside.
+    expect(at(sim, BIO_AUDIBLE_RANGE.song / 2).gain).toBeCloseTo(BIO_MAX_GAIN / 4, 6);
+  });
+
+  it('drown in the flow noise at speed and are not heard on the surface', () => {
+    expect(at(deep(2), 500).gain).toBeGreaterThan(at(deep(6), 500).gain);
+    expect(at(deep(12), 500).sound).toBeNull();
+    expect(at(new Simulation(), 500).sound).toBeNull();
   });
 });

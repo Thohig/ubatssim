@@ -73,11 +73,11 @@ Ljud från omgivningen hörs bara när kameran är ovanför vattnet.
 - **Måsar:** på dagen i områden med kust, inte på Atlanten.
 - **Mistlur:** i dimma, var 30:e sekund.
 
-**Livet i havet** hörs genom skrovet när ubåten är under ytan, oavsett kamera, från det närmaste djur som låter just då (`AudioInput.bio`, `call` i `engine.ts`). Starkare ju närmare, ut till 8 km (knölval), 6 km (kaskelot), 4 km (vikval, späckhuggare) och 600 m (sill).
+**Livet i havet** hörs genom skrovet när ubåten är under ytan, oavsett kamera, från det närmaste djur som låter just då (`AudioInput.bio`, `call` i `engine.ts`). Hörs ut till 4 km (knölval), 3 km (kaskelot), 2 km (vikval, späckhuggare) och 300 m (sill). Styrkan avtar med kvadraten på närheten (halvvägs ut en fjärdedel av den högsta, `BIO_MAX_GAIN`) och lätena kommer glesare på avstånd. Strömningsbruset maskerar dem: fullt hörbara under ~3 knop, tysta över ~10 knop (`BIO_MASK_SPEED`). Djuren låter i omgångar: 20–60 s läten och sedan 1–4 minuters tystnad (`calling` i `engine.ts`), och klicken kommer i slumpad takt.
 
 | Djur | Ljud |
 |---|---|
-| Kaskelot | Klickserier, tre skarpa klick (bandpass 3,5 kHz) ungefär en gång i sekunden |
+| Kaskelot | Klickserier, tre skarpa klick (bandpass 3,5 kHz) upp till ungefär en gång i sekunden |
 | Knölval | Långa toner, 180–430 Hz, som glider upp eller ned under 2,5–4,5 s, med vibrato |
 | Vikval | Låga pulståg, sex korta toner runt 110 Hz |
 | Späckhuggare | Visslingar, 1,8–4,3 kHz, som glider |

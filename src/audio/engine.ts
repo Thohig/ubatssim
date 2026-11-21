@@ -63,6 +63,8 @@ export class AudioEngine {
   private running = false;
   /** Next scheduled time for random events [s, audio clock]. */
   private next = { creak: 0, ping: 0, gull: 0, foghorn: 0, bio: 0 };
+  /** Animals call in bouts: whether one is calling now, and when that changes [s, audio clock; 0 = no animal heard]. */
+  private bout = { calling: false, until: 0 };
 
   get available(): boolean {
     return typeof window !== 'undefined' && ('AudioContext' in window || 'webkitAudioContext' in window);
@@ -144,8 +146,25 @@ export class AudioEngine {
     if (this.options.ambience) {
       if (due('gull', l.gullRate, true)) this.gull();
       if (due('foghorn', l.foghornRate, false)) this.foghorn();
-      if (l.bio.sound && due('bio', l.bio.rate, l.bio.sound !== 'clicks')) this.call(l.bio.sound, l.bio.gain);
+      if (l.bio.sound && this.calling(now) && due('bio', l.bio.rate, true)) this.call(l.bio.sound, l.bio.gain);
+      if (!l.bio.sound) this.bout.until = 0;
     }
+  }
+
+  /**
+   * Animals call in bouts with silence between: 20–60 s of calls, then 1–4
+   * minutes quiet. A newly heard animal starts at a random point of the cycle.
+   */
+  private calling(now: number): boolean {
+    const b = this.bout;
+    if (b.until === 0) {
+      b.calling = Math.random() < 0.3;
+      b.until = now + (b.calling ? 20 + 40 * Math.random() : 60 * Math.random());
+    } else if (now >= b.until) {
+      b.calling = !b.calling;
+      b.until = now + (b.calling ? 20 + 40 * Math.random() : 60 + 180 * Math.random());
+    }
+    return b.calling;
   }
 
   /**
