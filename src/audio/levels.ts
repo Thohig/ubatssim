@@ -7,7 +7,7 @@
 import type { Telemetry } from '../sim/simulation';
 
 export type AudioView = 'external' | 'bridge' | 'periscope';
-export type AudioConditions = 'day' | 'night' | 'fog';
+export type AudioConditions = 'day' | 'dusk' | 'night' | 'fog';
 
 export interface AudioInput {
   t: Telemetry;

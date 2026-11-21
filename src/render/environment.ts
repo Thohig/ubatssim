@@ -20,7 +20,7 @@ export interface LightMark {
   lit: number;
 }
 
-export type ConditionsId = 'day' | 'night' | 'fog';
+export type ConditionsId = 'day' | 'dusk' | 'night' | 'fog';
 
 interface Palette {
   sky: number;
@@ -40,6 +40,8 @@ interface Palette {
 
 const PALETTES: Record<ConditionsId, Palette> = {
   day: { sky: 0x9cc9e4, shallow: 0x2a7fa8, deep: 0x020a12, airFog: 0.00013, waterFog: 0, hemi: 1.4, sun: 1.6, surface: 0x3c8fb5, lamps: false },
+  // Dusk: a dark red-grey sky low over the sea, dim light, the lamps lit. APPROX (illustrative).
+  dusk: { sky: 0x4a3036, shallow: 0x0c2a38, deep: 0x01060c, airFog: 0.00028, waterFog: 0.003, hemi: 0.5, sun: 0.4, surface: 0x1a3442, lamps: true },
   night: { sky: 0x060b16, shallow: 0x06202e, deep: 0x01050a, airFog: 0.0004, waterFog: 0.004, hemi: 0.14, sun: 0.08, surface: 0x0c2433, lamps: true },
   fog: { sky: 0xb4c0c4, shallow: 0x2f6f88, deep: 0x020a12, airFog: 0.01, waterFog: 0.002, hemi: 1.0, sun: 0.5, surface: 0x6d8d99, lamps: true },
 };

@@ -32,7 +32,7 @@ import { createViewOverlay } from '../ui/viewOverlay';
 import { ViewState, availableViews, bindViewButtons, bindViewPointer } from '../ui/views';
 import { GameFlow, type GameState } from './flow';
 import { FixedStepLoop } from './loop';
-import { GameSession, demoSession, freePlaySpec, scenarioSpec } from './session';
+import { GameSession, demoCharge, demoSession, freePlaySpec, scenarioSpec } from './session';
 import { audioInput, effectsInput, overlayState } from './wiring';
 
 const el = <T extends HTMLElement>(id: string) => {
@@ -173,6 +173,7 @@ export function startApp(): void {
       flow.go('paused');
       menu.setPauseInfo(pauseInfo());
       menu.showBriefing(s.scenario);
+      updateMusic();
       return;
     }
     afterBriefing();
@@ -183,6 +184,7 @@ export function startApp(): void {
     if (!settings.crewIntroSeen) {
       flow.go('paused');
       menu.show('intro');
+      updateMusic();
       return;
     }
     flow.go('playing');
@@ -215,6 +217,12 @@ export function startApp(): void {
     });
   }
 
+  /** The start page's music plays on the start page and under a scenario's briefing and the introduction. */
+  function updateMusic(): void {
+    const briefing = flow.state === 'paused' && menu.visible && (menu.current === 'briefing' || menu.current === 'intro');
+    audio.setMenu(flow.state === 'menu' || briefing);
+  }
+
   flow.onChange((s: GameState) => {
     audio.setRunning(s === 'playing');
     hud.hidden = !flow.inGame;
@@ -223,6 +231,15 @@ export function startApp(): void {
     if (s === 'menu') menu.show('main');
     if (s === 'paused') showPause();
     if (s !== 'playing') mode.set('steer');
+    updateMusic();
+  });
+
+  // The depth charges in the start page's music go off in the demo behind it too: water columns near the corvette.
+  audio.engine.music.onEvent((e, delay) => {
+    if (e.kind !== 'charge') return;
+    window.setTimeout(() => {
+      if (flow.state === 'menu') demoCharge(session, e.distance);
+    }, delay * 1000);
   });
 
   const pause = () => {
@@ -351,6 +368,11 @@ export function startApp(): void {
 
   window.addEventListener('keydown', (e) => {
     const state = flow.state;
+    // M on the start page silences its music too (not while typing in a field).
+    if ((e.key === 'm' || e.key === 'M') && state === 'menu' && !(e.target instanceof HTMLInputElement) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      audio.engine.toggleMute();
+      return;
+    }
     if ((e.key === 'm' || e.key === 'M') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const muted = audio.engine.toggleMute();
       session.ctrl.addLog(muted ? 'Ljudet är avstängt (M).' : 'Ljudet är på (M).', 'info');
@@ -409,7 +431,14 @@ export function startApp(): void {
     bindModeIndicator(el('mode'), mode, touch, views);
     view.setParticles(settings.particles);
     view.setLightRays(settings.lightRays);
-    audio.apply({ volume: settings.volume, effects: settings.soundEffects, ambience: settings.soundAmbience, voice: settings.voice });
+    audio.apply({
+      volume: settings.volume,
+      effects: settings.soundEffects,
+      ambience: settings.soundAmbience,
+      voice: settings.voice,
+      music: settings.music,
+      musicVolume: settings.musicVolume,
+    });
   }
 
   // ------------------------------------------------------------------ views

@@ -11,7 +11,7 @@ import type { ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
 import { html, mount } from './dom';
-import { SCREENS, type MenuState, type PauseInfo, type ResultInfo, type Screen } from './menuScreens';
+import { ORDERS, SCREENS, type MenuState, type PauseInfo, type ResultInfo, type Screen } from './menuScreens';
 
 export type { PauseInfo, ResultInfo } from './menuScreens';
 
@@ -48,6 +48,8 @@ export class Menu {
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
   private sea: SeaStateId = 'calm';
+  /** The start page's order, picked once per visit (fictional). */
+  private readonly order = { text: ORDERS[Math.floor(Math.random() * ORDERS.length)]!, no: 100 + Math.floor(Math.random() * 900) };
 
   constructor(
     private readonly root: HTMLElement,
@@ -83,6 +85,7 @@ export class Menu {
       settings: this.settings,
       pauseInfo: this.pauseInfo,
       result: this.result,
+      order: this.order,
       briefing: this.briefing,
       error: this.error,
       graphicsBack: this.graphicsBack,
@@ -211,6 +214,8 @@ export class Menu {
     if (name === 'soundEffects') s.soundEffects = value === 'true';
     if (name === 'soundAmbience') s.soundAmbience = value === 'true';
     if (name === 'voice') s.voice = value === 'true';
+    if (name === 'music') s.music = value === 'true';
+    if (name === 'musicVolume') s.musicVolume = Number(value) / 100;
     if (name === 'showLog') s.showLog = value === 'true';
     this.settings = s;
     this.h.settingsChanged(s);

@@ -49,6 +49,11 @@ export class AudioDirector {
     if (!on) this.voice.stop();
   }
 
+  /** The start page (or a scenario's briefing) shows: its music plays (menuMusic.ts). */
+  setMenu(on: boolean): void {
+    this.engine.setMenu(on);
+  }
+
   /** A new game: forget the previous one's state. */
   reset(depth: number, periscope: number): void {
     this.lastDepth = depth;

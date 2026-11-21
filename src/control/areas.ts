@@ -63,7 +63,7 @@ const fishing = (id: string, name: string, route: [number, number][]): VesselDef
   route, repeat: 'loop', propellerRps: 6, blades: 3,
 });
 
-export type ConditionsId = 'day' | 'night' | 'fog';
+export type ConditionsId = 'day' | 'dusk' | 'night' | 'fog';
 
 export const SEA_CHOICES: { id: SeaStateId; title: string; description: string }[] = [
   { id: 'calm', title: 'Lugnt', description: 'Ingen sjögång.' },
@@ -73,6 +73,7 @@ export const SEA_CHOICES: { id: SeaStateId; title: string; description: string }
 
 export const CONDITIONS: { id: ConditionsId; title: string; description: string }[] = [
   { id: 'day', title: 'Dag', description: 'God sikt, ungefär 15 km.' },
+  { id: 'dusk', title: 'Skymning', description: 'Mörkrött ljus. Lanternorna tänds.' },
   { id: 'night', title: 'Natt', description: 'Mörkt. Fyrarna blinkar.' },
   { id: 'fog', title: 'Dimma', description: 'Sikt ungefär 200 m.' },
 ];

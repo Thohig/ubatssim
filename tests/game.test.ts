@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SCENARIOS } from '../src/control/scenarios';
 import { GameFlow } from '../src/game/flow';
 import { FixedStepLoop } from '../src/game/loop';
-import { GameSession, demoSession, freePlaySpec, scenarioSpec } from '../src/game/session';
+import { GameSession, demoCharge, demoSession, freePlaySpec, scenarioSpec } from '../src/game/session';
 import { audioInput, overlayState } from '../src/game/wiring';
 import { AREA_INFO } from '../src/control/areas';
 
@@ -127,5 +127,36 @@ describe('effects input', () => {
     const { AREA_IDS } = await import('../src/sim/config/areas');
     for (const a of AREA_IDS) expect(WATER_LOOK[a]).toBeDefined();
     expect(WATER_LOOK.baltic.fog).toBeGreaterThan(WATER_LOOK.atlantic.fog);
+  });
+});
+
+describe('the demo behind the start page', () => {
+  it('has a corvette that patrols without hunting, at dusk', () => {
+    const d = demoSession();
+    expect(d.conditions).toBe('dusk');
+    const v = d.ctrl.world.vessels.find((x) => x.def.kind === 'patrol')!;
+    expect(v).toBeDefined();
+    for (let i = 0; i < 6000; i++) d.step();
+    expect(d.ctrl.hunter.state(v.def.id)).toBe('patrol');
+    expect(d.ctrl.world.charges).toHaveLength(0);
+  });
+
+  it("the music's depth charges are water columns astern of the corvette, further off when more distant", () => {
+    const d = demoSession();
+    const v = d.ctrl.world.vessels.find((x) => x.def.kind === 'patrol')!;
+    const dist = () => {
+      const b = d.ctrl.blasts.at(-1)!;
+      return Math.hypot(b.at[0] - v.state.north, b.at[1] - v.state.east);
+    };
+    demoCharge(d, 0);
+    const near = dist();
+    demoCharge(d, 1);
+    const far = dist();
+    expect(d.ctrl.blasts).toHaveLength(2);
+    expect(near).toBeLessThan(110);
+    expect(far).toBeGreaterThan(190);
+    // Astern: south of a corvette going north.
+    expect(d.ctrl.blasts.at(-1)!.at[0]).toBeLessThan(v.state.north);
+    expect(d.ctrl.blasts.at(-1)!.kind).toBe('charge');
   });
 });

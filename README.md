@@ -32,7 +32,7 @@ Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubå
 
 | Val | Innehåll |
 |---|---|
-| **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
+| **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, skymning, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
 | **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order), loggboken, svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
 | **Hjälp** | Besättningen, kontrollerna, tangenterna, alla konsolkommandon och tips. |
@@ -336,7 +336,7 @@ Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, ta
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
 - **Ljusstrålar** faller ner från ytan på dagen och tonas ut mot 70 m. De kan stängas av i Inställningar.
 - **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet.
-- **Ljus och sikt:** dag (sikt ~15 km), natt (~5 km) eller dimma (~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
+- **Ljus och sikt:** dag (sikt ~15 km), skymning (mörkrött ljus, lanternorna tänds), natt (~5 km) eller dimma (~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
 - **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
 
 Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är det man kan krocka med.
@@ -352,7 +352,9 @@ Allt ljud syntetiseras i webbläsaren och följer simuleringen:
 - **Omgivningen:** vind och vågor efter sjögången, måsar på dagen nära land och mistlur i dimma. Under vattnet låter ljudet utifrån dovt.
 - **Röst:** spelarens order, larm och klara mål kan läsas upp med en svensk röst. Det slås på i inställningarna.
 
-Ljudet startar vid första tryck, eftersom webbläsare kräver det, och är tyst i menyer och paus. Mer om ljudet finns i [docs/ljud.md](docs/ljud.md).
+- **Startsidan:** mörk och hotfull musik, syntetiserad och utan loopar: en bottenton, långsamma ackord i moll, avlägsna sonarpingar, en trumpuls som växer, hornsignaler, radio med morse och sjunkbomber i serier. Bakom menyn går ubåten i skymning med en korvett vid sidan, och sjunkbomberna slår upp vattenpelare. Musiken slås av och dess volym ändras under Inställningar.
+
+Ljudet startar vid första tryck, eftersom webbläsare kräver det, och är tyst i paus. Musiken hörs på startsidan och under ett scenarios genomgång. Mer om ljudet finns i [docs/ljud.md](docs/ljud.md).
 
 ## Fysik i korthet
 

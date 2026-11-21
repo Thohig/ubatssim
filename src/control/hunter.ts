@@ -54,6 +54,8 @@ export class Hunter {
   readonly hunts: Record<string, Hunt> = {};
   /** Active sonar pings so far (the sound plays one per new ping). */
   pings = 0;
+  /** False: the patrol vessels only follow their routes (the demo behind the start page). */
+  enabled = true;
   private steps = 0;
 
   constructor(private readonly ctrl: Controller) {}
@@ -89,7 +91,7 @@ export class Hunter {
 
   /** Call once per step; works once a second. */
   update(): void {
-    if (this.steps++ % Math.round(1 / DT) !== 0) return;
+    if (!this.enabled || this.steps++ % Math.round(1 / DT) !== 0) return;
     const c = this.ctrl;
     const now = c.sim.t;
     for (const v of c.world.vessels) {

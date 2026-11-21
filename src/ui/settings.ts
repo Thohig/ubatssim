@@ -17,6 +17,9 @@ export interface Settings {
   soundEffects: boolean;
   soundAmbience: boolean;
   voice: boolean;
+  /** The start page's music, and its volume 0…1. */
+  music: boolean;
+  musicVolume: number;
   /** The log book is shown; hidden, only errors show for a moment (style.css, body.log-hidden). */
   showLog: boolean;
 }
@@ -30,6 +33,8 @@ export const DEFAULT_SETTINGS: Settings = {
   soundEffects: true,
   soundAmbience: true,
   voice: false,
+  music: true,
+  musicVolume: 0.7,
   showLog: true,
 };
 
@@ -51,6 +56,8 @@ export function loadSettings(): Settings {
       soundEffects: s.soundEffects !== false,
       soundAmbience: s.soundAmbience !== false,
       voice: s.voice === true,
+      music: s.music !== false,
+      musicVolume: typeof s.musicVolume === 'number' && s.musicVolume >= 0 && s.musicVolume <= 1 ? s.musicVolume : DEFAULT_SETTINGS.musicVolume,
       showLog: s.showLog !== false,
     };
   } catch {

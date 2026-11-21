@@ -3,7 +3,7 @@
  * scenario if any and how to start it again. No DOM, so the game flow can
  * be tested without a browser.
  */
-import { AREA_INFO, type ConditionsId } from '../control/areas';
+import { AREA_INFO, corvette, type ConditionsId } from '../control/areas';
 import { Controller } from '../control/controller';
 import { ScenarioRunner, lockText, type Scenario } from '../control/scenarios';
 import type { AreaId } from '../sim/config/areas';
@@ -90,16 +90,44 @@ export function scenarioSpec(sc: Scenario, helpHint: string): SessionSpec {
   };
 }
 
-/** The session behind the main menu: surfaced off the archipelago, cruising north on autopilot. */
+/**
+ * The corvette in the demo behind the start page: 140 m to starboard and a little ahead, at the boat's speed, where
+ * the camera behind the menu (on the boat's port side) sees it and the water columns astern of it.
+ */
+const DEMO_CORVETTE = corvette('demo-korvett', 'korvetten Väktaren', [[220, 1840], [60000, 1840]], 5);
+
+/**
+ * The session behind the main menu: surfaced off the archipelago at dusk,
+ * cruising north on autopilot, with a corvette on patrol beside it. The
+ * corvette does not hunt (the depth charges are the music's, see `demoCharge`).
+ */
 export function demoSession(): GameSession {
   const s = new GameSession({
     initial: { east: 1700, speed: 5 * KN },
     scenario: null,
     intro: '',
-    conditions: 'day',
+    conditions: 'dusk',
     helpHint: '',
   });
+  s.ctrl.hunter.enabled = false;
+  s.ctrl.world.add([DEMO_CORVETTE]);
   s.ctrl.submit({ kind: 'setHeading', heading: 0 }, 'console');
   s.ctrl.submit({ kind: 'setSpeed', knots: 5 }, 'console');
   return s;
+}
+
+/**
+ * A depth charge in the demo (the start page's music has one): a water column
+ * astern of the corvette, further off for a more distant charge (`distance`
+ * 0…1). Only for the picture: nothing in the simulation changes.
+ */
+export function demoCharge(s: GameSession, distance: number): void {
+  const v = s.ctrl.world.vessels.find((x) => x.def.kind === 'patrol');
+  const base: [number, number] = v ? [v.state.north, v.state.east] : [s.sim.y[0]! + 500, s.sim.y[1]!];
+  const heading = v ? v.state.heading : 0;
+  const astern = 30 + 170 * distance + Math.random() * 40;
+  const side = (Math.random() - 0.5) * 80;
+  const n = base[0] - astern * Math.cos(heading) - side * Math.sin(heading);
+  const e = base[1] - astern * Math.sin(heading) + side * Math.cos(heading);
+  s.ctrl.addBlast('charge', [n, e, 25 + Math.random() * 30]);
 }

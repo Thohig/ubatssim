@@ -7,6 +7,8 @@
   --ok: #6be3a1;
   --warn: #ffb347;
   --error: #ff6b6b;
+  /* The start page's war-time red. */
+  --war: #b8322a;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 13px;
 }
@@ -134,6 +136,24 @@ body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px
 }
 .menu-title { margin: 0 0 4px; font-size: 34px; letter-spacing: 0.06em; color: var(--accent); }
 .menu-title.small { font-size: 22px; }
+/* The start page as a dispatch: number, stamp, a stern title and the order typed out. */
+#menu[data-screen="main"] .menu-card { border-color: rgba(184, 50, 42, 0.55); box-shadow: 0 0 60px rgba(120, 20, 15, 0.35); }
+.dispatch-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+.stamp {
+  color: var(--war); border: 2px solid var(--war); border-radius: 3px; padding: 1px 8px; font-weight: 700;
+  letter-spacing: 0.2em; transform: rotate(-6deg); opacity: 0.85;
+}
+.menu-title.war { color: var(--text); text-transform: uppercase; letter-spacing: 0.22em; font-size: 30px; border-bottom: 2px solid var(--war); padding-bottom: 6px; }
+.dispatch-order { margin: 0 0 14px; color: var(--warn); font-size: 13px; min-height: 1.4em; }
+.dispatch-order::before { content: 'Order: '; color: var(--muted); }
+.typed {
+  display: inline-block; vertical-align: bottom; overflow: hidden; white-space: nowrap; max-width: 100%;
+  width: calc(var(--chars) * 1ch); border-right: 2px solid transparent;
+  animation: typing calc(var(--chars) * 55ms) steps(var(--chars)) 0.6s both, caret 0.8s step-end 6;
+}
+@keyframes typing { from { width: 0; } }
+@keyframes caret { 50% { border-right-color: var(--warn); } }
+@media (prefers-reduced-motion: reduce) { .typed { animation: none; } }
 .menu-title.ok { color: var(--ok); }
 .menu-title.fail { color: var(--error); }
 .menu-sub { margin: 0 0 18px; color: var(--muted); }

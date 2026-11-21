@@ -51,19 +51,33 @@ export interface MenuState {
   error: string | null;
   /** The graphics came back after they were lost (the WebGL context). */
   graphicsBack: boolean;
+  /** The start page's order (fictional), and its number. */
+  order: { text: string; no: number };
   /** Free play: chosen area, light/visibility and sea state. */
   area: AreaId;
   conditions: ConditionsId;
   sea: SeaStateId;
 }
 
+/** The start page's orders: fictional, short enough for one typed line on a phone. */
+export const ORDERS = [
+  'Ta er obemärkt genom sundet.',
+  'Gå under skiktet. Håll tyst.',
+  'Konvoj väntas i gryningen.',
+  'Korvett i området. Undvik kontakt.',
+  'Invänta mörker. Ladda batteriet.',
+  'Rapportera all trafik i farleden.',
+] as const;
+
 const back = html`<button class="menu-btn secondary" data-action="back">‹ Tillbaka</button>`;
 
 export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
-  main: () => {
+  main: (m) => {
     return html`
-      <h1 class="menu-title">Ubåtssim</h1>
+      <div class="dispatch-head"><span class="dispatch-no">Order nr ${m.order.no}</span><span class="stamp">Hemligt</span></div>
+      <h1 class="menu-title war">Ubåtssim</h1>
       <p class="menu-sub">Simulering av en dieselelektrisk ubåt</p>
+      <p class="dispatch-order"><span class="typed" style="--chars: ${[...m.order.text].length}">${m.order.text}</span></p>
       <p class="menu-note">Besättningen sköter ubåten från start. Ta över det du vill sköta själv, när du vill.</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="nav" data-arg="free">Fritt spel</button>
@@ -135,8 +149,10 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <label class="opt">Volym <input type="range" name="volume" min="0" max="100" step="5" value="${Math.round(s.volume * 100)}"/></label><br/>
         <label class="opt"><input type="checkbox" name="soundEffects" ${s.soundEffects ? 'checked' : ''}/> Maskiner och larm</label>
         <label class="opt"><input type="checkbox" name="soundAmbience" ${s.soundAmbience ? 'checked' : ''}/> Hav, vind och måsar</label>
-        <label class="opt"><input type="checkbox" name="voice" ${s.voice ? 'checked' : ''}/> Uppläsning av order (svensk röst)</label>
-        <p class="menu-note">M stänger av och sätter på ljudet under spelet.</p>
+        <label class="opt"><input type="checkbox" name="voice" ${s.voice ? 'checked' : ''}/> Uppläsning av order (svensk röst)</label><br/>
+        <label class="opt"><input type="checkbox" name="music" ${s.music ? 'checked' : ''}/> Musik på startsidan</label>
+        <label class="opt">Musikvolym <input type="range" name="musicVolume" min="0" max="100" step="5" value="${Math.round(s.musicVolume * 100)}"/></label>
+        <p class="menu-note">M stänger av och sätter på ljudet, också på startsidan.</p>
       </fieldset>
       <fieldset><legend>Skärmen</legend>
         <label class="opt"><input type="checkbox" name="showLog" ${s.showLog ? 'checked' : ''}/> Visa loggboken</label>
@@ -346,6 +362,7 @@ function scenarioConditions(s: Scenario): string[] {
   const area = s.initial.area ?? 'westCoast';
   if (area !== 'westCoast') parts.unshift(AREA_INFO[area].title);
   if (s.conditions === 'night') parts.unshift('Natt');
+  if (s.conditions === 'dusk') parts.unshift('Skymning');
   if (s.conditions === 'fog') parts.unshift('Dimma');
   if (s.initial.sea === 'rough') parts.unshift('Grov sjö');
   if (s.initial.sea === 'moderate') parts.unshift('Måttlig sjö');

@@ -411,17 +411,20 @@ export class Controller {
       if (e.kind === 'launch') this.hunter.heardLaunch();
       else if (e.kind === 'hit') {
         this.hits++;
-        this.blast('hit', e.at);
+        this.addBlast('hit', e.at);
         this.addLog(`Träff! Torped ${e.torpedo} träffade ${e.vessel}.`, 'info');
       } else if (e.kind === 'miss') this.addLog(`Torped ${e.torpedo} missade och har gått ut sin räckvidd.`, 'info');
       else if (e.kind === 'sunk') this.addLog(`${e.vessel[0]!.toUpperCase()}${e.vessel.slice(1)} har sjunkit.`, 'info');
       else if (e.kind === 'drop') this.addLog(`Sjunkbomber i vattnet från ${e.by}!`, 'error');
-      else if (this.blast('charge', e.at) && e.distance < 120) this.addLog(`Sjunkbomb ${Math.round(e.distance)} m från skrovet.`, e.hole > 0 ? 'error' : 'info');
+      else if (this.addBlast('charge', e.at) && e.distance < 120) this.addLog(`Sjunkbomb ${Math.round(e.distance)} m från skrovet.`, e.hole > 0 ? 'error' : 'info');
     }
   }
 
-  /** Remembers an explosion (the last ten); returns true. */
-  private blast(kind: 'hit' | 'charge', at: [number, number, number]): boolean {
+  /**
+   * Remembers an explosion (the last ten) for the graphics; returns true.
+   * Also used by the demo behind the start page, for the depth charges in its music.
+   */
+  addBlast(kind: 'hit' | 'charge', at: [number, number, number]): boolean {
     const d = Math.hypot(at[0] - this.sim.y[0]!, at[1] - this.sim.y[1]!, at[2] - this.sim.y[2]!);
     this.blasts.push({ id: this.nextBlast++, kind, at, distance: d });
     if (this.blasts.length > 10) this.blasts.shift();

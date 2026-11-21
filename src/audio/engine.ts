@@ -4,12 +4,16 @@
  * and never writes to it.
  *
  *   sources ─┬─ inside bus (the boat's own machinery) ──────────┐
- *            └─ outside bus (flow, sea, wind, gulls) → low-pass ┴→ master → speakers
+ *            └─ outside bus (flow, sea, wind, gulls) → low-pass ┴→ game ─┬→ master → speakers
+ *   the start page's music (menuMusic.ts) ───────────────────────────────┘
  *
+ * The game's sound plays while a game runs; the music while the start page
+ * (or a scenario's briefing) shows. Otherwise the context is suspended.
  * Browsers only start audio after a user gesture, so the context is
  * created by `unlock()` from a click or key press.
  */
 import type { SoundLevels } from './levels';
+import { MenuMusic } from './menuMusic';
 
 export type Cue =
   | 'grounding'
@@ -31,6 +35,9 @@ export interface AudioOptions {
   volume: number;
   effects: boolean;
   ambience: boolean;
+  /** The start page's music, and its volume 0…1. */
+  music: boolean;
+  musicVolume: number;
 }
 
 /** Smoothing time constant for level changes [s]. */
@@ -39,13 +46,18 @@ const SMOOTH = 0.15;
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
+  /** The game's own sound (silent on the start page). */
+  private game!: GainNode;
+  /** The start page's music; runs its score (and reports the depth charges) even before sound is allowed. */
+  readonly music = new MenuMusic();
+  private menu = false;
   private inside!: GainNode;
   private outside!: GainNode;
   private outsideFilter!: BiquadFilterNode;
   private noise!: AudioBuffer;
   private ch: Record<string, { gain: GainNode; set: (l: SoundLevels) => number }> = {};
   private ambienceGains = new Set<string>();
-  private options: AudioOptions = { volume: 0.6, effects: true, ambience: true };
+  private options: AudioOptions = { volume: 0.6, effects: true, ambience: true, music: true, musicVolume: 0.7 };
   private muted = false;
   private running = false;
   /** Next scheduled time for random events [s, audio clock]. */
@@ -59,12 +71,14 @@ export class AudioEngine {
   unlock(): void {
     if (!this.available) return;
     if (!this.ctx) this.build();
-    if (this.running) this.ctx!.resume().catch(() => {}); // refused until a user gesture: tried again then
+    this.applyState();
   }
 
   setOptions(o: AudioOptions): void {
     this.options = o;
+    this.music.setOptions(o.music, o.musicVolume);
     this.applyMaster();
+    this.applyState();
   }
 
   get isMuted(): boolean {
@@ -77,12 +91,27 @@ export class AudioEngine {
     return this.muted;
   }
 
-  /** Sound runs while a game is being played; it is silent in menus and paused. */
+  /** The game's sound runs while a game is being played; it is silent in menus and paused. */
   setRunning(on: boolean): void {
     this.running = on;
-    if (!this.ctx) return;
-    if (on) this.ctx.resume().catch(() => {});
-    else void this.ctx.suspend();
+    this.applyState();
+  }
+
+  /** The start page (or a briefing) shows: its music plays. */
+  setMenu(on: boolean): void {
+    this.menu = on;
+    this.music.setActive(on);
+    this.applyState();
+  }
+
+  /** Resumes the context while anything should be heard, and switches the game's sound on or off. */
+  private applyState(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    this.game.gain.setTargetAtTime(this.running ? 1 : 0, ctx.currentTime, 0.1);
+    if (this.running || (this.menu && this.options.music)) ctx.resume().catch(() => {}); // refused until a user gesture: tried again then
+    // Let the music fade out before the context stops.
+    else setTimeout(() => !this.running && !(this.menu && this.options.music) && void ctx.suspend(), 2000);
   }
 
   /** Applies new levels (call ~10 times a second). */
@@ -189,14 +218,21 @@ export class AudioEngine {
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new AC();
     this.ctx = ctx;
+    // The context's state on <html data-audio>, for the browser tests (running, suspended).
+    const show = () => (document.documentElement.dataset.audio = ctx.state);
+    ctx.addEventListener('statechange', show);
+    show();
     this.master = ctx.createGain();
     this.master.connect(ctx.destination);
+    this.game = ctx.createGain();
+    this.game.gain.value = this.running ? 1 : 0;
+    this.game.connect(this.master);
     this.inside = ctx.createGain();
-    this.inside.connect(this.master);
+    this.inside.connect(this.game);
     this.outsideFilter = ctx.createBiquadFilter();
     this.outsideFilter.type = 'lowpass';
     this.outsideFilter.frequency.value = 12000;
-    this.outsideFilter.connect(this.master);
+    this.outsideFilter.connect(this.game);
     this.outside = ctx.createGain();
     this.outside.connect(this.outsideFilter);
     this.applyMaster();
@@ -342,7 +378,9 @@ export class AudioEngine {
       lfo.connect(depth);
       depth.connect(am.gain);
     }
-    if (!this.running) void ctx.suspend();
+    this.music.attach(ctx, this.master, this.noise);
+    this.music.setOptions(this.options.music, this.options.musicVolume);
+    if (!this.running && !this.menu) void ctx.suspend();
   }
 
   private applyMaster(): void {

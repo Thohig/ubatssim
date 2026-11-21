@@ -10,11 +10,16 @@ Allt ljud syntetiseras i webbläsaren med Web Audio API: oscillatorer, brus och 
 | `engine.ts` | Ljudgrafen i Web Audio: en kanal per ljudkälla och engångsljud för larm och signaler. |
 | `voice.ts` | Uppläsning av kvitton med webbläsarens talsyntes på svenska. |
 | `director.ts` | Kopplar ihop spelet och ljudet: nivåer tio gånger i sekunden, engångsljud från loggen och händelser, och rösten. |
+| `score.ts` | Startsidans musik som partitur: en ren, generativ tidslinje med delar och händelser, utan ljud. Testas med ett fast frö (`tests/score.test.ts`). |
+| `menuMusic.ts` | Spelar partituret med Web Audio. |
 
 ```
 källor ─┬─ inne (ubåtens maskiner) ───────────────────────┐
-        └─ ute (strömning, hav, vind, måsar) → lågpass ───┴→ huvudvolym → högtalare
+        └─ ute (strömning, hav, vind, måsar) → lågpass ───┴→ spelet ─┬→ huvudvolym → högtalare
+startsidans musik ───────────────────────────────────────────────────┘
 ```
+
+Spelets ljud hörs medan ett spel pågår, och musiken på startsidan och under ett scenarios genomgång och introduktionen. Annars stängs ljudkontexten av. `<html data-audio>` visar kontextens läge (`running`, `suspended`) för webbläsartesterna.
 
 Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vattnet, så att det låter instängt.
 
@@ -77,3 +82,31 @@ Rösten läser upp spelarens egna order ("Djup 32, ja"), larm och misslyckanden 
 - **Start:** webbläsare startar ljud först efter ett tryck eller en tangent. Ljudkontexten skapas därför vid första tryck.
 - **Paus:** ljudet går bara när spelet pågår. I menyer, paus och dold flik är det tyst, och demon bakom menyn är tyst.
 - **Determinism:** ljudet får använda slump, till exempel för knakningar och måsar, eftersom det inte påverkar simuleringen.
+
+## Musiken på startsidan
+
+Mörk och hotfull, i D frygisk (D E♭ F G A B♭ C, där halvtonssteget D–E♭ är hotet). Allt syntetiseras, och inget upprepas som en loop. `score.ts` skriver partituret, `menuMusic.ts` spelar det.
+
+**Delar** (glider över i varandra, ungefär 2,5 minuter per varv):
+
+| Del | Längd | Innehåll |
+|---|---|---|
+| Lugn | 60–85 s | Bottenton, långsamma ackord (Dm, E♭, Dm, Gm), avlägsna sonarpingar, skrovet som stönar, radio med morse |
+| Hot | 45–65 s | En dämpad trumpuls (60 bpm) som växer, två hornsignaler, ackorden Dm, E♭, Cm, Dm |
+| Anfall | 35–50 s | Sjunkbomber i serier om 3–4, 3–6 s isär, med tystnad mellan; pulsen fullt; en virvel; en hornsignal |
+
+**Lagren:**
+
+- **Bottenton:** två lätt förstämda sågtänder och en sinus på D1 (37 Hz) och en kvint, genom ett lågpass som andas (LFO 0,045 Hz). Subbassvällningar var 8–12 s.
+- **Ackord:** tre röster (två förstämda sågtänder och en sinus en oktav ned) med 5 s in och 5 s ut, genom ett mjukt lågpass, med filtrerat brus som andning.
+- **Ping:** en sinus på A5 eller D6 med kort svävning och ett eko 1,7 s senare, nästan bara i efterklangen.
+- **Skrovet:** ett resonant brusband som sveper nedåt och ibland en dov knack.
+- **Sjunkbomber:** en sinus som faller från 55 till 24 Hz och ett långt lågpassat muller, starkare och ljusare när de är närmare. Nära ger de också en spricka.
+- **Puls och virvel:** en trumma med fallande tonhöjd och ett mjukt klick, accent var fjärde slag. Virveln är snabba högpassade bruslag som växer.
+- **Horn:** mässingslika sågtänder genom ett lågpass som öppnar sig för varje ton. Motiven är egna, fallande och i skalan.
+- **Radio:** bandpassat brus kring 1,7 kHz och morsegrupper om 3–5 bokstäver.
+
+Allt går genom en efterklang från en genererad impulsrespons (4,5 s brus som klingar av och blir mörkare, som i vatten). Det som är långt bort (pingar, sjunkbomber, horn) går mest genom efterklangen.
+
+Partituret har en egen klocka och går så fort startsidan visas, också innan webbläsaren tillåter ljud. Sjunkbomberna rapporteras då ändå (`MenuMusic.onEvent`), och demon bakom menyn visar dem som vattenpelare akter om korvetten (`demoCharge` i `src/game/session.ts`). Musiken tonas in på 3 s efter första trycket och ut när ett spel startar. Inställningarna har **Musik på startsidan** och **Musikvolym**, och M stänger av allt ljud, också på startsidan.
+

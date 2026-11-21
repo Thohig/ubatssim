@@ -89,6 +89,10 @@ En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden 
 
 En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen. Den ligger vid sidan av periskopbilden, så att hårkorset och horisonten är fria: på datorn som en smal kolumn till höger ovanför skärmkontrollerna, på mobil i stående läge som en låg list ovanför skärmkontrollerna (knappar och tuber på en rad) och i liggande läge i hörnet till höger under Vyer ▾. Med sjökortet öppet ligger den under kortet. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
 
+## Startsidan
+
+Bakom menyn går ubåten i ytläge norrut i skymning (ljusläget `dusk`: mörkröd himmel, svagt ljus, tända lanternor) med en korvett 140 m till styrbord och lite förut, där kameran på ubåtens babordssida ser den. Sjunkbomberna i startsidans musik (docs/ljud.md) slår upp vattenpelare akter om korvetten. Menyn är utformad som en order: ordernummer, stämpeln Hemligt, en stram rubrik med mörkröd linje och en fiktiv order som skrivs fram som på en skrivmaskin (utan rörelse med `prefers-reduced-motion`).
+
 ## Loggboken (`src/ui/log.ts`)
 
 Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil under statusraden, liggande mellan statusraden och Vyer ▾). Loggen har ingen bakgrund, bara text med skugga. Målrutan (`src/ui/objective.ts`, en komponent) är en rad som fälls ut med tipset och listan över målen vid ett tryck eller O (10 s) och av sig själv när målet eller tipset ändras (6 s). Tiden räknas bara medan spelet går, så den fälls inte ihop bakom en meny.

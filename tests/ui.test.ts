@@ -37,6 +37,7 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   pauseInfo: { duties: allCrew(), locks: {} },
   result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312, selfHandled: ['trim', 'safetyNet'] },
   briefing: SCENARIOS.find((s) => s.id === 'trim-drill')!,
+  order: { text: 'Ta er obemärkt genom sundet.', no: 417 },
   error: 'Fel: <test>\n  at frame',
   graphicsBack: false,
   area: 'westCoast',
