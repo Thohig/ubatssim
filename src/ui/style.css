@@ -167,6 +167,17 @@ body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px
 .badge.lätt { background: var(--ok); color: #02121c; }
 .badge.medel { background: var(--warn); color: #02121c; }
 .badge.svår { background: var(--error); color: #02121c; }
+/* The scenario list: a tab per group, compact cards (title, level, one line of conditions). */
+.menu-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.menu-tab {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  background: transparent; border: 1px solid var(--panel-border); color: var(--muted);
+}
+.menu-tab:hover, .menu-tab:focus-visible { border-color: var(--accent); outline: none; }
+.menu-tab.on { color: var(--accent); border-color: var(--accent); background: rgba(95, 211, 255, 0.12); }
+.scenario-group[hidden] { display: none; }
+.scenario-group > .menu-sub { margin: 0; }
+.menu-btn.choice.compact { gap: 2px; padding-top: 8px; padding-bottom: 8px; }
 fieldset { border: 1px solid var(--panel-border); border-radius: 8px; margin: 10px 0; padding: 8px 12px; }
 legend { color: var(--muted); padding: 0 4px; }
 .opt { display: inline-flex; align-items: center; gap: 6px; margin: 4px 14px 4px 0; cursor: pointer; }

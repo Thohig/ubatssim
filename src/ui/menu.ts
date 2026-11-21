@@ -5,7 +5,7 @@
  * game state.
  */
 import type { CrewSystem } from '../control/crew';
-import type { Scenario } from '../control/scenarios';
+import { SCENARIO_GROUPS, type Scenario, type ScenarioGroup } from '../control/scenarios';
 import type { Settings } from './settings';
 import type { ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
@@ -49,6 +49,8 @@ export class Menu {
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
   private sea: SeaStateId = 'calm';
+  /** The scenario list's tab, kept while the page is open. */
+  private scenarioGroup: ScenarioGroup = 'basics';
   /** The start page's order, picked once per visit (fictional). */
   private readonly order = { text: ORDERS[Math.floor(Math.random() * ORDERS.length)]!, no: 100 + Math.floor(Math.random() * 900) };
 
@@ -94,6 +96,7 @@ export class Menu {
       area: this.area,
       conditions: this.conditions,
       sea: this.sea,
+      scenarioGroup: this.scenarioGroup,
     };
     mount(this.root, html`<div class="menu-card">${SCREENS[screen](state)}</div>`);
     this.root.querySelector<HTMLElement>('button, input')?.focus({ preventScroll: true });
@@ -167,6 +170,11 @@ export class Menu {
         break;
       case 'scenario':
         this.h.startScenario(arg!);
+        break;
+      case 'group':
+        if (SCENARIO_GROUPS.some((g) => g.id === arg)) this.scenarioGroup = arg as ScenarioGroup;
+        this.show('scenarios');
+        this.root.querySelector<HTMLElement>(`[data-action="group"][data-arg="${this.scenarioGroup}"]`)?.focus({ preventScroll: true });
         break;
       case 'resume':
         this.h.resume();

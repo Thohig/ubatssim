@@ -290,30 +290,54 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 
 ## Scenarier
 
+Scenarierna ligger under fem flikar efter vad de övar på, de lättaste först i varje. Korten visar titeln, svårigheten och förutsättningarna, och beskrivningen visas i genomgången.
+
+**Grunderna:** Lär känna båten.
+
 | Scenario | Svårighet | Mål |
 |---|---|---|
 | Första dykningen | lätt | Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma neutralt och gå till ytläge igen. |
-| Trimövning | medel | Håll 50 m ±2 m i tre minuter utan djupautopilot. |
-| Språngskiktet | medel | Dyk genom termoklinen till 90 m och kompensera för att ubåten blir lättare där. |
-| Sväva | medel | Från 30 m till 80 m under språngskiktet utan fart (högst 1 knop): bara kompenseringen ändrar djupet. Håll sedan 80 m i två minuter. |
 | Back | lätt | Backa 450 m till en boj rakt akterut och stanna vid den, utan att vända ubåten. |
-| Genom sundet | medel | Gå i ytläge genom ett smalt sund i skärgården till en gul boj, utan att gå på grund. |
-| Nödblåsning | svår | Ubåten är flera ton för tung på 200 m. Nå ytan innan krossdjupet 300 m. |
-| Periskopspaning | medel | Ta ut bäringen till en fyr genom periskopet. Periskopet får inte synas mer än 60 s i taget. |
-| Fyrljuset | medel | Natt: gå i ytläge mot en röd fyr tills den är 700 m bort. |
-| Saltsprånget | svår | Östersjön: dyk genom saltsprångskiktet till 90 m och kompensera för de tonnen ubåten blir lättare. |
-| Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
-| Fartyget | medel | Ta ut bäringen till ett lastfartyg genom periskopet, utan att bli sedd eller komma i vägen för det. |
+| Trimövning | medel | Håll 50 m ±2 m i tre minuter utan djupautopilot. |
+| Sväva | medel | Från 30 m till 80 m under språngskiktet utan fart (högst 1 knop): bara kompenseringen ändrar djupet. Håll sedan 80 m i två minuter. |
 | Snorkling | medel | Atlanten: batteriet är på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda till 28 % utan att bryta ytan. |
-| Smyg förbi | svår | Atlanten: hör en patrullerande korvett på sonaren, gå under språngskiktet och smyg fram till en boj 2,5 km bort utan att bli upptäckt. |
+
+**Vatten och nöd:** Språngskikten, salthalten och när något går fel.
+
+| Scenario | Svårighet | Mål |
+|---|---|---|
+| Språngskiktet | medel | Dyk genom termoklinen till 90 m och kompensera för att ubåten blir lättare där. |
+| Saltsprånget | svår | Östersjön: dyk genom saltsprångskiktet till 90 m och kompensera för de tonnen ubåten blir lättare. |
+| Nödblåsning | svår | Ubåten är flera ton för tung på 200 m. Nå ytan innan krossdjupet 300 m. |
 | Läckan | svår | Atlanten: maskinrummet läcker på 120 m. Gå upp så att länspumpen hinner med, och vänta tills läckan är tätad och rummet länsat. |
-| Övningsskott | medel | Atlanten: markera ett målfartyg i periskopet, mät avståndet, få en lösning och träffa. |
-| Nattanfall | svår | Natt: gör en sonarkontakt till mål, byt kurs så att bäringarna ger avstånd, och sänk fartyget. |
-| Jagad | svår | En korvett anfaller. Gå djupt och tyst och klara dig tills den tappar dig eller har slut på sjunkbomber. |
-| Konvojen | svår | Sänk ett lastfartyg med en korvett som eskort, och ta dig sedan undan eskorten. |
+
+**Navigering:** Terrängen under och omkring dig.
+
+| Scenario | Svårighet | Mål |
+|---|---|---|
+| Genom sundet | medel | Gå i ytläge genom ett smalt sund i skärgården till en gul boj, utan att gå på grund. |
+| Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
+| Fyrljuset | medel | Natt: gå i ytläge mot en röd fyr tills den är 700 m bort. |
+
+**Spaning:** Se och mät utan att själv synas eller höras.
+
+| Scenario | Svårighet | Mål |
+|---|---|---|
+| Periskopspaning | medel | Ta ut bäringen till en fyr genom periskopet. Periskopet får inte synas mer än 60 s i taget. |
+| Fartyget | medel | Ta ut bäringen till ett lastfartyg genom periskopet, utan att bli sedd eller komma i vägen för det. |
 | Radar i dimman | medel | Dimma på periskopdjup: gör ett lastfartyg till mål, hissa radarmasten, ta en bra lösning med några svep och gå tyst igen innan en korvett hör radarn. |
-| Ekot | svår | Ping ger avståndet till ett lastfartyg direkt. Sänk det och ta dig undan korvetten som hörde pingen. |
+| Smyg förbi | svår | Atlanten: hör en patrullerande korvett på sonaren, gå under språngskiktet och smyg fram till en boj 2,5 km bort utan att bli upptäckt. |
+
+**Anfall:** Torpeder, eldledning och korvetter som jagar.
+
+| Scenario | Svårighet | Mål |
+|---|---|---|
+| Övningsskott | medel | Atlanten: markera ett målfartyg i periskopet, mät avståndet, få en lösning och träffa. |
 | Klart för eld | medel | Du sköter torpedrummet: gör tuberna klara, sänk två målfartyg och ladda om. |
+| Nattanfall | svår | Natt: gör en sonarkontakt till mål, byt kurs så att bäringarna ger avstånd, och sänk fartyget. |
+| Ekot | svår | Ping ger avståndet till ett lastfartyg direkt. Sänk det och ta dig undan korvetten som hörde pingen. |
+| Konvojen | svår | Sänk ett lastfartyg med en korvett som eskort, och ta dig sedan undan eskorten. |
+| Jagad | svår | En korvett anfaller. Gå djupt och tyst och klara dig tills den tappar dig eller har slut på sjunkbomber. |
 
 Innan ett scenario börjar visar **genomgången** uppdraget, alla mål i ordning (med hålltid), förhållandena, tidsgränsen och vem som sköter vad. Därifrån kan du ändra besättningen innan du trycker **Till sjöss**. Starta om hoppar över genomgången.
 

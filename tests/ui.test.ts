@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../src/control/controller';
 import { HELP_TEXT } from '../src/control/parser';
-import { SCENARIOS } from '../src/control/scenarios';
+import { DIFFICULTY_ORDER, SCENARIOS, SCENARIO_GROUPS, scenariosIn } from '../src/control/scenarios';
 import { Simulation } from '../src/sim/simulation';
 import { h, html, raw } from '../src/ui/dom';
 import { createInstruments, instrumentLayout } from '../src/ui/instruments';
@@ -44,6 +44,7 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   area: 'westCoast',
   conditions: 'day',
   sea: 'calm',
+  scenarioGroup: 'basics',
   ...over,
 });
 
@@ -63,6 +64,37 @@ describe('menu screens', () => {
     expect(div.querySelector('[data-arg="trim-drill"]')!.textContent).toMatch(/Du sköter djup och trim själv/);
     expect(div.querySelector('[data-arg="emergency-blow"]')!.textContent).toMatch(/Utan skyddsnät/);
     expect(div.querySelectorAll('[data-action="scenario"]').length).toBe(SCENARIOS.length);
+  });
+
+  it('the scenario list has a tab per group; only the chosen group shows, easiest first, as compact cards', () => {
+    expect(new Set(SCENARIOS.map((s) => s.group)).size).toBe(SCENARIO_GROUPS.length);
+    for (const s of SCENARIOS) expect(SCENARIO_GROUPS.some((g) => g.id === s.group), s.id).toBe(true);
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.scenarios(state({ scenarioGroup: 'attack' })).value;
+    expect([...div.querySelectorAll('[data-action="group"]')].map((b) => b.textContent)).toEqual(SCENARIO_GROUPS.map((g) => g.title));
+    expect(div.querySelector('[data-action="group"].on')!.getAttribute('data-arg')).toBe('attack');
+    const shown = [...div.querySelectorAll<HTMLElement>('.scenario-group:not([hidden]) [data-action="scenario"]')];
+    expect(shown.map((b) => b.dataset.arg)).toEqual(scenariosIn('attack').map((s) => s.id));
+    const levels = shown.map((b) => DIFFICULTY_ORDER.indexOf(SCENARIOS.find((s) => s.id === b.dataset.arg)!.difficulty));
+    expect(levels).toEqual([...levels].sort((a, b) => a - b));
+    // Compact: the title, the level and one line of conditions; the description is the button's title (and in the briefing).
+    const card = div.querySelector<HTMLElement>('[data-arg="practice-shot"]')!;
+    expect(card.querySelectorAll('span:not(.badge)')).toHaveLength(1);
+    expect(card.title).toMatch(/målfartyg/);
+  });
+
+  it('a tab chooses the group and is kept when the list is opened again', async () => {
+    const { Menu } = await import('../src/ui/menu');
+    const root = document.createElement('div');
+    const noop = () => {};
+    const menu = new Menu(root, { startFree: noop, startScenario: noop, resume: noop, restart: noop, mainMenu: noop } as never, { ...DEFAULT_SETTINGS });
+    menu.show('scenarios');
+    root.querySelector<HTMLButtonElement>('[data-action="group"][data-arg="recce"]')!.click();
+    const visible = () => [...root.querySelectorAll<HTMLElement>('.scenario-group:not([hidden]) [data-action="scenario"]')].map((b) => b.dataset.arg);
+    expect(visible()).toEqual(scenariosIn('recce').map((s) => s.id));
+    menu.show('main');
+    menu.show('scenarios');
+    expect(visible()).toEqual(scenariosIn('recce').map((s) => s.id));
   });
 
   it('☰ → Loggbok shows the history as text, with the time; the pause menu leads there', () => {

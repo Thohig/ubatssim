@@ -56,6 +56,7 @@ test('desktop: the instrument panel, the objective and the screen controls do no
   await page.setViewportSize({ width: 1280, height: 800 });
   await open(page);
   await page.locator('[data-action="nav"][data-arg="scenarios"]').click();
+  await page.locator('[data-action="group"][data-arg="navigation"]').click();
   await page.locator('[data-action="scenario"][data-arg="fjord-entry"]').click();
   await page.locator('[data-action="briefingDone"]').click();
   await expect(page.locator('#objective')).toBeVisible();

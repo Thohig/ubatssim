@@ -34,11 +34,32 @@ export interface Objective {
   holdSeconds?: number;
 }
 
+/** What a scenario practises: the tabs of the scenario list, in this order. */
+export type ScenarioGroup = 'basics' | 'water' | 'navigation' | 'recce' | 'attack';
+
+export const SCENARIO_GROUPS: readonly { id: ScenarioGroup; title: string; description: string }[] = [
+  { id: 'basics', title: 'Grunderna', description: 'Lär känna båten: dyka, backa, trimma, sväva och snorkla.' },
+  { id: 'water', title: 'Vatten och nöd', description: 'Språngskikten, salthalten och när något går fel.' },
+  { id: 'navigation', title: 'Navigering', description: 'Sund, trösklar och fyrar: terrängen under och omkring dig.' },
+  { id: 'recce', title: 'Spaning', description: 'Se och mät utan att själv synas eller höras.' },
+  { id: 'attack', title: 'Anfall', description: 'Torpeder, eldledning och korvetter som jagar.' },
+];
+
+/** Difficulties in the order the list shows them. */
+export const DIFFICULTY_ORDER: readonly Difficulty[] = ['lätt', 'medel', 'svår'];
+
+/** A group's scenarios, easiest first (the order of SCENARIOS within a difficulty). */
+export function scenariosIn(group: ScenarioGroup): Scenario[] {
+  return SCENARIOS.filter((s) => s.group === group).sort((a, b) => DIFFICULTY_ORDER.indexOf(a.difficulty) - DIFFICULTY_ORDER.indexOf(b.difficulty));
+}
+
 export interface Scenario {
   id: string;
   title: string;
   description: string;
   difficulty: Difficulty;
+  /** The tab it is listed under (SCENARIO_GROUPS). */
+  group: ScenarioGroup;
   initial: InitialConditions;
   /**
    * Systems fixed for this scenario (true = the crew, false = the player);
@@ -153,6 +174,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Första dykningen',
     description: 'Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma ubåten neutral och gå sedan till ytläge igen.',
     difficulty: 'lätt',
+    group: 'basics',
     initial: {},
     objectives: [
       {
@@ -209,6 +231,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Trimövning',
     description: 'Håll 50 m (±2 m) i tre minuter utan djupautopilot. Ubåten är lite tung från start, så den behöver kompenseras.',
     difficulty: 'medel',
+    group: 'basics',
     initial: { depth: 50, speed: 4 * KN, tankFills: { comp: 0.54 } },
     locks: { depth: false, trim: false },
     objectives: [
@@ -226,6 +249,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Språngskiktet',
     description: 'Dyk genom språngskiktet till 90 m. Under det är vattnet tätare och ubåten blir lättare. Håll 90 m ±3 m i en minut.',
     difficulty: 'medel',
+    group: 'water',
     initial: { depth: 25, speed: 6 * KN, designTrim: true },
     objectives: [
       {
@@ -251,6 +275,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Sväva',
     description: 'Gå från 30 m ned till 80 m, under språngskiktet, utan fart: propellern får inte gå över 1 knop. Bara kompenseringen ändrar djupet. Håll sedan 80 m i två minuter.',
     difficulty: 'medel',
+    group: 'basics',
     initial: { depth: 30, speed: 0, neutral: true },
     objectives: [
       {
@@ -278,6 +303,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Back',
     description: `Ett nät spärrar vägen framåt. Backa ubåten 450 m till den gula bojen rakt akterut och stanna vid den, på 30 m djup. Ubåten får inte vända: kursen ska hållas inom ${ASTERN_MAX_YAW}° från 000.`,
     difficulty: 'lätt',
+    group: 'basics',
     initial: { depth: 30, speed: 3 * KN, neutral: true, north: ASTERN_START[0], east: ASTERN_START[1], heading: 0 },
     waypoint: ASTERN_BUOY,
     objectives: [
@@ -317,6 +343,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Genom sundet',
     description: 'Ta ubåten i ytläge norrut genom ett smalt sund i skärgården till den gula bojen, utan att gå på grund. Håll koll på ekolodet (Under köl).',
     difficulty: 'medel',
+    group: 'navigation',
     initial: { east: 2560, heading: (20 * Math.PI) / 180 },
     waypoint: [1200, 2848],
     objectives: [
@@ -334,6 +361,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Nödblåsning',
     description: 'Kompenseringstanken har vattenfyllts på 200 m och ubåten är flera ton för tung. Ta dig till ytan innan den når krossdjupet 300 m.',
     difficulty: 'svår',
+    group: 'water',
     initial: { depth: 200, speed: 4 * KN, tankFills: { comp: 1 }, east: -3000 },
     locks: { safetyNet: false },
     objectives: [
@@ -353,6 +381,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Periskopspaning',
     description: `Gå på periskopdjup, hissa periskopet och ta ut bäringen till Västra fyren (vitt torn med rött band på en ö i nordost). Periskopet får inte synas mer än ${PERISCOPE_EXPOSURE_LIMIT} s i taget.`,
     difficulty: 'medel',
+    group: 'recce',
     initial: { depth: 13, speed: 4 * KN, neutral: true, east: 700, heading: 60 * DEG },
     objectives: [
       {
@@ -387,6 +416,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Fartyget',
     description: `Ett lastfartyg, M/S Skagerack, går norrut väster om dig. Hissa periskopet, ta ut bäringen till fartyget (±3°) och sänk periskopet igen. Periskopet får inte synas mer än ${PERISCOPE_EXPOSURE_LIMIT} s i taget, och kom inte i vägen för fartyget.`,
     difficulty: 'medel',
+    group: 'recce',
     initial: { depth: 13, speed: 3 * KN, neutral: true, east: -800, heading: 330 * DEG },
     traffic: [RECCE_SHIP],
     objectives: [
@@ -423,6 +453,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Saltsprånget',
     description: 'Östersjön: dyk genom saltsprångskiktet (60–80 m) till 90 m. Under det är vattnet saltare och tätare, och ubåten blir flera ton lättare. Håll 90 m ±3 m i en minut med högst 1 ton över- eller undervikt.',
     difficulty: 'svår',
+    group: 'water',
     initial: { area: 'baltic', depth: 40, speed: 5 * KN, neutral: true, east: -2500 },
     objectives: [
       {
@@ -449,6 +480,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Fjordinloppet',
     description: 'Ta dig i undervattensläge in i fjorden till den gula bojen, 2,4 km innanför mynningen. Tröskeln vid mynningen är bara 55 m djup och fjorden slingrar sig mellan branta berg. Gå inte grundare än 15 m.',
     difficulty: 'svår',
+    group: 'navigation',
     initial: { area: 'fjord', depth: 30, speed: 5 * KN, neutral: true, north: -2200, east: 0 },
     waypoint: FJORD_BUOY,
     objectives: [
@@ -475,6 +507,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Fyrljuset',
     description: 'Det är natt. Gå i ytläge österut mot Södra fyren (rött sken var 3:e sekund) tills du är 700 m från den. Se ut från bryggan (V) och håll koll på "Under köl".',
     difficulty: 'medel',
+    group: 'navigation',
     conditions: 'night',
     initial: { north: -800, east: 0, heading: 90 * DEG },
     objectives: [
@@ -493,6 +526,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Snorkling',
     description: 'Batteriet är nere på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda batteriet till 28 % med dieslarna. Bryt inte ytan.',
     difficulty: 'medel',
+    group: 'basics',
     initial: { area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, battery: 0.25 },
     objectives: [
       {
@@ -529,6 +563,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Smyg förbi',
     description: 'En korvett patrullerar fram och tillbaka mellan dig och bojen 2,5 km norrut. Lyssna efter den på sonaren, gå under språngskiktet och smyg fram till bojen utan att bli upptäckt.',
     difficulty: 'svår',
+    group: 'recce',
     initial: { area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, heading: 0 },
     waypoint: STEALTH_BUOY,
     traffic: [STEALTH_CORVETTE],
@@ -562,6 +597,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Övningsskott',
     description: 'Ett målfartyg går österut 3 km norr om dig i 6 knop. Hissa periskopet, markera målet, mät avståndet och skjut. Följ torpeden på sjökortet.',
     difficulty: 'medel',
+    group: 'attack',
     initial: { area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 },
     traffic: [PRACTICE_TARGET],
     objectives: [
@@ -597,6 +633,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Nattanfall',
     description: 'Natt. Ett lastfartyg går västerut 6 km norr om dig, och periskopet ser inget i mörkret. Gör sonarkontakten till mål, byt kurs så att eldledningen får avstånd ur bäringarna, och skjut.',
     difficulty: 'svår',
+    group: 'attack',
     conditions: 'night',
     initial: { area: 'atlantic', depth: 40, speed: 5 * KN, neutral: true, heading: 0 },
     traffic: [NIGHT_TARGET],
@@ -627,6 +664,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Jagad',
     description: 'En korvett har hittat dig och går in för anfall. Gå djupt, under språngskiktet, sakta och tyst, och byt kurs. Klara dig tills den tappar dig eller har slut på sjunkbomber. Sjunkbomberna ger läckor.',
     difficulty: 'svår',
+    group: 'attack',
     initial: { area: 'atlantic', depth: 60, speed: 4 * KN, neutral: true, heading: 180 * DEG },
     traffic: [HUNTER],
     setup: (c) => {
@@ -655,6 +693,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Konvojen',
     description: 'Ett lastfartyg går västerut med en korvett som eskort på havssidan. Sänk lastfartyget och ta dig undan eskorten.',
     difficulty: 'svår',
+    group: 'attack',
     initial: { area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 },
     traffic: [CONVOY_SHIP, ESCORT],
     objectives: [
@@ -680,6 +719,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Radar i dimman',
     description: 'Tät dimma på periskopdjup. Ett lastfartyg hörs norrut, men periskopet ser inget. Hissa radarmasten, ta en bra lösning med några svep och gå tyst igen. En korvett patrullerar i öster, och dess radarvarnare hör din radar långt bort.',
     difficulty: 'medel',
+    group: 'recce',
     conditions: 'fog',
     initial: { area: 'atlantic', depth: 13, speed: 4 * KN, neutral: true, heading: 0 },
     traffic: [FOG_SHIP, FOG_CORVETTE],
@@ -714,6 +754,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Ekot',
     description: 'Ett lastfartyg går österut några kilometer norr om dig. Sonaren ger bara bäringen. En enda ping ger avståndet direkt, men hörs långt: en korvett i söder kommer. Sänk fartyget och ta dig undan.',
     difficulty: 'svår',
+    group: 'attack',
     initial: { area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, heading: 0 },
     traffic: [ECHO_SHIP, ECHO_CORVETTE],
     objectives: [
@@ -749,6 +790,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Klart för eld',
     description: 'Två målfartyg går österut 3,5 km norr om dig. Här sköter du torpedrummet själv: gör tuberna klara, sänk båda fartygen och ladda om.',
     difficulty: 'medel',
+    group: 'attack',
     initial: { area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 },
     traffic: [FIRE_SHIP_A, FIRE_SHIP_B],
     locks: { torpedoRoom: false },
@@ -781,6 +823,7 @@ export const SCENARIOS: Scenario[] = [
     title: 'Läckan',
     description: 'En rörgenomföring i maskinrummet har sprungit läck på 120 m. Gå upp så att länspumpen hinner med, medan besättningen tätar läckan, och länsa maskinrummet. Krossdjupet är 300 m.',
     difficulty: 'svår',
+    group: 'water',
     initial: { area: 'atlantic', depth: 120, speed: 4 * KN, neutral: true, leaks: { engine: 2e-3 } },
     objectives: [
       {

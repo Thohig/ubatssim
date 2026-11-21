@@ -4,7 +4,7 @@
  * data-action/data-arg and inputs a name; menu.ts handles the events.
  */
 import { formatSimTime } from '../control/controller';
-import { SCENARIOS, lockText, type Scenario } from '../control/scenarios';
+import { SCENARIO_GROUPS, lockText, scenariosIn, type Scenario, type ScenarioGroup } from '../control/scenarios';
 import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, LOCK_TEXT, swedishList, type CrewDuties, type CrewLocks, type CrewSystem } from '../control/crew';
 import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
@@ -58,6 +58,8 @@ export interface MenuState {
   area: AreaId;
   conditions: ConditionsId;
   sea: SeaStateId;
+  /** The scenario list's tab. */
+  scenarioGroup: ScenarioGroup;
 }
 
 /** The start page's sailing orders: fictional and peaceful, short enough for one typed line on a phone. */
@@ -126,17 +128,27 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </div>
       <button class="menu-btn secondary" data-action="nav" data-arg="free">‹ Tillbaka</button>`;
   },
-  scenarios: () => {
+  scenarios: (m) => {
+    // Tabs by what a scenario practises; compact cards (the briefing has the description).
     const meta = (s: Scenario) => [...scenarioConditions(s), `${s.objectives.length} mål`].join(' · ');
-    const cards = SCENARIOS.map(
-      (s) => html`
-      <button class="menu-btn choice scenario" data-action="scenario" data-arg="${s.id}">
-        <b>${s.title} <span class="badge ${s.difficulty}">${s.difficulty}</span></b>
-        <span>${s.description}</span>
-        <span class="meta">${meta(s)}</span>
-      </button>`,
+    const tabs = SCENARIO_GROUPS.map(
+      (g) =>
+        html`<button type="button" class="menu-tab${g.id === m.scenarioGroup ? ' on' : ''}" role="tab" aria-selected="${String(g.id === m.scenarioGroup)}" data-action="group" data-arg="${g.id}">${g.title}</button>`,
     );
-    return html`<h2 class="menu-title small">Scenarier</h2><p class="menu-sub">Besättningen sköter det du inte tar över själv.</p><div class="menu-list">${cards}</div>${back}`;
+    const lists = SCENARIO_GROUPS.map(
+      (g) => html`
+      <div class="menu-list scenario-group" role="tabpanel" data-group="${g.id}" ${g.id === m.scenarioGroup ? '' : 'hidden'}>
+        <p class="menu-sub">${g.description}</p>
+        ${scenariosIn(g.id).map(
+          (s) => html`
+          <button class="menu-btn choice scenario compact" data-action="scenario" data-arg="${s.id}" title="${s.description}">
+            <b>${s.title} <span class="badge ${s.difficulty}">${s.difficulty}</span></b>
+            <span class="meta">${meta(s)}</span>
+          </button>`,
+        )}
+      </div>`,
+    );
+    return html`<h2 class="menu-title small">Scenarier</h2><div class="menu-tabs" role="tablist">${tabs}</div>${lists}${back}`;
   },
   settings: (m) => {
     const s = m.settings;
