@@ -5,7 +5,6 @@
  */
 import type { Controller } from '../control/controller';
 import type { Order } from '../control/orders';
-import type { InputModeState } from './inputMode';
 
 export interface ScreenButton {
   label: string;
@@ -42,7 +41,7 @@ export function haptic(): void {
  * held when `repeat` is set); buttons with an `action` act on click, since
  * iOS only shows the on-screen keyboard for focus() inside a click handler.
  */
-export function makeButton(b: ScreenButton, fire: (b: ScreenButton) => void, mode: InputModeState): HTMLButtonElement {
+export function makeButton(b: ScreenButton, fire: (b: ScreenButton) => void): HTMLButtonElement {
   const el = document.createElement('button');
   el.type = 'button';
   el.className = `touch-btn ${b.className ?? ''}`;
@@ -60,8 +59,6 @@ export function makeButton(b: ScreenButton, fire: (b: ScreenButton) => void, mod
   }
   el.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    // Tapping a steering button closes the console, as Esc does.
-    if (mode.current === 'console') mode.set('steer');
     el.classList.add('pressed');
     haptic();
     fire(b);

@@ -38,6 +38,7 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312, selfHandled: ['trim', 'safetyNet'] },
   briefing: SCENARIOS.find((s) => s.id === 'trim-drill')!,
   order: { text: 'Ta er obemärkt genom sundet.', no: 417 },
+  logLines: [{ t: 12, text: 'Djup <80>, ja', kind: 'ack' }],
   error: 'Fel: <test>\n  at frame',
   graphicsBack: false,
   area: 'westCoast',
@@ -64,10 +65,23 @@ describe('menu screens', () => {
     expect(div.querySelectorAll('[data-action="scenario"]').length).toBe(SCENARIOS.length);
   });
 
-  it('the help lists every console command, escaped', () => {
+  it('☰ → Loggbok shows the history as text, with the time; the pause menu leads there', () => {
+    const pause = document.createElement('div');
+    pause.innerHTML = SCREENS.pause(state()).value;
+    expect(pause.querySelector('[data-arg="logbook"]')).not.toBeNull();
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.logbook(state()).value;
+    expect(div.querySelector('.logbook .log-entry.ack')!.textContent).toBe('[00:00:12]Djup <80>, ja');
+    div.innerHTML = SCREENS.logbook(state({ logLines: [] })).value;
+    expect(div.textContent).toMatch(/Inget loggat/);
+  });
+
+  it('the help no longer speaks of a console; it tells how to choose a target and a tube', () => {
     const div = document.createElement('div');
     div.innerHTML = SCREENS.help(state()).value;
-    expect(div.querySelector('pre')!.textContent).toBe(HELP_TEXT.join('\n'));
+    expect(div.textContent).not.toMatch(/konsol/i);
+    expect(div.textContent).toMatch(/laddad tub/);
+    expect(div.textContent).toMatch(/M1, M2/);
   });
 
   it('the pause menu says who handles what and leads to ☰ → Besättning', () => {

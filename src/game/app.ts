@@ -14,9 +14,8 @@ import { spaceAt } from '../render/interior';
 import { cutawayInfo, spaceCentre } from '../ui/cutawayInfo';
 import { h } from '../ui/dom';
 import { SUBMARINE } from '../sim/config/submarine';
-import { bindConsole } from '../ui/console';
 import { createHelm } from '../ui/helm';
-import { InputModeState, bindModeIndicator } from '../ui/inputMode';
+import { bindModeIndicator } from '../ui/inputMode';
 import { createInstruments, layoutKey } from '../ui/instruments';
 import { bindKeyboard } from '../ui/keyboard';
 import { bindLog, bindLogToggle } from '../ui/log';
@@ -65,13 +64,6 @@ export function startApp(): void {
   const statusBar = createStatusBar(statusEl, () => setInstrumentsOpen(!document.body.classList.contains('inst-open')));
 
   let touch = false;
-  const mode = new InputModeState();
-  // The console shows the log's history while open, above its input line.
-  mode.onChange((m) => {
-    logEl.classList.toggle('expanded', m === 'console');
-    document.body.classList.toggle('console-open', m === 'console');
-    if (m === 'console') logEl.scrollTop = logEl.scrollHeight;
-  });
   const views = new ViewState();
   // On-board views: the HUD makes room for the view on small screens (style.css).
   views.onChange((m) => {
@@ -168,7 +160,6 @@ export function startApp(): void {
   /** Starts a session; a new scenario first shows its briefing (not on "Starta om"). */
   function startGame(s: GameSession, briefing = false): void {
     session = attach(s);
-    mode.set('steer');
     if (briefing && s.scenario) {
       flow.go('paused');
       menu.setPauseInfo(pauseInfo());
@@ -201,6 +192,7 @@ export function startApp(): void {
 
   function showPause(): void {
     menu.setPauseInfo(pauseInfo());
+    menu.setLog(session.ctrl.log.slice(-100));
     menu.show('pause');
   }
 
@@ -230,7 +222,6 @@ export function startApp(): void {
     if (s === 'playing') menu.hide();
     if (s === 'menu') menu.show('main');
     if (s === 'paused') showPause();
-    if (s !== 'playing') mode.set('steer');
     updateMusic();
   });
 
@@ -294,13 +285,10 @@ export function startApp(): void {
 
   // ------------------------------------------------------------------ input
 
-  const consoleInput = el<HTMLInputElement>('console-input');
   const activeCtrl = () => (flow.state === 'playing' ? session.ctrl : null);
-  const openConsole = bindConsole(el<HTMLFormElement>('console'), consoleInput, activeCtrl, mode);
-  // The log is the way into the console: a tap on it or on the handle under it.
-  bindLogToggle(logEl, openConsole);
-  el('log-open').addEventListener('click', openConsole);
-  bindKeyboard(activeCtrl, mode, openConsole, views);
+  // A tap on the log shows its history; another tap, or Esc, folds it.
+  bindLogToggle(logEl);
+  bindKeyboard(activeCtrl, views);
   // Cutaway: a tap selects the space under it (interior.ts) and centres the view on it.
   bindViewPointer(view.renderer.domElement, views, (x, y) => {
     const p = view.pickCut(x, y);
@@ -344,23 +332,12 @@ export function startApp(): void {
     if (info) cutawayInfoEl.replaceChildren(h('h3', null, info.title), h('p', null, info.description), h('ul', null, ...info.lines.map((l) => h('li', null, l))));
     else cutawayInfoEl.replaceChildren(h('p', null, 'Tryck på ett rum, en tank eller tornet för att se vad som finns där.'));
   };
-  /**
-   * Shows or hides the log book (a setting). Hidden, only a new error shows
-   * for a moment; the lines already there are marked so they do not flash up.
-   */
-  const setLogShown = (show: boolean) => {
-    settings = { ...settings, showLog: show };
-    saveSettings(settings);
-    menu.setSettings(settings);
-    applySettings();
-  };
-  const logSwitch = { shown: () => settings.showLog, toggle: () => setLogShown(!settings.showLog) };
   const nav = createNavPanel(el('nav'), (label) => activeCtrl()?.submit({ kind: 'markTarget', label }, 'touch'));
   const updateFire = createFirePanel(el('fire'), activeCtrl, views, () => nav.mode !== null);
   const navSwitch = { mode: () => nav.mode, toggle: (m: 'chart' | 'sonar') => nav.toggle(m) };
-  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, logSwitch, navSwitch);
+  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, navSwitch);
   const helmEl = el('helm');
-  const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), mode);
+  const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null));
   // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
   new ResizeObserver(() => document.body.style.setProperty('--helm-h', `${helmEl.offsetHeight}px`)).observe(helmEl);
   const drawOverlay = createViewOverlay(el<HTMLCanvasElement>('view-overlay'));
@@ -373,36 +350,32 @@ export function startApp(): void {
       audio.engine.toggleMute();
       return;
     }
-    if ((e.key === 'm' || e.key === 'M') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if ((e.key === 'm' || e.key === 'M') && state === 'playing' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const muted = audio.engine.toggleMute();
       session.ctrl.addLog(muted ? 'Ljudet är avstängt (M).' : 'Ljudet är på (M).', 'info');
       return;
     }
-    if ((e.key === 'k' || e.key === 'K' || e.key === 'h' || e.key === 'H') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if ((e.key === 'k' || e.key === 'K' || e.key === 'h' || e.key === 'H') && state === 'playing' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       nav.toggle(e.key.toLowerCase() === 'k' ? 'chart' : 'sonar');
       return;
     }
-    if ((e.key === 'o' || e.key === 'O') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if ((e.key === 'o' || e.key === 'O') && state === 'playing' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       if (session.runner) objective.toggle();
-      return;
-    }
-    if ((e.key === 'l' || e.key === 'L') && state === 'playing' && mode.current === 'steer' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      logSwitch.toggle();
       return;
     }
     if (e.key !== 'Escape') return;
     // Lost graphics: wait for them (or reload); Esc does nothing.
     if (menu.visible && menu.current === 'graphics') return;
     // Esc folds the log's history first.
-    if (logEl.classList.contains('expanded') && mode.current === 'steer') {
+    if (logEl.classList.contains('expanded')) {
       e.preventDefault();
       logEl.classList.remove('expanded');
       return;
     }
-    if (state === 'playing' && mode.current === 'steer' && views.mode !== 'external') {
+    if (state === 'playing' && views.mode !== 'external') {
       e.preventDefault();
       views.set('external');
-    } else if (state === 'playing' && mode.current === 'steer') {
+    } else if (state === 'playing') {
       e.preventDefault();
       pause();
     } else if (state === 'paused' && menu.current === 'intro') {
@@ -426,9 +399,7 @@ export function startApp(): void {
   function applySettings(): void {
     touch = isTouchDevice();
     document.body.classList.toggle('touch', touch);
-    document.body.classList.toggle('log-hidden', !settings.showLog);
-    consoleInput.placeholder = 'Skriv ett kommando, t.ex. "djup 120", eller "hjälp"';
-    bindModeIndicator(el('mode'), mode, touch, views);
+    bindModeIndicator(el('mode'), touch, views);
     view.setParticles(settings.particles);
     view.setLightRays(settings.lightRays);
     audio.apply({

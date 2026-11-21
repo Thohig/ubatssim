@@ -1,5 +1,5 @@
 /**
- * Every steering command – from the keyboard or the console – becomes a
+ * Every steering command – from the keyboard or the screen controls – becomes a
  * typed Order. Orders are queued and executed at the start of the next
  * simulation step. Angles are in degrees and speeds in knots here (the
  * operator's units); the controller converts to SI.

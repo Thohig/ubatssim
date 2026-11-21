@@ -1,6 +1,6 @@
 /**
  * The screen controls, always shown in a game. Every control submits
- * ordinary orders with source 'touch'; the keyboard and the console give
+ * ordinary orders with source 'touch'; the keyboard gives
  * the same orders. What a control does follows who handles the system
  * (crew.ts): the crew holds targets, the player moves rudder and planes.
  *
@@ -35,7 +35,6 @@ import { CREW_NAME, CREW_ROLE, HELM_MAX_DEPTH, LOCK_TEXT, PERISCOPE_DEPTH, TELEG
 import { LIMITS } from '../../control/parser';
 import type { Telemetry } from '../../sim/simulation';
 import { h } from '../dom';
-import type { InputModeState } from '../inputMode';
 import { submitDive } from '../keyboard';
 import { haptic, makeButton, type ScreenButton } from '../button';
 import { isCompact } from '../compact';
@@ -57,7 +56,7 @@ export interface HelmContext {
  * is running (presses are then ignored). Returns the update function, to
  * call with fresh telemetry ~10 times a second.
  */
-export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, mode: InputModeState): (t: Telemetry, ctx: HelmContext) => void {
+export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null): (t: Telemetry, ctx: HelmContext) => void {
   const submit = (fn: (c: Controller) => void) => {
     const ctx = getCtx();
     if (ctx) fn(ctx.ctrl);
@@ -68,10 +67,10 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
     if (ctx && b.run) b.run(ctx.ctrl);
     b.action?.();
   };
-  const button = (b: ScreenButton) => makeButton(b, fire, mode);
+  const button = (b: ScreenButton) => makeButton(b, fire);
   /** A button that acts once on press (no repeat), for panels and switches. */
   const tapButton = (label: string, title: string, run: (c: Controller) => void, className = '') =>
-    makeButton({ label, title, run, className: `helm-small ${className}` }, fire, mode);
+    makeButton({ label, title, run, className: `helm-small ${className}` }, fire);
   let last: { t: Telemetry; ctx: HelmContext } | null = null;
   // The theme colours, read once: getComputedStyle forces a style recalculation.
   let palette: Colors | null = null;
@@ -239,9 +238,7 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null, 
       bells.forEach((b, k) => b.el.classList.toggle('preview', k === i));
     },
     (i) => submit((c) => c.submit({ kind: 'setSpeed', knots: TELEGRAPH[i]!.knots }, 'touch')),
-    () => {
-      if (mode.current === 'console') mode.set('steer');
-    },
+    undefined,
     isCompact,
   );
   const telegraph = h(

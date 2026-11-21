@@ -3,7 +3,6 @@ import { markOrder, rangeOrder } from './firePanel';
 import { PERISCOPE_DEPTH, telegraphStep } from '../control/crew';
 import { LIMITS } from '../control/parser';
 import type { OrderSource } from '../control/orders';
-import type { InputModeState } from './inputMode';
 import { cycleView, reportViewBearing, toggleCutaway, togglePeriscope, type ViewState } from './views';
 
 /**
@@ -37,7 +36,7 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   ↑/↓  Auto: depth ∓5 m       Hand: stern planes up/down 5°
  *   Shift+↑/↓  crew: telegraph one position ahead/astern; player: ±10 rpm
  *   Space  both Auto: hold present depth and heading; else rudder (or planes) to zero
- *   D  dive   S  surface   Enter or /  open the console
+ *   D  dive   S  surface
  *   V  next view   P  periscope up/down   Z  periscope magnification (cutaway: side/top)
  *   C  cutaway on/off   + / −  cutaway zoom
  *   B  report the bearing of the cross hair / bridge look
@@ -45,12 +44,11 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   T  mark the vessel in the cross hair   R  range it   F  fire (periscope or bridge)
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
-export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeState, openConsole: () => void, views: ViewState): void {
+export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState): void {
   window.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') views.trainDir = 0;
   });
   window.addEventListener('keydown', (e) => {
-    if (mode.current !== 'steer') return;
     const ctrl = getCtrl();
     if (!ctrl) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -128,10 +126,6 @@ export function bindKeyboard(getCtrl: () => Controller | null, mode: InputModeSt
         break;
       case 's':
         ctrl.submit({ kind: 'surface' }, 'keyboard');
-        break;
-      case 'Enter':
-      case '/':
-        openConsole();
         break;
       default:
         return;

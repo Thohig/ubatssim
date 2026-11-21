@@ -42,6 +42,7 @@ export class Menu {
   private result: ResultInfo | null = null;
   private briefing: Scenario | null = null;
   private error: string | null = null;
+  private logLines: MenuState['logLines'] = [];
   private graphicsBack = false;
   private pauseInfo: PauseInfo = { duties: null, locks: {} };
   /** Free play: chosen area and light/visibility. */
@@ -88,6 +89,7 @@ export class Menu {
       order: this.order,
       briefing: this.briefing,
       error: this.error,
+      logLines: this.logLines,
       graphicsBack: this.graphicsBack,
       area: this.area,
       conditions: this.conditions,
@@ -95,6 +97,9 @@ export class Menu {
     };
     mount(this.root, html`<div class="menu-card">${SCREENS[screen](state)}</div>`);
     this.root.querySelector<HTMLElement>('button, input')?.focus({ preventScroll: true });
+    // The log book opens at its newest lines.
+    const book = this.root.querySelector<HTMLElement>('.logbook');
+    if (book) book.scrollTop = book.scrollHeight;
   }
 
   showResult(r: ResultInfo): void {
@@ -124,6 +129,11 @@ export class Menu {
   /** Back to where the current screen was opened from (Esc, "Tillbaka"). */
   back(): void {
     this.show(this.base);
+  }
+
+  /** The log book's lines, for ☰ → Loggbok (call before showing the pause menu). */
+  setLog(lines: MenuState['logLines']): void {
+    this.logLines = lines;
   }
 
   /** Call before `show('pause')`. */
@@ -216,7 +226,6 @@ export class Menu {
     if (name === 'voice') s.voice = value === 'true';
     if (name === 'music') s.music = value === 'true';
     if (name === 'musicVolume') s.musicVolume = Number(value) / 100;
-    if (name === 'showLog') s.showLog = value === 'true';
     this.settings = s;
     this.h.settingsChanged(s);
   }

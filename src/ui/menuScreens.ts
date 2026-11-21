@@ -4,7 +4,6 @@
  * data-action/data-arg and inputs a name; menu.ts handles the events.
  */
 import { formatSimTime } from '../control/controller';
-import { HELP_TEXT } from '../control/parser';
 import { SCENARIOS, lockText, type Scenario } from '../control/scenarios';
 import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, LOCK_TEXT, swedishList, type CrewDuties, type CrewLocks, type CrewSystem } from '../control/crew';
 import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } from '../control/areas';
@@ -13,7 +12,7 @@ import type { AreaId } from '../sim/config/areas';
 import { html, type SafeHtml } from './dom';
 import type { Settings } from './settings';
 
-export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'briefing' | 'graphics' | 'error';
+export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'briefing' | 'graphics' | 'error' | 'logbook';
 
 /** What the pause menu and ☰ → Besättning need to know about the running game. */
 export interface PauseInfo {
@@ -47,6 +46,8 @@ export interface MenuState {
   result: ResultInfo | null;
   /** The scenario about to start (the briefing); null otherwise. */
   briefing: Scenario | null;
+  /** The log book's lines for ☰ → Loggbok (oldest first). */
+  logLines: readonly { t: number; text: string; kind: string }[];
   /** The error report after an unexpected error; null otherwise. */
   error: string | null;
   /** The graphics came back after they were lost (the WebGL context). */
@@ -93,6 +94,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <div class="menu-list">
         <button class="menu-btn primary" data-action="resume">Fortsätt</button>
         <button class="menu-btn" data-action="nav" data-arg="crew">Besättning</button>
+        <button class="menu-btn" data-action="nav" data-arg="logbook">Loggbok</button>
         <button class="menu-btn" data-action="restart">Starta om</button>
         <button class="menu-btn" data-action="nav" data-arg="settings">Inställningar</button>
         <button class="menu-btn" data-action="nav" data-arg="help">Hjälp</button>
@@ -154,10 +156,6 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <label class="opt">Musikvolym <input type="range" name="musicVolume" min="0" max="100" step="5" value="${Math.round(s.musicVolume * 100)}"/></label>
         <p class="menu-note">M stänger av och sätter på ljudet, också på startsidan.</p>
       </fieldset>
-      <fieldset><legend>Skärmen</legend>
-        <label class="opt"><input type="checkbox" name="showLog" ${s.showLog ? 'checked' : ''}/> Visa loggboken</label>
-        <p class="menu-note">Dold loggbok visar bara fel en kort stund. Knappen Logg (på mobil under Vyer ▾) och L visar och döljer den under spelet.</p>
-      </fieldset>
       <fieldset><legend>Grafik</legend>
         <label class="opt"><input type="checkbox" name="particles" ${s.particles ? 'checked' : ''}/> Svävande partiklar</label>
         <label class="opt"><input type="checkbox" name="lightRays" ${s.lightRays ? 'checked' : ''}/> Ljusstrålar under ytan</label>
@@ -189,7 +187,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Dyk / Yta</b> byter efter ballasten. <b>Håll</b> behåller kurs och djup på Auto.</li>
           <li><b>Per</b>, <b>Snork</b> och <b>Vy</b> (uppe till höger) syns när ubåten är grundare än 25 m eller en mast är uppe. <b>Karta</b> och <b>Sonar</b> öppnar sjökortet och sonaren. På mobil ligger de under <b>Vyer ▾</b>. <b>Vy</b> byter också till genomskärningen.</li>
           <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen.</li>
-          <li><b>Loggboken</b> ligger överst i mitten. Varje rad tonas bort efter några sekunder (varningar efter 10 s). Tryck på den för de senaste raderna, och tryck igen för att stänga.</li>
+          <li><b>Loggboken</b> ligger överst i mitten och visar högst två rader. Varje rad tonas bort efter några sekunder (fel efter 6 s), och fönstret med den. Tryck på den för de senaste raderna, och tryck igen eller Esc för att stänga.</li>
         </ul>
         <h3>Tangentbord</h3>
         <table>
@@ -205,14 +203,12 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>C, + / −</td><td colspan="2">Genomskärning på / av, och zoom</td></tr>
           <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
           <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
-          <tr><td>Enter eller /</td><td colspan="2">Öppna konsolen (↑/↓ bläddrar i historiken)</td></tr>
-          <tr><td>Esc</td><td colspan="2">Lämna konsolen eller en vy, eller pausa</td></tr>
+          <tr><td>Esc</td><td colspan="2">Stäng loggens historik, lämna en vy, eller pausa</td></tr>
           <tr><td>T / R / F</td><td colspan="2">Markera fartyget i hårkorset / mät avståndet / skjut (periskopet eller bryggan)</td></tr>
           <tr><td>N</td><td colspan="2">Snorkel upp / ned</td></tr>
           <tr><td>G</td><td colspan="2">Dieslarna start / stopp (du tar över laddningen)</td></tr>
           <tr><td>K / H</td><td colspan="2">Sjökortet / sonaren</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
-          <tr><td>L</td><td colspan="2">Visa / dölj loggboken (knappen Logg). Dold visar den bara fel en kort stund.</td></tr>
           <tr><td>O</td><td colspan="2">Visa / fäll ihop målrutan i ett scenario (tipset och alla mål)</td></tr>
         </table>
         <h3>Vyer</h3>
@@ -228,7 +224,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, bojen, fyrarna och sonarens bäringar.</p>
         <p>En <b>korvett</b> lyssnar efter ubåten och spanar efter master. Den hör dig bättre ju fortare du går (och när propellern kaviterar) och om dieslarna går, och den ser periskopet, snorkeln och tornet. Språngskiktet mellan er dämpar ljudet. Gå sakta, djupt och med masterna nere.</p>
         <h3>Anfall</h3>
-        <p>I periskopvyn finns eldledningen. Sätt hårkorset på ett fartyg och tryck <b>Mål</b> (T), mät avståndet med <b>Avst</b> (R, noggrannare på 6×) och vänta tills lösningen är ok eller bra. <b>Fyr</b> (F) skjuter mot träffpunkten. Torpeden går 40 knop och söker själv det sista stycket. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Då ger bäringarna avståndet först när du bytt kurs minst 30° och hållit den några minuter. Fyra tuber, åtta torpeder i förråd och 2 minuters omladdning.</p>
+        <p>I periskopvyn finns eldledningen. Sätt hårkorset på ett fartyg och tryck <b>Mål</b> (T), mät avståndet med <b>Avst</b> (R, noggrannare på 6×) och vänta tills lösningen är ok eller bra. <b>Fyr</b> (F) skjuter mot träffpunkten, och ett tryck på en laddad tub skjuter från just den. Har du flera mål visar panelen dem (M1, M2 …): tryck på ett för att sikta på det. Torpeden går 40 knop och söker själv det sista stycket. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Då ger bäringarna avståndet först när du bytt kurs minst 30° och hållit den några minuter. Fyra tuber, åtta torpeder i förråd och 2 minuters omladdning.</p>
         <h3>Korvetter som jagar</h3>
         <p>En korvett som hört eller sett dig saktar in och svänger mot dig. Sedan söker den med aktiv sonar (pingar som hörs i skrovet) och anfaller med sjunkbomber inställda på djupet den mätte. Avfyrningar hörs. Kom undan genom att gå djupt under skiktet, sakta, byta kurs och byta djup när den går över dig. Den ger upp efter fem minuter utan kontakt, eller när bomberna är slut.</p>
         <h3>Scenarier</h3>
@@ -247,10 +243,6 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         </ul>
         <p>I fritt spel går fartyg i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision loggas, och i ett scenario misslyckas uppdraget.</p>
         <p>Instrumentpanelen visar farten genom vattnet, och längre ner fart och kurs över grund och strömmen (på mobil: tryck på statusraden). I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
-        <h3>Konsolen</h3>
-        <p>Konsolen öppnas med ett tryck på loggboken (eller <b>›_ Logg</b> under den), Enter eller /. Den visar loggens historik med en skrivrad under. Den är ett annat sätt att ge order, för den som vill skriva exakta värden. Ingenting kräver den. En order i konsolen tar över systemet den gäller, precis som en knapp: <code>roder sb 10</code> sätter kursen på Hand.</p>
-        <h3>Kommandon</h3>
-        <pre>${HELP_TEXT.join('\n')}</pre>
         <h3>Att tänka på</h3>
         <ul>
           <li>Djuprodren verkar bara när ubåten har fart: lyftkraften växer med farten i kvadrat. Stillastående <b>svävar</b> besättningen i stället: den gör ubåten lite tung eller lätt med kompenseringen och neutral igen vid djupmålet. Det går långsamt, några meter i minuten, men tyst.</li>
@@ -322,6 +314,13 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <button class="menu-btn" data-action="nav" data-arg="crew">Besättning</button>
         <button class="menu-btn secondary" data-action="main">Avbryt</button>
       </div>`;
+  },
+  logbook: (m) => {
+    const lines = m.logLines.map((e) => html`<div class="log-entry ${e.kind}"><span class="time">[${formatSimTime(e.t)}]</span>${e.text}</div>`);
+    return html`
+      <h2 class="menu-title small">Loggbok</h2>
+      <div class="logbook">${lines.length ? lines : html`<p class="menu-note">Inget loggat än.</p>`}</div>
+      ${back}`;
   },
   graphics: (m) => {
     return html`

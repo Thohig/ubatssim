@@ -268,26 +268,19 @@ export interface NavSwitch {
   toggle(mode: 'chart' | 'sonar'): void;
 }
 
-/** Showing and hiding the log book (a setting, kept by the app). */
-export interface LogSwitch {
-  shown(): boolean;
-  toggle(): void;
-}
-
 /**
- * Buttons for the views next to the menu button (mouse and touch), and
- * "Logg", which shows or hides the log book. On phones (style.css) only
- * "Vyer ▾" shows; it folds the others out, and a choice folds them in.
+ * Buttons for the views next to the menu button (mouse and touch), and Karta
+ * and Sonar. On phones (style.css) only "Vyer ▾" shows; it folds the others
+ * out, and a choice folds them in.
  */
 export function bindViewButtons(
   root: HTMLElement,
   getCtrl: () => Controller | null,
   views: ViewState,
-  log?: LogSwitch,
   nav?: NavSwitch,
 ): (ctrl: Controller) => void {
   root.innerHTML = `
-    <button type="button" data-v="menu" class="views-menu" title="Vyer och konsolen" aria-label="Vyer och konsolen" aria-expanded="false">Vyer ▾</button>
+    <button type="button" data-v="menu" class="views-menu" title="Vyer, sjökort och sonar" aria-label="Vyer, sjökort och sonar" aria-expanded="false">Vyer ▾</button>
     <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
     <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
     <button type="button" data-v="snorkel" title="Snorkel upp/ned (N)" aria-label="Snorkel upp eller ned">Snork</button>
@@ -296,8 +289,7 @@ export function bindViewButtons(
     <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
     <button type="button" data-v="whole" title="Hela ubåten" aria-label="Visa hela ubåten">Hela</button>
     <button type="button" data-v="chart" title="Sjökortet (K)" aria-label="Sjökortet">Karta</button>
-    <button type="button" data-v="sonar" title="Sonaren (H)" aria-label="Sonaren">Sonar</button>
-    <button type="button" data-v="log" title="Visa eller dölj loggboken (L)" aria-label="Visa eller dölj loggboken" aria-pressed="false">Logg</button>`;
+    <button type="button" data-v="sonar" title="Sonaren (H)" aria-label="Sonaren">Sonar</button>`;
   const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
@@ -305,8 +297,6 @@ export function bindViewButtons(
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
   const plan = root.querySelector<HTMLButtonElement>('[data-v="plan"]')!;
   const whole = root.querySelector<HTMLButtonElement>('[data-v="whole"]')!;
-  const logBtn = root.querySelector<HTMLButtonElement>('[data-v="log"]')!;
-  logBtn.hidden = !log;
   const chartBtn = root.querySelector<HTMLButtonElement>('[data-v="chart"]')!;
   const sonarBtn = root.querySelector<HTMLButtonElement>('[data-v="sonar"]')!;
   chartBtn.hidden = sonarBtn.hidden = !nav;
@@ -322,9 +312,6 @@ export function bindViewButtons(
     plan.textContent = views.cutPlan === 'side' ? 'Ovan' : 'Sida';
     per.hidden = deep;
     snork.hidden = deep;
-    const shown = log?.shown() ?? true;
-    logBtn.classList.toggle('on', shown);
-    logBtn.setAttribute('aria-pressed', String(shown));
     chartBtn.classList.toggle('on', nav?.mode() === 'chart');
     sonarBtn.classList.toggle('on', nav?.mode() === 'sonar');
   };
@@ -343,11 +330,6 @@ export function bindViewButtons(
       return;
     }
     fold(false);
-    if (b?.dataset.v === 'log') {
-      log?.toggle();
-      sync();
-      return;
-    }
     if (b?.dataset.v === 'chart' || b?.dataset.v === 'sonar') {
       nav?.toggle(b.dataset.v);
       sync();
@@ -371,9 +353,9 @@ export function bindViewButtons(
   return (ctrl) => {
     const k = ctrl.sim.kinematics();
     const next = k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01 && ctrl.sim.actuators.snorkel < 0.01;
-    // The log setting may also change from the settings screen or the L key.
+    // The chart and the sonar may also open with K and H.
     const navChanged = chartBtn.classList.contains('on') !== (nav?.mode() === 'chart') || sonarBtn.classList.contains('on') !== (nav?.mode() === 'sonar');
-    if (next !== deep || navChanged || logBtn.classList.contains('on') !== (log?.shown() ?? true)) {
+    if (next !== deep || navChanged) {
       deep = next;
       sync();
     }

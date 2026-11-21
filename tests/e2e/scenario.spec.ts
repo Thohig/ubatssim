@@ -41,13 +41,18 @@ test('a scenario starts with the briefing; the objective folds to one line and o
   errors.check();
 });
 
-test('Esc pauses and the pause menu continues the game', async ({ page }) => {
+test('Esc pauses; the log book is in the pause menu; Fortsätt continues the game', async ({ page }) => {
   const errors = watchErrors(page);
   await open(page);
   await page.locator('[data-action="nav"][data-arg="scenarios"]').click();
   await page.locator('[data-action="scenario"][data-arg="trim-drill"]').click();
   await page.keyboard.press('Escape'); // Esc on the briefing = Till sjöss
   await expect(page.locator('#menu')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#menu')).toHaveAttribute('data-screen', 'pause');
+  // ☰ → Loggbok: the history, even after the lines on screen have faded.
+  await page.locator('[data-action="nav"][data-arg="logbook"]').click();
+  await expect(page.locator('#menu .logbook')).toContainText('Scenario: Trimövning');
   await page.keyboard.press('Escape');
   await expect(page.locator('#menu')).toHaveAttribute('data-screen', 'pause');
   await page.locator('[data-action="resume"]').click();

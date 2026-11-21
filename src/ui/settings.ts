@@ -20,8 +20,6 @@ export interface Settings {
   /** The start page's music, and its volume 0…1. */
   music: boolean;
   musicVolume: number;
-  /** The log book is shown; hidden, only errors show for a moment (style.css, body.log-hidden). */
-  showLog: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -35,7 +33,6 @@ export const DEFAULT_SETTINGS: Settings = {
   voice: false,
   music: true,
   musicVolume: 0.7,
-  showLog: true,
 };
 
 const KEY = 'ubatssim.settings';
@@ -43,7 +40,7 @@ const KEY = 'ubatssim.settings';
 export function loadSettings(): Settings {
   try {
     localStorage.removeItem('ubatssim.best'); // best times are no longer kept
-    // Older settings may hold a game mode, an autopilot choice and touch buttons: those are gone and ignored.
+    // Older settings may hold a game mode, an autopilot choice, touch buttons and showLog: those are gone and ignored.
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const s = JSON.parse(raw) as Partial<Settings>;
@@ -58,7 +55,6 @@ export function loadSettings(): Settings {
       voice: s.voice === true,
       music: s.music !== false,
       musicVolume: typeof s.musicVolume === 'number' && s.musicVolume >= 0 && s.musicVolume <= 1 ? s.musicVolume : DEFAULT_SETTINGS.musicVolume,
-      showLog: s.showLog !== false,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

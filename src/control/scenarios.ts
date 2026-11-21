@@ -21,7 +21,7 @@ export type Difficulty = 'lätt' | 'medel' | 'svår';
 export interface Objective {
   /** Short goal shown in the banner. */
   text: string;
-  /** What to do, with the screen controls (the console is never required). */
+  /** What to do, with the screen controls. */
   hint: string;
   /**
    * The system the objective is about. While the crew handles it, `hintCrew`

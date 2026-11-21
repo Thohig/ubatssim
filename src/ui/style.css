@@ -29,7 +29,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
   border: 2px solid currentColor; background: var(--panel-bg);
 }
 .mode.steer { color: var(--ok); }
-.mode.console { color: var(--warn); }
 .mode.periscope, .mode.bridge, .mode.cutaway { color: var(--accent); }
 .mode small { font-weight: 400; letter-spacing: 0; color: var(--muted); margin-left: 10px; }
 
@@ -59,19 +58,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 .log-entry.info { color: var(--muted); }
 .log-entry .src { color: var(--muted); font-size: 11px; margin-left: 6px; }
 
-/* Console */
-/* The console is the log's input line: under the history, top centre (see "objective and log book"). */
-#console { display: flex; align-items: center; gap: 8px; pointer-events: auto; border-color: var(--warn); }
-#console .prompt { color: var(--warn); font-weight: 700; }
-#console input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font: inherit; }
-#console input::placeholder { color: var(--muted); }
-/* Shown only while open (a tap on the log, ›_ Logg, Enter or /). */
-#console:not(.active) { display: none; }
-#console input { font-size: 16px; } /* ≥16px stops iOS zooming on focus */
-
 
 /* ------------------------------------------------------------ screen buttons */
-/* The mode indicator only shows the console and the on-board views. */
+/* The mode indicator only shows in the on-board views and the cutaway. */
 .mode.steer:not(.periscope):not(.bridge):not(.cutaway) { display: none; }
 .touch-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .touch-row { display: flex; gap: 4px; }
@@ -212,6 +201,8 @@ legend { color: var(--muted); padding: 0 4px; }
 .mode-opt small { color: var(--muted); font-size: 13px; }
 .help th { text-align: left; color: var(--muted); font-weight: 600; }
 .intro { padding-left: 18px; line-height: 1.6; }
+/* ☰ → Loggbok: the history, scrolled to the newest line. */
+.logbook { max-height: 55vh; overflow-y: auto; margin: 0 0 12px; padding: 6px 8px; background: rgba(0, 0, 0, 0.25); border-radius: 6px; font-size: 12px; }
 .error-report { width: 100%; box-sizing: border-box; margin: 0 0 12px; font: 12px/1.4 ui-monospace, monospace; color: var(--muted); background: rgba(0, 0, 0, 0.3); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px; resize: vertical; }
 .inst-value.trim-heavy, .inst-value.trim-light { color: var(--warn); }
 /* ------------------------------------------------------------ views */
@@ -388,7 +379,7 @@ body.cutaway #log { display: none; }
   .inst-value.big { font-size: 17px; }
   body.inst-open #top-center { display: none; }
 
-  /* The views and the console behind one button; the view in use shows on the screen itself. */
+  /* The views, the chart and the sonar behind one button; the view in use shows on the screen itself. */
   .mode { display: none; }
   #view-btns { top: calc(max(8px, env(safe-area-inset-top)) + 46px); right: max(8px, env(safe-area-inset-right)); gap: 4px; align-items: flex-end; }
   #view-btns:not(.open) button:not(.views-menu) { display: none; }
@@ -545,6 +536,13 @@ body.cutaway #log { display: none; }
 }
 .fire-tube.loaded { border-color: var(--ok); color: var(--ok); }
 .fire-tube.loading { border-color: var(--warn); color: var(--warn); }
+/* Tubes and targets are small buttons: a loaded tube fires on a tap, a target label chooses that target. */
+.fire-row .fire-tube, .fire-row .fire-target { height: 28px; background: transparent; cursor: pointer; }
+.fire-row .fire-tube:disabled { cursor: default; opacity: 1; }
+.fire-row .fire-tube.loaded:not(:disabled):hover { background: rgba(107, 227, 161, 0.15); }
+.fire-row .fire-target { min-width: 34px; padding: 0 6px; font-size: 12px; color: var(--muted); }
+.fire-row .fire-target.on { color: var(--accent); border-color: var(--accent); }
+.fire-targets[hidden] { display: none; }
 .fire-store { color: var(--muted); font-size: 12px; margin-left: auto; }
 /* Phones: one low strip above the screen controls; the solution on top, the buttons and the tubes side by side. */
 @media (max-width: 760px), (max-height: 500px) {
@@ -558,6 +556,8 @@ body.cutaway #log { display: none; }
   .fire-tubes { flex-wrap: nowrap; gap: 4px; }
   .fire-tubes .fire-label { display: none; }
   .fire-tube { min-width: 26px; padding: 2px 2px; }
+  .fire-row .fire-tube, .fire-row .fire-target { height: 26px; }
+  .fire-targets { grid-column: 1 / -1; }
 }
 @media (max-width: 420px) {
   .fire-store { display: none; }
@@ -592,15 +592,20 @@ body.nav-open #fire { z-index: 5; }
 @media (min-width: 1180px) and (min-height: 501px) {
   body.nav-open #top-center { left: 340px; right: calc(64px + min(400px, 100% - 90px) + 12px); width: auto; min-width: 0; transform: none; }
 }
-/* No background: the lines float over the view with a shadow, and fade away. */
+/*
+ * Always shown, small: a half-transparent window with the live lines. It
+ * fades out with the last line (.idle), so nothing lies over the view while
+ * nothing happens, and takes no taps then.
+ */
 #log {
   position: static; width: auto; display: flex; flex-direction: column; gap: 2px;
-  background: transparent; border-color: transparent; backdrop-filter: none; padding: 0;
-  pointer-events: auto; cursor: pointer;
+  background: rgba(4, 16, 24, 0.42); border-color: transparent; backdrop-filter: blur(3px); padding: 3px 8px;
+  pointer-events: auto; cursor: pointer; transition: opacity 0.6s ease;
 }
-#log .log-entry { line-height: 1.4; text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, 0.9); transition: opacity 1s ease; }
+#log.idle:not(.expanded) { opacity: 0; pointer-events: none; }
+#log .log-entry { line-height: 1.4; text-shadow: 0 1px 2px #000; transition: opacity 0.8s ease; }
 #log .log-entry.error { color: #ff8a8a; font-weight: 700; }
-#log .log-entry.error.fading { transition-duration: 2s; }
+#log .log-entry.error.fading { transition-duration: 1.5s; }
 #log .log-entry.fading { opacity: 0; }
 #log:not(.expanded) .log-entry:not(.live) { display: none; }
 #log:not(.expanded) .log-entry.live { animation: log-in 0.25s ease-out; }
@@ -610,8 +615,6 @@ body.nav-open #fire { z-index: 5; }
   padding: 8px 10px; max-height: 45vh; overflow-y: auto;
 }
 #log.expanded .log-entry { opacity: 1; text-shadow: none; }
-/* Hidden (setting, Logg, L): only new errors. */
-body.log-hidden #log:not(.expanded) .log-entry:not(.error) { display: none; }
 @media (max-width: 760px), (max-height: 500px) {
   #top-center {
     top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px;
@@ -630,12 +633,3 @@ body.log-hidden #log:not(.expanded) .log-entry:not(.error) { display: none; }
 /* Floating over the sky and the sea, the grey information text would be faint. */
 #log:not(.expanded) .log-entry.info { color: #dbe9f0; }
 
-/* Log and console together: the history panel and the input line under it, as one box. */
-#top-center > #console { position: static; transform: none; width: auto; margin-top: -6px; border-top-left-radius: 0; border-top-right-radius: 0; }
-body.console-open #log.expanded { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-color: var(--warn); border-bottom-color: transparent; }
-#log-open {
-  align-self: center; pointer-events: auto; cursor: pointer; font: inherit; font-size: 11px; color: var(--muted);
-  background: rgba(4, 16, 24, 0.45); border: 1px solid var(--panel-border); border-radius: 10px; padding: 2px 10px; opacity: 0.75;
-}
-#log-open:hover { opacity: 1; color: var(--text); }
-body.console-open #log-open { display: none; }

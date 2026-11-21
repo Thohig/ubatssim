@@ -1,5 +1,6 @@
 /**
- * Swedish command parser for the command console.
+ * Swedish command parser. The game has no console any more: the tests give
+ * orders with it (`djup 120`, `roder sb 10` …).
  *
  * Examples: "djup 120", "kurs 270", "fart 8 knop", "roder sb 15",
  * "djuproder ned 10", "fyll huvudballast", "blås hb akter",

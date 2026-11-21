@@ -5,11 +5,9 @@ import { LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH, telegraphStep } from '../src/con
 import { LIMITS } from '../src/control/parser';
 import { SCENARIOS } from '../src/control/scenarios';
 import { Simulation, type InitialConditions } from '../src/sim/simulation';
-import { bindConsole } from '../src/ui/console';
 import { BAND_HALF_WIDTH, bandBearing, bandFraction, createHelm, depthToFraction, fractionToDepth, gaugeAngle, telegraphIndex, type HelmContext } from '../src/ui/helm';
 import { bindLog, bindLogToggle, lineLife, LIVE_LINES } from '../src/ui/log';
 import { statusFields } from '../src/ui/statusBar';
-import { InputModeState } from '../src/ui/inputMode';
 import { bindKeyboard } from '../src/ui/keyboard';
 import { repeatDelay, REPEAT_FASTEST, REPEAT_FIRST } from '../src/ui/button';
 import { PERISCOPE_BUTTON_DEPTH, ViewState, bindViewButtons } from '../src/ui/views';
@@ -28,7 +26,7 @@ function helm(c: Controller, waypoint: [number, number] | null = null) {
   const root = document.createElement('div');
   document.body.append(root);
   const ctx: HelmContext = { ctrl: c, waypoint };
-  const update = createHelm(root, () => ctx, new InputModeState());
+  const update = createHelm(root, () => ctx);
   const refresh = () => update(c.sim.telemetry(), ctx);
   refresh();
   return { root, refresh };
@@ -310,31 +308,11 @@ describe('panels', () => {
   });
 });
 
-describe('the console and the keys', () => {
-  it('the console opens for everyone, and a console order takes its system over', () => {
-    const form = document.createElement('form');
-    const input = document.createElement('input');
-    form.append(input);
-    document.body.append(form);
-    const mode = new InputModeState();
-    const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
-    const open = bindConsole(form, input, () => c, mode);
-    open();
-    expect(mode.current).toBe('console');
-    input.value = 'roder sb 10';
-    form.dispatchEvent(new Event('submit', { cancelable: true }));
-    c.step();
-    expect(c.ap.heading).toBe(false);
-    expect(c.manual.rudder).toBe(10);
-  });
-
+describe('the keys', () => {
   it('the arrows follow Auto/Hand; Shift moves the telegraph, or the shaft speed on hand', () => {
     const c = crewGame({ depth: 30, designTrim: true, speed: 3 * KN });
-    let opened = 0;
-    bindKeyboard(() => c, new InputModeState(), () => opened++, new ViewState());
+    bindKeyboard(() => c, new ViewState());
     const key = (k: string, shiftKey = false) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, shiftKey }));
-    key('Enter');
-    expect(opened).toBe(1);
     key('ArrowDown', true); // 3 knots → Stopp
     c.step();
     expect(c.setpoints.speed).toBe(0);
@@ -508,35 +486,7 @@ describe('the phone layout', () => {
   });
 });
 
-describe('hiding the log book', () => {
-  it('the setting is shown by default, kept, and read back', async () => {
-    const { loadSettings, saveSettings, DEFAULT_SETTINGS } = await import('../src/ui/settings');
-    localStorage.clear();
-    expect(loadSettings().showLog).toBe(true);
-    saveSettings({ ...DEFAULT_SETTINGS, showLog: false });
-    expect(loadSettings().showLog).toBe(false);
-    localStorage.clear();
-  });
-
-  it('"Logg" shows or hides the log book and lights while it is shown', () => {
-    const root = document.createElement('div');
-    let shown = true;
-    const c = crewGame({ depth: 30, designTrim: true });
-    const update = bindViewButtons(root, () => c, new ViewState(), { shown: () => shown, toggle: () => (shown = !shown) });
-    update(c);
-    const btn = root.querySelector<HTMLButtonElement>('[data-v="log"]')!;
-    expect(btn.hidden).toBe(false);
-    expect(btn.classList.contains('on')).toBe(true);
-    btn.click();
-    expect(shown).toBe(false);
-    expect(btn.classList.contains('on')).toBe(false);
-    expect(btn.getAttribute('aria-pressed')).toBe('false');
-    // Changed elsewhere (settings, L): the next update follows.
-    shown = true;
-    update(c);
-    expect(btn.classList.contains('on')).toBe(true);
-  });
-
+describe('the panels', () => {
   it('the panels keep their rows of controls: only the row of panel buttons is phone-hidden', () => {
     const { root } = helm(crewGame());
     expect(root.querySelectorAll('.helm-panel-btns').length).toBe(1);
@@ -558,7 +508,7 @@ describe('chart, sonar and the El panel', () => {
     const root = document.createElement('div');
     let mode: 'chart' | 'sonar' | null = null;
     const c = crewGame({ depth: 30, designTrim: true });
-    const update = bindViewButtons(root, () => c, new ViewState(), undefined, {
+    const update = bindViewButtons(root, () => c, new ViewState(), {
       mode: () => mode,
       toggle: (m) => (mode = mode === m ? null : m),
     });
@@ -636,6 +586,47 @@ describe('the fire control panel', () => {
     expect(fire.disabled).toBe(false);
     expect(root.querySelectorAll('.fire-tube.loaded')).toHaveLength(4);
   });
+
+  it('a second target shows a row to choose between them; a tap on a tube fires that tube', async () => {
+    const { createFirePanel } = await import('../src/ui/firePanel');
+    const { freighter } = await import('../src/control/areas');
+    const c = crewGame({ depth: 13, neutral: true, heading: 0, area: 'atlantic' });
+    c.world.add([
+      { ...freighter('a', 'första', [[3000, 0], [3000, 1]]), speed: 0 },
+      { ...freighter('b', 'andra', [[2500, 1500], [2500, 1501]]), speed: 0 },
+    ]);
+    c.submit({ kind: 'periscope', up: true }, 'keyboard');
+    for (let i = 0; i < 1000; i++) c.step();
+    const root = document.createElement('div');
+    const views = new ViewState();
+    views.set('periscope');
+    const update = createFirePanel(root, () => c, views);
+    const bearingTo = (n: number, e: number) => (Math.atan2(e - c.sim.y[1]!, n - c.sim.y[0]!) * 180) / Math.PI;
+    c.submit({ kind: 'markTarget', bearing: bearingTo(3000, 0) }, 'keyboard');
+    c.step();
+    update(c);
+    expect(root.querySelector<HTMLElement>('.fire-targets')!.hidden).toBe(true);
+    c.submit({ kind: 'markTarget', bearing: bearingTo(2500, 1500) }, 'keyboard');
+    c.step();
+    update(c);
+    const row = root.querySelector<HTMLElement>('.fire-targets')!;
+    expect(row.hidden).toBe(false);
+    expect(row.querySelector('.fire-target.on')!.textContent).toBe('M2');
+    row.querySelector<HTMLButtonElement>('[data-label="M1"]')!.click();
+    c.step();
+    update(c);
+    expect(c.fire.current).toBe('M1');
+    expect(row.querySelector('.fire-target.on')!.textContent).toBe('M1');
+    // With a solution (the crew's fire controller ranges too) tube 3 fires and empties.
+    c.submit({ kind: 'rangeTarget', bearing: bearingTo(3000, 0) }, 'keyboard');
+    c.step();
+    update(c);
+    const tube3 = byTitle(root, 'Skjut från tub 3');
+    expect(tube3.disabled).toBe(false);
+    tube3.click();
+    c.step();
+    expect(c.fire.tubes.map((t) => t.loaded)).toEqual([true, true, false, true]);
+  });
 });
 
 describe('the log book', () => {
@@ -644,39 +635,37 @@ describe('the log book', () => {
   });
 
   it('lines live longer for warnings and long texts', () => {
-    expect(lineLife('ack', 'Djup 120, ja').show).toBe(4);
-    expect(lineLife('info', 'Kort.').show).toBe(6);
-    expect(lineLife('error', 'Grundstötning!').show).toBe(10);
+    expect(lineLife('ack', 'Djup 120, ja').show).toBe(2.5);
+    expect(lineLife('info', 'Kort.').show).toBe(4);
+    expect(lineLife('error', 'Grundstötning!').show).toBe(6);
     expect(lineLife('error', 'x').fade).toBeGreaterThan(lineLife('info', 'x').fade);
     expect(lineLife('info', 'x'.repeat(160)).show).toBeGreaterThan(lineLife('info', 'x').show);
   });
 
-  it('at most three lines show; each fades and goes after its time', () => {
+  it('at most two lines show; each fades and goes after its time, and the window with the last one', () => {
     vi.useFakeTimers();
     const el = document.createElement('div');
-    const c = crewGame();
+    const c = new Controller(new Simulation({ depth: 30, designTrim: true }));
     bindLog(el, c);
+    expect(el.classList.contains('idle')).toBe(true);
     for (let i = 0; i < 5; i++) c.addLog(`Rad ${i}`, 'ack');
     c.addLog('Varning!', 'error');
+    expect(el.classList.contains('idle')).toBe(false);
     const live = () => [...el.querySelectorAll('.log-entry.live')].map((x) => x.textContent!.replace(/^\[.*?\]/, ''));
-    expect(live()).toHaveLength(LIVE_LINES);
-    expect(live().at(-1)).toBe('Varning!');
-    vi.advanceTimersByTime(4000);
-    expect(el.querySelectorAll('.log-entry.fading')).toHaveLength(2);
-    vi.advanceTimersByTime(1000);
+    expect(LIVE_LINES).toBe(2);
+    expect(live()).toEqual(['Rad 4', 'Varning!']);
+    vi.advanceTimersByTime(2600);
+    expect(el.querySelectorAll('.log-entry.fading')).toHaveLength(1);
+    vi.advanceTimersByTime(800);
     expect(live()).toEqual(['Varning!']);
-    vi.advanceTimersByTime(7000);
+    expect(el.classList.contains('idle')).toBe(false);
+    // The error fades after 6 s: the window starts fading with it.
+    vi.advanceTimersByTime(2700);
+    expect(el.classList.contains('idle')).toBe(true);
+    vi.advanceTimersByTime(1600);
     expect(live()).toEqual([]);
     // The history keeps them.
-    expect(el.querySelectorAll('.log-entry').length).toBeGreaterThan(5);
-  });
-
-  it('with the console bound, a tap on the log opens the console', () => {
-    const el = document.createElement('div');
-    let opened = 0;
-    bindLogToggle(el, () => opened++);
-    el.click();
-    expect(opened).toBe(1);
+    expect(el.querySelectorAll('.log-entry').length).toBe(6);
   });
 
   it('a tap shows the history and another folds it; a new game folds it too', () => {
