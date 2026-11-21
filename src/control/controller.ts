@@ -111,6 +111,12 @@ const TAKEN_OVER: Partial<Record<CrewSystem, string>> = {
   trim: 'Trimassistenten avlöst. Du sköter trimmet nu.',
 };
 
+/** Logged when an ordinary order shifts the speed: [to the crew, to the player]. */
+export const SPEED_DUTY: [string, string] = [
+  'Besättningen sköter farten nu: maskinen följer telegrafen.',
+  'Du sköter farten nu: du styr propellervarvet. Telegrafen lämnar farten till besättningen.',
+];
+
 /** Awareness every corvette gains when the boat catches a trawl (the trawler radios it in). */
 const TRAWL_ALERT = 0.4;
 
@@ -280,9 +286,12 @@ export class Controller {
         this.addLog(refused, 'error', source);
         continue;
       }
+      const crewSpeed = this.ap.speed;
       this.apply(order);
       this.addLog(acknowledgement(order), 'ack', source);
       for (const line of this.afterAck.splice(0)) this.addLog(line, 'info');
+      // The telegraph hands the speed to the crew and the shaft orders take it: said, as it is easy to miss.
+      if (source !== 'assist' && order.kind !== 'crew' && this.ap.speed !== crewSpeed) this.addLog(SPEED_DUTY[this.ap.speed ? 0 : 1], 'info');
       if (source !== 'assist') this.applyEffects(order);
     }
     const sim = this.sim;

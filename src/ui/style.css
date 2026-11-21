@@ -332,6 +332,7 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-panel-role { color: var(--muted); font-size: 12px; }
 .helm-panel-body { display: flex; flex-direction: column; gap: 6px; }
 .helm-panel-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.helm-panel-row[hidden] { display: none; }
 .helm-panel-label { color: var(--muted); min-width: 76px; font-size: 12px; }
 .helm-panel-value { font-variant-numeric: tabular-nums; }
 .helm-panel .touch-btn.helm-small { height: 32px; min-width: 52px; }

@@ -277,23 +277,36 @@ function speedPanel(tapButton: TapButton): PanelView {
       const next = Math.max(-LIMITS.maxRpmAstern, Math.min(LIMITS.maxRpm, now + delta));
       c.submit({ kind: 'setRpm', rpm: next }, 'touch');
     });
+  const goalRow = h(
+    'div',
+    { class: 'helm-panel-row helm-speed-goal' },
+    h('span', { class: 'helm-panel-label' }, 'Fartmål'),
+    tapButton('−1 knop', 'Fartmål 1 knop lägre', (c) => c.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'touch')),
+    tapButton('+1 knop', 'Fartmål 1 knop högre', (c) => c.submit({ kind: 'adjustSpeed', deltaKnots: 1 }, 'touch')),
+  );
+  // "0 rpm", not "Stopp": the telegraph's Stopp takes the way off and leaves the speed to the crew.
+  const rpmRow = h(
+    'div',
+    { class: 'helm-panel-row helm-speed-rpm' },
+    h('span', { class: 'helm-panel-label' }, 'Varv'),
+    rpmStep(-10),
+    rpmStep(10),
+    tapButton('0 rpm', 'Propellervarv 0', (c) => c.submit({ kind: 'setRpm', rpm: 0 }, 'touch')),
+  );
   const el = h(
     'div',
     { class: 'helm-panel-body', hidden: true },
     h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Fart'), speed),
     h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Varv'), rpm),
-    h(
-      'div',
-      { class: 'helm-panel-row' },
-      h('span', { class: 'helm-panel-label' }, 'Fartmål'),
-      tapButton('−1 knop', 'Fartmål 1 knop lägre', (c) => c.submit({ kind: 'adjustSpeed', deltaKnots: -1 }, 'touch')),
-      tapButton('+1 knop', 'Fartmål 1 knop högre', (c) => c.submit({ kind: 'adjustSpeed', deltaKnots: 1 }, 'touch')),
-    ),
-    h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Varv'), rpmStep(-10), rpmStep(10), tapButton('Stopp', 'Propellervarv 0', (c) => c.submit({ kind: 'setRpm', rpm: 0 }, 'touch'))),
+    goalRow,
+    rpmRow,
   );
   return {
     el,
-    update(t: Telemetry) {
+    update(t: Telemetry, c: Controller) {
+      // Only the controls of whoever handles the speed: no button hands it over unseen (Ta över does).
+      goalRow.hidden = !c.ap.speed;
+      rpmRow.hidden = c.ap.speed;
       const kn = (t.u * 3600) / 1852;
       setText(speed, kn < -0.05 ? `back ${fmt(-kn)} knop` : `${fmt(Math.max(0, kn))} knop`);
       setText(rpm, `${Math.round(t.rps * 60)} rpm (order ${Math.round(t.rpsCmd * 60)}) · ${Math.round(t.shaftPower / 1000)} kW`);

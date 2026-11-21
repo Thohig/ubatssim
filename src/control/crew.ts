@@ -59,8 +59,8 @@ export const CREW_NAME: Record<CrewSystem, string> = {
 export const CREW_ROLE: Record<CrewSystem, [string, string]> = {
   depth: ['Djupstyraren håller djupmålet (Auto).', 'Du styr djuprodret (Hand).'],
   heading: ['Rorsmannen håller kursmålet (Auto).', 'Du styr rodret (Hand).'],
-  speed: ['Maskinen följer telegrafen.', 'Du styr propellervarvet.'],
-  ballast: ['Besättningen sköter ballasten och bryggan.', 'Du fyller, blåser och stänger huvudballasten och klarar bryggan.'],
+  speed: ['Maskinen följer telegrafen.', 'Du styr propellervarvet. Telegrafen lämnar farten till besättningen.'],
+  ballast: ['Fyller och blåser huvudballasten efter djupmålet och klarar bryggan vid dykning.', 'Du fyller, blåser och stänger huvudballasten och klarar bryggan.'],
   trim: ['Trimassistenten kompenserar och trimmar.', 'Du kompenserar och trimmar.'],
   charging: ['Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge.', 'Du startar och stoppar dieslarna.'],
   fireControl: ['Eldledaren mäter avståndet till målet genom periskopet och ger råd om kursbyten.', 'Du mäter avståndet själv (Avst i periskopet).'],

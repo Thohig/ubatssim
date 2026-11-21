@@ -35,7 +35,7 @@
  * controls and updates them.
  */
 import type { Controller } from '../../control/controller';
-import { CREW_NAME, CREW_ROLE, HELM_MAX_DEPTH, LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH } from '../../control/crew';
+import { CREW_NAME, CREW_NOUN, CREW_ROLE, HELM_MAX_DEPTH, LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH } from '../../control/crew';
 import { LIMITS } from '../../control/parser';
 import type { Telemetry } from '../../sim/simulation';
 import { h } from '../dom';
@@ -291,7 +291,9 @@ export function createHelm(
     });
     return { p, el };
   });
-  const panelRole = h('span', { class: 'helm-panel-role' });
+  const panelOwner = h('b', { class: 'helm-panel-owner' });
+  const panelRoleText = h('span');
+  const panelRole = h('span', { class: 'helm-panel-role' }, panelOwner, ' ', panelRoleText);
   const panelToggle = tapButton('', '', (c) => {
     if (!open) return;
     const sys = PANEL_SYSTEM[open];
@@ -400,7 +402,9 @@ export function createHelm(
       const sys = PANEL_SYSTEM[open];
       const crew = c.duty(sys);
       const lock = c.options.locks[sys];
-      setText(panelRole, lock === undefined ? CREW_ROLE[sys][crew ? 0 : 1] : LOCK_TEXT[sys][lock ? 0 : 1]);
+      // Who handles it first, then what that means (a locked system: why it cannot change).
+      setText(panelOwner, `${crew ? 'Besättningen' : 'Du'} sköter ${CREW_NOUN[sys]}.`);
+      setText(panelRoleText, lock === undefined ? CREW_ROLE[sys][crew ? 0 : 1] : LOCK_TEXT[sys][lock ? 0 : 1]);
       setText(panelToggle, crew ? 'Ta över' : 'Lämna till besättningen');
       setTitle(panelToggle, crew ? `Du tar över: ${CREW_NAME[sys].toLowerCase()}` : `Besättningen tar över: ${CREW_NAME[sys].toLowerCase()}`);
       panelToggle.hidden = lock !== undefined;

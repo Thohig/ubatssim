@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASCENT } from '../../src/control/ascent';
+import { ASCENT, STILL_HINT } from '../../src/control/ascent';
 import { Controller } from '../../src/control/controller';
 import type { Order } from '../../src/control/orders';
 import { Simulation, type InitialConditions } from '../../src/sim/simulation';
@@ -162,6 +162,30 @@ describe('no speed', () => {
     expect(c.hovering).toBe(true);
     expect(c.sim.y[2]!).toBeLessThan(195);
     expect(logged(c, /djuprodren biter inte/)).toBe(true);
+  });
+
+  it('the player handles the speed, little way on at 200 m, Per.djup: said at once; the telegraph and Per.djup again take it up', () => {
+    const { c, send, run } = start({ depth: 200, speed: 2 * KN, neutral: true }, false);
+    run(5);
+    send({ kind: 'setDepth', depth: 13 });
+    run(1);
+    expect(c.ascent.active).toBe(false);
+    expect(c.log.some((e) => e.text === STILL_HINT)).toBe(true);
+    send({ kind: 'setSpeed', knots: 0 });
+    send({ kind: 'setDepth', depth: 13 });
+    run(1);
+    expect(c.ascent.phase).toBe('rise');
+    run(90);
+    expect(c.sim.y[2]!).toBeLessThan(185);
+  });
+
+  it('stopped and hovering: only the hover\'s own word, not the hint as well', () => {
+    const { c, send, run } = start({ depth: 200, speed: 0, neutral: true }, false);
+    run(20);
+    send({ kind: 'setDepth', depth: 13 });
+    run(2);
+    expect(c.hovering).toBe(true);
+    expect(c.log.some((e) => e.text === STILL_HINT)).toBe(false);
   });
 
   it('the compensating pump is slower out against the sea pressure, faster in', () => {

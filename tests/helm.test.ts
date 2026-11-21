@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Controller } from '../src/control/controller';
+import { Controller, SPEED_DUTY } from '../src/control/controller';
 import { LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH, telegraphStep } from '../src/control/crew';
 import { LIMITS } from '../src/control/parser';
 import { SCENARIOS } from '../src/control/scenarios';
@@ -279,6 +279,47 @@ describe('panels', () => {
     press(handBack);
     c.step();
     expect(c.options.crew.trim).toBe(true);
+  });
+
+  it('the speed panel says who handles the speed and shows only that one\'s controls', () => {
+    const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
+    const { root, refresh } = helm(c);
+    openPanel(root, 'Fart');
+    refresh();
+    const panel = root.querySelector<HTMLElement>('.helm-panel')!;
+    const goal = panel.querySelector<HTMLElement>('.helm-speed-goal')!;
+    const rpm = panel.querySelector<HTMLElement>('.helm-speed-rpm')!;
+    expect(panel.querySelector('.helm-panel-owner')!.textContent).toBe('Besättningen sköter farten.');
+    expect(goal.hidden).toBe(false);
+    expect(rpm.hidden).toBe(true);
+    const takeOver = [...panel.querySelectorAll('button')].find((b) => b.textContent === 'Ta över')!;
+    press(takeOver);
+    c.step();
+    refresh();
+    expect(c.ap.speed).toBe(false);
+    expect(panel.querySelector('.helm-panel-owner')!.textContent).toBe('Du sköter farten.');
+    expect(panel.textContent).toMatch(/Telegrafen lämnar farten till besättningen/);
+    expect(goal.hidden).toBe(true);
+    expect(rpm.hidden).toBe(false);
+    expect([...rpm.querySelectorAll('button')].map((b) => b.textContent)).toContain('0 rpm');
+    expect([...rpm.querySelectorAll('button')].map((b) => b.textContent)).not.toContain('Stopp');
+  });
+
+  it('an ordinary order that shifts the speed says so; Ta över and the crew\'s own orders do not', () => {
+    const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
+    const count = (i: 0 | 1) => c.log.filter((e) => e.text === SPEED_DUTY[i]).length;
+    c.submit({ kind: 'setRpm', rpm: 0 }, 'touch');
+    c.step();
+    expect(count(1)).toBe(1);
+    c.submit({ kind: 'setRpm', rpm: 30 }, 'touch');
+    c.step();
+    expect(count(1)).toBe(1);
+    c.submit({ kind: 'setSpeed', knots: 0 }, 'touch');
+    c.step();
+    expect(count(0)).toBe(1);
+    c.submit({ kind: 'crew', system: 'speed', crew: false }, 'touch');
+    c.step();
+    expect(count(1)).toBe(1);
   });
 
   it('the ballast panel floods per tank and clears the bridge', () => {

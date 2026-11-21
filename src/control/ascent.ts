@@ -23,6 +23,7 @@ import { DT } from '../sim/simulation';
 import type { Controller } from './controller';
 
 const DEG = Math.PI / 180;
+const KNOT = 1852 / 3600;
 export const ASCENT = {
   levelDepth: 35,
   /** Starts only from deeper than this (else the boat simply goes up). */
@@ -40,7 +41,10 @@ export const ASCENT = {
   settle: 20,
 } as const;
 
-export type AscentPhase = 'rise' | 'listen' | 'hold' | 'final';
+/** Logged when a shallow target is ordered deep down without way on and the player handling the speed. */
+export const STILL_HINT = `Du sköter farten, och utan fart lyfter djuprodren inte ubåten. Tryck på telegrafen, så tar besättningen farten, och ge djupmålet igen: då stiger den i ${ASCENT.riseSpeed} knop.`;
+
+export type AscentPhase ='rise' | 'listen' | 'hold' | 'final';
 
 export class Ascent {
   phase: AscentPhase | null = null;
@@ -84,6 +88,12 @@ export class Ascent {
     const target = c.setpoints.depth;
     if (!c.ap.speed || target >= ASCENT.levelDepth) {
       this.end(false);
+      // The player handles the speed and the boat has little way on deep down: say at once why it does not
+      // come up (a boat the crew hovers says so itself, hover.ts).
+      if (!c.ap.speed && target < ASCENT.levelDepth && !c.assist.hover.wanted()) {
+        const k = c.sim.kinematics();
+        if (k.depth > ASCENT.startBelow && k.u < ASCENT.listenSpeed * KNOT) c.afterAck.push(STILL_HINT);
+      }
       return;
     }
     // Already on the way: a new shallow target during the listening (or the hold) goes straight up.
