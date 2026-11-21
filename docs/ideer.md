@@ -57,17 +57,15 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 
 ## Från provspelningen (november 2026)
 
-Rättat: pendlingen kring periskopdjupet efter en stigning (djupslingan och trimassistenten), nödblåsning och ytläge från djupet som tippade fören ned 40–60° (nu för först), eldledningens råd och bäringar som försvann efter tio minuter, upprepad "Grundstötning!", surfplattor på höjden och eldledningspanelen över genomskärningens rumsinformation. Kvar:
+Allt som provspelningen hittade är rättat:
 
-| Fynd | Innehåll |
-|---|---|
-| **Grundstötning i fart** | Skyddsnätet begränsar bara djupmålet. I 8 knop mot en brant strand kom begränsningen 29 m över botten, ubåten steg för långsamt och gick på grund. Efteråt kör besättningen vidare in i land i flera minuter. Förslag: besättningen slår Stopp vid grundstötning, och skyddsnätet varnar för stigande botten i färdriktningen i tid efter farten. |
-| **Lätt efter dykning** | Från ytläge i 8 knop är ubåten ~9 t lätt på 15 m och ~3 t lätt på 50–80 m (luft kvar i huvudballasten). Assistenten tar 200 l var ~45:e s, så det tar många minuter. |
-| **Snorkling tar tid** | 25 → 30 % tar ~17 min i 4 knop. Rätt fysik, men långt för ett scenario: lägre mål (28 %) eller ett tips om tidskomprimering. |
-| **Konvojen är lätt** | Eskorten hörde avfyrningen men tappade ubåten som gick ned i 8 knop, och anföll aldrig. Klart på ~8 min. |
-| **Munk-momentet** | `hullDamping` räknar stampmomentet som M′w·U·w. Munk-momentet är ∝ u·w: det försvinner när ubåten stiger rakt upp utan fart och byter tecken akterut. Att byta U mot u ändrade lite vid nödblåsning (stegvis blåsning var det som hjälpte), men är riktigare. Kräver ny determinismreferens och kontroll av Back. |
-| **Sjökortet på mellanstora skärmar** | 1024×700: sjökortet täcker målrutan och loggen, och periskopets rubrikrad ligger under instrumentpanelen. På dator täcker sjökortet slutet av periskopets rubrikrad. |
-| **Liggande telefon, periskop** | Eldledningspanelen överlappar målrutan när den är utfälld (vid varje nytt mål). |
-| **Fast i vattenytan** | En spelare som sköter ballasten och stänger ventilerna vid ~97 % kan bli liggande på ~3 m i 4 knop med 5° djuproder i över 20 minuter: lite luft i tankarna och tornets vattenlinje håller ubåten kvar. Samma insats dyker ibland till 35 m, så läget är bistabilt. Förslag: tipset i Första dykningen säger "stäng vid 100 %" och "10° ned", eller en påminnelse när ubåten ligger kvar i ytan med fart och djuproder ned. |
-| **Jagad: slut på bomber** | Genomgången säger "klara dig tills den tappar dig eller har slut på sjunkbomber", men målet kräver också att korvetten inte längre hör ubåten. En spelare som stannar på 60 m i 4 knop klarar alla bomber (de hamnar 100–120 m bort) men misslyckas när tiden tar slut. Antingen räknas en korvett utan bomber som avskakad, eller så ändras texten. (Testet "grunt och fort misslyckas" bygger på det nuvarande villkoret.) |
-| **Småsaker** | Skyddsnätet skriver "djupet begränsas till 1 m" i ytläge (Genom sundet). Första dykningen: målet säger 5 knop men tipset Sakta fram ger 4 (kontrollen är 3). Simuleringen fortsätter bakom resultatskärmen. |
+- **Djup:** pendlingen kring periskopdjupet efter en stigning (djupslingan och trimassistenten).
+- **Ytläge och nödblåsning:** fören ned 40–60° från djupet; nu blåses för först. Stampmomentet från anfallsvinkeln räknas med u·w.
+- **Eldledning:** råden, och bäringarna som försvann efter tio minuter.
+- **Korvetter:** den som växlade fram och tillbaka utan bomber, den som gav upp på väg till en hörd avfyrning (Konvojen var för lätt), och att en korvett utan bomber eller sänkt räknas som avskakad (Jagad, Konvojen).
+- **Skyddsnät:** "grunt förut" efter farten, besättningen saktar in och slår Stopp efter en grundstötning, ingen fartökning nära botten, och "Grundstötning!" högst var 20:e s.
+- **Trim:** större kompenseringar vid fel över ett ton, och en påminnelse när luft i huvudballasten håller ubåten i ytan.
+- **Scenarier:** Snorkling till 28 %, tydligare tips i Första dykningen.
+- **Gränssnitt:** surfplattor på höjden får mobillayouten, mellanstora skärmar och liggande telefon utan överlapp, eldledningspanelen inte i genomskärningen, inget larm när snorkeln sänks.
+
+Simuleringen fortsätter bakom resultatskärmen med avsikt (`GameFlow.simRunning`).

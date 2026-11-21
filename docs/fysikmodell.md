@@ -127,9 +127,10 @@ q̇  = ½ q ⊗ (0, ν₂)
 ```
 X = ½ρL² X′uu u|u|
 Y = ½ρL² Y′v U v + ½ρL³ Y′r U r        N = ½ρL³ N′v U v + ½ρL⁴ N′r U r
-Z = ½ρL² Z′w U w + ½ρL³ Z′q U q        M = ½ρL³ M′w U w + ½ρL⁴ M′q U q
+Z = ½ρL² Z′w U w + ½ρL³ Z′q U q        M = ½ρL³ M′w u w + ½ρL⁴ M′q U q
 K = ½ρL⁴ K′p U p + K_pp p|p|
 ```
+- **Stampmomentet från anfallsvinkeln** (M′w, mest Munk-momentet) räknas med u·w och inte U·w: det försvinner när ubåten stiger rakt upp utan fart och byter tecken akterut. Med U·w fick en ubåt som blåste med lite fart ett moment fören ned hur den än rörde sig.
 - **Tillägg:**
   - tvärströmsmotstånd integrerat längs skrovet (C_D = 0,8)
   - små linjära termer i fysikaliska enheter, så att rörelser dämpas även vid fart noll.

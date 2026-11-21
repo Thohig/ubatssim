@@ -78,7 +78,8 @@ describe('autopilot astern', () => {
     let maxHeading = 0;
     for (let i = 0; i < 200 * 100; i++) {
       c.step();
-      if (i % 100 === 0) maxHeading = Math.max(maxHeading, c.sim.kinematics().heading * DEG);
+      // Signed (−180…180°): a heading a hair west of north is −0.01°, not 359.99°.
+      if (i % 100 === 0) maxHeading = Math.max(maxHeading, ((((c.sim.kinematics().heading * DEG) % 360) + 540) % 360) - 180);
     }
     t = c.sim.telemetry();
     expect(Math.abs(t.heading * DEG - 30)).toBeLessThan(1.5);

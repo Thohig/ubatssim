@@ -60,7 +60,10 @@ export function hullDamping(cfg: SubmarineConfig, hull: HullGeometry, nu: ArrayL
   tau[1] = k * L2 * h.Yv * U * v + k * L3 * h.Yr * U * r + ls.Yv * v;
   tau[2] = k * L2 * h.Zw * U * w + k * L3 * h.Zq * U * q + ls.Zw * w;
   tau[3] = k * L4 * h.Kp * U * p + ls.Kp * p + h.Kpp * p * Math.abs(p);
-  tau[4] = k * L3 * h.Mw * U * w + k * L4 * h.Mq * U * q + ls.Mq * q;
+  // The pitch moment from the angle of attack (mostly the Munk moment) goes with u·w, not U·w: it vanishes
+  // for a boat rising straight up without way, and changes sign astern. With U·w a boat blowing its
+  // ballast with little way pitched bow down however it moved.
+  tau[4] = k * L3 * h.Mw * u * w + k * L4 * h.Mq * U * q + ls.Mq * q;
   tau[5] = k * L3 * h.Nv * U * v + k * L4 * h.Nr * U * r + ls.Nr * r;
 
   // Cross-flow drag integrated along the hull [F21 §6.4].
