@@ -15,6 +15,7 @@ import { CHARGE_STOP, PlantWatch } from './plantWatch';
 import { HOVER } from './hover';
 import { TrimAssist } from './trimAssist';
 import { Radar } from './radar';
+import { Lookouts } from './lookouts';
 import { WireGuidance } from './wire';
 import { Sonar } from './sonar';
 import { FireControl } from './fireControl';
@@ -106,6 +107,9 @@ const TAKEN_OVER: Partial<Record<CrewSystem, string>> = {
   trim: 'Trimassistenten avlöst. Du sköter trimmet nu.',
 };
 
+/** Awareness every corvette gains when the boat catches a trawl (the trawler radios it in). */
+const TRAWL_ALERT = 0.4;
+
 export class Controller {
   readonly queue = new OrderQueue();
   readonly autopilot = new Autopilot();
@@ -120,6 +124,8 @@ export class Controller {
   readonly wire: WireGuidance = new WireGuidance(this);
   /** The radar and the radar warning receiver on the radar mast. */
   readonly radar: Radar = new Radar(this);
+  /** Patrol aircraft and coastal radar stations looking for the boat (lookouts.ts). */
+  readonly lookouts: Lookouts = new Lookouts(this);
   /** Logs what the plant does on its own (plantWatch.ts). */
   readonly plant: PlantWatch = new PlantWatch(this);
   /** Torpedoes fired and hits this game (for the result). */
@@ -345,6 +351,7 @@ export class Controller {
     this.hunter.update();
     this.fire.update(DT);
     this.radar.update(DT);
+    this.lookouts.update();
     this.wire.update(DT);
 
     if (this.shutVentsWhenFull) {
@@ -470,6 +477,9 @@ export class Controller {
     }
   }
 
+  /** The speed target when the boat caught a trawl, to go back to once free (the crew backing out). */
+  private speedBeforeSnag: number | null = null;
+
   /** Torpedo hits, ships sinking and depth charges, for the log; a launch is heard by the corvettes. */
   private watchWorld(): void {
     for (const e of this.world.drainEvents()) {
@@ -481,6 +491,21 @@ export class Controller {
       } else if (e.kind === 'miss') this.addLog(`Torped ${e.torpedo} missade och har gått ut sin räckvidd.`, 'info');
       else if (e.kind === 'sunk') this.addLog(`${e.vessel[0]!.toUpperCase()}${e.vessel.slice(1)} har sjunkit.`, 'info');
       else if (e.kind === 'drop') this.addLog(`Sjunkbomber i vattnet från ${e.by}!`, 'error');
+      else if (e.kind === 'snagged') {
+        this.addLog(`Vi har fastnat i trålen efter ${e.vessel}! Back i 12 s för att komma loss.`, 'error');
+        // The trawler feels the pull and calls it in on the radio: every corvette about hears of it.
+        for (const v of this.world.vessels) if (v.def.kind === 'patrol' && !v.state.sinking) this.sonar.alert(v.def.id, TRAWL_ALERT);
+        // The crew backs out of it when it handles the speed.
+        if (this.ap.speed) {
+          this.speedBeforeSnag = this.setpoints.speed;
+          this.addLog('Maskin back för att komma loss.', 'info');
+          this.submit({ kind: 'setSpeed', knots: -3 }, 'assist');
+        }
+      } else if (e.kind === 'freed') {
+        this.addLog('Trålen har släppt. Vi är loss.', 'info');
+        if (this.speedBeforeSnag !== null && this.ap.speed && this.setpoints.speed === -3) this.submit({ kind: 'setSpeed', knots: Math.max(0, this.speedBeforeSnag) }, 'assist');
+        this.speedBeforeSnag = null;
+      }
       else if (this.addBlast('charge', e.at) && e.distance < 120) this.addLog(`Sjunkbomb ${Math.round(e.distance)} m från skrovet.`, e.hole > 0 ? 'error' : 'info');
     }
   }

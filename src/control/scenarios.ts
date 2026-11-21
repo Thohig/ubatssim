@@ -5,6 +5,8 @@
  * deterministic and testable without any UI.
  */
 import { ENVIRONMENT } from '../sim/config/environment';
+import { AREAS } from '../sim/config/areas';
+import { canyonAt } from '../sim/terrain';
 import { WEAPONS } from '../sim/config/weapons';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
@@ -13,6 +15,9 @@ import { CREW_NAME, CREW_SYSTEMS, PERISCOPE_DEPTH, type CrewLocks, type CrewSyst
 const PERISCOPE_DEPTH_TEXT = `${PERISCOPE_DEPTH} m`;
 import { AREA_INFO, corvette, freighter, type ConditionsId } from './areas';
 import type { VesselDef } from '../sim/vessel';
+import type { AircraftDef } from '../sim/aircraft';
+import type { CreatureDef } from '../sim/life';
+import type { RadarStation } from './lookouts';
 
 const G = ENVIRONMENT.g;
 const KN = 1852 / 3600;
@@ -79,6 +84,11 @@ export interface Scenario {
   conditions?: ConditionsId;
   /** Other vessels in the scenario (default: none; free play has the area's traffic). */
   traffic?: VesselDef[];
+  /** Whales and fish schools (default: none). */
+  life?: CreatureDef[];
+  /** Patrol aircraft and coastal radar stations (default: none). */
+  aircraft?: AircraftDef[];
+  stations?: RadarStation[];
   /** The scenario fails when a patrol vessel finds the boat (sonar.ts). */
   failWhenDetected?: boolean;
   /** Called once after the traffic is added (e.g. a corvette already hunting). */
@@ -180,6 +190,15 @@ const good = (c: Controller, id: string) => {
   const t = c.fire.targets.find((x) => x.vesselId === id);
   return t?.solution?.quality === 'bra';
 };
+
+/** "Kanjonen": the canyon's centre where the boat starts and where the buoy is (sim/terrain.ts). */
+const CANYON_START = 800;
+const CANYON_END = 4200;
+const SHELF_TERRAIN = AREAS.shelf.terrain;
+const canyonCentre = (east: number): [number, number] => [canyonAt(east, SHELF_TERRAIN.params)!.centre, east];
+/** Two corvettes pinging as they patrol the shelf on either side of the canyon (a sonar barrier). */
+const EGG_A: VesselDef = { ...corvette('eggen', 'korvetten Eggen', [[-650, 1400], [-650, 4600]], 6), group: 'sockeln', activeSonar: true };
+const EGG_B: VesselDef = { ...corvette('banken', 'korvetten Banken', [[750, 4600], [750, 1400]], 6), group: 'sockeln', activeSonar: true };
 
 export const SCENARIOS: Scenario[] = [
   {
@@ -939,6 +958,29 @@ export const SCENARIOS: Scenario[] = [
     failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
     timeLimit: 1500,
   },
+  {
+    id: 'canyon',
+    title: 'Kanjonen',
+    description:
+      'Eggakanten. Två korvetter patrullerar sockeln på var sin sida om en undervattenskanjon och pingar med aktiv sonar. Ta dig genom kanjonen upp till bojen vid dess början. Nere i kanjonen skyddar väggarna dig mot pingarna; uppe på sockeln hittar de dig.',
+    difficulty: 'svår',
+    group: 'navigation',
+    initial: { area: 'shelf', north: canyonCentre(CANYON_START)[0], east: CANYON_START, depth: 220, speed: 5 * KN, neutral: true, heading: 90 * DEG },
+    traffic: [EGG_A, EGG_B],
+    waypoint: canyonCentre(CANYON_END),
+    failWhenDetected: true,
+    objectives: [
+      {
+        text: 'Följ kanjonen till bojen',
+        system: 'heading',
+        hint: 'Håll 200–230 m och följ kanjonens slingor österut på sjökortet. Titta på "Under köl": stiger botten, är du på väg upp mot en vägg. Sakta in när en korvett är nära.',
+        hintCrew: 'Tryck på kompassen eller sjökortet för att styra längs kanjonen österut, och håll djupet 200–230 m. Sakta in när en korvett är nära.',
+        check: (t) => waypointInfo(t, canyonCentre(CANYON_END)).distance < 250,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : t.depth < 8 ? 'Ubåten bröt ytan och syntes från korvetterna.' : null),
+    timeLimit: 2400,
+  },
 ];
 
 export type ScenarioStatus = 'running' | 'completed' | 'failed';
@@ -969,7 +1011,11 @@ export class ScenarioRunner {
     readonly ctrl: Controller,
   ) {
     ctrl.options.locks = { ...scenario.locks };
+    ctrl.world.night = scenario.conditions === 'night' || scenario.conditions === 'dusk';
     ctrl.world.add(scenario.traffic ?? []);
+    ctrl.world.addLife(scenario.life ?? []);
+    ctrl.world.addAircraft(scenario.aircraft ?? []);
+    ctrl.lookouts.stations = scenario.stations ?? [];
     scenario.setup?.(ctrl);
   }
 

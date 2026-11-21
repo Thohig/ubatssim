@@ -9,6 +9,7 @@ import { waveElevation, type WaveComponent } from '../sim/waves';
 import { WAVE_GLSL, createPacked, packWaves } from './waveShader';
 import { nedToThree } from './coords';
 import { disposeTree } from './dispose';
+import { createSeaLife } from './seaLife';
 import { createTerrain } from './terrain';
 
 /** A lighthouse as the renderer needs it (see src/control/areas.ts). */
@@ -18,6 +19,15 @@ export interface LightMark {
   /** Flash period and lit part [s]. */
   period: number;
   lit: number;
+}
+
+/** What stands on the land and in the water of an area besides the lighthouses (graphics). */
+export interface AreaDecor {
+  lighthouses: readonly LightMark[];
+  /** Lit lead buoys [north, east]. */
+  buoys?: readonly { position: [number, number]; color: 'red' | 'green' | 'yellow' }[];
+  /** Coastal radar stations: [north, east] on land. */
+  stations?: readonly { position: [number, number] }[];
 }
 
 export type ConditionsId = 'day' | 'dusk' | 'night' | 'fog';
@@ -59,6 +69,7 @@ export const WATER_LOOK: Record<AreaId, { tint: number; fog: number }> = {
   baltic: { tint: 0x4f7d4f, fog: 0.01 },
   fjord: { tint: 0x355f4c, fog: 0.005 },
   atlantic: { tint: 0x1a5fb0, fog: -0.002 },
+  shelf: { tint: 0x1f6a9a, fog: 0 },
 };
 /** Light rays: how many, how far around the camera [m], how long [m], and the camera depth where they are gone [m]. */
 const RAY_COUNT = 22;
@@ -73,8 +84,8 @@ export interface SeaEnvironment {
   setParticles(on: boolean): void;
   /** Light rays under the surface in daylight (a setting: they cost a little on weak phones). */
   setLightRays(on: boolean): void;
-  /** Area terrain, lighthouses, light/visibility and the waves. */
-  setArea(area: AreaId, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
+  /** Area terrain, lighthouses, buoys and stations, light/visibility and the waves. */
+  setArea(area: AreaId, decor: AreaDecor, conditions: ConditionsId, waves: readonly WaveComponent[]): void;
   /** Water surface elevation [m, up] at a Three.js (x, z) point now. */
   surfaceAt(x: number, z: number): number;
 }
@@ -104,7 +115,7 @@ function frameGeometry(outer: number, inner: number): THREE.BufferGeometry {
 }
 
 /** Soft round glow, drawn once. */
-function glowTexture(): THREE.Texture {
+export function glowTexture(): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const g = c.getContext('2d')!;
@@ -141,6 +152,8 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
   scene.background = surfaceColor.clone();
 
   const terrain = createTerrain(scene);
+  const seaLife = createSeaLife(scene);
+  let night = false;
 
   // Water surface, visible from above and below.
   const surfMat = new THREE.MeshStandardMaterial({
@@ -270,10 +283,89 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
   scene.add(rays);
   let raysOn = true;
 
+  // Buoys, coastal radar stations and wrecks (see buildDecor).
+  const decorGroup = new THREE.Group();
+  scene.add(decorGroup);
+  let buoyLamps: { glow: THREE.Sprite; lamp: THREE.Mesh; colour: number; phase: number }[] = [];
+  let antennas: THREE.Object3D[] = [];
+  const BUOY_COLOURS = { red: 0xd02a20, green: 0x1f8a3a, yellow: 0xf2c21a } as const;
+  const BUOY_LAMPS = { red: 0xff4030, green: 0x40ff70, yellow: 0xfff070 } as const;
+  const buildDecor = (area: AreaId, decor: AreaDecor, height: HeightFn) => {
+    disposeTree(decorGroup);
+    buoyLamps = [];
+    antennas = [];
+    (decor.buoys ?? []).forEach((b, i) => {
+      const g = new THREE.Group();
+      nedToThree([b.position[0], b.position[1], 0], g.position);
+      const mat = new THREE.MeshStandardMaterial({ color: BUOY_COLOURS[b.color], roughness: 0.6 });
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.9, 3.5, 12), mat);
+      body.position.y = 0.8;
+      const top = new THREE.Mesh(b.color === 'red' ? new THREE.CylinderGeometry(0.45, 0.45, 0.8, 12) : new THREE.ConeGeometry(0.55, 0.9, 12), mat);
+      top.position.y = 3.1;
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshBasicMaterial({ color: 0x333333, fog: false }));
+      lamp.position.y = 3.8;
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: BUOY_LAMPS[b.color], blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false, fog: false }));
+      glow.scale.setScalar(0.03);
+      glow.position.y = 3.8;
+      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 30, 4), new THREE.MeshBasicMaterial({ color: 0x2a2a2a }));
+      chain.position.y = -15;
+      g.add(body, top, lamp, glow, chain);
+      decorGroup.add(g);
+      buoyLamps.push({ glow, lamp, colour: BUOY_LAMPS[b.color], phase: i * 0.7 });
+    });
+    for (const st of decor.stations ?? []) {
+      const base = Math.max(0.5, height(st.position[0], st.position[1]));
+      const g = new THREE.Group();
+      nedToThree([st.position[0], st.position[1], -base], g.position);
+      const grey = new THREE.MeshStandardMaterial({ color: 0xb9bcb8, roughness: 0.8 });
+      const house = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 6), grey);
+      house.position.y = 2;
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 16, 8), grey);
+      mast.position.y = 8;
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(2.2, 14, 10), new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.5 }));
+      dome.position.set(5, 6, 0);
+      const ant = new THREE.Group();
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(6, 0.6, 0.4), new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.6 }));
+      ant.add(bar);
+      ant.position.y = 16.5;
+      g.add(house, mast, dome, ant);
+      decorGroup.add(g);
+      antennas.push(ant);
+    }
+    // Wrecks lying on the bottom (part of the terrain in the simulation: terrain.ts).
+    const spec = AREAS[area].terrain;
+    if (spec.kind === 'shelf') {
+      const rust = new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 });
+      const growth = new THREE.MeshStandardMaterial({ color: 0x3f4a3a, roughness: 1 });
+      for (const w of spec.params.wrecks) {
+        // The bottom beside the wreck.
+        const side = height(w.at[0] + 2 * w.beam * Math.sin(w.heading), w.at[1] - 2 * w.beam * Math.cos(w.heading));
+        const g = new THREE.Group();
+        nedToThree([w.at[0], w.at[1], -side], g.position);
+        g.rotation.order = 'YXZ';
+        g.rotation.y = -w.heading;
+        g.rotation.z = w.list;
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(w.beam, w.height * 0.75, w.length, 1, 1, 4), rust);
+        const pos = hull.geometry.attributes.position as THREE.BufferAttribute;
+        for (let i = 0; i < pos.count; i++) if (pos.getZ(i) < -w.length * 0.3) pos.setX(i, pos.getX(i) * Math.max(0.15, (pos.getZ(i) + w.length / 2) / (w.length * 0.2)));
+        hull.geometry.computeVertexNormals();
+        hull.position.y = w.height * 0.3;
+        const house = new THREE.Mesh(new THREE.BoxGeometry(w.beam * 0.6, w.height * 0.4, w.length * 0.15), growth);
+        house.position.set(0, w.height * 0.85, w.length * 0.15);
+        const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, w.height * 1.4, 6), rust);
+        mast.position.set(0, w.height * 1.1, -w.length * 0.2);
+        mast.rotation.z = 0.5;
+        g.add(hull, house, mast);
+        decorGroup.add(g);
+      }
+    }
+  };
+
   let particlesOn = true;
   return {
     setParticles(on) {
       particlesOn = on;
+      seaLife.setEnabled(on);
     },
     setLightRays(on) {
       raysOn = on;
@@ -281,9 +373,13 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
     surfaceAt(x, z) {
       return elevation(x, z);
     },
-    setArea(area, lighthouses, conditions, w) {
+    setArea(area, decor, conditions, w) {
+      const lighthouses = decor.lighthouses;
       terrain.setArea(area);
+      night = conditions === 'night' || conditions === 'dusk';
+      terrain.setNight(night);
       const height: HeightFn = heightFunction(AREAS[area].terrain);
+      seaLife.setArea(area, height);
       waves = w;
       palette = PALETTES[conditions];
       skyColor.setHex(palette.sky);
@@ -323,9 +419,16 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
         lighthouseGroup.add(g);
         lamps.push({ mark, glow, lamp });
       }
+      buildDecor(area, decor, height);
     },
     update(sub, camera, t) {
       terrain.update(sub[0], sub[1]);
+      for (const b of buoyLamps) {
+        const on = (t + b.phase) % 4 < 1;
+        b.glow.visible = palette.lamps && on && camera.position.y > -0.5;
+        (b.lamp.material as THREE.MeshBasicMaterial).color.setHex(on ? b.colour : 0x333333);
+      }
+      for (const a of antennas) a.rotation.y = t * 2.1;
       for (const l of lamps) {
         const on = t % l.mark.period < l.mark.lit;
         l.glow.visible = palette.lamps && on && camera.position.y > -0.5;
@@ -355,6 +458,7 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
       (pGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
       const camDepth = elevation(c.x, c.z) - c.y;
       particles.visible = particlesOn && camDepth > 0;
+      seaLife.update(c, camDepth, t, night);
 
       // Light rays near the surface, around the camera, in daylight.
       const rayStrength = raysOn && camDepth > 0 ? palette.sun / 1.6 * Math.max(0, 1 - camDepth / RAY_FADE_DEPTH) * (1 - Math.min(1, areaFog * 60)) : 0;

@@ -31,6 +31,10 @@ export interface EffectsInput {
   torpedoes: Vec3[];
   /** Recent explosions (NED), by increasing id: each one bursts once. */
   blasts: { id: number; kind: 'hit' | 'charge'; at: Vec3 }[];
+  /** Night: plankton lights up where the hull and the propeller stir the water (bioluminescence). */
+  night?: boolean;
+  /** Half the hull's length [m]. */
+  halfLength?: number;
 }
 
 interface Pool {
@@ -63,7 +67,9 @@ export function createEffects(scene: THREE.Scene): Effects {
   const bubbles = pool(1600, new THREE.PointsMaterial({ color: 0xe8f6ff, size: 0.22, transparent: true, opacity: 0.75, depthWrite: false }));
   const spray = pool(500, new THREE.PointsMaterial({ color: 0xffffff, size: 0.6, transparent: true, opacity: 0.6, depthWrite: false }));
   const smoke = pool(240, new THREE.PointsMaterial({ color: 0x55585a, size: 1.6, transparent: true, opacity: 0.35, depthWrite: false }));
-  scene.add(bubbles.points, spray.points, smoke.points);
+  // Bioluminescence: blue-green sparks that glow briefly where the water is stirred.
+  const sparks = pool(900, new THREE.PointsMaterial({ color: 0x5fffd8, size: 0.35, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  scene.add(bubbles.points, spray.points, smoke.points, sparks.points);
   let enabled = true;
   const world = new THREE.Vector3();
   /** Fractional particles carried over between frames, per emitter. */
@@ -120,7 +126,7 @@ export function createEffects(scene: THREE.Scene): Effects {
   return {
     setEnabled(on) {
       enabled = on;
-      for (const p of [bubbles, spray, smoke]) p.points.visible = on;
+      for (const p of [bubbles, spray, smoke, sparks]) p.points.visible = on;
     },
     update(inp, dt, surfaceAt) {
       if (!enabled) return;
@@ -167,6 +173,17 @@ export function createEffects(scene: THREE.Scene): Effects {
             if (b.kind === 'hit') emit(`smoke${b.id}`, smoke, 120 / d, d, top, 8, [0, 3, 0], 2, 12);
           }
         }
+        // At night the stirred water glows: along the hull, more at the bow, and in the propeller's wash.
+        if (inp.night && Math.abs(inp.speed) > 0.4) {
+          const L = inp.halfLength ?? 30;
+          const rate = 40 * Math.abs(inp.speed);
+          for (const [key, x] of [['bow', L * 0.9], ['mid', 0], ['aft', -L * 0.6]] as const) {
+            toWorld(inp, [x, 0, 0], world);
+            if (under(world)) emit(`glow-${key}`, sparks, rate * (key === 'bow' ? 1.5 : 0.7), d, world, 8, [0, 0.05, 0], 0.1, 1.6);
+          }
+          toWorld(inp, inp.propeller, world);
+          if (under(world)) emit('glow-wake', sparks, rate * 2, d, world, 3, [0, 0.05, 0], 0.2, 2.5);
+        }
         // A raised mast cutting the surface throws a feather of spray; the snorkel also smokes with the diesels running.
         const masts: [string, Vec3 | null][] = [['per', inp.periscopeHead], ['snork', inp.snorkelHead]];
         for (const [key, head] of masts) {
@@ -186,6 +203,7 @@ export function createEffects(scene: THREE.Scene): Effects {
       step(bubbles, d, surfaceAt, 'bubble');
       step(spray, d, surfaceAt, 'spray');
       step(smoke, d, surfaceAt, 'smoke');
+      step(sparks, d, surfaceAt, 'smoke');
     },
   };
 }

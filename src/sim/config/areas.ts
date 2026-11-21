@@ -4,7 +4,7 @@
  * is neutral at the design depth in every area; the differences show in
  * the layers: thermocline, halocline and fresh surface water.
  */
-import { BALTIC_TERRAIN, FJORD_TERRAIN, OCEAN_TERRAIN, TERRAIN, type TerrainSpec } from './terrain';
+import { BALTIC_TERRAIN, FJORD_TERRAIN, OCEAN_TERRAIN, SHELF_TERRAIN, TERRAIN, type TerrainSpec } from './terrain';
 import { WATERS, type WaterProfile } from './waters';
 
 /**
@@ -34,6 +34,8 @@ export const AREAS = {
   fjord: { terrain: { kind: 'fjord', params: FJORD_TERRAIN }, water: WATERS.fjord, current: { speed: 0.4, toward: 180 * DEG, decay: 6 } },
   // North Atlantic Current: north-east, reaching well down. APPROX.
   atlantic: { terrain: { kind: 'ocean', params: OCEAN_TERRAIN }, water: WATERS.atlantic, current: { speed: 0.3, toward: 45 * DEG, decay: 150 } },
+  // The Norwegian Atlantic Slope Current follows the shelf edge north (0.3–0.5 m/s, deep-reaching). APPROX.
+  shelf: { terrain: { kind: 'shelf', params: SHELF_TERRAIN }, water: WATERS.norwegian, current: { speed: 0.3, toward: 5 * DEG, decay: 250 } },
 } as const satisfies Record<string, AreaDef>;
 
 export type AreaId = keyof typeof AREAS;

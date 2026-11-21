@@ -112,7 +112,8 @@ export class Hunter {
     for (const k of c.world.contacts()) {
       const v = k.vessel;
       if (v.def.kind !== 'patrol' || v.state.sinking) continue;
-      const tl = transmissionLoss(k.range, Math.max(0, c.sim.y[2]!), 5, c.sim.water);
+      let tl = transmissionLoss(k.range, Math.max(0, c.sim.y[2]!), 5, c.sim.water);
+      if (c.sonar.shadowed([c.sim.y[0]!, c.sim.y[1]!, Math.max(0, c.sim.y[2]!)], [v.state.north, v.state.east, 5])) tl += ACOUSTICS.terrainShadowLoss;
       if (level - tl - patrolNoise(v.state.speed) + ACOUSTICS.patrolArrayGain - ACOUSTICS.patrolThreshold <= 0) continue;
       n++;
       c.sonar.alert(v.def.id, alert);
@@ -122,6 +123,18 @@ export class Hunter {
       if (search && h.charges > 0 && (h.state === 'patrol' || h.state === 'suspicion')) this.enter(v, h, 'search');
     }
     return n;
+  }
+
+  /**
+   * Someone else (a patrol aircraft, a coastal radar) reports the boat near
+   * `at` [north, east]: the corvette searches there.
+   */
+  cue(v: Vessel, at: [number, number]): void {
+    if (!this.enabled || v.state.sinking) return;
+    const h = this.hunt(v.def.id);
+    h.lkp = [at[0], at[1]];
+    h.lastContact = this.ctrl.sim.t;
+    if (h.charges > 0 && (h.state === 'patrol' || h.state === 'suspicion')) this.enter(v, h, 'search');
   }
 
   /** Call once per step; works once a second. */
@@ -151,7 +164,7 @@ export class Hunter {
       if (h.state === 'patrol' && aware >= 0.5) this.enter(v, h, 'suspicion');
       if (h.state === 'suspicion' && aware >= 0.8) this.enter(v, h, 'search');
       if (h.state !== 'attack' && aware >= 1) this.enter(v, h, 'attack');
-      if ((h.state === 'search' || h.state === 'attack') && now - h.lastPing >= W.pingInterval) this.ping(v, h);
+      if ((h.state === 'search' || h.state === 'attack' || v.def.activeSonar) && now - h.lastPing >= W.pingInterval) this.ping(v, h);
       // On its way to where it believes the boat is, a searching corvette does not give up (the clock starts there).
       const enRoute = h.state === 'search' && h.leg === 0 && h.committed;
       if (h.state !== 'patrol' && !enRoute && now - h.lastContact > W.giveUp) this.enter(v, h, 'patrol');
@@ -266,7 +279,17 @@ export class Hunter {
     const rel = Math.atan2(de, dn) - v.state.heading;
     if (Math.abs(Math.atan2(Math.sin(rel), Math.cos(rel))) > W.baffles) return -Infinity;
     // Its own speed drowns a weak echo: fast, it is deaf.
-    return W.pingLevel - 2 * transmissionLoss(range, depth, 5, sim.water) + ts - patrolNoise(v.state.speed) + ACOUSTICS.patrolArrayGain - W.pingThreshold;
+    let excess = W.pingLevel - 2 * transmissionLoss(range, depth, 5, sim.water) + ts - patrolNoise(v.state.speed) + ACOUSTICS.patrolArrayGain - W.pingThreshold;
+    // Behind a ridge, deep in a canyon or behind a seamount the ping does not reach.
+    const sonar = this.ctrl.sonar;
+    if (sonar.shadowed([v.state.north, v.state.east, 5], [n, e, depth])) excess -= 2 * ACOUSTICS.terrainShadowLoss;
+    // Close above the bottom the echo drowns in the bottom's (rock: much, mud: little).
+    const mask = sonar.reverbMask(n, e, depth);
+    if (mask > 0) excess -= mask;
+    // Inside the deep scattering layer the hull's echo is hard to tell from the layer's.
+    const layer = sonar.scatteringLayer();
+    if (layer !== null && Math.abs(depth - layer) < ACOUSTICS.dslHalf) excess -= ACOUSTICS.dslMask;
+    return excess;
   }
 
   /** An active ping: an echo gives the boat's position and depth, or a decoy's (weaker) taken for it. */

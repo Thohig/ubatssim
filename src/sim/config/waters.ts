@@ -44,6 +44,18 @@ export const WATERS = {
   fjord: { rhoSurface: 1012.0, layers: [{ delta: 14.5, top: 3, bottom: 9 }] },
   /** North Atlantic: ~35 PSU, ~11 °C → 1026.6 kg/m³ (EOS-80), seasonal thermocline 50–150 m. APPROX. */
   atlantic: { rhoSurface: 1026.6, layers: [{ delta: 0.6, top: 50, bottom: 150 }] },
+  /**
+   * Norwegian Sea over the shelf edge: Atlantic water, ~35.2 PSU and ~8 °C
+   * → 1027.4 kg/m³ (EOS-80), a shallow summer thermocline at 25–60 m and the
+   * colder, denser Norwegian Sea deep water below ~500 m. APPROX.
+   */
+  norwegian: {
+    rhoSurface: 1027.4,
+    layers: [
+      { delta: 0.5, top: 25, bottom: 60 },
+      { delta: 0.4, top: 450, bottom: 650 },
+    ],
+  },
 } as const satisfies Record<string, WaterProfile>;
 
 export type WaterId = keyof typeof WATERS;

@@ -23,6 +23,7 @@
  *
  * The levels come from the sonar equation in src/sim/acoustics.ts.
  */
+import { terrainBlocks } from '../sim/seabed';
 import {
   patrolSignalExcess,
   subReceiverNoise,
@@ -32,7 +33,11 @@ import {
   vesselSourceLevel,
 } from '../sim/acoustics';
 import { ACOUSTICS } from '../sim/config/acoustics';
+import { AREAS } from '../sim/config/areas';
+import type { WreckDef } from '../sim/config/terrain';
 import { WEAPONS } from '../sim/config/weapons';
+import type { Creature } from '../sim/life';
+import { bottomMask, bottomType, type BottomType } from '../sim/seabed';
 import { DT } from '../sim/simulation';
 import type { VesselKind } from '../sim/vessel';
 import type { Controller } from './controller';
@@ -50,11 +55,25 @@ const AWARE_DECAY = 0.005;
 /** Awareness gained per second while a mast or the hull shows within sight. */
 const SIGHT_RATE = { periscope: 0.03, snorkel: 0.06, surfaced: 0.3 } as const;
 
-export const CLASS_NAME: Record<VesselKind, string> = { freighter: 'lastfartyg', ferry: 'färja', fishing: 'fiskebåt', patrol: 'örlogsfartyg' };
+export const CLASS_NAME: Record<VesselKind, string> = { freighter: 'lastfartyg', ferry: 'färja', fishing: 'fiskebåt', patrol: 'örlogsfartyg', sail: 'segelbåt' };
+
+/** What the sonar operator calls a creature once classified. */
+export const BIO_NAME = { clicks: 'kaskelot', song: 'knölval', pulse: 'vikval', whistle: 'späckhuggare', frt: 'sillstim' } as const;
+/** How it sounds, for the classification line. */
+const BIO_SOUND = { clicks: 'klickljud', song: 'sång', pulse: 'låga pulståg', whistle: 'visslingar', frt: 'tickande ljud' } as const;
+
+/** The wrecks on the sea bed of an area (part of its terrain). */
+export function areaWrecks(c: Controller): readonly WreckDef[] {
+  const t = AREAS[c.sim.areaId].terrain;
+  return t.kind === 'shelf' ? t.params.wrecks : [];
+}
 
 export interface SonarContact {
   label: string;
+  /** The vessel's id, or a creature's (`bio`). */
   vesselId: string;
+  /** A whale or a fish school, not a ship (it cannot be a target). */
+  bio?: boolean;
   /** Measured true bearing [deg, 0–360). */
   bearing: number;
   /** Signal excess [dB]; larger = stronger. */
@@ -80,7 +99,10 @@ export const strength = (excess: number): string => (excess > 25 ? 'stark' : exc
 
 /** An echo of the boat's own ping. */
 export interface PingEcho {
+  /** A vessel's or a creature's id, or '' for a wreck or the scattering layer. */
   vesselId: string;
+  /** What the operator makes of it when it is not a vessel ("vrak?", "fiskstim?"). */
+  what?: string;
   /** The sonar contact it belongs to (S1 …), if any. */
   label: string | null;
   /** Measured true bearing [deg] and range [m]. */
@@ -130,9 +152,12 @@ export class Sonar {
     const heading = (t.heading * 180) / Math.PI;
     const marks: SonarSample['marks'] = [];
 
+    const here: [number, number, number] = [sim.y[0]!, sim.y[1]!, Math.max(0, t.depth)];
     for (const k of c.world.contacts()) {
       const v = k.vessel;
-      const tl = transmissionLoss(k.range, Math.max(0, t.depth), 0, water);
+      let tl = transmissionLoss(k.range, Math.max(0, t.depth), 0, water);
+      // A ship's propeller and hull sit a few metres down.
+      if (this.shadowed(here, [v.state.north, v.state.east, Math.max(1, v.def.draft / 2)])) tl += ACOUSTICS.terrainShadowLoss;
       const excess = subSignalExcess(vesselSourceLevel(v.def, v.state.speed), tl, this.ownNoise);
 
       // The patrol vessels listen and look for the submarine.
@@ -164,10 +189,12 @@ export class Sonar {
       contact.lastHeard = now;
       if (!contact.classified && now - contact.firstHeard >= CLASSIFY_AFTER) {
         contact.classified = CLASS_NAME[v.def.kind];
-        c.addLog(`Sonar: ${contact.label} är troligen ${article(contact.classified)} (${contact.blades} blad, ${contact.rpm} rpm).`, 'info');
+        c.addLog(`Sonar: ${contact.label} är troligen ${article(contact.classified)} (${contact.blades ? `${contact.blades} blad, ${contact.rpm} rpm` : 'inget propellerljud, bara skrovet i vattnet'}).`, 'info');
       }
       marks.push({ relative: wrap180(bearing - heading), excess });
     }
+
+    for (const k of c.world.bioContacts()) this.hearCreature(k.creature, k.range, k.bearing, here, heading, marks);
 
     for (const x of this.contacts.filter((x) => now - x.lastHeard > LOSE_AFTER)) c.addLog(`Sonar: ${x.label} tappad.`, 'info');
     this.contacts = this.contacts.filter((x) => now - x.lastHeard <= LOSE_AFTER);
@@ -178,7 +205,8 @@ export class Sonar {
   /** One patrol vessel's sonar, lookouts and radar. */
   private watch(id: string, name: string, range: number, t: ReturnType<Controller['sim']['telemetry']>, speed: number, at: [number, number]): void {
     const c = this.ctrl;
-    const tl = transmissionLoss(range, Math.max(0, t.depth), PATROL_SONAR_DEPTH, c.sim.water);
+    let tl = transmissionLoss(range, Math.max(0, t.depth), PATROL_SONAR_DEPTH, c.sim.water);
+    if (this.shadowed([c.sim.y[0]!, c.sim.y[1]!, Math.max(0, t.depth)], [at[0], at[1], PATROL_SONAR_DEPTH])) tl += ACOUSTICS.terrainShadowLoss;
     let excess = patrolSignalExcess(this.ownLevel, tl, speed);
     // A decoy heard better than the boat is taken for the boat.
     let from: [number, number] | null = null;
@@ -228,10 +256,12 @@ export class Sonar {
     const k0 = sim.kinematics();
     const noise = subReceiverNoise(k0.u, sim.sea.hs);
     const echoes: PingEcho[] = [];
+    const here: [number, number, number] = [sim.y[0]!, sim.y[1]!, Math.max(0, k0.depth)];
     for (const k of c.world.contacts()) {
       const v = k.vessel;
       if (k.range > P.range || v.state.sinking) continue;
-      const tl = transmissionLoss(k.range, Math.max(0, k0.depth), Math.max(1, v.def.draft / 2), sim.water);
+      let tl = transmissionLoss(k.range, Math.max(0, k0.depth), Math.max(1, v.def.draft / 2), sim.water);
+      if (this.shadowed(here, [v.state.north, v.state.east, Math.max(1, v.def.draft / 2)])) tl += ACOUSTICS.terrainShadowLoss;
       const excess = P.level - 2 * tl + (P.targetStrength[v.def.kind] ?? 15) - noise + ACOUSTICS.subArrayGain - P.threshold;
       if (excess <= 0) continue;
       const key = v.def.id.length * 13 + v.def.id.charCodeAt(0);
@@ -242,13 +272,105 @@ export class Sonar {
       const t = c.fire.targets.find((x) => x.vesselId === v.def.id);
       if (t) c.fire.observe(t, { bearing, sigma: P.bearingError, range, rangeError: P.rangeError });
     }
+    // Whales and schools, and wrecks on the bottom: echoes too, which the operator has to tell from ships.
+    const echoOf = (n: number, e: number, depth: number, ts: number, range: number, key: number): { range: number; bearing: number } | null => {
+      if (range > P.range) return null;
+      let tl = transmissionLoss(range, Math.max(0, k0.depth), depth, sim.water);
+      if (this.shadowed(here, [n, e, depth])) tl += ACOUSTICS.terrainShadowLoss;
+      const mask = this.reverbMask(n, e, depth);
+      if (P.level - 2 * tl + ts - noise + ACOUSTICS.subArrayGain - P.threshold - mask <= 0) return null;
+      const b = Math.atan2(e - here[1], n - here[0]);
+      return {
+        range: range * (1 + P.rangeError * Math.sin(now * 0.91 + key)),
+        bearing: ((((b + P.bearingError * Math.cos(now * 0.53 + key)) * 180) / Math.PI) % 360 + 360) % 360,
+      };
+    };
+    for (const k of c.world.bioContacts()) {
+      const cr = k.creature;
+      const e = echoOf(cr.state.north, cr.state.east, Math.max(1, cr.state.depth), cr.targetStrength, k.range, cr.def.id.length * 11);
+      if (!e) continue;
+      const label = this.contacts.find((x) => x.vesselId === cr.def.id)?.label ?? null;
+      echoes.push({ vesselId: cr.def.id, label, what: cr.def.kind === 'school' ? 'fiskstim?' : 'val?', ...e });
+    }
+    for (const w of areaWrecks(c)) {
+      const top = sim.acousticGround(w.at[0], w.at[1]) - w.height;
+      const range = Math.hypot(w.at[0] - here[0], w.at[1] - here[1]);
+      const e = echoOf(w.at[0], w.at[1], top, WEAPONS.ping.wreckStrength, range, w.name.length * 5);
+      if (e) echoes.push({ vesselId: '', label: null, what: 'vrak?', ...e });
+    }
+    echoes.sort((a, b) => a.range - b.range);
     this.echoes = echoes;
     const text = echoes
       .slice(0, 4)
-      .map((e) => `${e.label ?? 'eko'} ${deg3(e.bearing)} ${e.range >= 1000 ? `${(e.range / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(e.range)} m`}`)
+      .map((e) => `${e.label ?? (e.what ? `eko (${e.what})` : 'eko')} ${deg3(e.bearing)} ${e.range >= 1000 ? `${(e.range / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(e.range)} m`}`)
       .join(', ');
     c.afterAck.push(echoes.length ? `Sonar: ekon från ${text}.` : 'Sonar: inget eko.');
+    const layer = this.scatteringLayer();
+    if (layer !== null) c.afterAck.push(`Sonar: diffust eko från spridningsskiktet på ${Math.round(layer)} m.`);
     c.hunter.heard(P.level, 0.6, 0.9, true);
+  }
+
+  /** One creature heard (or not) by the bow array: a contact like a ship's, classified as biological. */
+  private hearCreature(cr: Creature, range: number, bearingRad: number, here: [number, number, number], heading: number, marks: SonarSample['marks']): void {
+    const c = this.ctrl;
+    const now = c.sim.t;
+    const level = cr.sourceLevel(now, c.world.night);
+    if (level === null) return;
+    let tl = transmissionLoss(range, here[2], Math.max(1, cr.state.depth), c.sim.water);
+    if (this.shadowed(here, [cr.state.north, cr.state.east, Math.max(1, cr.state.depth)])) tl += ACOUSTICS.terrainShadowLoss;
+    const excess = subSignalExcess(level, tl, this.ownNoise);
+    if (excess <= 0) return;
+    const spread = 4 / (1 + excess / 4);
+    const bearing = ((((bearingRad * 180) / Math.PI + spread * Math.sin(now * 0.37 + hash(cr.def.id))) % 360) + 360) % 360;
+    let contact = this.contacts.find((x) => x.vesselId === cr.def.id);
+    if (!contact) {
+      contact = { label: `S${this.nextLabel++}`, vesselId: cr.def.id, bio: true, bearing, excess, firstHeard: now, lastHeard: now, classified: null, blades: 0, rpm: 0 };
+      this.contacts.push(contact);
+      c.addLog(`Sonar: ny kontakt ${contact.label}, bäring ${deg3(bearing)}.`, 'info');
+    }
+    contact.bearing = bearing;
+    contact.excess = excess;
+    contact.lastHeard = now;
+    if (!contact.classified && now - contact.firstHeard >= CLASSIFY_AFTER) {
+      contact.classified = BIO_NAME[cr.def.sound];
+      c.addLog(`Sonar: ${contact.label} är biologisk, troligen ${cr.def.kind === 'school' ? 'ett' : cr.def.sound === 'whistle' ? 'en flock' : 'en'} ${contact.classified} (${BIO_SOUND[cr.def.sound]}).`, 'info');
+    }
+    marks.push({ relative: wrap180(bearing - heading), excess });
+  }
+
+  /** True if the terrain blocks the sound path between two points [north, east, depth]. */
+  shadowed(a: readonly [number, number, number], b: readonly [number, number, number]): boolean {
+    return terrainBlocks(this.ctrl.sim.acousticGround, a, b);
+  }
+
+  /** The bottom type under a point (seabed.ts). */
+  bottomAt(n: number, e: number): BottomType {
+    const g = this.ctrl.sim.acousticGround;
+    const d = g(n, e);
+    const step = 50;
+    const dn = (g(n + step, e) - g(n - step, e)) / (2 * step);
+    const de = (g(n, e + step) - g(n, e - step)) / (2 * step);
+    return bottomType(AREAS[this.ctrl.sim.areaId].terrain.kind, -d, 1 - 1 / Math.hypot(dn, de, 1), n, e);
+  }
+
+  /**
+   * How much the bottom's reverberation masks an echo from a point at a
+   * depth [dB]: 0 more than `bottomReverbHeight` above the bottom.
+   */
+  reverbMask(n: number, e: number, depth: number): number {
+    const above = this.ctrl.sim.acousticGround(n, e) - depth;
+    if (above >= ACOUSTICS.bottomReverbHeight) return 0;
+    return bottomMask(this.bottomAt(n, e), above);
+  }
+
+  /**
+   * The middle of the deep scattering layer under the boat [m], or null where
+   * the water is too shallow for it to form. Deep by day, near the surface at night.
+   */
+  scatteringLayer(): number | null {
+    const sim = this.ctrl.sim;
+    if (sim.acousticGround(sim.y[0]!, sim.y[1]!) < ACOUSTICS.dslMinWater) return null;
+    return this.ctrl.world.night ? ACOUSTICS.dslNight : ACOUSTICS.dslDay;
   }
 
   /** A patrol vessel has found the boat (by listening, looking or its active sonar). */
@@ -272,7 +394,7 @@ export class Sonar {
 const deg3 = (b: number) => `${String(Math.round(b) % 360).padStart(3, '0')}°`;
 const wrap180 = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
 /** "ett lastfartyg", "en färja". */
-const article = (name: string) => (name === 'färja' || name === 'fiskebåt' ? `en ${name}` : `ett ${name}`);
+const article = (name: string) => (name === 'färja' || name === 'fiskebåt' || name === 'segelbåt' ? `en ${name}` : `ett ${name}`);
 /** A fixed phase per vessel id. */
 function hash(s: string): number {
   let h = 0;

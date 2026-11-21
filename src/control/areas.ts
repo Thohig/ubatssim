@@ -6,7 +6,10 @@
 import type { AreaId } from '../sim/config/areas';
 import type { InitialConditions } from '../sim/simulation';
 import type { SeaStateId } from '../sim/config/seaStates';
+import type { AircraftDef } from '../sim/aircraft';
+import type { CreatureDef } from '../sim/life';
 import type { VesselDef } from '../sim/vessel';
+import type { RadarStation } from './lookouts';
 
 const KN = 1852 / 3600;
 const DEG = Math.PI / 180;
@@ -39,6 +42,14 @@ export interface AreaInfo {
   lighthouses: Lighthouse[];
   /** Ships in free play (scenarios bring their own). */
   traffic: VesselDef[];
+  /** Whales and fish schools in free play. */
+  life?: CreatureDef[];
+  /** Patrol aircraft in free play. */
+  aircraft?: AircraftDef[];
+  /** Coastal radar stations (free play; a scenario lists its own). */
+  stations?: RadarStation[];
+  /** Lit buoys marking the leads [north, east] [m], and their colour. Graphics only. */
+  buoys?: { position: [number, number]; color: 'red' | 'green' | 'yellow' }[];
 }
 
 const KNOTS = (kn: number) => (kn * 1852) / 3600;
@@ -61,6 +72,34 @@ export const corvette = (id: string, name: string, route: [number, number][], kn
 const fishing = (id: string, name: string, route: [number, number][]): VesselDef => ({
   id, name, kind: 'fishing', length: 18, beam: 6, draft: 3, speed: KNOTS(5), turnRate: DEG_S(4),
   route, repeat: 'loop', propellerRps: 6, blades: 3,
+});
+
+/** A sailing yacht: no propeller, nearly silent. */
+const sail = (id: string, name: string, route: [number, number][], kn = 6): VesselDef => ({
+  id, name, kind: 'sail', length: 11, beam: 3.6, draft: 1.9, speed: KNOTS(kn), turnRate: DEG_S(6),
+  route, repeat: 'loop', propellerRps: 0, blades: 0,
+});
+/** A fishing boat towing a trawl `distance` metres astern between `top` and `bottom` metres deep. */
+const trawler = (id: string, name: string, route: [number, number][], top: number, bottom: number): VesselDef => ({
+  ...fishing(id, name, route), length: 24, beam: 7, draft: 3.5, speed: KNOTS(3.5), turnRate: DEG_S(2),
+  trawl: { distance: 350, width: 35, top, bottom },
+});
+
+/** Whales and fish. Sizes, depths and dive times are typical of each species. APPROX. */
+const spermWhale = (id: string, route: [number, number][], phase = 0): CreatureDef => ({
+  id, name: 'en kaskelot', kind: 'whale', sound: 'clicks', route, speed: 1.5, depth: 500, dive: 2400, surface: 480, callPeriod: 60, callOn: 45, size: 15, phase,
+});
+const humpback = (id: string, route: [number, number][], phase = 0): CreatureDef => ({
+  id, name: 'en knölval', kind: 'whale', sound: 'song', route, speed: 1.8, depth: 60, dive: 600, surface: 150, callPeriod: 900, callOn: 600, size: 14, phase,
+});
+const minke = (id: string, route: [number, number][], phase = 0): CreatureDef => ({
+  id, name: 'en vikval', kind: 'whale', sound: 'pulse', route, speed: 2.2, depth: 40, dive: 300, surface: 60, callPeriod: 240, callOn: 60, size: 8, phase,
+});
+const orcas = (id: string, route: [number, number][], phase = 0): CreatureDef => ({
+  id, name: 'en flock späckhuggare', kind: 'whale', sound: 'whistle', route, speed: 2.5, depth: 30, dive: 240, surface: 60, callPeriod: 180, callOn: 90, size: 7, phase,
+});
+const herring = (id: string, route: [number, number][], depth: number, nightDepth: number, size = 60): CreatureDef => ({
+  id, name: 'ett sillstim', kind: 'school', sound: 'frt', route, speed: 0.6, depth, nightDepth, size,
 });
 
 export type ConditionsId = 'day' | 'dusk' | 'night' | 'fog';
@@ -114,6 +153,16 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
     traffic: [
       freighter('skagerack', 'M/S Skagerack', [[-6000, -1500], [6000, -1500]]),
       fishing('maja', 'fiskebåten Maja', [[-1500, 600], [-1500, 1200], [-900, 1200], [-900, 600]]),
+      trawler('ostkust', 'trålaren Östkust', [[-4500, -3500], [3500, -3500], [3500, -2500], [-4500, -2500]], 18, 45),
+      sail('linnea', 'segelbåten Linnéa', [[-1200, 900], [700, 1100], [1600, 200], [-300, -300]]),
+    ],
+    life: [herring('sill-vast', [[-2500, -3000], [-600, -4200], [1500, -3200]], 90, 25), minke('vikval-vast', [[3000, -2000], [-3000, -2500], [-500, 200]], 100)],
+    stations: [{ id: 'kustradar-vast', name: 'kustradarn på Västra holmen', position: [650, 2450], height: 40 }],
+    buoys: [
+      { position: [-260, 2470], color: 'red' },
+      { position: [-260, 2650], color: 'green' },
+      { position: [400, 2560], color: 'red' },
+      { position: [400, 2760], color: 'green' },
     ],
   },
   baltic: {
@@ -144,7 +193,10 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
     traffic: [
       ferry('ostersjo', 'färjan Östersjö', [[3000, -6000], [3000, 1200]], 170, 17),
       corvette('spejaren', 'korvetten Spejaren', [[-2500, -5000], [-2500, 800]]),
+      sail('stina', 'segelbåten Stina', [[1500, -2000], [3500, -500], [1800, 1200], [300, -600]], 5),
     ],
+    life: [herring('stromming', [[-1000, -3000], [800, -4500], [2000, -2500]], 70, 30, 80)],
+    stations: [{ id: 'kustradar-ost', name: 'kustradarn på Ytterskär', position: [100, 3040], height: 30 }],
   },
   fjord: {
     id: 'fjord',
@@ -181,6 +233,12 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
       // A small, handy ferry across the fjord: tight turns between the steep sides.
       ferry('fjordfarjan', 'fjordfärjan', [[2000, 100], [2000, 580]], 60, 7, 3),
       fishing('fjordfiske', 'fiskebåten Fjord', [[-3200, -900], [-3200, 900], [-2400, 900], [-2400, -900]]),
+      sail('fjordsegel', 'segelbåten Bris', [[-1800, -600], [-3500, 600], [-2000, 1200]], 5),
+    ],
+    // Killer whales follow the herring into the fjords in winter.
+    life: [
+      herring('sill-fjord', [[1500, 440], [2500, 50], [3500, -460], [4500, -400], [5500, 120], [4500, -400], [3000, -260], [2000, 320]], 120, 35, 70),
+      orcas('spackhuggare', [[1000, 360], [2500, 50], [4000, -510], [5000, -160], [6000, 360], [5000, -160], [3500, -460], [2000, 320]]),
     ],
   },
   atlantic: {
@@ -206,10 +264,75 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
     ],
     lighthouses: [],
     traffic: [freighter('atlantica', 'M/S Atlantica', [[-8000, 3000], [8000, 3000]], 200)],
+    life: [
+      spermWhale('kaskelot', [[-4000, -4000], [4000, -3000], [2000, -6000]]),
+      humpback('knolval', [[3000, 2000], [-3000, 1000], [-1000, 4000]], 200),
+      herring('sill-atlant', [[-2000, 1500], [1000, 2500], [2500, 500]], 380, 45, 90),
+    ],
+  },
+  shelf: {
+    id: 'shelf',
+    title: 'Eggakanten',
+    description: 'Kontinentalsockeln utanför Norge: sockeln, branten ned mot djuphavet, en undervattenskanjon och undervattensberg.',
+    starts: [
+      {
+        id: 'shelf',
+        title: 'På sockeln',
+        description: 'I ytläge på sockeln, 150 m djup. Kanjonen 1,5 km norrut, branten 3 km västerut.',
+        text: 'Ubåten ligger i ytläge på sockeln. Kanjonen går öst–väst 1,5 km norrut, och 3 km västerut stupar botten ned mot djuphavet.',
+        initial: { area: 'shelf', north: -1500, east: 3000 },
+      },
+      {
+        id: 'canyon',
+        title: 'I kanjonen',
+        description: '200 m, 4 knop, i kanjonen under sockelns nivå. Väggarna reser sig till 150 m.',
+        text: 'Ubåten går på 200 m i kanjonen. Sockeln ligger på 150 m på båda sidor: följ kanjonen och håll koll på "Under köl".',
+        initial: { area: 'shelf', north: -376, east: 3000, depth: 200, speed: 4 * KN, neutral: true, heading: 270 * DEG },
+      },
+      {
+        id: 'periscope',
+        title: 'Periskopdjup vid kanten',
+        description: '13 m, 4 knop, där sockeln tar slut.',
+        text: 'Ubåten går på periskopdjup över sockelns kant. Västerut blir det snabbt djupt.',
+        initial: { area: 'shelf', north: -1500, east: 300, depth: 13, speed: 4 * KN, neutral: true, heading: 270 * DEG },
+      },
+      {
+        id: 'seamount',
+        title: 'Över Havbåen',
+        description: '120 m, 5 knop, över ett flatt undervattensberg i djuphavet.',
+        text: 'Ubåten går på 120 m över Havbåen, ett undervattensberg med flat topp på 190 m. Runt det är det 1 600 m djupt.',
+        initial: { area: 'shelf', north: -7000, east: -11000, depth: 120, speed: 5 * KN, neutral: true, heading: 0 },
+      },
+    ],
+    lighthouses: [
+      { name: 'Eggøy fyr', position: [2000, 9400], color: 'white', period: 10, lit: 1 },
+      { name: 'Sørskjær fyr', position: [-3000, 10000], color: 'red', period: 6, lit: 2 },
+    ],
+    traffic: [
+      ferry('nordstjerna', 'kustfärjan Nordstjerna', [[-14000, 7200], [14000, 7200]], 120, 15, 1),
+      freighter('eggafjell', 'M/S Eggafjell', [[14000, -3000], [-14000, -3000]], 150),
+      // A bottom trawl along the shelf (the bottom is ~150 m).
+      trawler('havbris', 'trålaren Havbris', [[-5000, 4500], [5000, 4500], [5000, 5200], [-5000, 5200]], 125, 152),
+      sail('nordlys', 'segelbåten Nordlys', [[-3000, 7600], [3000, 7700], [4000, 7300], [-2000, 7300]]),
+    ],
+    life: [
+      spermWhale('kaskelot-egga', [[-6000, -4500], [6000, -4000], [0, -7000]], 300),
+      orcas('spackhuggare-egga', [[-4000, 2000], [3000, 3500], [4000, 1500], [-2000, 1000]]),
+      herring('sill-egga', [[-3000, 2500], [2000, 3500], [3500, 1800]], 120, 35, 90),
+      herring('sill-kant', [[1500, -1500], [-2500, -800], [-500, -2500]], 400, 50, 70),
+      minke('vikval-egga', [[5000, 5500], [-4000, 6000], [0, 4000]], 50),
+    ],
+    aircraft: [
+      {
+        id: 'ornen', name: 'spaningsplanet Ørnen', altitude: 300, speed: 85, turnRate: (3 * Math.PI) / 180, arrives: 900,
+        route: [[-18000, -6000], [18000, -6000], [18000, 3000], [-18000, 3000]],
+      },
+    ],
+    stations: [{ id: 'kustradar-egga', name: 'kustradarn på Eggøy', position: [2000, 9700], height: 90 }],
   },
 };
 
-export const AREA_ORDER: AreaId[] = ['westCoast', 'baltic', 'fjord', 'atlantic'];
+export const AREA_ORDER: AreaId[] = ['westCoast', 'baltic', 'fjord', 'atlantic', 'shelf'];
 
 /** Lighthouse lamp on at simulation time t (deterministic). */
 export const lighthouseOn = (l: Lighthouse, t: number): boolean => t % l.period < l.lit;

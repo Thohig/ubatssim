@@ -62,7 +62,7 @@ export class AudioEngine {
   private muted = false;
   private running = false;
   /** Next scheduled time for random events [s, audio clock]. */
-  private next = { creak: 0, ping: 0, gull: 0, foghorn: 0 };
+  private next = { creak: 0, ping: 0, gull: 0, foghorn: 0, bio: 0 };
 
   get available(): boolean {
     return typeof window !== 'undefined' && ('AudioContext' in window || 'webkitAudioContext' in window);
@@ -127,7 +127,7 @@ export class AudioEngine {
     this.outsideFilter.frequency.setTargetAtTime(l.outsideCutoff, now, SMOOTH);
 
     // Random events: creaks, echo sounder pings, gulls and the fog horn.
-    const due = (key: 'creak' | 'ping' | 'gull' | 'foghorn', rate: number, jitter: boolean): boolean => {
+    const due = (key: 'creak' | 'ping' | 'gull' | 'foghorn' | 'bio', rate: number, jitter: boolean): boolean => {
       if (rate <= 0) {
         this.next[key] = 0;
         return false;
@@ -144,6 +144,60 @@ export class AudioEngine {
     if (this.options.ambience) {
       if (due('gull', l.gullRate, true)) this.gull();
       if (due('foghorn', l.foghornRate, false)) this.foghorn();
+      if (l.bio.sound && due('bio', l.bio.rate, l.bio.sound !== 'clicks')) this.call(l.bio.sound, l.bio.gain);
+    }
+  }
+
+  /**
+   * An animal heard through the hull: a sperm whale's click train, a
+   * humpback's slow moan, a minke's low pulses, killer whale whistles or the
+   * ticking of herring.
+   */
+  private call(sound: NonNullable<SoundLevels['bio']['sound']>, gain: number): void {
+    const ctx = this.ctx!;
+    const t = ctx.currentTime;
+    const sweep = (at: number, f0: number, f1: number, dur: number, g: number, type: OscillatorType) => {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, at);
+      o.frequency.exponentialRampToValueAtTime(f1, at + dur);
+      const vib = ctx.createOscillator();
+      vib.frequency.value = 5 + Math.random() * 3;
+      const vg = ctx.createGain();
+      vg.gain.value = f0 * 0.02;
+      vib.connect(vg);
+      vg.connect(o.frequency);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, at);
+      env.gain.exponentialRampToValueAtTime(g, at + Math.min(0.4, dur / 3));
+      env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(env);
+      env.connect(this.inside);
+      o.start(at);
+      vib.start(at);
+      o.stop(at + dur + 0.05);
+      vib.stop(at + dur + 0.05);
+    };
+    switch (sound) {
+      case 'clicks':
+        for (let i = 0; i < 3; i++) this.burst(t + i * 0.3, 0.015, gain * 1.5, 3500, 'bandpass', this.inside);
+        break;
+      case 'song': {
+        const f = 180 + Math.random() * 250;
+        sweep(t, f, f * (Math.random() < 0.5 ? 1.8 : 0.55), 2.5 + Math.random() * 2, gain, 'sine');
+        break;
+      }
+      case 'pulse':
+        for (let i = 0; i < 6; i++) this.tone(110 + i * 4, t + i * 0.14, 0.09, gain, 'sine', this.inside);
+        break;
+      case 'whistle': {
+        const f = 1800 + Math.random() * 2500;
+        sweep(t, f, f * (0.6 + Math.random() * 0.9), 0.6 + Math.random() * 0.8, gain * 0.5, 'sine');
+        break;
+      }
+      case 'frt':
+        for (let i = 0; i < 12; i++) this.burst(t + i * 0.035, 0.008, gain * 0.6, 4000, 'highpass', this.inside);
+        break;
     }
   }
 

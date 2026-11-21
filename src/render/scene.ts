@@ -4,7 +4,10 @@ import type { SubmarineConfig } from '../sim/config/submarine';
 import type { Mat3 } from '../sim/math/mat';
 import type { Vec3 } from '../sim/math/vec3';
 import { bodyToLocal, nedToThree, rotationToThree } from './coords';
-import { createEnvironment, type ConditionsId, type LightMark } from './environment';
+import { createEnvironment, glowTexture, type AreaDecor, type ConditionsId } from './environment';
+import { LifeView } from './life';
+import type { AircraftDef, AircraftState } from '../sim/aircraft';
+import type { CreatureDef, CreatureState } from '../sim/life';
 import type { AreaId } from '../sim/config/areas';
 import type { WaveComponent } from '../sim/waves';
 import type { VesselDef, VesselState } from '../sim/vessel';
@@ -32,6 +35,9 @@ export interface RenderState {
   torpedoes?: { north: number; east: number; depth: number; heading: number }[];
   /** Other vessels, in the order given to `setVessels`. */
   vessels: readonly VesselState[];
+  /** Whales and fish schools, and aircraft, in the order given to `setLife`. */
+  creatures?: readonly CreatureState[];
+  aircraft?: readonly AircraftState[];
   /** What the cutaway view shows (only in that view). */
   cutaway?: CutawayState;
 }
@@ -83,10 +89,12 @@ export interface SceneView {
   /** Show a yellow buoy at [north, east], or hide it with null. */
   setWaypoint(wp: [number, number] | null): void;
   setView(view: CameraView): void;
-  /** Terrain, lighthouses and light/visibility of the sea area. */
-  setArea(area: AreaId, lighthouses: readonly LightMark[], conditions: ConditionsId, waves: readonly WaveComponent[]): void;
+  /** Terrain, lighthouses, buoys and stations, and light/visibility of the sea area. */
+  setArea(area: AreaId, decor: AreaDecor, conditions: ConditionsId, waves: readonly WaveComponent[]): void;
   /** The other vessels to draw (their states come with each render). */
   setVessels(defs: readonly VesselDef[]): void;
+  /** Whales, schools and aircraft (states with each render); gulls follow the fishing boats and circle these coastal points [north, east]. */
+  setLife(creatures: readonly CreatureDef[], aircraft: readonly AircraftDef[], coast: readonly [number, number][]): void;
   /** Depth of the camera [m], negative above the water (after the last render). */
   cameraDepth(): number;
   /** Cutaway view: the body-frame point [m] under a screen point on the cut, or null. */
@@ -129,6 +137,10 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
   let insets = { left: 0, top: 0, right: 0, bottom: 0 };
   const env = createEnvironment(scene, hemi, sun);
   const vesselView = new VesselView(scene);
+  const lifeView = new LifeView(scene, glowTexture());
+  let vesselDefs: readonly VesselDef[] = [];
+  let lampsLit = false;
+  let darkness = false;
 
   // Waypoint buoy: yellow spar buoy with a top mark, visible above and below water.
   const buoy = new THREE.Group();
@@ -277,12 +289,18 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     setView(v) {
       view = v;
     },
-    setArea(area, lighthouses, conditions, waves) {
-      env.setArea(area, lighthouses, conditions, waves);
+    setArea(area, decor, conditions, waves) {
+      env.setArea(area, decor, conditions, waves);
       vesselView.setLights(conditions !== 'day');
+      lampsLit = conditions !== 'day';
+      darkness = conditions === 'night';
     },
     setVessels(defs) {
+      vesselDefs = defs;
       vesselView.setVessels(defs);
+    },
+    setLife(creatures, aircraft, coast) {
+      lifeView.set(creatures, aircraft, vesselDefs, coast);
     },
     cameraDepth() {
       return env.surfaceAt(camera.position.x, camera.position.z) - camera.position.y;
@@ -375,6 +393,12 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       effects.update(state.effects ?? null, lastEffectsT === null ? 0 : state.t - lastEffectsT, (x, z) => env.surfaceAt(x, z));
       lastEffectsT = state.t;
       vesselView.update(state.vessels, (x, z) => env.surfaceAt(x, z));
+      // The periscope head or the bridge above the water startles the gulls.
+      const showing = state.periscope > 0.9 && state.position[2] < 20 ? ([state.position[0], state.position[1]] as [number, number]) : null;
+      lifeView.update(
+        { t: state.t, creatures: state.creatures ?? [], aircraft: state.aircraft ?? [], vessels: state.vessels, showing, lamps: lampsLit, night: darkness, camera: camera.position },
+        (x, z) => env.surfaceAt(x, z),
+      );
       renderer.render(scene, camera);
     },
   };

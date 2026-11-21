@@ -98,7 +98,7 @@ export class Radar {
     for (const k of c.world.contacts()) {
       const v = k.vessel;
       if (k.range > Math.min(R.maxRange, radarHorizon(h, R.targetHeight[v.def.kind] ?? 10))) continue;
-      if (hs > R.clutterWave && v.def.kind === 'fishing' && k.range < R.clutterRange) continue;
+      if (hs > R.clutterWave && (v.def.kind === 'fishing' || v.def.kind === 'sail') && k.range < R.clutterRange) continue;
       const key = v.def.id.length * 7 + v.def.id.charCodeAt(0);
       const range = k.range * (1 + R.rangeError * noise(now, key));
       const bearing = k.bearing + R.bearingError * noise(now, key + 3);

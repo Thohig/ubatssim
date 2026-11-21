@@ -30,7 +30,20 @@ export function audioInput(s: GameSession, view: ViewMode, cameraUnderwater: boo
     seaHs: sim.sea.hs,
     coastal: sim.areaId !== 'atlantic',
     ship: nearestShip(s.ctrl.world),
+    bio: nearestCall(s),
   };
+}
+
+/** The nearest whale or school making sound now, with its range. */
+function nearestCall(s: GameSession): AudioInput['bio'] {
+  const w = s.ctrl.world;
+  let best: AudioInput['bio'];
+  for (const c of w.creatures) {
+    if (c.sourceLevel(s.sim.t, w.night) === null) continue;
+    const range = Math.hypot(c.state.north - s.sim.y[0]!, c.state.east - s.sim.y[1]!);
+    if (!best || range < best.range) best = { sound: c.def.sound, range };
+  }
+  return best;
 }
 
 /** What the particle effects need from the boat, every frame (cheap: no force evaluation). */
@@ -55,6 +68,8 @@ export function effectsInput(s: GameSession): EffectsInput {
     dieselRunning: sim.systems.electrics.dieselRunning,
     torpedoes: s.ctrl.world.torpedoes.map((t) => [t.state.north, t.state.east, t.state.depth] as [number, number, number]),
     blasts: s.ctrl.blasts,
+    night: s.conditions === 'night' || s.conditions === 'dusk',
+    halfLength: sim.cfg.hull.length / 2,
   };
 }
 

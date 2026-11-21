@@ -10,8 +10,19 @@
  */
 import type { Vec3 } from './math/vec3';
 
-/** 'patrol': a corvette with a hull sonar and lookouts, which can find the submarine (control/sonar.ts). */
-export type VesselKind = 'freighter' | 'ferry' | 'fishing' | 'patrol';
+/**
+ * 'patrol': a corvette with a hull sonar and lookouts, which can find the
+ * submarine (control/sonar.ts). 'sail': a sailing yacht, nearly silent.
+ */
+export type VesselKind = 'freighter' | 'ferry' | 'fishing' | 'patrol' | 'sail';
+
+/** A trawl towed behind a fishing boat: its mouth `distance` metres astern, `width` wide, from `top` to `bottom` metres deep. */
+export interface TrawlDef {
+  distance: number;
+  width: number;
+  top: number;
+  bottom: number;
+}
 
 export interface VesselDef {
   id: string;
@@ -36,6 +47,10 @@ export interface VesselDef {
   blades: number;
   /** Vessels that act together (a convoy and its escort, corvettes hunting together). */
   group?: string;
+  /** A fishing boat towing a trawl (the boat can get caught in it: systems/snag.ts). */
+  trawl?: TrawlDef;
+  /** A corvette that pings on patrol too, not only when searching: a sonar barrier (control/hunter.ts). */
+  activeSonar?: boolean;
 }
 
 /** Zigzag of an alarmed convoy: course offsets [rad] in turn, each held `ZIGZAG_LEG` seconds. */

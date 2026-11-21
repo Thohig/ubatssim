@@ -39,6 +39,90 @@ export interface TerrainView {
   update(north: number, east: number): void;
   /** Switch to another area (rebuilds at once on the next update). */
   setArea(area: AreaId): void;
+  /** Lit windows in the houses. */
+  setNight(on: boolean): void;
+}
+
+const MAX_TREES = 7000;
+const MAX_HOUSES = 900;
+const HOUSE_COLOURS = [0x8b2e22, 0x7a2a20, 0xeeeae0] as const;
+
+/** Trees and houses on the land around the boat (placed in terrainBuild.ts). */
+function createScatter(scene: THREE.Scene) {
+  const treeGeo = new THREE.ConeGeometry(2.2, 9, 7);
+  treeGeo.translate(0, 4.5, 0);
+  const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshStandardMaterial({ roughness: 1 }), MAX_TREES);
+  trees.count = 0;
+  trees.frustumCulled = false;
+  const bodyGeo = new THREE.BoxGeometry(6, 4, 9);
+  bodyGeo.translate(0, 2, 0);
+  const roofGeo = new THREE.CylinderGeometry(3.6, 3.6, 9.4, 3, 1);
+  roofGeo.rotateX(Math.PI / 2);
+  roofGeo.rotateZ(Math.PI / 2);
+  roofGeo.scale(1, 0.55, 1);
+  roofGeo.translate(0, 4.9, 0);
+  const winGeo = new THREE.BoxGeometry(6.1, 1, 1.2);
+  winGeo.translate(0, 2.1, 0);
+  const bodies = new THREE.InstancedMesh(bodyGeo, new THREE.MeshStandardMaterial({ roughness: 0.85 }), MAX_HOUSES);
+  const roofs = new THREE.InstancedMesh(roofGeo, new THREE.MeshStandardMaterial({ color: 0x2d2b2a, roughness: 0.9 }), MAX_HOUSES);
+  const windows = new THREE.InstancedMesh(winGeo, new THREE.MeshBasicMaterial({ color: 0xffd58a }), MAX_HOUSES);
+  for (const m of [bodies, roofs, windows]) {
+    m.count = 0;
+    m.frustumCulled = false;
+  }
+  windows.visible = false;
+  scene.add(trees, bodies, roofs, windows);
+  const m4 = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const v = new THREE.Vector3();
+  const sc = new THREE.Vector3();
+  const col = new THREE.Color();
+  const up = new THREE.Vector3(0, 1, 0);
+  return {
+    apply(d: PatchData, centre: [number, number], kind: string) {
+      const ox = centre[1];
+      const oz = -centre[0];
+      const nt = Math.min(MAX_TREES, d.trees.length / 4);
+      for (let i = 0; i < nt; i++) {
+        const s = d.trees[i * 4 + 3]!;
+        v.set(d.trees[i * 4]! + ox, d.trees[i * 4 + 1]!, d.trees[i * 4 + 2]! + oz);
+        q.setFromAxisAngle(up, s * 17);
+        m4.compose(v, q, sc.set(s, s * (0.8 + 0.4 * ((s * 7) % 1)), s));
+        trees.setMatrixAt(i, m4);
+        // Pine dark; on the Norwegian coast some lighter birch among them.
+        col.setHex(kind !== 'archipelago' && (s * 13) % 1 > 0.6 ? 0x56703a : 0x2a3a22);
+        trees.setColorAt(i, col);
+      }
+      trees.count = nt;
+      trees.instanceMatrix.needsUpdate = true;
+      if (trees.instanceColor) trees.instanceColor.needsUpdate = true;
+      const nh = Math.min(MAX_HOUSES, d.houses.length / 5);
+      for (let i = 0; i < nh; i++) {
+        const style = d.houses[i * 5 + 4]!;
+        const k = style === 1 ? 0.65 : 1;
+        v.set(d.houses[i * 5]! + ox, d.houses[i * 5 + 1]!, d.houses[i * 5 + 2]! + oz);
+        q.setFromAxisAngle(up, d.houses[i * 5 + 3]!);
+        m4.compose(v, q, sc.set(k, k, k));
+        bodies.setMatrixAt(i, m4);
+        roofs.setMatrixAt(i, m4);
+        // Boathouses have no lit windows.
+        if (style === 1) m4.scale(sc.set(0, 0, 0));
+        windows.setMatrixAt(i, m4);
+        bodies.setColorAt(i, col.setHex(HOUSE_COLOURS[style as 0 | 1 | 2] ?? HOUSE_COLOURS[0]));
+      }
+      for (const m of [bodies, roofs, windows]) {
+        m.count = nh;
+        m.instanceMatrix.needsUpdate = true;
+      }
+      if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
+    },
+    clear() {
+      trees.count = bodies.count = roofs.count = windows.count = 0;
+    },
+    setNight(on: boolean) {
+      windows.visible = on;
+    },
+  };
 }
 
 export function createTerrain(scene: THREE.Scene): TerrainView {
@@ -46,6 +130,7 @@ export function createTerrain(scene: THREE.Scene): TerrainView {
   const near = makePatch(1600, 200, 0, 250, mat); // 8 m cells
   const far = makePatch(24000, 200, 760, 1200, mat); // 120 m cells out to where the day haze hides land, sunk under the near patch
   scene.add(near.mesh, far.mesh);
+  const scattered = createScatter(scene);
 
   let area: AreaId = 'westCoast';
   let height: HeightFn = heightFunction(AREAS[area].terrain);
@@ -70,6 +155,7 @@ export function createTerrain(scene: THREE.Scene): TerrainView {
     }
     p.mesh.position.set(centre[1], 0, -centre[0]);
     p.centre = centre;
+    if (p === near) scattered.apply(d, centre, AREAS[area].terrain.kind);
   };
 
   worker?.addEventListener('message', (ev: MessageEvent<PatchData & { id: number }>) => {
@@ -81,7 +167,7 @@ export function createTerrain(scene: THREE.Scene): TerrainView {
   });
 
   const build = (p: Patch, cn: number, ce: number, now: boolean) => {
-    const req: PatchRequest = { size: p.size, segments: p.segments, holeHalf: p.holeHalf, cn, ce };
+    const req: PatchRequest = { size: p.size, segments: p.segments, holeHalf: p.holeHalf, cn, ce, kind: AREAS[area].terrain.kind, scatter: p === near };
     if (now || !worker) {
       apply(p, buildPatch(height, req), [cn, ce]);
       return;
@@ -109,6 +195,10 @@ export function createTerrain(scene: THREE.Scene): TerrainView {
       height = heightFunction(AREAS[a].terrain);
       near.centre = far.centre = null;
       near.pending = far.pending = null;
+      scattered.clear();
+    },
+    setNight(on) {
+      scattered.setNight(on);
     },
     update(n, e) {
       maybeRebuild(near, n, e);

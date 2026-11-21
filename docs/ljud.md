@@ -73,6 +73,16 @@ Ljud från omgivningen hörs bara när kameran är ovanför vattnet.
 - **Måsar:** på dagen i områden med kust, inte på Atlanten.
 - **Mistlur:** i dimma, var 30:e sekund.
 
+**Livet i havet** hörs genom skrovet när ubåten är under ytan, oavsett kamera, från det närmaste djur som låter just då (`AudioInput.bio`, `call` i `engine.ts`). Starkare ju närmare, ut till 8 km (knölval), 6 km (kaskelot), 4 km (vikval, späckhuggare) och 600 m (sill).
+
+| Djur | Ljud |
+|---|---|
+| Kaskelot | Klickserier, tre skarpa klick (bandpass 3,5 kHz) ungefär en gång i sekunden |
+| Knölval | Långa toner, 180–430 Hz, som glider upp eller ned under 2,5–4,5 s, med vibrato |
+| Vikval | Låga pulståg, sex korta toner runt 110 Hz |
+| Späckhuggare | Visslingar, 1,8–4,3 kHz, som glider |
+| Sill | Ett snabbt tickande (FRT), bara på natten |
+
 ## Rösten
 
 Rösten läser upp spelarens egna order ("Djup 32, ja"), larm och misslyckanden (första meningen) och "Mål klart". Assistentens kompenseringar, felskrivna kommandon och hjälptexter läses inte upp. En ny uppläsning avbryter den förra, så den senaste ordern hörs alltid. Saknar enheten en svensk röst är rösten tyst.

@@ -2,7 +2,7 @@
 
 Förslag på vad som skulle förbättra spelet, med läge och en rekommenderad ordning. Det som är gjort beskrivs i README och de andra dokumenten. Här står bara det som återstår och varför.
 
-Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv och aktiv sonar, radar och radarvarnare, sjökort, målrörelseanalys, torpeder och torpedrum, korvetter som jagar och samarbetar, lockmål, trådstyrda torpeder, skott och länsning, svävning utan fart och en startsida med egen musik.
+Spelet har nu detaljerad fysik, ballast, trim, terräng (med kanjon och undervattensberg), liv i havet och på land, fartyg, flyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv och aktiv sonar, radar och radarvarnare, sjökort, målrörelseanalys, torpeder och torpedrum, korvetter som jagar och samarbetar, lockmål, trådstyrda torpeder, skott och länsning, svävning utan fart och en startsida med egen musik.
 
 ## Rekommenderad ordning
 
@@ -43,6 +43,23 @@ Inget av förslagen återstår just nu. Nya idéer läggs till här.
 | **Skärmkontrollerna** | Klar | Yta som vanlig stigning, Per.djup, System ▾ på alla skärmar och vyknappar med ikoner mellan telegrafen och kompassen. |
 | **Scenariolistan** | Klar | Fem flikar efter vad scenariot övar på och kompakta kort. Se README (Scenarier). |
 | **Ytan underifrån** | Klar | Snells fönster i havsytans shader. Se `docs/grafik.md`. |
+
+## Liv i världen
+
+| Förslag | Läge | Innehåll |
+|---|---|---|
+| **Eggakanten** | Klar | Nytt havsområde: sockel, brant, kanjon, undervattensberg, vrak och kust. Scenariot Kanjonen. |
+| **Terrängens skugga** | Klar | Botten och land skuggar ljudet; kanjoner och berg gömmer ubåten. |
+| **Bottentyper och bottenekot** | Klar | Lera, sand, grus och berg; nära en klippig botten drunknar ekot. |
+| **Valar och sillstim** | Klar | Biologiska kontakter, ekon och ljud genom skrovet. |
+| **Spridningsskiktet** | Klar | Djupt på dagen, grunt på natten; döljer en ubåt inne i skiktet. |
+| **Civil trafik och trålar** | Klar | Segelbåtar, trålare med trål att fastna i. |
+| **Flyg och kustradar** | Klar | Ser masterna och anropar korvetterna (i scenarier). |
+| **Land och liv i bild** | Klar | Hus, skog, snö, lysbojar, kustradar, vrak, måsar, tång, maneter, mareld. |
+
+Knäppande räkor, som i förslaget skulle ge biologiskt brus på grunt vatten, lever inte i nordiska vatten. Sillens tickande på natten fick ta den platsen.
+
+**Kvar att pröva:** ett scenario med spaningsplanet och snorkling, valar som kan förväxlas med en ubåt av korvetterna, och fler vrak i de andra områdena.
 
 ## Tekniskt
 

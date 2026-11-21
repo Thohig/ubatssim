@@ -34,6 +34,7 @@ export class GameSession {
     const { initial, scenario } = spec;
     this.sim = new Simulation(initial);
     this.ctrl = new Controller(this.sim);
+    this.ctrl.world.night = spec.conditions === 'night' || spec.conditions === 'dusk';
     // The scenario's locks first: every game then starts with the crew handling the rest.
     this.runner = scenario ? new ScenarioRunner(scenario, this.ctrl) : null;
     this.ctrl.crewTakesAll();
@@ -42,7 +43,14 @@ export class GameSession {
     if (self.length) this.ctrl.addLog(`${self.join('. ')}.`, 'info');
     if (spec.helpHint) this.ctrl.addLog(spec.helpHint, 'info');
     // Free play and the demo behind the menu have the area's traffic; scenarios bring their own.
-    if (!scenario) this.ctrl.world.add(AREA_INFO[this.sim.areaId].traffic);
+    if (!scenario) {
+      const area = AREA_INFO[this.sim.areaId];
+      this.ctrl.world.add(area.traffic);
+      this.ctrl.world.addLife(area.life ?? []);
+      this.ctrl.world.addAircraft(area.aircraft ?? []);
+      this.ctrl.lookouts.stations = area.stations ?? [];
+      this.ctrl.lookouts.watching = false;
+    }
   }
 
   get scenario(): Scenario | null {

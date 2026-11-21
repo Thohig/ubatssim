@@ -117,7 +117,9 @@ export const WEAPONS = {
     /** Echoes come back from no further than this [m]. */
     range: 12000,
     /** Target strength by vessel kind [dB]. APPROX [U83]. */
-    targetStrength: { freighter: 25, ferry: 25, fishing: 10, patrol: 15 } as Record<string, number>,
+    targetStrength: { freighter: 25, ferry: 25, fishing: 10, patrol: 15, sail: 5 } as Record<string, number>,
+    /** Target strength of a wreck on the bottom [dB]. APPROX. */
+    wreckStrength: 20,
     /** Range error (fraction) and bearing error [rad] of an echo. APPROX. */
     rangeError: 0.004,
     bearingError: (1 * Math.PI) / 180,
@@ -135,7 +137,7 @@ export const WEAPONS = {
     sweep: 3,
     maxRange: 24000,
     /** Mast height above the water of other vessels [m]. APPROX. */
-    targetHeight: { freighter: 25, ferry: 28, fishing: 6, patrol: 15 } as Record<string, number>,
+    targetHeight: { freighter: 25, ferry: 28, fishing: 6, patrol: 15, sail: 14 } as Record<string, number>,
     /** In a sea with waves higher than this [m], small boats hide in the clutter within `clutterRange`. */
     clutterWave: 1.5,
     clutterRange: 2500,

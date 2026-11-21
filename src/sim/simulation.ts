@@ -37,6 +37,24 @@ export function areaGround(area: AreaId): GroundDepth {
   return g.depth;
 }
 
+/** Coarse terrain caches for the sound paths (seabed.ts, `terrainBlocks`), per area. */
+const acousticGrounds = new Map<AreaId, TerrainGrid>();
+
+/**
+ * The sea bed of an area on a 50 m grid, for acoustic shadows over many
+ * kilometres: the 4 m grid of the contact model would fill thousands of
+ * tiles along one sound path. Deterministic like the fine grid.
+ */
+export function areaAcousticGround(area: AreaId): GroundDepth {
+  let g = acousticGrounds.get(area);
+  if (!g) {
+    const h = heightFunction(AREAS[area].terrain);
+    g = new TerrainGrid((n, e) => -h(n, e), 50, 32, 600);
+    acousticGrounds.set(area, g);
+  }
+  return g.depth;
+}
+
 /** The west coast archipelago (the default area). */
 export const archipelagoGround = (): GroundDepth => areaGround('westCoast');
 import { restoringForces, sliceSurface, surfaceDamping, type HydrostaticResult } from './hydrostatics';
@@ -65,6 +83,7 @@ import { Mast } from './systems/masts';
 import { Pumps } from './systems/pumps';
 import { Electrics } from './systems/electrics';
 import { Flooding, type CompartmentFlood } from './systems/flooding';
+import { Snag } from './systems/snag';
 import type { ForceContext, Subsystem } from './systems/types';
 
 export const DT = 0.01;
@@ -259,6 +278,8 @@ export class Simulation {
   readonly tankDefs: readonly TankDef[];
   readonly MA: MatN;
   readonly ground: GroundDepth;
+  /** The sea bed on a coarse grid, for sound paths (see `areaAcousticGround`). */
+  readonly acousticGround: GroundDepth;
   readonly areaId: AreaId;
   readonly water: WaterProfile;
   readonly current: CurrentDef;
@@ -292,6 +313,8 @@ export class Simulation {
     periscopeMast: Mast;
     snorkelMast: Mast;
     radarMast: Mast;
+    /** Caught in a trawl (systems/snag.ts). */
+    snag: Snag;
   };
   /** Run once per step, in this order, before the integration. */
   private readonly updateOrder: Subsystem[];
@@ -317,6 +340,7 @@ export class Simulation {
     snorkel: number;
     radar: number;
     powerLimit: number;
+    snag: string | null;
     ext: ReturnType<Simulation['externalForces']>;
   } | null = null;
 
@@ -331,10 +355,11 @@ export class Simulation {
       periscopeMast: new Mast(this, 'periscope'),
       snorkelMast: new Mast(this, 'snorkel'),
       radarMast: new Mast(this, 'radar'),
+      snag: new Snag(this),
     };
     // Flooding before the electrics: the drain pump is part of the load.
-    this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps, this.systems.flooding, this.systems.electrics];
-    this.forceOrder = [this.systems.periscopeMast, this.systems.snorkelMast, this.systems.radarMast];
+    this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps, this.systems.flooding, this.systems.electrics, this.systems.snag];
+    this.forceOrder = [this.systems.periscopeMast, this.systems.snorkelMast, this.systems.radarMast, this.systems.snag];
     for (const [id, area] of Object.entries(init.leaks ?? {})) this.systems.flooding.damage(id, area, undefined);
     this.areaId = init.area ?? 'westCoast';
     this.water = AREAS[this.areaId].water;
@@ -344,6 +369,7 @@ export class Simulation {
     this.surface = this.waves.length > 0 ? (n, e) => waveElevation(this.waves, n, e, this.t) : undefined;
     this.sliceElev = new Float64Array(cfg.hull.slices);
     this.ground = init.ground ?? areaGround(this.areaId);
+    this.acousticGround = init.ground ?? areaAcousticGround(this.areaId);
     this.contactPoints = hullContactPoints(cfg);
     this.hull = buildHull(cfg.hull);
     // Fixed ballast adjusted in port for the area's water.
@@ -666,6 +692,7 @@ export class Simulation {
       c.snorkel !== a.snorkel ||
       c.radar !== a.radar ||
       c.powerLimit !== this.systems.electrics.powerLimit ||
+      c.snag !== this.systems.snag.holder ||
       c.rps !== this.commands.rps
     ) {
       c = {
@@ -679,6 +706,7 @@ export class Simulation {
         snorkel: a.snorkel,
         radar: a.radar,
         powerLimit: this.systems.electrics.powerLimit,
+        snag: this.systems.snag.holder,
         ext: this.externalForces(this.y),
       };
       this.telemetryForces = c;

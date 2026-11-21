@@ -222,7 +222,7 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
         const len = Math.hypot(w, H);
         const ex = bx + Math.sin(a) * len;
         const ey = by - Math.cos(a) * len;
-        g.strokeStyle = k.classified === 'örlogsfartyg' ? 'rgba(255, 107, 107, 0.8)' : 'rgba(255, 179, 71, 0.7)';
+        g.strokeStyle = k.classified === 'örlogsfartyg' ? 'rgba(255, 107, 107, 0.8)' : k.bio && k.classified ? 'rgba(120, 210, 190, 0.6)' : 'rgba(255, 179, 71, 0.7)';
         g.setLineDash([4, 4]);
         g.beginPath();
         g.moveTo(bx, by);
@@ -484,13 +484,13 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
     if (s.contacts.length === 0) lines.push('Inga kontakter.');
     for (const k of s.contacts) {
       const target = c.fire.targets.find((x) => x.vesselId === k.vesselId);
-      const text = `${k.label}${target ? ` = ${target.label}` : ''} · ${String(Math.round(k.bearing) % 360).padStart(3, '0')}° · ${strength(k.excess)}${k.classified ? ` · ${k.classified}, ${k.blades} blad, ${k.rpm} rpm` : ' · klassas …'}`;
+      const text = `${k.label}${target ? ` = ${target.label}` : ''} · ${String(Math.round(k.bearing) % 360).padStart(3, '0')}° · ${strength(k.excess)}${k.classified ? (k.bio ? ` · biologisk, ${k.classified}` : k.blades ? ` · ${k.classified}, ${k.blades} blad, ${k.rpm} rpm` : ` · ${k.classified}, ingen propeller`) : ' · klassas …'}`;
       lines.push([target && target.label === c.fire.current ? 'on' : '', text, k.label]);
     }
-    if (s.contacts.length) lines.push('Tryck på en kontakt för att göra den till mål.');
+    if (s.contacts.some((k) => !k.bio)) lines.push('Tryck på en kontakt för att göra den till mål.');
     const age = c.sim.t - s.lastPing;
     if (age < ECHO_LIFE) {
-      const echoes = s.echoes.map((e) => `${e.label ?? 'eko'} ${String(Math.round(e.bearing) % 360).padStart(3, '0')}° ${(e.range / 1000).toFixed(1).replace('.', ',')} km`);
+      const echoes = s.echoes.map((e) => `${e.label ?? (e.what ? `eko (${e.what})` : 'eko')} ${String(Math.round(e.bearing) % 360).padStart(3, '0')}° ${(e.range / 1000).toFixed(1).replace('.', ',')} km`);
       lines.push(['nav-warn', `Ping för ${Math.round(age)} s sedan: ${echoes.length ? echoes.join(', ') : 'inget eko'}.`]);
     }
     const wait = s.pingWait();

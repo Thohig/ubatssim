@@ -278,7 +278,8 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
         const label = o.label.toUpperCase();
         if (label.startsWith('M')) return c.fire.targets.some((t) => t.label === label) ? null : `Inget mål ${label}.`;
         const k = c.sonar.contacts.find((x) => x.label === label);
-        return k ? null : `Ingen sonarkontakt ${label}.`;
+        if (!k) return `Ingen sonarkontakt ${label}.`;
+        return k.bio ? `${label} är biologisk${k.classified ? ` (${k.classified})` : ''}, inget mål.` : null;
       }
       // Through the periscope or from the bridge: a vessel in the cross hair.
       const r = c.fire.findInSight(((o.bearing ?? 0) * Math.PI) / 180);

@@ -24,5 +24,5 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
     fns.set(r.area, fn);
   }
   const d = buildPatch(fn, r);
-  (self as unknown as Worker).postMessage({ id: r.id, ...d }, [d.heights.buffer, d.normals.buffer, d.colors.buffer]);
+  (self as unknown as Worker).postMessage({ id: r.id, ...d }, [d.heights.buffer, d.normals.buffer, d.colors.buffer, d.trees.buffer, d.houses.buffer]);
 };

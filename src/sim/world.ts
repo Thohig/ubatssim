@@ -6,7 +6,10 @@
  * damage are worked out here; what happened is collected in `events` for
  * the control layer (the log, the sound, the scenarios).
  */
+import { Aircraft, type AircraftDef } from './aircraft';
+import { SNAG } from './config/hazards';
 import { WEAPONS } from './config/weapons';
+import { Creature, type CreatureDef } from './life';
 import { chargeHole, DepthCharge } from './depthCharge';
 import { mat3MulVec } from './math/mat';
 import { quatToMat3 } from './math/quat';
@@ -22,7 +25,16 @@ export type WorldEvent =
   | { kind: 'miss'; torpedo: number }
   | { kind: 'sunk'; vesselId: string; vessel: string }
   | { kind: 'drop'; by: string; count: number }
-  | { kind: 'charge'; distance: number; hole: number; compartment: string | null; at: [number, number, number] };
+  | { kind: 'charge'; distance: number; hole: number; compartment: string | null; at: [number, number, number] }
+  | { kind: 'snagged'; vesselId: string; vessel: string }
+  | { kind: 'freed'; vesselId: string; vessel: string };
+
+/** Range and bearing to a creature (as `Contact` for a vessel). */
+export interface BioContact {
+  creature: Creature;
+  range: number;
+  bearing: number;
+}
 
 export interface Contact {
   vessel: Vessel;
@@ -44,6 +56,15 @@ export interface Decoy {
 
 export class World {
   readonly vessels: Vessel[] = [];
+  /** Whales and fish schools (life.ts). */
+  readonly creatures: Creature[] = [];
+  /** Patrol aircraft (aircraft.ts). */
+  readonly aircraft: Aircraft[] = [];
+  /**
+   * Night: the deep scattering layer and the schools in it are near the
+   * surface, and herring tick. Set before the life is added.
+   */
+  night = false;
   /** Decoys running (spent ones are removed). */
   decoys: Decoy[] = [];
   private nextDecoy = 1;
@@ -62,6 +83,14 @@ export class World {
 
   add(defs: readonly VesselDef[]): void {
     for (const d of defs) this.vessels.push(new Vessel(d));
+  }
+
+  addLife(defs: readonly CreatureDef[]): void {
+    for (const d of defs) this.creatures.push(new Creature(d, this.night, this.sub.acousticGround));
+  }
+
+  addAircraft(defs: readonly AircraftDef[]): void {
+    for (const d of defs) this.aircraft.push(new Aircraft(d));
   }
 
   /** Events since the last call. */
@@ -105,6 +134,9 @@ export class World {
   step(dt = DT): void {
     this.sub.step(dt);
     for (const v of this.vessels) v.step(dt);
+    for (const c of this.creatures) c.step(dt, this.sub.t, this.night, this.sub.acousticGround);
+    for (const a of this.aircraft) a.step(dt);
+    this.checkTrawls();
     for (const v of this.vessels) {
       if (v.state.sunk >= 1 && !this.sunkReported.has(v.def.id)) {
         this.sunkReported.add(v.def.id);
@@ -164,6 +196,83 @@ export class World {
     const comp = comps.find((k) => bestX >= k.xRange[0] && bestX <= k.xRange[1]) ?? (bestX > 0 ? comps[0]! : comps[comps.length - 1]!);
     if (hole > 0) sub.systems.flooding.damage(comp.id, hole, 'charge');
     this.events.push({ kind: 'charge', distance, hole, compartment: hole > 0 ? comp.id : null, at: [c.state.north, c.state.east, c.state.depth] });
+  }
+
+  /**
+   * Trawls: a boat inside the mouth of a towed net is caught (systems/snag.ts),
+   * and the trawler stops; going astern slips it off again.
+   */
+  private checkTrawls(): void {
+    const snag = this.sub.systems.snag;
+    // The boat may have backed out of it during the step (systems/snag.ts).
+    const before = this.heldBy;
+    const held = snag.holder;
+    if (before !== null && held === null) {
+      const v = this.vessels.find((x) => x.def.id === before);
+      if (v) v.goalSpeed = null;
+      // The net is torn or slipped off: that trawl cannot catch the boat again for a while.
+      this.trawlClear[before] = this.sub.t + SNAG.clearTime;
+      this.events.push({ kind: 'freed', vesselId: before, vessel: v?.def.name ?? '' });
+    }
+    if (held !== null) {
+      const v = this.vessels.find((x) => x.def.id === held);
+      if (!v || v.state.sinking) snag.release();
+    } else {
+      for (const v of this.vessels) {
+        if (!v.def.trawl || v.state.sinking || this.sub.t < (this.trawlClear[v.def.id] ?? -Infinity)) continue;
+        if (this.inTrawl(v)) {
+          snag.catch(v.def.id);
+          v.goalSpeed = 0;
+          this.events.push({ kind: 'snagged', vesselId: v.def.id, vessel: v.def.name });
+          break;
+        }
+      }
+    }
+    this.heldBy = snag.holder;
+  }
+
+  /** Whose trawl held the boat after the last step. */
+  private heldBy: string | null = null;
+  /** Until when a vessel's trawl cannot catch the boat again [s], by vessel id. */
+  private trawlClear: Record<string, number> = {};
+
+  /** True if a point of the boat's hull is inside the mouth of a vessel's trawl. */
+  private inTrawl(v: Vessel): boolean {
+    const tr = v.def.trawl!;
+    const sub = this.sub;
+    const ch = Math.cos(v.state.heading);
+    const sh = Math.sin(v.state.heading);
+    // Mouth centre, `distance` astern of the vessel.
+    const mn = v.state.north - tr.distance * ch;
+    const me = v.state.east - tr.distance * sh;
+    const half = sub.cfg.hull.length / 2;
+    const r = sub.cfg.hull.radius;
+    if (Math.hypot(sub.y[0]! - mn, sub.y[1]! - me) > half + SNAG.mouthLength + tr.width) return false;
+    const depth = sub.y[2]!;
+    if (depth + r < tr.top || depth - r > tr.bottom) return false;
+    const k = sub.kinematics();
+    const bh = Math.cos(k.heading);
+    const bs = Math.sin(k.heading);
+    for (let x = -half; x <= half; x += 4) {
+      const pn = sub.y[0]! + x * bh - mn;
+      const pe = sub.y[1]! + x * bs - me;
+      const along = pn * ch + pe * sh;
+      const across = -pn * sh + pe * ch;
+      if (Math.abs(along) < SNAG.mouthLength / 2 && Math.abs(across) < tr.width / 2 + r) return true;
+    }
+    return false;
+  }
+
+  /** Range and bearing to every creature, nearest first. */
+  bioContacts(): BioContact[] {
+    const [n, e] = [this.sub.y[0]!, this.sub.y[1]!];
+    return this.creatures
+      .map((creature) => {
+        const dn = creature.state.north - n;
+        const de = creature.state.east - e;
+        return { creature, range: Math.hypot(dn, de), bearing: (Math.atan2(de, dn) + 2 * Math.PI) % (2 * Math.PI) };
+      })
+      .sort((a, b) => a.range - b.range);
   }
 
   /** Range and bearing to every vessel still afloat, nearest first. */

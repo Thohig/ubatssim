@@ -26,7 +26,7 @@ En bild får ta 16,7 ms vid 60 bilder per sekund. Fördelningen på en mellankla
 | Ytläge, grov sjö | 249 µs/steg | 152 µs/steg |
 | 100 m, 8 knop | 110 µs/steg | 113 µs/steg |
 
-Batteriet, dieslarna, läckaget, snorkelmasten och sonaren (en gång per sekund) kostar nästan inget. Elsystemet räknar propellerns moment en gång per steg, och läckaget lägger vattnet som punktmassor i massberäkningen. Mätt med `npm run bench` före och efter:
+Batteriet, dieslarna, läckaget, snorkelmasten och sonaren (en gång per sekund) kostar nästan inget. Sonarens terrängskugga (`terrainBlocks` mot ett 50 m-rutnät) tar ~0,03 ms per sekund i skärgården och ~0,005 ms på Atlanten, där rutornas grundaste djup gör att sökningen hoppas över. Träd och hus placeras i terrängens worker (~5 ms extra per ombyggnad av det detaljerade rutnätet), tången på huvudtråden när kameran flyttat 30 m (~2 500 höjdvärden). Elsystemet räknar propellerns moment en gång per steg, och läckaget lägger vattnet som punktmassor i massberäkningen. Mätt med `npm run bench` före och efter:
 
 | Läge | Före | Efter |
 |---|---|---|

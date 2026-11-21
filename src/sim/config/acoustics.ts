@@ -13,7 +13,7 @@
  */
 export const ACOUSTICS = {
   /** Radiated noise of other vessels at their reference speed [dB]. APPROX [R04]. */
-  vesselLevel: { freighter: 172, ferry: 168, fishing: 150, patrol: 158 } as Record<string, number>,
+  vesselLevel: { freighter: 172, ferry: 168, fishing: 150, patrol: 158, sail: 118 } as Record<string, number>,
   /** A vessel's level rises with 50 log10(speed / reference speed). APPROX [R04]. */
   vesselSpeedExponent: 50,
   vesselReferenceSpeed: 6, // m/s (~12 knots)
@@ -52,4 +52,43 @@ export const ACOUSTICS = {
   sightPeriscope: 3500,
   sightSnorkel: 6000,
   sightSurfaced: 12000,
+
+  /**
+   * Sound in the terrain's shadow: the sea bed or land between source and
+   * receiver blocks the direct path; what gets round (diffraction, bottom
+   * bounces) is this much weaker [dB]. APPROX [U83].
+   */
+  terrainShadowLoss: 35,
+  /** The ground must rise this far [m] above the straight path to block it. */
+  shadowClearance: 2,
+
+  /**
+   * Bottom reverberation of an active ping: the bottom's backscatter
+   * strength [dB] by type (Lambert's law at grazing angles ~10–20°), the
+   * reference below which it masks nothing, and the height [m] above the
+   * bottom where it no longer matters. APPROX [U83 ch. 8].
+   */
+  bottomBackscatter: { mud: -40, sand: -31, gravel: -27, rock: -21 } as Record<string, number>,
+  bottomReference: -45,
+  bottomReverbHeight: 50,
+
+  /**
+   * Biological sound and echoes. APPROX: sperm whale clicks ~200 dB peak,
+   * here a broadband average while clicking [R04, Møhl 2003]; humpback song
+   * ~170 dB, minke whale pulse trains and killer whale calls ~155–165 dB; herring schools are silent by day and release gas with a fast
+   * ticking (FRT) at night, ~120 dB [Wilson 2004]; a large herring school's
+   * target strength ~20 dB, a whale's ~5–15 dB.
+   */
+  bioLevel: { clicks: 175, song: 168, pulse: 158, whistle: 160, frt: 118 } as Record<string, number>,
+  bioTargetStrength: { whale: 12, school: 22 } as Record<string, number>,
+  /**
+   * The deep scattering layer (zooplankton and small fish): its middle by day
+   * and by night [m], half thickness [m], how much it masks a hull echo inside
+   * it [dB], and the least water depth where it forms [m]. APPROX [U83 ch. 8].
+   */
+  dslDay: 400,
+  dslNight: 50,
+  dslHalf: 35,
+  dslMask: 14,
+  dslMinWater: 300,
 } as const;

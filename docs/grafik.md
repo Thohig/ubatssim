@@ -35,11 +35,12 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - ett detaljerat på 1,6 km med 8 m rutor runt ubåten
   - ett grövre på 24 km med 120 m rutor ut till där diset döljer land, sänkt under det detaljerade där de överlappar.
 - **Höjd:** höjden kommer från samma höjdfunktion som fysiken använder, för det aktuella havsområdet (`heightFunction`). Det man ser är det man kan gå på grund mot.
-- **Färg** efter höjd och lutning:
-  - dy på djupet och sand och silt på grunt vatten
-  - berg i branta sluttningar under vattnet
+- **Färg** efter höjd, lutning och terrängens sort (`colourFor`):
+  - under vattnet efter bottentypen i fysiken (`sim/seabed.ts`): sand och grus på grunt vatten och på sockeln, silt och dy på djupet, berg där det är brant
   - ett svart lavbälte vid vattenlinjen
-  - rosagrå granit med fläckar av ljung högre upp.
+  - i skärgårdarna rosagrå granit med fläckar av ljung och tallskog
+  - på norska kusten (fjorden, Eggakanten) gräs, björk och tall upp till trädgränsen (~180 m), kalt berg ovanför och snö över ~260 m.
+- **Träd och hus** placeras i samma Web Worker ur det detaljerade rutnätets höjder (`scatter` i `terrainBuild.ts`): träd var tredje ruta där skogen växer (`forestAt`, samma regel som färgen), hus var femte ruta på flack mark nära vattnet i byar (brus), sjöbodar vid vattnet. Platserna följer världens rutnät med en hashfunktion, så att de står kvar när rutnätet flyttas. De ritas som `InstancedMesh` (kägla för träden; stomme, tak och fönster för husen). Fönstren lyser i skymning och natt.
 - **Flytt:** rutnäten flyttas i hela rutor och byggs om först när ubåten har rört sig en bit (250 m respektive 1 200 m), så att ytan inte "simmar".
 - **Bakgrundstråd:** höjder, normaler och färger byggs i en Web Worker (`terrainWorker.ts`, koden i `terrainBuild.ts`), så att ombyggnaden inte ger ett ryck. Den gamla terrängen visas tills den nya är klar. Det första rutnätet i ett område byggs direkt.
 
@@ -60,7 +61,22 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - Lampan blinkar efter simuleringstiden, med fyrens period.
   - Skenet ritas som en glödande sprite utan dimma, så att det syns långt innan land syns på natten.
 - **Bojen** i scenarierna är en gul spirboj med toppmärke.
+- **Lysbojar** (`AreaInfo.buoys`) är röda och gröna pricker med lampor som blinkar var 4:e s i mörker. **Kustradarstationer** (`AreaInfo.stations`, eller scenariots) är ett hus, en mast med snurrande antenn och en radom. **Vrak** (`SHELF_TERRAIN.wrecks`) ligger på botten med slagsida, med skrov, överbyggnad och en knäckt mast, där fysiken har dem.
 - **Fartygen** (`vessels.ts`) är enkla modeller med skrov, överbyggnad och lastluckor. De följer vågytan i höjd och har lanternor i mörker och dimma: topplanterna, babord rött, styrbord grönt och akterlanterna.
+
+## Livet i havet och på land (`life.ts`, `seaLife.ts`)
+
+- **Valar** följer simuleringens läge och djup. Kroppen är en utdragen ellipsoid med fena och stjärtfena som slår, kaskeloten med sitt fyrkantiga huvud, späckhuggarna fyra i bredd med vit fläck. De lutar nosen ned när de dyker och upp när de stiger, och blåser en kaskad vid ytan.
+- **Sillstim:** 140 fiskar per stim (`InstancedMesh`) som simmar i cirkel runt stimmets läge, bara inom 350 m från kameran.
+- **Spaningsplanet** har fyra motorer och lanternor (rött, grönt och en vit blixt).
+- **Måsar:** flockar om tolv följer fiskebåtarna (akter om dem) och flyger kring fyrarna, på dagen. När periskopet är uppe nära ytan inom 450 m lyfter de, flyger bort och kommer tillbaka efter 90 s. Grafik med slumptal, påverkar inget.
+- **Tång och tare** (`seaLife.ts`) står på botten där det är 1,5–22 m djupt, inom 110 m från kameran på ett rutnät på 4 m (höjdfunktionen, inte workern; byggs om när kameran flyttat 30 m). Bladen böjs i vertexshadern, mer mot toppen. Mängden beror på området (inget på Atlanten).
+- **Maneter:** 36 halvklot som pulserar runt kameran på 1–35 m djup, med områdets färg, svagt självlysande på natten.
+- **Mareld:** på natten och i skymning tänds blågröna gnistor (additiva punkter, 900) längs skrovet, mest vid fören, och i propellerns svall, fler ju fortare ubåten går.
+- **Trålen** ritas bakom trålaren: två varpar ned till en strut av nät (trådram).
+- **Segelbåtar** har mast, storsegel och fock och kränger lite.
+
+Tång, maneter och mareld stängs av med partiklarna.
 
 ## Bubblor, kölvatten, plym och avgaser (`effects.ts`)
 

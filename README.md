@@ -20,6 +20,7 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 - [Korvetter som jagar](#korvetter-som-jagar)
 - [Scenarier](#scenarier)
 - [Havsområden och väder](#havsområden-och-väder)
+- [Livet i havet och på land](#livet-i-havet-och-på-land)
 - [Ljud](#ljud)
 - [Fysik i korthet](#fysik-i-korthet)
 - [Utveckling](#utveckling)
@@ -227,19 +228,22 @@ Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
 **Sonaren** lyssnar passivt med bogens hydrofoner. Varje fartyg vars ljud når fram över bruset blir en kontakt (S1, S2 …) med bäring. Efter 20 s klassar operatören den efter propellern, till exempel "S1 är troligen ett lastfartyg (4 blad, 120 rpm)". En kontakt som inte hörs på 20 s tappas.
 
 - **Sonarekvationen:** källans ljudnivå minus utbredningsförlusten (sfärisk spridning, absorption och 20 dB för varje skikt mellan källa och mottagare) minus bruset. Bruset kommer från havet och från ubåtens egen fart. Fort är alltså både högljutt och dövt.
+- **Terrängen skuggar:** när botten eller land reser sig mellan källa och mottagare (en kanjonvägg, ett undervattensberg, en ö) försvinner det raka ljudet, och det som tar sig runt är 35 dB svagare. En ubåt djupt nere i en kanjon hörs inte uppe på sockeln, och den hör inte heller fartygen där. Korvetternas pingar når inte heller fram.
+- **Liv i havet:** valar och sillstim hörs också. Operatören klassar dem som biologiska: kaskelotens klick (när den dyker), knölvalens sång, vikvalens låga pulståg, späckhuggarnas visslingar och sillens tickande (bara på natten, när stimmen står grunt). De kan inte bli mål, men de kan förväxlas med fartyg innan de är klassade.
 - **Sonarvyn** (Sonar, H) är ett vattenfall: bäringen från fören tvärs över, tiden nedåt, starkare signal ljusare. Under den syns kontakterna, ubåtens egen ljudnivå och risken att bli upptäckt.
 
 **Att bli upptäckt:** en korvett lyssnar med sin skrovsonar och ser med utkik och radar. Den märker ubåten mer ju starkare ubåtens ljud når fram, och när ett periskop (inom 3,5 km), en snorkel (inom 6 km) eller tornet i ytläge (inom 12 km) syns. Annars glömmer den långsamt.
 
 - **Ubåtens ljud** växer med farten (30 log), med kavitation över 6 knop + 1 knop per 10 m djup, och med 24 dB när dieslarna går.
 - **Varning** i loggen när en korvett kan ha hört eller sett något, och ett larm när den har upptäckt ubåten. Då börjar den jaga (se [Korvetter som jagar](#korvetter-som-jagar)). I scenariot Smyg förbi misslyckas uppdraget.
-- **Så smyger man:** gå sakta, djupt och under språngskiktet, och håll masterna nere.
+- **Så smyger man:** gå sakta, djupt och under språngskiktet, håll masterna nere, och använd terrängen: en kanjon, ett undervattensberg eller en klippig botten. Nära botten drunknar ubåtens eko i bottenekot vid en korvetts ping, mest över berg, minst över lera. På natten stiger det djupa spridningsskiktet (plankton och småfisk) till ~50 m, och en ubåt inne i skiktet är svår att skilja från det.
+- **Flyg och kustradar** (i scenarier): ett spaningsplan ser ett periskop på 9 km, en snorkel på 15 km och ubåten i ytläge på 35 km. En kustradar på en höjd ser masterna inom sin radarhorisont, men inte bakom en ö. När de har sett något anropar de korvetterna, som söker där. Radarvarnaren hör deras radar, också i fritt spel.
 
 **Sjökortet** (Karta, K) visar också radarekon (gröna kryss), ekona från den senaste pingen (ringar), bäringen till korvettradar som radarvarnaren hör (röda streck), målen med lösningens position och kurs (romber, färgade efter kvaliteten) och torpederna i vattnet. Det har norr uppåt och ubåten i mitten, med fyra skalor (− / +). Det visar djupet ur samma botten som fysiken använder, spåret, bojen (eller en pil mot den), fyrarna, sonarens bäringar som streckade linjer och fartyg i sikte från periskopet eller bryggan.
 
 ## Aktiv sonar och radar
 
-**Aktiv sonar:** **Ping** i sonarvyn (A) sänder en ping med bogsonaren. Ekot från varje fartyg inom 12 km vars eko når över bruset (källnivå 215 dB minus två gånger utbredningsförlusten plus målstyrkan) ger avstånd (±0,4 %) och bäring. Ett markerat mål får dem som observation, så några pingar ger en bra lösning utan kursbyten. Sjökortet visar ekona i en minut. Men pingen hörs långt: en korvett som hör den vet nästan exakt var ubåten är och börjar söka där. Mellan två pingar går minst 10 s.
+**Aktiv sonar:** **Ping** i sonarvyn (A) sänder en ping med bogsonaren. Ekon kommer också från valar och sillstim ("eko (fiskstim?)"), från vrak på botten ("eko (vrak?)") och som ett diffust eko från spridningsskiktet. Ekot från varje fartyg inom 12 km vars eko når över bruset (källnivå 215 dB minus två gånger utbredningsförlusten plus målstyrkan) ger avstånd (±0,4 %) och bäring. Ett markerat mål får dem som observation, så några pingar ger en bra lösning utan kursbyten. Sjökortet visar ekona i en minut. Men pingen hörs långt: en korvett som hör den vet nästan exakt var ubåten är och börjar söka där. Mellan två pingar går minst 10 s.
 
 **Radar:** radarn sitter på en egen mast (radarknappen eller Y), som ger motstånd i vattnet som de andra. Hissad når antennen ungefär lika högt som periskopet, så på periskopdjup är den 1–2 m över vattnet.
 
@@ -326,6 +330,7 @@ Scenarierna ligger under fem flikar efter vad de övar på, de lättaste först 
 | Genom sundet | medel | Gå i ytläge genom ett smalt sund i skärgården till en gul boj, utan att gå på grund. |
 | Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
 | Fyrljuset | medel | Natt: gå i ytläge mot en röd fyr tills den är 700 m bort. |
+| Kanjonen | svår | Eggakanten: två korvetter pingar över sockeln. Ta dig genom undervattenskanjonen till en boj utan att bli hittad. Väggarna skyddar nere i kanjonen. |
 
 **Spaning:** Se och mät utan att själv synas eller höras.
 
@@ -364,15 +369,27 @@ Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, ta
 | **Östersjön** | Grundare hav (110–130 m) och en låg skärgård från ~3 km österut. | Bräckt (1 005 kg/m³). Saltsprångskikt på 60–80 m, där vattnet blir 2,4 kg/m³ tätare. | Svag, 0,1 m/s. |
 | **Fjorden** | En fjord som går norrut mellan 300 m höga berg. Tröskel på 55 m vid mynningen, 380 m djup bassäng innanför. | Sötare ytskikt (1 012 kg/m³) ovanpå atlantvatten under 9 m. | Ytvattnet strömmar ut, 0,4 m/s söderut i de översta metrarna. |
 | **Atlanten** | Djuphav, ~1 800 m. Ingen botten inom räckhåll. | Salt och kallt (1 027 kg/m³). | Nordatlantiska strömmen, 0,3 m/s mot nordost, ända ner till djupet. |
+| **Eggakanten** | Norska kontinentalsockeln: sockeln på ~150 m med sanddyner, branten ned mot djuphavet (1 600 m), en undervattenskanjon som skär 150–300 m ner i sockeln, tre undervattensberg (ett med flat topp på 190 m), två vrak och en klippig kust 9 km österut. | Atlantvatten (1 027 kg/m³), språngskikt på 25–60 m och kallt djupvatten under 500 m. | Sluttningsströmmen, 0,3 m/s norrut längs kanten. |
 
-- **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor och fiskebåtar, och i Östersjön en patrullerande korvett. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas. Torpederna fungerar också i fritt spel, och korvetten i Östersjön jagar den som avslöjar sig.
+- **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor, fiskebåtar, trålare och segelbåtar (nästan tysta, utan propeller), i Östersjön en patrullerande korvett och över Eggakanten ett spaningsplan. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas. Torpederna fungerar också i fritt spel, och korvetten i Östersjön jagar den som avslöjar sig.
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
 - **Ljusstrålar** faller ner från ytan på dagen och tonas ut mot 70 m. De kan stängas av i Inställningar.
 - **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet. Underifrån syns himlen bara genom **Snells fönster**, en ljus skiva rakt ovanför inom 48,6° från lodlinjen. Utanför den speglar ytan det mörka vattnet (totalreflektion).
 - **Ljus och sikt:** dag (sikt ~15 km), skymning (mörkrött ljus, lanternorna tänds), natt (~5 km) eller dimma (~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
 - **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
 
-Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är det man kan krocka med.
+Terrängen ingår i fysiken. Ubåten kan gå på grund, och det man ser i 3D är det man kan krocka med, också vraken.
+
+## Livet i havet och på land
+
+- **Valar:** kaskeloter dyker djupt i 40 minuter och vilar vid ytan, knölvalar sjunger, vikvalar och späckhuggare (en flock följer sillen in i fjorden). De simmar sina rutter, dyker och blåser vid ytan, och sonaren hör dem.
+- **Sillstim:** står i spridningsskiktet, djupt på dagen och nära ytan på natten. De ger starka ekon vid en ping.
+- **Trålar:** trålarna drar en trål 350 m akter om sig, en flyttrål på 20–45 m i Västerhavet och en bottentrål längs Eggakantens sockel. Går ubåten in i trålen fastnar den: den kommer inte framåt, trålaren stannar och anropar korvetterna. Back i 12 s för att komma loss (besättningen gör det själv när den sköter farten). Trålen syns under vattnet bakom trålaren.
+- **Måsar** följer fiskebåtarna och flyger kring fyrarna på dagen. De lyfter när ett periskop bryter ytan nära dem.
+- **Under ytan:** tång och tare som vajar på grund botten, maneter som pulserar, och mareld på natten där skrovet och propellern rör upp vattnet.
+- **Botten:** färgen följer bottentypen: sand och grus på grunt vatten och på sockeln, lera på djupet och berg där det är brant.
+- **Land:** röda stugor och sjöbodar i skärgården, vita och röda hus på norska kusten, tallskog på öarna, björk och tall upp till trädgränsen och snö på fjordens toppar. Husen har tända fönster på natten.
+- **Farleder och radar:** lysbojar (röda och gröna) i sunden blinkar i mörker, och kustradarstationer med snurrande antenn står på höjderna.
 
 ## Ljud
 
@@ -383,6 +400,7 @@ Allt ljud syntetiseras i webbläsaren och följer simuleringen:
 - **Strid:** tubens tryckluft vid avfyrning, en avlägsen smäll vid träff, korvettens aktiva sonar som pingar mot skrovet, ubåtens egen ping med sina ekon och sjunkbomber som smäller nära.
 - **Larm och signaler:** grundstötning, läckage, ekolodets pip när det är mindre än 10 m under kölen, krossdjupet, vatten över bryggan, nödblåsning, klara mål och uppdragets resultat.
 - **Omgivningen:** vind och vågor efter sjögången, måsar på dagen nära land och mistlur i dimma. Under vattnet låter ljudet utifrån dovt.
+- **Livet i havet:** med ubåten under ytan hörs valarna genom skrovet: kaskelotens klickserier, knölvalens långa sång, vikvalens låga pulser och späckhuggarnas visslingar, och nära ett sillstim på natten dess tickande.
 - **Röst:** spelarens order, larm och klara mål kan läsas upp med en svensk röst. Det slås på i inställningarna.
 
 - **Startsidan:** lugn musik, syntetiserad och utan loopar: en bottenton, långsamma ackord i moll, avlägsna sonarpingar, en mjuk puls som ett hjärtslag, en lång hornsignal och radio med morse. Musiken slås av och dess volym ändras under Inställningar.
@@ -493,15 +511,17 @@ src/
   sim/        Fysiken. Ren TypeScript utan Three.js eller DOM, deterministisk.
     config/   Parametrar för ubåt, vatten, havsområden, sjögång och terräng (SI-enheter, källa per värde).
     systems/  Ubåtens delsystem: ställdon, huvudballast och tryckluft, pumpar, master (periskop, snorkel och radar),
-              el (batteri och dieslar) och läckage.
+              el (batteri och dieslar), läckage och trålen (snag).
               world/vessel: världen med ubåten, andra farkoster, torpeder och sjunkbomber. acoustics: sonarekvationen.
+              life: valar och sillstim. aircraft: spaningsplan. seabed: bottentyp, bottenekot och terrängens skugga.
     math/     Vektorer, matriser (LU), quaternioner.
   control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller med orderregistret (orderRegistry) och maskinens händelser (plantWatch), besättningen (crew),
-              trimassistent och skyddsnät, sonaren (passiv och aktiv) och upptäckten, radarn och radarvarnaren,
+              trimassistent och skyddsnät, sonaren (passiv och aktiv) och upptäckten, radarn och radarvarnaren, flyg och kustradar (lookouts),
               eldledningen (målrörelseanalys), torpedrummet (tubernas steg och torpedernas vikt),
               korvetternas jakt, havsområdenas startlägen och fyrar, scenarier.
   render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, terräng, vågor,
-              fyrar, ljus och dimma, vattnet per område, bubblor, kölvatten, plym och avgaser, kameravyer.
+              fyrar, ljus och dimma, vattnet per område, bubblor, kölvatten, plym, avgaser och mareld, kameravyer,
+              valar, stim, flyg och måsar (life), tång och maneter (seaLife), hus och skog, bojar, kustradar och vrak.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
   ui/         Meny, instrumentpanel, statusrad (mobil), logg, tangentbord, skärmkontroller (helm/) och knappar, inställningar,
               vyer och deras overlay (kompassband, periskop), sjökort och sonar. HTML byggs med mallar som escapar.

@@ -25,6 +25,8 @@ export interface AudioInput {
   coastal: boolean;
   /** The nearest other vessel: range [m] and its propeller blade rate [Hz]. */
   ship?: { range: number; bladeRate: number };
+  /** The nearest animal making sound now: what it sounds like and its range [m]. */
+  bio?: { sound: 'clicks' | 'song' | 'pulse' | 'whistle' | 'frt'; range: number };
 }
 
 export interface SoundLevels {
@@ -60,6 +62,8 @@ export interface SoundLevels {
   foghornRate: number;
   /** Low-pass cutoff for the sounds from outside the hull [Hz]. */
   outsideCutoff: number;
+  /** Whales and fish heard through the hull: calls per second, which sound, and how loud. */
+  bio: { rate: number; sound: NonNullable<AudioInput['bio']>['sound'] | null; gain: number };
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -69,6 +73,10 @@ const DEG = Math.PI / 180;
 export const PROPELLER_BLADES = 7;
 /** Ships are heard within this range [m]. */
 export const SHIP_AUDIBLE_RANGE = 4000;
+/** Animals are heard within this range [m] (whales far, herring close), and how often each kind calls [1/s]. */
+export const BIO_AUDIBLE_RANGE = { clicks: 6000, song: 8000, pulse: 4000, whistle: 4000, frt: 600 } as const;
+const BIO_RATE = { clicks: 1.3, song: 0.2, pulse: 0.4, whistle: 0.35, frt: 1.5 } as const;
+
 /** Depth [m] beyond which the hull creaks hard and the alarm sounds. */
 export const CRUSH_WARNING_DEPTH = 250;
 
@@ -126,6 +134,9 @@ export function soundLevels(a: AudioInput): SoundLevels {
   const foghornRate = above && a.conditions === 'fog' ? 1 / 30 : 0;
   // Outside sounds are muffled through the water when the camera is under it.
   const outsideCutoff = a.cameraUnderwater ? 700 : 12000;
+  // Whales and fish are heard through the hull only with the boat under water.
+  const heardBio = a.bio && t.submergedFraction > 0.9 ? clamp01(1 - a.bio.range / BIO_AUDIBLE_RANGE[a.bio.sound]) : 0;
+  const bio = heardBio > 0 && a.bio ? { rate: BIO_RATE[a.bio.sound], sound: a.bio.sound, gain: 0.05 + 0.25 * heardBio } : { rate: 0, sound: null, gain: 0 };
 
   return {
     motor,
@@ -150,5 +161,6 @@ export function soundLevels(a: AudioInput): SoundLevels {
     gullRate,
     foghornRate,
     outsideCutoff,
+    bio,
   };
 }

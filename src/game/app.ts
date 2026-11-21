@@ -99,7 +99,14 @@ export function startApp(): void {
     view.resetCamera();
     view.setWaypoint(s.scenario?.waypoint ?? null);
     view.setVessels(ctrl.world.vessels.map((v) => v.def));
-    view.setArea(sim.areaId, AREA_INFO[sim.areaId].lighthouses, s.conditions, sim.waves);
+    view.setLife(
+      ctrl.world.creatures.map((c) => c.def),
+      ctrl.world.aircraft.map((a) => a.def),
+      AREA_INFO[sim.areaId].lighthouses.map((l) => l.position),
+    );
+    const info = AREA_INFO[sim.areaId];
+    // A scenario's own radar stations, or the area's in free play.
+    view.setArea(sim.areaId, { lighthouses: info.lighthouses, buoys: info.buoys, stations: s.scenario ? s.scenario.stations : info.stations }, s.conditions, sim.waves);
     views.set('external');
     lastPeriscope = sim.actuators.periscope;
     return s;
@@ -523,6 +530,8 @@ export function startApp(): void {
       effects: views.mode === 'cutaway' ? null : effectsInput(s),
       torpedoes: s.ctrl.world.torpedoes.map((t) => t.state),
       vessels: s.ctrl.world.vessels.map((v) => v.state),
+      creatures: s.ctrl.world.creatures.map((c) => c.state),
+      aircraft: s.ctrl.world.aircraft.map((a) => a.state),
       cutaway: views.mode === 'cutaway' ? cutawayState(s) : undefined,
     });
     drawOverlay(overlay());
