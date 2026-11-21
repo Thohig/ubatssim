@@ -102,6 +102,10 @@ body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px
 .obj-body { display: none; padding: 4px 0 2px; }
 #objective.expanded .obj-body { display: block; }
 #objective.expanded .obj-text { white-space: normal; }
+/* A new objective that did not open the box (phone on its side, fire panel shown): the head pulses. */
+#objective.fresh:not(.expanded) { animation: obj-fresh 1s ease-in-out infinite alternate; }
+@keyframes obj-fresh { from { box-shadow: 0 0 0 0 var(--accent); } to { box-shadow: 0 0 0 3px var(--accent); } }
+@media (prefers-reduced-motion: reduce) { #objective.fresh:not(.expanded) { animation: none; box-shadow: 0 0 0 2px var(--accent); } }
 .obj-hint { color: var(--muted); font-size: 12px; }
 .obj-list { margin: 6px 0 0; padding-left: 20px; font-size: 12px; color: var(--muted); }
 .obj-list li.done { color: var(--ok); }
@@ -324,7 +328,7 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-tab.self.on { border-color: var(--warn); }
 
 /* ------------------------------------------------------------ cutaway */
-#cutaway-info { right: 12px; bottom: calc(var(--helm-h, 200px) + 6px); width: 380px; max-height: 40%; overflow-y: auto; font-size: 13px; }
+#cutaway-info { right: 64px; bottom: calc(var(--helm-h, 200px) + 6px); width: 380px; max-height: 40%; overflow-y: auto; font-size: 13px; }
 #cutaway-info[hidden] { display: none; }
 #cutaway-info h3 { margin: 0 0 4px; font-size: 15px; color: var(--accent); }
 #cutaway-info p { margin: 0 0 6px; color: var(--muted); }
@@ -490,8 +494,10 @@ body.cutaway #log { display: none; }
 
 
 /* ------------------------------------------------------------ chart and sonar */
+/* The chart's width on a computer: 400 px, narrower on mid-sized screens so the objective fits beside it. */
+:root { --nav-w: clamp(260px, calc(100vw - 640px), 400px); }
 #nav {
-  top: 12px; right: 64px; width: min(400px, calc(100% - 90px)); height: min(460px, calc(100% - var(--helm-h, 200px) - 30px));
+  top: 12px; right: 64px; width: var(--nav-w); height: min(460px, calc(100% - var(--helm-h, 200px) - 30px));
   display: flex; flex-direction: column; gap: 6px; pointer-events: auto; padding: 8px 10px; z-index: 4;
 }
 #nav[hidden] { display: none; }
@@ -571,11 +577,11 @@ body.cutaway #log { display: none; }
 .nav-contact { display: block; width: 100%; text-align: left; font: inherit; font-size: 12px; color: var(--text); background: transparent; border: 1px solid var(--panel-border); border-radius: 4px; padding: 3px 6px; margin: 2px 0; cursor: pointer; }
 .nav-contact.on { border-color: var(--accent); color: var(--accent); }
 body.nav-open #fire { z-index: 5; }
-@media (min-width: 761px) and (min-height: 501px) {
+@media (min-width: 841px) and (min-height: 501px) {
   /* Beside the chart, under it on the right. */
-  body.nav-open #fire { left: auto; right: 64px; transform: none; width: min(400px, calc(100% - 90px)); }
+  body.nav-open #fire { left: auto; right: 64px; transform: none; width: var(--nav-w); }
   body.nav-open .fire-buttons { grid-template-columns: repeat(4, 1fr); }
-  body.nav-open #nav { height: min(400px, calc(100% - var(--helm-h, 200px) - 150px)); }
+  body.nav-open #nav { height: min(400px, calc(100% - var(--helm-h, 200px) - 160px)); }
 }
 @media (max-width: 840px), (max-height: 500px) {
   body.nav-open #nav { height: calc(100% - var(--helm-h, 200px) - 170px - max(8px, env(safe-area-inset-top))); }
@@ -590,7 +596,25 @@ body.nav-open #fire { z-index: 5; }
 #top-center > #objective { position: static; transform: none; width: auto; pointer-events: auto; }
 /* With the chart open, between the instrument panel and the chart, so that long log lines do not run under it. */
 @media (min-width: 1180px) and (min-height: 501px) {
-  body.nav-open #top-center { left: 340px; right: calc(64px + min(400px, 100% - 90px) + 12px); width: auto; min-width: 0; transform: none; }
+  body.nav-open #top-center { left: 340px; right: calc(64px + var(--nav-w) + 12px); width: auto; min-width: 0; transform: none; }
+}
+/*
+ * Mid-sized screens (a small laptop, a tablet on its side): the centred box ran under the instrument
+ * panel, and the chart covered it. Between the instrument panel and the view buttons instead, and with
+ * the chart open between the panel and the chart (which is narrower here, see --nav-w).
+ */
+@media (min-width: 841px) and (max-width: 1179px) and (min-height: 501px) {
+  #top-center { left: 324px; right: 64px; width: auto; min-width: 0; transform: none; }
+  body.nav-open #top-center { right: calc(64px + var(--nav-w) + 12px); }
+  /* The fire panel reaches up beside the periscope image here: the box stays left of it. */
+  body.fire-open:not(.nav-open) #top-center { right: calc(64px + 230px + 12px); }
+  /* The view name only: the key help would run under the instrument panel and the chart. */
+  .mode small { display: none; }
+}
+/* On a computer the view pill stays on one line between the instrument panel and the view buttons (or the chart). */
+@media (min-width: 841px) and (min-height: 501px) {
+  .mode { max-width: calc(100% - 2 * 336px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.nav-open .mode { left: 324px; right: calc(64px + var(--nav-w) + 12px); max-width: none; transform: none; text-align: center; }
 }
 /*
  * Always shown, small: a half-transparent window with the live lines. It
@@ -629,6 +653,8 @@ body.nav-open #fire { z-index: 5; }
 @media (max-height: 500px) {
   /* Sideways: between the status bar and the view menu. */
   #top-center { top: max(8px, env(safe-area-inset-top)); left: calc(max(8px, env(safe-area-inset-left)) + 310px); right: 76px; width: auto; min-width: 0; transform: none; }
+  /* The fire panel has the corner under Vyer ▾: the objective and the log end left of it. */
+  body.fire-open:not(.nav-open) #top-center { right: calc(max(8px, env(safe-area-inset-right)) + 244px); }
 }
 /* Floating over the sky and the sea, the grey information text would be faint. */
 #log:not(.expanded) .log-entry.info { color: #dbe9f0; }

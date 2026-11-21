@@ -70,3 +70,25 @@ test('desktop: the instrument panel, the objective and the screen controls do no
   }
   errors.check();
 });
+
+test('mid-sized screen (1024×700): periscope, fire panel and chart overlap nothing', async ({ page }) => {
+  // The objective ran under the instrument panel and the chart, and the view pill under both.
+  const errors = watchErrors(page);
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await open(page);
+  await startFree(page, 'westCoast', 'periscope');
+  await page.keyboard.press('p');
+  await expect(page.locator('body')).toHaveClass(/onboard/, { timeout: 20_000 });
+  await page.keyboard.press('k');
+  await expect(page.locator('#nav')).toBeVisible();
+  const parts = ['#instruments', '#top-center', '#view-btns', '#helm', '#fire', '#nav', '#mode'];
+  const boxes = await Promise.all(parts.map((p) => box(page, p)));
+  for (let i = 0; i < parts.length; i++) {
+    for (let j = i + 1; j < parts.length; j++) {
+      const a = boxes[i];
+      const b = boxes[j];
+      if (a && b) expect(overlaps(a, b), `${parts[i]} and ${parts[j]}`).toBe(false);
+    }
+  }
+  errors.check();
+});

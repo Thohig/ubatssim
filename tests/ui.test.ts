@@ -307,6 +307,17 @@ describe('objective box', () => {
     expect(box.expanded).toBe(false);
   });
 
+  it('quiet (fire panel on a phone on its side): a new objective marks the head instead of opening', () => {
+    const { runner, box } = setup();
+    box.update(runner, 0, true);
+    expect(box.expanded).toBe(false);
+    expect(box.el.classList.contains('fresh')).toBe(true);
+    for (let i = 0; i < OBJECTIVE_SHOW * 10 + 1; i++) box.update(runner, 0.1, true);
+    expect(box.el.classList.contains('fresh')).toBe(false);
+    box.toggle();
+    expect(box.expanded).toBe(true);
+  });
+
   it('opens again when the objective changes or its hint does, and marks the done ones', () => {
     const { sc, ctrl, runner, box } = setup();
     box.update(runner, 0);

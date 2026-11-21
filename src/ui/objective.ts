@@ -24,8 +24,9 @@ export interface ObjectiveBox {
   /**
    * Shows the runner's objective. `dt` is the time [s] since the last call
    * while the game runs (0 while paused, so the box does not fold behind a menu).
+   * `quiet`: a new objective marks the folded head instead of opening the box.
    */
-  update(runner: ScenarioRunner | null, dt: number): void;
+  update(runner: ScenarioRunner | null, dt: number, quiet?: boolean): void;
   /** Opens or folds the box (a tap, or the O key). */
   toggle(): void;
   readonly expanded: boolean;
@@ -54,6 +55,8 @@ export function createObjective(el: HTMLElement): ObjectiveBox {
   let listKey = '';
   /** Seconds the box stays open; Infinity is "until tapped". */
   let openFor = 0;
+  /** Seconds the folded head is marked as new (instead of opening). */
+  let flashFor = 0;
 
   const render = () => {
     const open = openFor > 0;
@@ -71,7 +74,7 @@ export function createObjective(el: HTMLElement): ObjectiveBox {
       openFor = openFor > 0 ? 0 : OBJECTIVE_TAP_SHOW;
       render();
     },
-    update(r, dt) {
+    update(r, dt, quiet = false) {
       const p = r && r.status === 'running' ? r.progress : null;
       const obj = p?.objective;
       if (!r || !p || !obj) {
@@ -89,7 +92,9 @@ export function createObjective(el: HTMLElement): ObjectiveBox {
       const key = `${p.index}|${hintText}`;
       if (key !== shownKey) {
         shownKey = key;
-        openFor = Math.max(openFor, OBJECTIVE_SHOW);
+        // Where opening would cover something (the fire panel on a phone on its side) the head flashes instead.
+        if (quiet) flashFor = OBJECTIVE_SHOW;
+        else openFor = Math.max(openFor, OBJECTIVE_SHOW);
       } else if (openFor > 0) {
         openFor = Math.max(0, openFor - dt);
       }
@@ -110,6 +115,8 @@ export function createObjective(el: HTMLElement): ObjectiveBox {
           ),
         );
       }
+      flashFor = Math.max(0, flashFor - dt);
+      el.classList.toggle('fresh', flashFor > 0);
       render();
     },
   };

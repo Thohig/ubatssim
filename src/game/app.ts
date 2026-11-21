@@ -20,6 +20,7 @@ import { createInstruments, layoutKey } from '../ui/instruments';
 import { bindKeyboard } from '../ui/keyboard';
 import { bindLog, bindLogToggle } from '../ui/log';
 import { Menu } from '../ui/menu';
+import { isLandscapePhone } from '../ui/compact';
 import { createObjective } from '../ui/objective';
 import { createPerfMeter } from '../ui/perfMeter';
 import { createStatusBar } from '../ui/statusBar';
@@ -545,7 +546,9 @@ export function startApp(): void {
       nav.update({ ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
       if (views.mode === 'cutaway') sampleCutaway(s);
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
-      objective.update(s.runner, flow.state === 'playing' ? Math.min(1, (now - lastUi) / 1000) : 0);
+      // On a phone on its side the opened objective would cover the fire panel in the top right corner.
+      const quietObjective = isLandscapePhone() && document.body.classList.contains('fire-open');
+      objective.update(s.runner, flow.state === 'playing' ? Math.min(1, (now - lastUi) / 1000) : 0, quietObjective);
       lastUi = now;
     }
     perf.mark('ui');
