@@ -86,6 +86,9 @@ export const ASSIST = {
   keelRearm: 15,
 } as const;
 
+/** Shallower depth limits [m] are not logged: the boat is on the surface there anyway. */
+const DIVE_LIMIT_NOTICE = 5;
+
 const STEPS_PER_EVAL = Math.round(ASSIST.interval / DT);
 
 export class TrimAssist {
@@ -176,7 +179,8 @@ export class TrimAssist {
     const limit = this.depthLimit();
     if (ctrl.ap.depth && ctrl.setpoints.depth > limit) {
       ctrl.setpoints.depth = limit;
-      if (!this.limiting) ctrl.addLog(`Assistent: grunt vatten, djupet begränsas till ${limit} m.`, 'info', 'assist');
+      // Surfaced (or aiming for the surface) the limit changes nothing worth a line.
+      if (!this.limiting && limit >= DIVE_LIMIT_NOTICE) ctrl.addLog(`Assistent: grunt vatten, djupet begränsas till ${limit} m.`, 'info', 'assist');
       this.limiting = true;
     } else if (!ctrl.ap.depth || ctrl.setpoints.depth < limit - 5) {
       this.limiting = false;

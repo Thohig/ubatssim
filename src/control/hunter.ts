@@ -65,6 +65,11 @@ export class Hunter {
     return this.hunts[id]?.state ?? 'patrol';
   }
 
+  /** True once a patrol vessel has dropped all its depth charges. */
+  spent(id: string): boolean {
+    return (this.hunts[id]?.charges ?? 1) <= 0;
+  }
+
   /** True while any corvette searches for or attacks the boat. */
   get hunting(): boolean {
     return Object.values(this.hunts).some((h) => h.state === 'search' || h.state === 'attack');

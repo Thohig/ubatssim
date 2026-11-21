@@ -170,3 +170,24 @@ describe('surfacing from depth (the crew blows forward first)', () => {
     expect(c.log.some((e) => /akter blåses/.test(e.text))).toBe(false);
   });
 });
+
+describe('air left in the main ballast (player handling the ballast)', () => {
+  it('a boat hanging awash with way on and the planes down gets a reminder', () => {
+    const c = new Controller(new Simulation({}));
+    c.submit({ kind: 'bridge', manned: false }, 'keyboard');
+    c.submit({ kind: 'mainBallast', action: 'flood', group: 'all' }, 'keyboard');
+    c.submit({ kind: 'setRpm', rpm: 60 }, 'keyboard');
+    let shut = false;
+    for (let i = 0; i < 200 * 100; i++) {
+      const fills = c.sim.telemetry().tanks.filter((t) => t.kind === 'mainBallast').map((t) => t.fill);
+      if (!shut && Math.min(...fills) > 0.85) {
+        shut = true;
+        c.submit({ kind: 'mainBallast', action: 'shut', group: 'all' }, 'keyboard');
+        c.submit({ kind: 'planes', angle: 5 }, 'keyboard');
+      }
+      c.step();
+    }
+    expect(c.sim.kinematics().depth).toBeLessThan(5);
+    expect(c.log.some((e) => /luft i huvudballasten/.test(e.text))).toBe(true);
+  });
+});

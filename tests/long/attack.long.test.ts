@@ -114,6 +114,20 @@ describe('"Jagad"', () => {
     expect(c.sim.systems.flooding.water).toBeLessThan(120);
   });
 
+  it('riding out every depth charge counts: the spent corvette is shaken off', () => {
+    // The briefing says "until it loses you or runs out of depth charges"; the check used to want the first only.
+    const { c, runner, send, run } = start('hunted', 'crew');
+    send({ kind: 'setDepth', depth: 200 });
+    send({ kind: 'setSpeed', knots: 8 });
+    run(400, () => runner.progress.index >= 1);
+    expect(runner.progress.index).toBe(1);
+    // Spent (as after its last pattern), while it still hears the boat.
+    (c.hunter as unknown as { hunt(id: string): { charges: number } }).hunt('jagaren').charges = 0;
+    run(120);
+    expect(c.hunter.spent('jagaren')).toBe(true);
+    expect(runner.status).toBe('completed');
+  });
+
   it.each(['crew', 'player'] as const)('fails when the boat stays shallow and fast (%s)', (who) => {
     const { runner, send, run } = start('hunted', who);
     send({ kind: 'setDepth', depth: 30 });

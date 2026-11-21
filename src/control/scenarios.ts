@@ -117,6 +117,9 @@ const HUNTER = corvette('jagaren', 'korvetten Jägaren', [[1500, 0], [1500, 4000
 /** "Konvojen": a freighter with a corvette escorting on its seaward side, both west-bound. */
 const CONVOY_SHIP: VesselDef = { ...freighter('lastaren', 'M/S Lastaren', [[4000, 4000], [4000, -12000]]), speed: 8 * KN };
 const ESCORT = corvette('eskorten', 'korvetten Eskort', [[4800, 4000], [4800, -12000]], 8);
+/** A corvette is shaken off when it is back on patrol and has lost the boat, or has no depth charges left. */
+const shaken = (c: Controller, id: string) =>
+  c.hunter.state(id) === 'patrol' && ((c.sonar.awareness[id] ?? 0) < 0.5 || c.hunter.spent(id));
 const sunk = (c: Controller, id: string) => c.world.vessels.find((v) => v.def.id === id)?.state.sinking === true;
 const lookoutUp = (t: Telemetry) => t.periscope > 0.99 && t.periscopeHeadDepth < 0;
 
@@ -146,12 +149,12 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Öppna ventilerna till huvudballasten',
         system: 'ballast',
-        hint: 'Tryck Fyll vid Båda i panelen Ballast. Stäng ventilerna när tankarna är fulla.',
+        hint: 'Tryck Fyll vid Båda i panelen Ballast. Stäng ventilerna först när båda visar 100 %: luft som blir kvar håller ubåten i ytan.',
         hintCrew: 'Tryck Dyk (eller D). Ventilerna stängs när tankarna är fulla.',
         check: (t) => mbt(t).every((x) => x.ventOpen || x.fill > 0.95),
       },
       {
-        text: 'Gå framåt med 5 knop',
+        text: 'Gå framåt med minst 3 knop',
         system: 'speed',
         hint: 'Öka varvet i panelen Fart, eller tryck Sakta fram på telegrafen. Djuprodren behöver fart för att verka.',
         hintCrew: 'Tryck Sakta fram på telegrafen (eller Shift + ↑). Djuprodren behöver fart för att verka.',
@@ -160,7 +163,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Dyk till 30 meter och håll djupet',
         system: 'depth',
-        hint: 'Lägg djuprodret några grader ned (▼ eller ↓) och ta upp det före 30 m. Eller växla djupet till Auto.',
+        hint: 'Lägg djuprodret 10° ned (▼ eller ↓ två gånger) och ta upp det före 30 m. Eller växla djupet till Auto.',
         hintCrew: 'Tryck eller dra på djupskalan till 30 m (eller ↓ tills djupmålet visar 30 m).',
         check: (t) => Math.abs(t.depth - 30) < 2,
         holdSeconds: 10,
@@ -472,7 +475,7 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'snorkel',
     title: 'Snorkling',
-    description: 'Batteriet är nere på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda batteriet till 30 % med dieslarna. Bryt inte ytan.',
+    description: 'Batteriet är nere på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda batteriet till 28 % med dieslarna. Bryt inte ytan.',
     difficulty: 'medel',
     initial: { area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, battery: 0.25 },
     objectives: [
@@ -490,11 +493,11 @@ export const SCENARIOS: Scenario[] = [
         check: (t) => t.snorkel > 0.99 && t.inductionAir,
       },
       {
-        text: 'Ladda batteriet till 30 %',
+        text: 'Ladda batteriet till 28 %',
         system: 'charging',
-        hint: 'Starta dieslarna i panelen El (eller G). Låg fart ger mer laddning åt batteriet.',
-        hintCrew: 'Maskinisten startar dieslarna när luften kommer in. Låg fart ger mer laddning åt batteriet.',
-        check: (t) => t.battery >= 0.3,
+        hint: 'Starta dieslarna i panelen El (eller G). Låg fart ger mer laddning åt batteriet. Det tar några minuter: öka gärna tidskomprimeringen.',
+        hintCrew: 'Maskinisten startar dieslarna när luften kommer in. Låg fart ger mer laddning åt batteriet. Det tar några minuter: öka gärna tidskomprimeringen.',
+        check: (t) => t.battery >= 0.28,
       },
       {
         text: 'Sänk snorkeln',
@@ -620,7 +623,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Skaka av dig korvetten',
         hint: 'Håll 4 knop (tyst) och byt kurs. Sjunkbomberna ställs på det djup korvetten mätte: byt djup när den går över dig. Den ger upp när den tappat dig i fem minuter eller har slut på bomber.',
-        check: (_t, c) => c.hunter.state(HUNTER.id) === 'patrol' && (c.sonar.awareness[HUNTER.id] ?? 0) < 0.5,
+        check: (_t, c) => shaken(c, HUNTER.id),
         holdSeconds: 30,
       },
     ],
@@ -643,7 +646,7 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Ta dig undan eskorten',
         hint: 'Sänk periskopet, gå djupt under skiktet, sakta, och byt kurs. Eskorten hörde avfyrningen.',
-        check: (_t, c) => c.hunter.state(ESCORT.id) === 'patrol' && (c.sonar.awareness[ESCORT.id] ?? 0) < 0.5,
+        check: (_t, c) => shaken(c, ESCORT.id),
         holdSeconds: 30,
       },
     ],

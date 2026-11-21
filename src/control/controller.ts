@@ -31,6 +31,14 @@ const DIVE_TARGET_DEPTH = 5;
  */
 const STAGED_BLOW_DEPTH = 20;
 const STAGED_BLOW_DELAY = 15;
+/**
+ * Awash: a boat that stays shallower than this [m] for `AWASH_TIME` s with way on and the planes
+ * (or the depth target) for diving, the main ballast mostly flooded and its vents shut, has air left
+ * in the tanks. The player handling the ballast is reminded (every `AWASH_HINT_EVERY` s).
+ */
+const AWASH_DEPTH = 5;
+const AWASH_TIME = 60;
+const AWASH_HINT_EVERY = 120;
 /** Seconds without a new "Grundstötning!" line after one. */
 const GROUNDING_LOG_QUIET = 20;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
@@ -278,6 +286,7 @@ export class Controller {
     const astern = tel.u > brakeSpeed ? maxRpsBrake : maxRpsAstern;
     let target: number;
     this.watchDepthStall(tel);
+    this.watchAwash(tel);
     // Stopp, as a crew does it: full astern until the way is almost off, then the shaft to zero.
     const crashStop = this.ap.speed && this.setpoints.speed === 0 && tel.u > CRASH_STOP_UNTIL;
     if (this.crashStopping && !crashStop) this.autopilot.speedPid.reset();
@@ -510,6 +519,25 @@ export class Controller {
 
   /** Sim time of the last "the main ballast is empty" reminder (player handling the ballast). */
   private lastBallastHint = -Infinity;
+  /** Seconds the boat has hung awash although it should dive (see `AWASH_DEPTH`). */
+  private awash = 0;
+  private lastAwashHint = -Infinity;
+
+  /** Reminds a player handling the ballast that air left in the main ballast keeps the boat awash. */
+  private watchAwash(k: Kinematics): void {
+    const sim = this.sim;
+    const wantsDown = this.ap.depth ? this.setpoints.depth >= DIVE_TARGET_DEPTH : this.manual.planes > 0;
+    const trapped = sim.tankDefs.every((d, i) => {
+      const s = sim.tanks[i]!;
+      return d.kind !== 'mainBallast' || (s.water / d.volume > 0.8 && !s.ventOpen && !s.blowOpen);
+    });
+    const stuck = !this.options.crew.ballast && wantsDown && trapped && k.depth < AWASH_DEPTH && k.u > 1 && Math.abs(k.depthRate) < 0.05;
+    this.awash = stuck ? this.awash + DT : 0;
+    if (this.awash >= AWASH_TIME && sim.t - this.lastAwashHint >= AWASH_HINT_EVERY) {
+      this.lastAwashHint = sim.t;
+      this.addLog('Ubåten ligger kvar i ytan: luft i huvudballasten. Tryck Fyll igen i panelen Ballast och stäng vid 100 %, eller mer djuproder.', 'error');
+    }
+  }
 
   /**
    * A depth target below the surface while the main ballast is empty cannot

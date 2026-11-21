@@ -269,7 +269,7 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 | Saltsprånget | svår | Östersjön: dyk genom saltsprångskiktet till 90 m och kompensera för de tonnen ubåten blir lättare. |
 | Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
 | Fartyget | medel | Ta ut bäringen till ett lastfartyg genom periskopet, utan att bli sedd eller komma i vägen för det. |
-| Snorkling | medel | Atlanten: batteriet är på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda till 30 % utan att bryta ytan. |
+| Snorkling | medel | Atlanten: batteriet är på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda till 28 % utan att bryta ytan. |
 | Smyg förbi | svår | Atlanten: hör en patrullerande korvett på sonaren, gå under språngskiktet och smyg fram till en boj 2,5 km bort utan att bli upptäckt. |
 | Läckan | svår | Atlanten: maskinrummet läcker på 120 m. Gå upp så att länspumpen hinner med, och vänta tills läckan är tätad och rummet länsat. |
 | Övningsskott | medel | Atlanten: markera ett målfartyg i periskopet, mät avståndet, få en lösning och träffa. |

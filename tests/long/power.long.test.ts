@@ -24,7 +24,7 @@ function start(id: string, who: Who) {
 }
 
 describe('"Snorkling"', () => {
-  it.each(['crew', 'player'] as const)('periscope depth, snorkel up, charge to 30 %, snorkel down (%s)', (who) => {
+  it.each(['crew', 'player'] as const)('periscope depth, snorkel up, charge to 28 %, snorkel down (%s)', (who) => {
     const { c, runner, send, run } = start('snorkel', who);
     send({ kind: 'setDepth', depth: 13 });
     // 4 knots: enough for the planes to lift the boat, and no overshoot towards the surface.
@@ -34,7 +34,6 @@ describe('"Snorkling"', () => {
     send({ kind: 'snorkel', up: true });
     if (who === 'player') send({ kind: 'diesel', on: true });
     run(2000, () => runner.progress.index >= 3);
-    { const t = c.sim.telemetry(); console.log('DBG', who, runner.status, runner.message, t.t, t.battery, t.dieselRunning, t.inductionAir, t.snorkelHeadDepth, t.depth, t.batteryPower, c.log.slice(-5).map((e) => e.text)); }
     expect(runner.progress.index).toBe(3);
     expect(c.sim.telemetry().dieselRunning).toBe(true);
     send({ kind: 'snorkel', up: false });
