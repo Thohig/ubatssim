@@ -566,18 +566,21 @@ src/
               trimassistent och skyddsnät, sonaren (passiv och aktiv) och upptäckten, radarn och radarvarnaren, flyg och kustradar (lookouts),
               eldledningen (målrörelseanalys), torpedrummet (tubernas steg och torpedernas vikt),
               korvetternas jakt, havsområdenas startlägen och fyrar, scenarier.
-  render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, terräng, vågor,
+  render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, manöverrummet inifrån
+              (egen scen, skärmar på canvas), terräng, vågor,
               fyrar, ljus och dimma, vattnet per område, bubblor, kölvatten, plym, avgaser och mareld, kameravyer,
               valar, stim, flyg och måsar (life), tång och maneter (seaLife), hus och skog, bojar, kustradar och vrak.
   audio/      Syntetiserat ljud (Web Audio) och uppläsning: nivåer från telemetrin, ljudmotor, röst.
   ui/         Meny, instrumentpanel, statusrad (mobil), logg, tangentbord, skärmkontroller (helm/) och knappar, inställningar,
               vyer och deras overlay (kompassband, periskop), sjökort och sonar. HTML byggs med mallar som escapar.
-  game/       Spelsessioner, spelflödet (meny, spel, paus, slut), tidsstegsloopen och kopplingen till webbläsaren.
+  game/       Spelsessioner, spelflödet (meny, spel, paus, slut), tidsstegsloopen, vad manöverrummet visar
+              (controlRoomFeed) och kopplingen till webbläsaren.
   main.ts     Uppstart.
-tests/        Vitest. tests/long/ de långa, tests/e2e/ Playwright i en riktig webbläsare.
+tests/        Vitest. tests/long/ de långa, tests/e2e/ Playwright i en riktig webbläsare. sequencer.ts och
+              durations.json delar testerna efter tid på CI-maskinerna.
 docs/         Fördjupande dokumentation: fysikmodellen, grafiken, ljudet, prestandan och idéer (ideer.md).
-public/       Ikoner (SVG, PNG för iOS och Android) och webbmanifest.
-scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet.
+public/       Ikoner (SVG, PNG för iOS och Android, favicon.ico och en PNG på 32 px för Safaris flik) och webbmanifest.
+scripts/      make-mac-launcher.sh – bygger en Mac-genväg till spelet. update-durations.mjs – mäter testfilernas tider.
 assets/       Källfil för ikonen utan rundade hörn (används för att rendera PNG-filerna).
 ```
 
@@ -605,4 +608,4 @@ Kör skriptet igen om ikonen eller adressen ändras. Det ersätter då den gamla
 
 ## Publicering
 
-En push till `main` kör `.github/workflows/deploy.yml`, som kör lint, alla tester (på tre maskiner), bygget och e2e-testerna (på två maskiner, mot bygget) parallellt och publicerar `dist/` till GitHub Pages när allt gått igenom. En push som bara ändrar dokumentationen (`*.md`, `docs/`) publicerar inget. Pages-källan är "GitHub Actions".
+En push till `main` kör `.github/workflows/deploy.yml`, som kör lint, alla tester (på tre maskiner), bygget och e2e-testerna (på två maskiner, mot bygget) parallellt och publicerar `dist/` till GitHub Pages när allt gått igenom. En push som bara ändrar dokumentationen (`*.md`, `docs/`) publicerar inget; kör då arbetsflödet för hand under Actions om det behövs. Playwrights webbläsare cachas mellan körningarna. En publicering tar 3,5–4,5 min (se `docs/prestanda.md`). Pages-källan är "GitHub Actions".

@@ -2,11 +2,12 @@
 
 Förslag på vad som skulle förbättra spelet, med läge och en rekommenderad ordning. Det som är gjort beskrivs i README och de andra dokumenten. Här står bara det som återstår och varför.
 
-Spelet har nu detaljerad fysik, ballast, trim, terräng (med kanjon och undervattensberg), liv i havet och på land, fartyg, flyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv och aktiv sonar, radar och radarvarnare, sjökort, målrörelseanalys, torpeder och torpedrum, korvetter som jagar och samarbetar, lockmål, trådstyrda torpeder, skott och länsning, svävning utan fart och en startsida med egen musik.
+Spelet har nu detaljerad fysik, ballast, trim, terräng (med kanjon och undervattensberg), liv i havet och på land, fartyg, flyg, ljud, väder, besättningen, genomskärningen, manöverrummet inifrån, batteri och dieslar, läckage, passiv och aktiv sonar, radar och radarvarnare, sjökort, målrörelseanalys, torpeder och torpedrum, korvetter som jagar och samarbetar, lockmål, trådstyrda torpeder, skott och länsning, svävning utan fart och en startsida med egen musik.
 
 ## Rekommenderad ordning
 
-Inget av förslagen återstår just nu. Nya idéer läggs till här.
+1. **Manöverrummet: ljud och fler skärmar** (se Grafik): rummets egna ljud och vapenpulpetens skärm. Litet, och vyn känns mer levande.
+2. **Fler rum inifrån** (se Grafik): torpedrummet först, där tubernas steg och omladdningen redan finns i simuleringen.
 
 ## System
 
@@ -41,7 +42,10 @@ Inget av förslagen återstår just nu. Nya idéer läggs till här.
 | **Sikt under vattnet** | Klar | Mörker efter djupet, vattnets färg och klarhet per havsområde, och ljusstrålar nära ytan. |
 | **Genomskärningen: etapp 4** | Klar | Vatten i läckande avdelningar, batterierna, dieslarna, torpedtuberna och reservtorpederna. |
 | **Startsidan** | Klar | Ubåten glider förbi under vattnet i dagsljus, lugn musik, menyn som en färdorder. Se `docs/ljud.md` och `docs/grafik.md`. |
-| **Skärmkontrollerna** | Klar | Yta / Periskop / Djup, planraden med detaljerna, expertläget och vyknappar med ikoner mellan telegrafen och kompassen. |
+| **Skärmkontrollerna** | Klar | Yta / Periskop / Djup, planraden med detaljerna och expertläget. Vyknapparna med ikoner står i en kolumn mitt i högerkanten på dator. |
+| **Manöverrummet** | Klar | Vyn inifrån med fem platser, skärmar som visar simuleringen, rött ljus, larmlampa, skakningar och vatten. Se README (Vyer) och `docs/grafik.md`. |
+| **Manöverrummet: ljud och fler skärmar** | Förslag | Ljuden inne i rummet (fläktar, reläer, rodermaskinen när rodren slår, klickande ekolod) styrda av samma telemetri. Vapenpulpeten på styrbordssidan visar eldledningens mål och tuberna, och ett tryck öppnar panelen Torped. Kortare övergång (en snabb tonad växling) mellan platserna. |
+| **Fler rum inifrån** | Förslag | Torpedrummet (tuberna, laddrälsen, reservtorpederna) och maskinrummet (dieslarna som skakar vid snorkling) som egna vyer, byggda på samma sätt som manöverrummet ur `interior.ts`. Dörrarna i skotten blir vägen mellan dem. |
 | **Scenariolistan** | Klar | Fem flikar efter vad scenariot övar på och kompakta kort. Se README (Scenarier). |
 | **Ytan underifrån** | Klar | Snells fönster i havsytans shader. Se `docs/grafik.md`. |
 
@@ -75,6 +79,7 @@ Knäppande räkor, som i förslaget skulle ge biologiskt brus på grunt vatten, 
 ## Mindre idéer
 
 - **Kortare långa tester:** testerna av tidsgränser körs med en kopia av scenariot med kortare `timeLimit`. Resten kan gå fortare med mål närmare starten.
+- **Publiceringen:** testdelarna och e2e-delarna tar 1,5–3 min var på CI och varierar mycket mellan körningar. Fyra testdelar eller tre e2e-delar sparar troligen bara någon halv minut; större maskiner (betalda) mer.
 - **Fysiken i en Web Worker:** frigör huvudtråden, men lönar sig först när fler fartyg och torpeder spräcker fysikbudgeten i `docs/prestanda.md`. Gränssnittet läser i dag `sim` direkt på många ställen och skulle i stället få en tunn kopia av tillståndet per bild.
 
 ## Från provspelningen (november 2026)
