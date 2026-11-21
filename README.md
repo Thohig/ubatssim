@@ -596,4 +596,4 @@ Kör skriptet igen om ikonen eller adressen ändras. Det ersätter då den gamla
 
 ## Publicering
 
-En push till `main` kör `.github/workflows/deploy.yml`, som kör lint, test och bygge och publicerar `dist/` till GitHub Pages. Pages-källan är "GitHub Actions".
+En push till `main` kör `.github/workflows/deploy.yml`, som kör lint, alla tester (på tre maskiner), bygget och e2e-testerna (på två maskiner, mot bygget) parallellt och publicerar `dist/` till GitHub Pages när allt gått igenom. En push som bara ändrar dokumentationen (`*.md`, `docs/`) publicerar inget. Pages-källan är "GitHub Actions".

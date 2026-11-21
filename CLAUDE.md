@@ -13,7 +13,7 @@ En realistisk ubåtssimulator i 3D som körs i webbläsaren. Realismen ligger i 
 - `npm run bench`: fysikens tid per tidssteg (inte del av `npm test`). `?perf` i adressen visar tid per bild i spelet. Budget i `docs/prestanda.md`.
 - `scripts/make-mac-launcher.sh [mapp]`: bygger `Ubåtssim.app` (standard `~/Projekt/Github Pages`), som öppnar GitHub Pages-sidan med spelets ikon. Kör det igen om ikonen eller adressen ändras.
 - **Ikoner:** källan för appikoner är `assets/icon-square.svg` (kantfylld, utan rundade hörn). `public/icon.svg` är flikikonen med rundade hörn. PNG-filerna i `public/` renderas från källan med `qlmanage -t -s <px>`, utom `icon-32.png` och `favicon.ico` (16, 32 och 48 px som PNG i en ICO-fil), som renderas från flikikonen: Safari visar inte SVG-ikonen i adressfältet och fliken. Ändras ikonen, ska båda SVG-filerna, alla PNG-filer och `favicon.ico` uppdateras.
-- **Publicering:** en push till `main` kör `.github/workflows/deploy.yml` (lint → test → build → e2e → GitHub Pages). Pages-källan är "GitHub Actions".
+- **Publicering:** en push till `main` kör `.github/workflows/deploy.yml`: lint, `test:all` (delad på tre maskiner, `--shard`) och bygget går parallellt, e2e (delad på två, mot byggets `dist`) efter bygget, och GitHub Pages först när allt gått igenom. Playwrights webbläsare cachas. En push som bara ändrar `*.md` eller `docs/` publicerar inget (`paths-ignore`; kör arbetsflödet för hand om det behövs). Pages-källan är "GitHub Actions".
 
 ## Arkitektur
 ```
