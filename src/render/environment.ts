@@ -56,6 +56,14 @@ const PALETTES: Record<ConditionsId, Palette> = {
   fog: { sky: 0xb4c0c4, shallow: 0x2f6f88, deep: 0x020a12, airFog: 0.01, waterFog: 0.002, hemi: 1.0, sun: 0.5, surface: 0x6d8d99, lamps: true },
 };
 
+/**
+ * How bright the daylight is compared with a clear day (the hemisphere light), for
+ * unlit things such as bubbles and spray. Never below 0.12, so that they are still faintly seen.
+ */
+export function ambientLight(conditions: ConditionsId): number {
+  return Math.min(1, Math.max(0.12, PALETTES[conditions].hemi / PALETTES.day.hemi));
+}
+
 const LAMP_COLOURS = { white: 0xfff4d6, red: 0xff4030, green: 0x40ff70 } as const;
 
 /**

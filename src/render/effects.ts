@@ -61,6 +61,8 @@ function pool(size: number, material: THREE.PointsMaterial): Pool {
 export interface Effects {
   update(input: EffectsInput | null, dt: number, surfaceAt: (x: number, z: number) => number): void;
   setEnabled(on: boolean): void;
+  /** The daylight's strength, 0–1 (`ambientLight`): bubbles, spray and smoke are unlit and dimmed by it. */
+  setLight(level: number): void;
 }
 
 export function createEffects(scene: THREE.Scene): Effects {
@@ -68,8 +70,15 @@ export function createEffects(scene: THREE.Scene): Effects {
   const spray = pool(500, new THREE.PointsMaterial({ color: 0xffffff, size: 0.6, transparent: true, opacity: 0.6, depthWrite: false }));
   const smoke = pool(240, new THREE.PointsMaterial({ color: 0x55585a, size: 1.6, transparent: true, opacity: 0.35, depthWrite: false }));
   // Bioluminescence: blue-green sparks that glow briefly where the water is stirred.
-  const sparks = pool(900, new THREE.PointsMaterial({ color: 0x5fffd8, size: 0.35, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  // Additive, so where many overlap (the propeller's wash) they add up: kept dim.
+  const sparks = pool(900, new THREE.PointsMaterial({ color: 0x3fb89c, size: 0.35, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
   scene.add(bubbles.points, spray.points, smoke.points, sparks.points);
+  const lit = [bubbles, spray, smoke].map((p) => {
+    const m = p.points.material as THREE.PointsMaterial;
+    return { m, base: m.color.clone() };
+  });
+  const sparkMaterial = sparks.points.material as THREE.PointsMaterial;
+  const sparkBase = sparkMaterial.color.clone();
   let enabled = true;
   const world = new THREE.Vector3();
   /** Fractional particles carried over between frames, per emitter. */
@@ -127,6 +136,11 @@ export function createEffects(scene: THREE.Scene): Effects {
     setEnabled(on) {
       enabled = on;
       for (const p of [bubbles, spray, smoke, sparks]) p.points.visible = on;
+    },
+    setLight(level) {
+      for (const { m, base } of lit) m.color.copy(base).multiplyScalar(level);
+      // The glow is seen against the dark: full at night, weaker at dusk.
+      sparkMaterial.color.copy(sparkBase).multiplyScalar(Math.min(1, 1.25 * (1 - level)));
     },
     update(inp, dt, surfaceAt) {
       if (!enabled) return;
@@ -189,7 +203,7 @@ export function createEffects(scene: THREE.Scene): Effects {
             if (under(world)) emit(`glow-${key}`, sparks, rate * (key === 'bow' ? 1.5 : 0.7), d, world, 8, [0, 0.05, 0], 0.1, 1.6);
           }
           toWorld(inp, inp.propeller, world);
-          if (under(world)) emit('glow-wake', sparks, rate * 2, d, world, 3, [0, 0.05, 0], 0.2, 2.5);
+          if (under(world)) emit('glow-wake', sparks, rate * 0.8, d, world, 3, [0, 0.05, 0], 0.2, 2.5);
         }
         // A raised mast cutting the surface throws a feather of spray; the snorkel also smokes with the diesels running.
         const masts: [string, Vec3 | null][] = [['per', inp.periscopeHead], ['snork', inp.snorkelHead]];

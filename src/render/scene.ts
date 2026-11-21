@@ -4,7 +4,7 @@ import type { SubmarineConfig } from '../sim/config/submarine';
 import type { Mat3 } from '../sim/math/mat';
 import type { Vec3 } from '../sim/math/vec3';
 import { bodyToLocal, nedToThree, rotationToThree } from './coords';
-import { createEnvironment, glowTexture, type AreaDecor, type ConditionsId } from './environment';
+import { ambientLight, createEnvironment, glowTexture, type AreaDecor, type ConditionsId } from './environment';
 import { LifeView } from './life';
 import type { AircraftDef, AircraftState } from '../sim/aircraft';
 import type { CreatureDef, CreatureState } from '../sim/life';
@@ -334,6 +334,7 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       vesselView.setLights(conditions !== 'day');
       lampsLit = conditions !== 'day';
       darkness = conditions === 'night';
+      effects.setLight(ambientLight(conditions));
     },
     setVessels(defs) {
       vesselDefs = defs;

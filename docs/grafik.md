@@ -87,6 +87,7 @@ Tre partikelsystem (`THREE.Points`) med fasta pooler: bubblor (1 600), stänk (5
 - **Ventilering grunt:** luft som ventileras ur huvudballasten grundare än 30 m kokar upp på ytan ovanför tanken (stänk).
 - **Masterna:** ett periskop eller en snorkel som skär genom ytan i fart kastar upp en plym av stänk. Snorkeln ryker när dieslarna går.
 - **Bubblorna** försvinner vid ytan, stänket när det faller tillbaka och röken när den har levt ut.
+- **Ljuset:** partiklarna är obelysta, så deras färg skalas med dagerns styrka (`ambientLight` i environment.ts: himmelsljuset mot en klar dag, minst 0,12). I skymning blir de ungefär en tredjedel så ljusa, i natt en åttondel. Marelden är additiv och läggs ihop där gnistorna är täta, så den hålls svag (färre gnistor i propellerströmmen) och är något svagare i skymning än i natt.
 
 Snorkelmasten ritas i ubåtsmodellen som periskopet, med ett lådformat huvud med ventilen. Radarmasten står mellan dem, med en platt antenn tvärs över båten.
 
