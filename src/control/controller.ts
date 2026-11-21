@@ -39,6 +39,10 @@ const STAGED_BLOW_DELAY = 15;
 const AWASH_DEPTH = 5;
 const AWASH_TIME = 60;
 const AWASH_HINT_EVERY = 120;
+/** Seconds after touching the bottom during which the stall watch does not run the engine up. */
+const GROUNDED_QUIET = 120;
+/** Water under the keel [m] below which the stall watch does not run the engine up either. */
+const NEAR_BOTTOM = 10;
 /** Seconds without a new "Grundstötning!" line after one. */
 const GROUNDING_LOG_QUIET = 20;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
@@ -351,16 +355,23 @@ export class Controller {
     }
 
     const grounded = sim.groundContacts > 0;
+    if (grounded) this.lastGroundedAt = sim.t;
     // A boat scraping along the bottom touches again and again: one line, then quiet for a while.
     if (grounded && !this.grounded && sim.t - this.lastGroundingLog >= GROUNDING_LOG_QUIET) {
       this.lastGroundingLog = sim.t;
       this.addLog(`Grundstötning! Fart ${(Math.abs(sim.y[7]!) / KNOT).toFixed(1).replace('.', ',')} knop.`, 'error');
+      // The crew stops the engine instead of driving on into the land.
+      if (this.ap.speed && this.setpoints.speed > 0) {
+        this.addLog('Stopp i maskin efter grundstötningen.', 'info');
+        this.submit({ kind: 'setSpeed', knots: 0 }, 'assist');
+      }
     }
     this.grounded = grounded;
   }
 
   private grounded = false;
   private lastGroundingLog = -Infinity;
+  private lastGroundedAt = -Infinity;
 
   /** True while Stopp runs the shaft full astern to take the way off. */
   private crashStopping = false;
@@ -412,7 +423,9 @@ export class Controller {
     // (autopilot.ts), so a stuck boat rests right there: the watch starts a little below.
     const hardOver = Math.abs(sim.commands.sternPlanes) >= STALL_PLANES * this.autopilot.tuning.pitch.maxPlanes;
     const stuck = this.ap.depth && !this.surfaceHold && Math.abs(err) > STALL_MIN_ERROR && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
-    this.stalled = stuck ? this.stalled + DT : 0;
+    // On or near the bottom the planes are not what holds the boat: no engine boost into the ground.
+    const nearBottom = sim.t - this.lastGroundedAt < GROUNDED_QUIET || sim.ground(sim.y[0]!, sim.y[1]!) - (k.depth + sim.cfg.hull.radius) < NEAR_BOTTOM;
+    this.stalled = stuck && !nearBottom ? this.stalled + DT : 0;
     if (this.stalled < STALL_TIME || this.depthBoost || this.hovering) return;
     // Stopped on purpose (quiet): the crew hovers if it has the trim (returned above once it does); a player
     // handling the trim is told how. Where hovering is not possible (shallow, ballast not full) the engine helps.

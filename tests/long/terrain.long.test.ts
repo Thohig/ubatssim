@@ -14,6 +14,32 @@ describe('grounding', () => {
     expect(t.depthUnderKeel).toBeLessThan(3);
   });
 
+  it('the crew warns of the shore ahead, slows down, and stops the engine after grounding', () => {
+    // Diving east towards the archipelago at 8 knots: the safety net used to look a fixed 150 m ahead,
+    // limited the depth only 29 m above the bottom, and the crew drove on into the land for minutes.
+    const c = new Controller(new Simulation({}));
+    c.crewTakesAll();
+    c.submit({ kind: 'setHeading', heading: 90 }, 'keyboard');
+    c.submit({ kind: 'setSpeed', knots: 8 }, 'keyboard');
+    c.submit({ kind: 'setDepth', depth: 80 }, 'keyboard');
+    let warnedAt = -1;
+    let speedAtWarning = 0;
+    for (let i = 0; i < 1000 * 100; i++) {
+      c.step();
+      if (warnedAt < 0 && c.log.some((e) => /grunt förut/.test(e.text))) {
+        warnedAt = c.sim.t;
+        c.step(); // the crew's speed order is carried out at the next step
+        speedAtWarning = c.setpoints.speed;
+      }
+      if (c.sim.groundContacts > 0) break;
+    }
+    expect(warnedAt).toBeGreaterThan(0);
+    expect(speedAtWarning).toBeLessThanOrEqual(4);
+    for (let i = 0; i < 10; i++) c.step();
+    expect(c.log.some((e) => e.text === 'Stopp i maskin efter grundstötningen.')).toBe(true);
+    expect(c.setpoints.speed).toBe(0);
+  });
+
   it('driving into the archipelago ends on the rocks, and the log says so', () => {
     const c = new Controller(new Simulation({ depth: 25, east: 1800, heading: Math.PI / 2, speed: 4, designTrim: true }));
     c.submit({ kind: 'setDepth', depth: 25 }, 'console');

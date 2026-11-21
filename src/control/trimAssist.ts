@@ -33,6 +33,12 @@ export const ASSIST = {
   deadbandKg: 50,
   /** Largest single compensation or trim order [l]. */
   maxPortionLitres: 200,
+  /**
+   * Largest compensation order [l] when the boat is more than `largeErrorKg` off: tonnes of error
+   * (under the halocline, after a dive with air left) took many minutes in 200 l portions.
+   */
+  largePortionLitres: 500,
+  largeErrorKg: 1000,
   /** Wait after a pump stops before the next order [s]. */
   settleTime: 10,
   /** Only compensate below this depth, fully submerged [m]. */
@@ -79,8 +85,23 @@ export const ASSIST = {
   blowRearmDepth: 180,
   /** Least water under the keel the depth autopilot may aim for [m]. */
   keelMargin: 10,
-  /** Look-ahead distances for the sea bed check [m], astern when the boat goes astern. */
-  lookAhead: [0, 50, 100, 150],
+  /**
+   * The sea bed check looks this far ahead [m] (astern when the boat backs), in steps of
+   * `lookAheadStep`, and further at speed: as far as the boat goes in `lookAheadTime` s. With a fixed
+   * 150 m a boat at 8 knots met a steep shore with the limit only 29 m above the bottom, and grounded.
+   */
+  lookAhead: 150,
+  lookAheadTime: 60,
+  lookAheadStep: 50,
+  /**
+   * Rising ground ahead is dangerous when the boat must climb faster than this [m/s] to keep
+   * `keelMargin` (about what the planes manage at 4 knots). The crew then slows to `shoalSpeed`
+   * knots if it handles the speed and goes faster.
+   */
+  climbRate: 0.12,
+  shoalSpeed: 4,
+  /** Seconds without danger before the shoal warning re-arms. */
+  shoalRearm: 30,
   /** Keel warning below this [m], re-armed above `keelRearm` [m]. */
   keelWarn: 10,
   keelRearm: 15,
@@ -101,6 +122,8 @@ export class TrimAssist {
   private planesSamples = 0;
   private blowArmed = true;
   private keelArmed = true;
+  private shoalArmed = true;
+  private shoalSince = -Infinity;
   private limiting = false;
   private lastBoost = false;
   private boostChangedAt = -Infinity;
@@ -151,14 +174,47 @@ export class TrimAssist {
    * ahead [m]. "Ahead" is where the boat is going: astern when it backs.
    */
   depthLimit(): number {
+    return this.limitsAhead().reduce((m, x) => Math.min(m, x.limit), Infinity);
+  }
+
+  /** The depth limit (see `depthLimit`) at each distance [m] ahead, from here to the look-ahead. */
+  private limitsAhead(): { distance: number; limit: number }[] {
     const sim = this.ctrl.sim;
     const k = sim.kinematics();
     const n = sim.y[0]!;
     const e = sim.y[1]!;
     const dir = k.u < -0.2 ? -1 : 1;
-    let seabed = Infinity;
-    for (const d of ASSIST.lookAhead) seabed = Math.min(seabed, sim.ground(n + dir * d * Math.cos(k.heading), e + dir * d * Math.sin(k.heading)));
-    return Math.max(0, Math.floor(seabed - sim.cfg.hull.radius - ASSIST.keelMargin));
+    const range = Math.max(ASSIST.lookAhead, Math.abs(k.u) * ASSIST.lookAheadTime);
+    const out: { distance: number; limit: number }[] = [];
+    for (let d = 0; d <= range + 1e-9; d += ASSIST.lookAheadStep) {
+      const seabed = sim.ground(n + dir * d * Math.cos(k.heading), e + dir * d * Math.sin(k.heading));
+      out.push({ distance: d, limit: Math.max(0, Math.floor(seabed - sim.cfg.hull.radius - ASSIST.keelMargin)) });
+    }
+    return out;
+  }
+
+  /**
+   * Ground rising ahead faster than the boat can climb (`climbRate`) at this speed: warns, and the
+   * crew slows to `shoalSpeed` if it handles the speed. Not on the surface (the keel warning is there).
+   */
+  private watchShoal(limits: { distance: number; limit: number }[], depth: number): void {
+    const ctrl = this.ctrl;
+    const sim = ctrl.sim;
+    const u = Math.abs(sim.kinematics().u);
+    const danger =
+      depth >= ASSIST.minDepth &&
+      u > 1 &&
+      limits.some((x) => x.distance > 0 && depth - x.limit > ASSIST.climbRate * (x.distance / u));
+    if (!danger) {
+      if (sim.t - this.shoalSince > ASSIST.shoalRearm) this.shoalArmed = true;
+      return;
+    }
+    this.shoalSince = sim.t;
+    if (!this.shoalArmed) return;
+    this.shoalArmed = false;
+    const slow = ctrl.ap.speed && ctrl.setpoints.speed > ASSIST.shoalSpeed;
+    ctrl.addLog(`Varning: grunt förut!${slow ? ` Besättningen saktar in till ${ASSIST.shoalSpeed} knop.` : ' Sakta in eller gå upp.'}`, 'error', 'assist');
+    if (slow) ctrl.submit({ kind: 'setSpeed', knots: ASSIST.shoalSpeed }, 'assist');
   }
 
   private safetyNet(depth: number, depthRate: number): void {
@@ -175,8 +231,10 @@ export class TrimAssist {
       ctrl.submit({ kind: 'surface' }, 'assist');
     }
 
-    // Shallow water: keep the depth setpoint off the bottom.
-    const limit = this.depthLimit();
+    // Shallow water: keep the depth setpoint off the bottom, and warn of ground rising ahead.
+    const limits = this.limitsAhead();
+    const limit = limits.reduce((m, x) => Math.min(m, x.limit), Infinity);
+    this.watchShoal(limits, depth);
     if (ctrl.ap.depth && ctrl.setpoints.depth > limit) {
       ctrl.setpoints.depth = limit;
       // Surfaced (or aiming for the surface) the limit changes nothing worth a line.
@@ -215,7 +273,8 @@ export class TrimAssist {
     if (Math.abs(this.netFiltered) < ASSIST.deadbandKg) return;
     // Light (positive) → take water in. Compensating water has surface density.
     const litres = this.netFiltered / (sim.water.rhoSurface / 1000);
-    const portion = Math.sign(litres) * Math.min(ASSIST.maxPortionLitres, Math.round(Math.abs(litres) / 10) * 10);
+    const most = Math.abs(this.netFiltered) > ASSIST.largeErrorKg ? ASSIST.largePortionLitres : ASSIST.maxPortionLitres;
+    const portion = Math.sign(litres) * Math.min(most, Math.round(Math.abs(litres) / 10) * 10);
     if (portion === 0) return;
     ctrl.submit({ kind: 'compensate', litres: portion }, 'assist');
     this.compIdleSince = sim.t;
