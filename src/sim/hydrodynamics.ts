@@ -54,11 +54,15 @@ export function hullDamping(cfg: SubmarineConfig, hull: HullGeometry, nu: ArrayL
   const L3 = L2 * L;
   const L4 = L3 * L;
   const ls = h.lowSpeed;
+  // The extra sway and heave damping with way on (config hydro.way): in full from way.speed ahead or astern.
+  const wayFade = Math.min(1, (u / h.way.speed) ** 2);
+  const Yv = ls.Yv + wayFade * h.way.Yv;
+  const Zw = ls.Zw + wayFade * h.way.Zw;
   const tau = new Float64Array(6);
 
   tau[0] = k * L2 * h.Xuu * u * Math.abs(u) + ls.Xu * u;
-  tau[1] = k * L2 * h.Yv * U * v + k * L3 * h.Yr * U * r + ls.Yv * v;
-  tau[2] = k * L2 * h.Zw * U * w + k * L3 * h.Zq * U * q + ls.Zw * w;
+  tau[1] = k * L2 * h.Yv * U * v + k * L3 * h.Yr * U * r + Yv * v;
+  tau[2] = k * L2 * h.Zw * U * w + k * L3 * h.Zq * U * q + Zw * w;
   tau[3] = k * L4 * h.Kp * U * p + ls.Kp * p + h.Kpp * p * Math.abs(p);
   // The pitch moment from the angle of attack (mostly the Munk moment) goes with u·w, not U·w: it vanishes
   // for a boat rising straight up without way, and changes sign astern. With U·w a boat blowing its

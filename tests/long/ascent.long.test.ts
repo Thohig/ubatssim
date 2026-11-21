@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASCENT, STILL_HINT } from '../../src/control/ascent';
+import { ASCENT, CANCELLED, STILL_HINT } from '../../src/control/ascent';
 import { Controller } from '../../src/control/controller';
 import type { Order } from '../../src/control/orders';
 import { Simulation, type InitialConditions } from '../../src/sim/simulation';
@@ -51,6 +51,7 @@ describe('coming up from the deep with speed (the crew handles depth and speed)'
     expect(logged(c, /Planar ut på 35 m/)).toBe(true);
     expect(logged(c, /Inga kontakter nära/)).toBe(true);
     expect(logged(c, /Maskinen går tillbaka till 0 knop/)).toBe(true);
+    expect(c.log.some((e) => e.text === CANCELLED)).toBe(false);
     expect(shallowest).toBeGreaterThan(11);
     run(60);
     expect(Math.abs(c.sim.y[2]! - 13)).toBeLessThan(1.5);

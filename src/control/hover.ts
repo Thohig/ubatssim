@@ -1,7 +1,7 @@
 /**
  * Hovering: the crew changes and holds the depth without speed, with the
  * compensating tank alone. At (almost) no speed the planes do nothing; a
- * boat a few hundred kilograms heavy sinks slowly (500 kg ≈ 0,06 m/s, the
+ * boat a few hundred kilograms heavy sinks slowly (500 kg ≈ 0,13 m/s, the
  * cross-flow drag of the hull is large) and one as light rises.
  *
  * Two loops, evaluated once a second by the trim assistant (trimAssist.ts):
@@ -36,9 +36,9 @@ export const HOVER = {
   minDepth: 8,
   /** Wanted vertical speed: depth error / `rateTime` [s], at most `maxRate` [m/s]. */
   rateTime: 100,
-  maxRate: 0.07,
-  /** Heaviness [kg] for a steady vertical speed w [m/s]: `drag`·w·|w| (measured: 500 kg ≈ 0,06–0,07 m/s). */
-  drag: 1.0e5,
+  maxRate: 0.12,
+  /** Heaviness [kg] for a steady vertical speed w [m/s]: `drag`·w·|w| (measured: 500 kg ≈ 0,13 m/s, 700 kg ≈ 0,17 m/s). */
+  drag: 3.3e4,
   /** Extra heaviness [kg] per m/s of vertical speed short of the wanted one. */
   rateGain: 6000,
   /** Most heaviness or lightness the crew pumps for [kg]. */

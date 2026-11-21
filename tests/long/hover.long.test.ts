@@ -118,11 +118,13 @@ describe('"Sväva"', () => {
         c.submit({ kind: 'compensate', litres: -Math.round(-c.sim.telemetry().netBuoyancy / 9.81 / 10) * 10 - 100 }, 'keyboard');
         phase = 1;
         last = c.sim.t;
-      } else if (phase === 1 && c.sim.t - last > 30) {
-        // As a player would: a little out while sinking, a little in while rising.
-        if (k.depthRate > 0.01 && k.depth > 79) c.submit({ kind: 'compensate', litres: -100 }, 'keyboard');
-        else if (k.depthRate < -0.01 && k.depth < 81) c.submit({ kind: 'compensate', litres: 100 }, 'keyboard');
-        else if (k.depth < 77 && k.depthRate < 0.02) c.submit({ kind: 'compensate', litres: 100 }, 'keyboard');
+      } else if (phase === 1 && c.sim.t - last > 20 && c.sim.compRemaining === 0) {
+        // As a player would, with Flytkraft in the panel Trim: a little out while sinking, a little in while
+        // rising, but not more once the boat is already heavy (light) enough to turn back towards 80 m.
+        const heavy = -c.sim.telemetry().netBuoyancy / 9.81;
+        const wanted = Math.max(-300, Math.min(300, 20 * (80 - k.depth) - 3000 * k.depthRate));
+        if (heavy > wanted + 80) c.submit({ kind: 'compensate', litres: -100 }, 'keyboard');
+        else if (heavy < wanted - 80) c.submit({ kind: 'compensate', litres: 100 }, 'keyboard');
         else return;
         last = c.sim.t;
       }

@@ -44,6 +44,9 @@ export const ASCENT = {
 /** Logged when a shallow target is ordered deep down without way on and the player handling the speed. */
 export const STILL_HINT = `Du sköter farten, och utan fart lyfter djuprodren inte ubåten. Tryck på telegrafen, så tar besättningen farten, och ge djupmålet igen: då stiger den i ${ASCENT.riseSpeed} knop.`;
 
+/** Logged when the ascent is cut short. */
+export const CANCELLED = 'Stigningen avbruten.';
+
 export type AscentPhase ='rise' | 'listen' | 'hold' | 'final';
 
 export class Ascent {
@@ -113,9 +116,9 @@ export class Ascent {
     c.afterAck.push(`Stigning i ${Math.max(c.setpoints.speed, ASCENT.riseSpeed)} knop. Besättningen planar ut på ${ASCENT.levelDepth} m och lyssnar innan den går upp.`);
   }
 
-  /** A speed or heading order from the player. */
-  onSpeedOrder(): void {
-    if (this.phase) this.end(false);
+  /** A speed order from the player (cuts the ascent short, said in the log), or the main ballast blown (`quiet`). */
+  onSpeedOrder(quiet = false): void {
+    if (this.phase) this.end(false, quiet);
   }
 
   onHeadingOrder(): void {
@@ -167,11 +170,15 @@ export class Ascent {
     this.ctrl.addLog(listened ? `Inga kontakter nära. Går upp ${where} i ${ASCENT.listenSpeed} knop.` : `Går upp ${where} i ${ASCENT.listenSpeed} knop.`, 'info');
   }
 
-  /** Ends it; `done` = arrived (the engine goes back to the player's speed, said in the log). */
-  private end(done: boolean): void {
+  /**
+   * Ends it; `done` = arrived (the engine goes back to the player's speed, said in the log). Cut short, the
+   * log says so, so that a boat that stops coming up does not look stuck (`quiet`: something else says it).
+   */
+  private end(done: boolean, quiet = false): void {
     if (!this.phase) return;
     const c = this.ctrl;
     this.phase = null;
+    if (!done && !quiet) c.addLog(CANCELLED, 'info');
     if (done && c.ap.speed && c.setpoints.speed !== ASCENT.listenSpeed) {
       c.addLog(`Maskinen går tillbaka till ${c.setpoints.speed.toString().replace('.', ',')} knop.`, 'info');
     }

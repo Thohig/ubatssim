@@ -359,15 +359,27 @@ export const SUBMARINE = {
     Kp: -3e-5, // K = ½ρL⁴ K′p U p. Weak, as for real submarines (ζ ≈ 0.1–0.2). APPROX
     /** Cross-flow drag coefficient of the hull section [F21 §6.4]. APPROX (circular cylinder, Re > 5e5). */
     crossFlowCd: 0.8,
-    /** Low-speed linear damping in physical units (keeps motion decaying at U≈0). APPROX. */
+    /**
+     * Low-speed linear damping in physical units (keeps motion decaying at U≈0). APPROX. Sway and heave
+     * are small without way beside the hull's own cross-flow drag (≈ 1.3e5·w² N), so that a boat hovering
+     * rises or sinks as fast as its lightness and that drag give (500 kg ≈ 0.13 m/s); `way` adds the rest
+     * with the speed ahead (below).
+     */
     lowSpeed: {
       Xu: -2.0e3, // N/(m/s)
-      Yv: -4.0e4,
-      Zw: -4.0e4,
+      Yv: -1.0e4,
+      Zw: -1.0e4,
       Kp: -2.0e6, // Nm/(rad/s)
       Mq: -4.0e7,
       Nr: -4.0e7,
     },
+    /**
+     * Extra linear sway and heave damping with way on [N/(m/s)], in full from `speed` [m/s] ahead or astern
+     * and as (u/speed)² below it. With way on it stands for the hull's normal force (the depth and course
+     * autopilots are tuned with it); without way it was four times the cross-flow drag and halved the
+     * hovering speeds. APPROX.
+     */
+    way: { Yv: -3.0e4, Zw: -3.0e4, speed: 1.0 },
     /** Quadratic roll damping [Nm/(rad/s)^2]. APPROX (sail + fins). */
     Kpp: -1.5e6,
     /**

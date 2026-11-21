@@ -313,14 +313,14 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Gå ned till 80 m utan fart',
         system: 'trim',
-        hint: 'Ta in vatten med In 500 i panelen Trim (1 liter ≈ 1 kg). 500 kg tung sjunker ubåten ungefär 4 m i minuten. Pumpa ut i god tid före 80 m: pumpen tar 6 liter i sekunden.',
+        hint: 'Ta in vatten med In 500 i panelen Trim (1 liter ≈ 1 kg). 500 kg tung sjunker ubåten ungefär 8 m i minuten. Pumpa ut i god tid före 80 m: pumpen tar 6 liter i sekunden.',
         hintCrew: 'Tryck på djupskalan vid 80 m. Utan fart svävar besättningen ned med kompenseringen. Det tar några minuter.',
         check: (t) => t.depth > 78,
       },
       {
         text: 'Håll 80 m ±2 m i två minuter',
         system: 'trim',
-        hint: 'Gör ubåten neutral: sjunker den, Ut 100. Stiger den, In 100. Flytkraft i panelen Trim visar hur tung den är.',
+        hint: 'Gör ubåten neutral: sjunker den, Ut 100. Stiger den, In 100. Flytkraft i panelen Trim visar hur tung den är: vänta med nästa pumpning när den redan vänder.',
         hintCrew: 'Besättningen håller djupet med små pumpningar. Följ loggen.',
         check: (t) => Math.abs(t.depth - 80) < 2,
         holdSeconds: 120,
