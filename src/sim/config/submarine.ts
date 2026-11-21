@@ -215,6 +215,10 @@ export const SUBMARINE = {
     collapseDepth: 360,
     /** Fraction of a compartment's volume that water can fill (machinery and decks take the rest). APPROX. */
     floodableFraction: 0.75,
+    /** The watertight doors in the bulkheads: their area [m^2], the time to shut or open them [s] and the sill [m]. APPROX. */
+    doorArea: 0.6,
+    doorTime: 10,
+    doorSill: 0.4,
     /** A compartment flooded beyond this fraction stops what is in it (motor, diesels). */
     disableFill: 0.3,
   },

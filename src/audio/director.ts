@@ -18,6 +18,7 @@ export function cueFor(text: string): Cue | null {
   if (/^Huvudballasten är full/.test(text)) return 'clonk';
   if (/^Läckage i|^Skrovet kollapsade/.test(text)) return 'alarm';
   if (/^Torped \d+ gick från tub/.test(text)) return 'launch';
+  if (/^Lockmål \d+ ute/.test(text)) return 'clonk';
   if (/^Träff!/.test(text)) return 'explosion';
   if (/^Sjunkbomb \d+ m från skrovet/.test(text)) return 'depthCharge';
   // A new speed order rings the engine-order telegraph (not "Fart öka 1 knop").

@@ -120,6 +120,16 @@ function glowTexture(): THREE.Texture {
 const PARTICLE_BOX = 160;
 const PARTICLE_COUNT = 4000;
 
+/**
+ * Seen from below, the surface lets the sky through only within the critical
+ * angle of total internal reflection, asin(1/1.333) ≈ 48.6° from the vertical
+ * (Snell's window): a bright disc overhead, and outside it the surface
+ * mirrors the dark water. The cosine of that angle, and the width of the
+ * soft edge (in cosine).
+ */
+export const SNELL_COS = Math.cos(Math.asin(1 / 1.333));
+const SNELL_EDGE = 0.05;
+
 const surfaceColor = new THREE.Color(0x2a7fa8);
 const deepColor = new THREE.Color(0x020a12);
 const skyColor = new THREE.Color(0x9cc9e4);
@@ -155,6 +165,8 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
     uWaveDirE: { value: packed.dirE },
     uWavePhase0: { value: packed.phase0 },
     uWaveHalf: { value: WAVE_SIZE / 2 },
+    uSnellSky: { value: new THREE.Color() },
+    uSnellDeep: { value: new THREE.Color() },
   };
   waveMat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, waveUniforms);
@@ -165,7 +177,23 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
         // Local x = east offset, local z = −north offset from the grid centre.
         'vec3 seaW = seaWave(-position.z, position.x);\nvec3 objectNormal = normalize(vec3(-seaW.z, 1.0, seaW.y));',
       )
-      .replace('#include <begin_vertex>', 'vec3 transformed = vec3(position);\ntransformed.y += seaW.x;');
+      .replace('#include <common>', `#include <common>\nvarying vec3 vSeaWorld;\nvarying vec3 vSeaNormal;`)
+      .replace(
+        '#include <begin_vertex>',
+        'vec3 transformed = vec3(position);\ntransformed.y += seaW.x;\nvSeaWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvSeaNormal = normalize(mat3(modelMatrix) * objectNormal);',
+      );
+    // Snell's window from below (the back face): the sky inside the critical angle, the dark water mirrored outside.
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\nvarying vec3 vSeaWorld;\nvarying vec3 vSeaNormal;\nuniform vec3 uSnellSky;\nuniform vec3 uSnellDeep;`)
+      .replace(
+        '#include <opaque_fragment>',
+        `#include <opaque_fragment>
+        if (!gl_FrontFacing) {
+          float cosI = dot(normalize(vSeaWorld - cameraPosition), normalize(vSeaNormal));
+          float win = smoothstep(${(SNELL_COS - SNELL_EDGE).toFixed(4)}, ${(SNELL_COS + SNELL_EDGE).toFixed(4)}, cosI);
+          gl_FragColor = vec4(mix(uSnellDeep, uSnellSky, win), mix(0.92, 0.8, win));
+        }`,
+      );
   };
   waveMat.customProgramCacheKey = () => 'sea-waves';
   const waveMesh = new THREE.Mesh(waveGeo, waveMat);
@@ -265,6 +293,9 @@ export function createEnvironment(scene: THREE.Scene, hemi: THREE.HemisphereLigh
       deepColor.setHex(palette.deep);
       surfMat.color.setHex(palette.surface);
       waveMat.color.setHex(palette.surface);
+      // Snell's window: the sky, brightened as through the surface; outside it the water's own deep colour mirrored.
+      waveUniforms.uSnellSky.value.setHex(palette.sky).lerp(new THREE.Color(0xffffff), 0.25);
+      waveUniforms.uSnellDeep.value.copy(surfaceColor).lerp(deepColor, 0.55);
       hemi.intensity = palette.hemi;
       sun.intensity = palette.sun;
       disposeTree(lighthouseGroup, sharedLighthouse);

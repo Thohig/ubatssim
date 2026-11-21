@@ -246,6 +246,14 @@ TL = 20·log₁₀ r + α·r + 20 dB per skikt mellan källa och mottagare      
 - **Radarvarnare (ESM):** en radar hörs inom 1,6 gånger radarhorisonten mellan antennerna (korvettens antenn 18 m). Medan ubåtens radar sänder växer en korvetts vetskap med 0,025 per sekund (efter ~40 s är ubåten upptäckt). Ubåtens radarvarnare varnar för en korvetts radar när antennen är över vattnet.
 - **Radarmasten** ger motstånd i vattnet som periskopet och snorkeln (`systems/masts.ts`): en cylinder med diametern 0,4 m och Cd = 1,0.
 
+## Skott, tråd, lockmål och samarbete
+
+- **Vattentäta dörrar** (`systems/flooding.ts`): en per skott, 0,6 m², 10 s att stänga eller öppna, tröskel 0,4 m. Vattenytan i en avdelning tas som vågrät, på höjden 2R·fyllnad över avdelningens botten mitt i den. Genom en öppen dörr rinner Q = Cd·A·(1 − stängd)·√(2g·Δh) från den avdelning där ytan står högre, över tröskeln, till grannen (Δh till grannens yta eller tröskeln, det som är högst). Det räknas bara när någon avdelning har vatten. Länspumpen tar `drainTarget` först om den är blöt, annars den blötaste.
+- **Tråden** (src/control/wire.ts): en trådstyrd torped får ny gyrokurs, sökpunkt eller kurs genom sina `orders`. Styr räknar träffpunkten från torpedens position med lösningen nu och väcker sökaren 600 m före den. Tråden går av över 4,1 m/s (8 knop) i mer än 5 s eller vid en kursändring över 120° från avfyrningen.
+- **Lockmål** (`World.decoys`, `config/weapons.ts`, `decoy`): 300 s, 3,1 m/s rakt på sin kurs, sjunker 0,05 m/s, källnivå 120 dB (ubåten vid ~7 knop) och målstyrka 4 dB (skrovets 10). En korvett lyssnar på det som ger störst signalöverskott (ubåten eller ett lockmål) och pingar på det som ger störst eko. Ett eko från ett lockmål ger anfall men räknas inte som upptäckt.
+- **Korvetter i grupp** (src/control/hunter.ts): samma `VesselDef.group` delar vetskapen (+0,85, sök från samma position) och varje eko. När två anfaller fäller en (`strikers`) och de andra står 1 500 m från den tänkta positionen i lyssningsfart och pingar. Efter varje mönster byter de.
+- **Konvojens sicksack** (`sim/vessel.ts`): ett fartyg i en larmad grupp går 30 % fortare (högst +3 m/s) och lägger +30°, −30°, +30°, 0°, −30°, +30°, −30°, 0° till kursen mot nästa punkt, 120 s per ben, utom närmare än 500 m från punkten.
+
 ## Torpedrummet (src/control/torpedoRoom.ts)
 
 - **Tubens steg:** vattenfyll (15 s), öppna mynningsluckan (8 s), stäng (6 s), länsa (15 s) och ladda (120 s). Laddrälsen tar en torped i taget. En tub skjuter bara när torpeden är i, tuben vattenfylld och luckan öppen.

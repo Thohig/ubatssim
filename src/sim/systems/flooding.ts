@@ -11,6 +11,15 @@
  * boat goes). At collapse depth the hull fails. The water is a point mass in
  * each compartment (Simulation adds it to the mass properties); a
  * compartment flooded beyond `disableFill` stops its machinery (electrics.ts).
+ *
+ * Watertight doors in the bulkheads (`commands.doorsShut`, `doorTime` to
+ * move): through an open door water runs from the compartment whose surface
+ * stands higher to its neighbour, over the sill, Q = Cd·A·√(2g·Δh), so a
+ * flooded boat that pitches runs its water to the low end, and the moment
+ * makes the pitch worse. The water surface is taken level across a
+ * compartment, at a height in proportion to its fill. Only with water inside
+ * does any of it run (the same arithmetic as before otherwise). The drain
+ * pump takes `drainTarget` first, if it is wet, else the wettest.
  */
 import type { CompartmentDef } from '../config/submarine';
 import { ENVIRONMENT as E } from '../config/environment';
@@ -49,6 +58,12 @@ export class Flooding implements Subsystem {
   collapsed = false;
   /** True while the drain pump runs. */
   drainRunning = false;
+  /** The watertight doors, 0 (open) … 1 (shut), one per bulkhead from forward. */
+  readonly doors: number[];
+  /** The compartment the drain pump takes first, or null (the wettest). */
+  drainTarget: string | null = null;
+  /** Water run through each door at the last step [m^3/s], positive aft. */
+  readonly doorFlow: number[];
   private readonly defs: readonly CompartmentDef[];
   private wasGrounded = false;
   private events: DamageEvent[] = [];
@@ -65,6 +80,8 @@ export class Flooding implements Subsystem {
       holeArea: 0,
       inflow: 0,
     }));
+    this.doors = cfg.compartments.slice(1).map(() => 0);
+    this.doorFlow = this.doors.map(() => 0);
   }
 
   /** Water as a fraction of the floodable volume of a compartment (0 if unknown). */
@@ -107,6 +124,44 @@ export class Flooding implements Subsystem {
       out.push({ m: c.water * rho, r: [(d.xRange[0] + d.xRange[1]) / 2, 0, R * (1 - f)] });
     });
     return out;
+  }
+
+  /** Height of the water surface above a compartment's bottom [m] (level across it, in proportion to the fill). */
+  private level(c: CompartmentFlood): number {
+    return 2 * this.sim.cfg.hull.pressureHullRadius * Math.min(1, c.water / c.volume);
+  }
+
+  /** Water from the compartment whose surface stands higher to its neighbour, over the sill of an open door. */
+  private runThroughDoors(dt: number): void {
+    const dmg = this.sim.cfg.damage;
+    const R = this.sim.cfg.hull.pressureHullRadius;
+    for (let k = 0; k < this.doors.length; k++) {
+      const open = 1 - this.doors[k]!;
+      if (open <= 0) continue;
+      const fwd = this.compartments[k]!;
+      const aft = this.compartments[k + 1]!;
+      if (fwd.water <= 0 && aft.water <= 0) continue;
+      const xb = this.defs[k]!.xRange[0];
+      // Depth (down) of each water surface: the compartment's bottom at its middle, less the level; dry: the bottom at the door.
+      const bottomAtDoor = this.depthOf([xb, 0, R]);
+      const surface = (c: CompartmentFlood, i: number) => {
+        const d = this.defs[i]!;
+        return c.water > 0 ? this.depthOf([(d.xRange[0] + d.xRange[1]) / 2, 0, R]) - this.level(c) : bottomAtDoor;
+      };
+      const zf = surface(fwd, k);
+      const za = surface(aft, k + 1);
+      const [src, dst, zs, zd, sign] = zf < za ? [fwd, aft, zf, za, 1] : [aft, fwd, za, zf, -1];
+      const sill = bottomAtDoor - dmg.doorSill;
+      if (src.water <= 0 || zs >= sill) continue;
+      const head = Math.min(zd, sill) - zs;
+      if (head <= 0) continue;
+      const q = dmg.holeCd * dmg.doorArea * open * Math.sqrt(2 * E.g * head);
+      const dv = Math.min(q * dt, src.water, dst.volume - dst.water);
+      if (dv <= 0) continue;
+      src.water -= dv;
+      dst.water += dv;
+      this.doorFlow[k] = (sign * dv) / dt;
+    }
   }
 
   /** World depth [m] of a body-frame point (no waves: the leak is deep enough for them not to matter). */
@@ -163,9 +218,19 @@ export class Flooding implements Subsystem {
       }
     });
 
-    // The drain pump: the wettest compartment first.
+    // The watertight doors move toward their order.
+    const doorStep = dt / dmg.doorTime;
+    const shut = sim.commands.doorsShut ? 1 : 0;
+    for (let k = 0; k < this.doors.length; k++) this.doors[k]! += Math.max(-doorStep, Math.min(doorStep, shut - this.doors[k]!));
+    // Water runs through the open doors.
+    for (let k = 0; k < this.doorFlow.length; k++) this.doorFlow[k] = 0;
+    if (this.compartments.some((c) => c.water > 0)) this.runThroughDoors(dt);
+
+    // The drain pump: the compartment it is told to take, else the wettest, first.
     const capacity = dmg.drainRate * Math.max(0, 1 - Math.max(0, depth) / dmg.drainMaxDepth) * dt;
-    const wet = this.compartments.filter((c) => c.water > 0).sort((a, b) => b.water - a.water);
+    const wet = this.compartments
+      .filter((c) => c.water > 0)
+      .sort((a, b) => (a.id === this.drainTarget ? -1 : b.id === this.drainTarget ? 1 : b.water - a.water));
     this.drainRunning = wet.length > 0 && capacity > 0 && !this.collapsed;
     if (this.drainRunning) {
       let left = capacity;

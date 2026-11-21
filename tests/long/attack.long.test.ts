@@ -8,8 +8,10 @@ import { Simulation } from '../../src/sim/simulation';
 type Who = 'crew' | 'player';
 const KN = 1852 / 3600;
 
-function start(id: string, who: Who) {
-  const sc = SCENARIOS.find((s) => s.id === id)!;
+/** `timeLimit` [s] shortens the scenario's: the rule that fails it is the same, the test far shorter. */
+function start(id: string, who: Who, timeLimit?: number) {
+  const found = SCENARIOS.find((s) => s.id === id)!;
+  const sc = timeLimit === undefined ? found : { ...found, timeLimit };
   const c = new Controller(new Simulation(sc.initial));
   const runner = new ScenarioRunner(sc, c);
   c.crewTakesAll();
@@ -64,8 +66,8 @@ describe('"Övningsskott"', () => {
   });
 
   it.each(['crew', 'player'] as const)('fails when time runs out without a shot (%s)', (who) => {
-    const s = start('practice-shot', who);
-    s.run(1600);
+    const s = start('practice-shot', who, 60);
+    s.run(70);
     expect(s.runner.status).toBe('failed');
     expect(s.runner.message).toBe('Tiden tog slut.');
   });

@@ -90,6 +90,8 @@ export interface Commands {
   diesel: boolean;
   /** Raise (true) or lower the radar mast. */
   radarUp: boolean;
+  /** Shut the watertight doors between the compartments (true) or open them. */
+  doorsShut: boolean;
 }
 
 /**
@@ -225,6 +227,9 @@ export interface Telemetry {
   /** Water in the compartments of the pressure hull, open holes and inflow. */
   compartments: CompartmentFlood[];
   drainPumpRunning: boolean;
+  /** The watertight doors 0 (open) … 1 (shut), one per bulkhead from forward, and the compartment the drain pump takes first (null: the wettest). */
+  doors: number[];
+  drainTarget: string | null;
   /** The hull has collapsed below collapse depth. */
   hullCollapsed: boolean;
   thrust: number;
@@ -269,7 +274,7 @@ export class Simulation {
   y: Float64Array = new Float64Array(STATE_SIZE);
   tanks: TankState[];
   air: AirState;
-  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false, snorkelUp: false, diesel: false, radarUp: false };
+  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false, snorkelUp: false, diesel: false, radarUp: false, doorsShut: false };
   /**
    * Point masses that differ from the design loadout, written by the
    * controller (the torpedo room). Replace the array to change it; empty =
@@ -730,6 +735,8 @@ export class Simulation {
       motorPowerLimit: this.systems.electrics.powerLimit,
       compartments: this.systems.flooding.compartments.map((c) => ({ ...c })),
       drainPumpRunning: this.systems.flooding.drainRunning,
+      doors: [...this.systems.flooding.doors],
+      drainTarget: this.systems.flooding.drainTarget,
       hullCollapsed: this.systems.flooding.collapsed,
       thrust: ext.propThrust,
       shaftPower: 2 * Math.PI * n * ext.propTorque,

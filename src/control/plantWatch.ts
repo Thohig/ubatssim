@@ -15,6 +15,8 @@ const FLOOD_WARNING = 15;
 const LEAK_CAUSE = { grounding: 'grundstötning', collision: 'kollision', depth: 'under krossdjupet', charge: 'sjunkbomb' } as const;
 
 export class PlantWatch {
+  /** The crew shut the watertight doors at a leak (and opens them again once all is dry). */
+  doorsByCrew = false;
   /** Battery warnings already given (state of charge thresholds), and what the diesels did last step. */
   private batteryWarned = new Set<number>();
   private dieselWasRunning = false;
@@ -60,10 +62,24 @@ export class PlantWatch {
     const fl = sim.systems.flooding;
     for (const ev of fl.drainEvents()) {
       const name = fl.compartments.find((x) => x.id === ev.compartment)?.name.toLowerCase() ?? ev.compartment;
-      if (ev.kind === 'leak') c.addLog(`Läckage i ${name}${ev.cause ? ` (${LEAK_CAUSE[ev.cause]})` : ''}! Länspumpen går. Gå grundare, så tätar besättningen fortare än vattnet kommer in.`, 'error');
+      if (ev.kind === 'leak') {
+        c.addLog(`Läckage i ${name}${ev.cause ? ` (${LEAK_CAUSE[ev.cause]})` : ''}! Länspumpen går. Gå grundare, så tätar besättningen fortare än vattnet kommer in.`, 'error');
+        // Damage control: the watertight doors are shut, so that the water stays where it came in.
+        if (!sim.commands.doorsShut) {
+          sim.commands.doorsShut = true;
+          this.doorsByCrew = true;
+          c.addLog('Vattentäta dörrar stängs.', 'info');
+        }
+      }
       else if (ev.kind === 'sealed') c.addLog(`Läckan i ${name} är tätad.`, 'info');
       else if (ev.kind === 'pumpedOut') c.addLog(`${name[0]!.toUpperCase()}${name.slice(1)} är länsat.`, 'info');
       else c.addLog('Skrovet kollapsade!', 'error');
+    }
+    // All dry and sealed again: the crew opens the doors it shut.
+    if (this.doorsByCrew && sim.commands.doorsShut && fl.water === 0 && fl.compartments.every((x) => x.holeArea === 0)) {
+      this.doorsByCrew = false;
+      sim.commands.doorsShut = false;
+      c.addLog('Alla avdelningar är länsade. Dörrarna öppnas.', 'info');
     }
     const water = fl.water;
     if (water > FLOOD_WARNING && !this.floodWarned) {

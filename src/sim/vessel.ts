@@ -2,6 +2,11 @@
  * Other vessels: surface ships that follow a route at constant speed with a
  * limited rate of turn. Kinematic only (no hull physics), deterministic and
  * cheap, so the world can hold many of them.
+ *
+ * Vessels with the same `group` act together: a convoy alarmed by a hit
+ * (`alarm`) speeds up and zigzags about its route, and corvettes in a group
+ * hunt together (control/hunter.ts). The zigzag is a fixed pattern of
+ * course offsets in time: no randomness.
  */
 import type { Vec3 } from './math/vec3';
 
@@ -29,7 +34,15 @@ export interface VesselDef {
   propellerRps: number;
   /** Number of propeller blades. */
   blades: number;
+  /** Vessels that act together (a convoy and its escort, corvettes hunting together). */
+  group?: string;
 }
+
+/** Zigzag of an alarmed convoy: course offsets [rad] in turn, each held `ZIGZAG_LEG` seconds. */
+export const ZIGZAG = [30, -30, 30, 0, -30, 30, -30, 0].map((d) => (d * Math.PI) / 180);
+export const ZIGZAG_LEG = 120;
+/** An alarmed vessel goes this much faster (at most its own speed + 3 m/s). */
+const ALARM_SPEEDUP = 1.3;
 
 export interface VesselState {
   north: number;
@@ -68,11 +81,23 @@ export class Vessel {
    */
   goal: [number, number] | null = null;
   goalSpeed: number | null = null;
+  /** Alarmed (a ship of its group was hit): faster and zigzagging. The time since then [s], or null. */
+  alarmed: number | null = null;
 
   constructor(readonly def: VesselDef) {
     const [n0, e0] = def.route[0]!;
     const [n1, e1] = def.route[1] ?? def.route[0]!;
     this.state = { north: n0, east: e0, heading: (Math.atan2(e1 - e0, n1 - n0) + 2 * Math.PI) % (2 * Math.PI), speed: def.speed, sinking: false, sunk: 0 };
+  }
+
+  /** A ship of its group was hit: speed up and zigzag about the route. */
+  alarm(): void {
+    if (this.alarmed === null && !this.state.sinking) this.alarmed = 0;
+  }
+
+  /** The course offset of the zigzag now [rad] (0 when not alarmed). */
+  get zigzag(): number {
+    return this.alarmed === null ? 0 : ZIGZAG[Math.floor(this.alarmed / ZIGZAG_LEG) % ZIGZAG.length]!;
   }
 
   /** A torpedo hit: the vessel stops and goes down over `SINK_TIME`. */
@@ -90,7 +115,9 @@ export class Vessel {
       s.east += s.speed * Math.sin(s.heading) * dt;
       return;
     }
-    const want = this.goalSpeed ?? this.def.speed;
+    if (this.alarmed !== null) this.alarmed += dt;
+    const own = this.alarmed === null ? this.def.speed : Math.min(this.def.speed * ALARM_SPEEDUP, this.def.speed + 3);
+    const want = this.goalSpeed ?? own;
     s.speed += Math.max(-ACCEL * dt, Math.min(ACCEL * dt, want - s.speed));
     const route = this.def.route;
     if (this.goal) {
@@ -101,7 +128,9 @@ export class Vessel {
       const [tn, te] = route[this.target]!;
       if (Math.hypot(tn - s.north, te - s.east) < ARRIVAL) this.nextWaypoint();
       const [an, ae] = route[this.target]!;
-      const want = Math.atan2(ae - s.east, an - s.north);
+      // No zigzag close to a waypoint: it would circle it.
+      const far = this.alarmed !== null && Math.hypot(an - s.north, ae - s.east) > 500;
+      const want = Math.atan2(ae - s.east, an - s.north) + (far ? this.zigzag : 0);
       const turn = Math.max(-this.def.turnRate * dt, Math.min(this.def.turnRate * dt, wrap(want - s.heading)));
       s.heading = (s.heading + turn + 2 * Math.PI) % (2 * Math.PI);
     }

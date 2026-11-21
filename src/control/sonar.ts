@@ -101,6 +101,8 @@ export class Sonar {
   detectedBy: string | null = null;
   /** Patrol vessels that heard or saw the boat in the last update, by id (the hunt uses it). */
   readonly noticed: Record<string, boolean> = {};
+  /** Where each patrol vessel heard "the boat" in the last update: a decoy's position [north, east] when it was louder, else null (the boat). */
+  readonly heardFrom: Record<string, [number, number] | null> = {};
   /** The submarine's own radiated noise and the noise at its hydrophones [dB] (last update). */
   ownLevel = 0;
   ownNoise = 0;
@@ -134,7 +136,7 @@ export class Sonar {
       const excess = subSignalExcess(vesselSourceLevel(v.def, v.state.speed), tl, this.ownNoise);
 
       // The patrol vessels listen and look for the submarine.
-      if (v.def.kind === 'patrol') this.watch(v.def.id, v.def.name, k.range, t, v.state.speed);
+      if (v.def.kind === 'patrol') this.watch(v.def.id, v.def.name, k.range, t, v.state.speed, [v.state.north, v.state.east]);
 
       if (excess <= 0) continue;
       const truth = (k.bearing * 180) / Math.PI;
@@ -174,10 +176,21 @@ export class Sonar {
   }
 
   /** One patrol vessel's sonar, lookouts and radar. */
-  private watch(id: string, name: string, range: number, t: ReturnType<Controller['sim']['telemetry']>, speed: number): void {
+  private watch(id: string, name: string, range: number, t: ReturnType<Controller['sim']['telemetry']>, speed: number, at: [number, number]): void {
     const c = this.ctrl;
     const tl = transmissionLoss(range, Math.max(0, t.depth), PATROL_SONAR_DEPTH, c.sim.water);
-    const excess = patrolSignalExcess(this.ownLevel, tl, speed);
+    let excess = patrolSignalExcess(this.ownLevel, tl, speed);
+    // A decoy heard better than the boat is taken for the boat.
+    let from: [number, number] | null = null;
+    for (const d of c.world.decoys) {
+      const r = Math.hypot(d.north - at[0], d.east - at[1]);
+      const e = patrolSignalExcess(WEAPONS.decoy.level, transmissionLoss(r, d.depth, PATROL_SONAR_DEPTH, c.sim.water), speed);
+      if (e > excess) {
+        excess = e;
+        from = [d.north, d.east];
+      }
+    }
+    this.heardFrom[id] = from;
     let rate = excess > 0 ? AWARE_RATE * (1 + excess / 5) : 0;
     const A = ACOUSTICS;
     if (t.periscope > 0.99 && t.periscopeHeadDepth < 0 && range < A.sightPeriscope) rate += SIGHT_RATE.periscope;

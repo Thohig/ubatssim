@@ -258,6 +258,32 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
         g.stroke();
         g.fillText(tg.label, x + 8, y + 4);
       }
+      // Our decoys: small hollow diamonds with their course.
+      g.strokeStyle = '#ffd08a';
+      for (const d of c.world.decoys) {
+        const [x, y] = pt([d.north, d.east]);
+        g.beginPath();
+        g.moveTo(x, y - 4);
+        g.lineTo(x + 4, y);
+        g.lineTo(x, y + 4);
+        g.lineTo(x - 4, y);
+        g.closePath();
+        g.moveTo(x, y);
+        g.lineTo(x + Math.sin(d.heading) * 9, y - Math.cos(d.heading) * 9);
+        g.stroke();
+      }
+      // The guidance wires: thin dashed lines from the boat to its wired torpedoes.
+      g.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      g.setLineDash([2, 3]);
+      for (const tp of c.world.torpedoes) {
+        if (!tp.state.wired) continue;
+        const [x, y] = pt([tp.state.north, tp.state.east]);
+        g.beginPath();
+        g.moveTo(bx, by);
+        g.lineTo(x, y);
+        g.stroke();
+      }
+      g.setLineDash([]);
       // Our torpedoes, with their heading.
       for (const tp of c.world.torpedoes) {
         const s = tp.state;

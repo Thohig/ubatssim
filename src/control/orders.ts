@@ -4,6 +4,7 @@
  * simulation step. Angles are in degrees and speeds in knots here (the
  * operator's units); the controller converts to SI.
  */
+import { SUBMARINE } from '../sim/config/submarine';
 import type { CrewSystem } from './crew';
 
 /** 'assist' = the crew's trim assistant and safety net (never takes a system over). */
@@ -68,6 +69,14 @@ export type Order =
   | { kind: 'tube'; tube: number; action: 'ready' | 'secure' | 'load' }
   /** One ping with the active sonar. */
   | { kind: 'ping' }
+  /** A wire-guided torpedo: aim it again at its target, wake its seeker, give it a course [deg] or cut the wire. */
+  | { kind: 'wire'; torpedo: number; action: 'update' | 'seek' | 'course' | 'cut'; course?: number }
+  /** Shut or open the watertight doors between the compartments. */
+  | { kind: 'doors'; shut: boolean }
+  /** The compartment the drain pump takes first (null: the wettest). */
+  | { kind: 'drain'; compartment: string | null }
+  /** Launch a decoy on a true course [deg] (default: straight astern). */
+  | { kind: 'decoy'; course?: number }
   /** Raise or lower the radar mast (the radar warning receiver listens whenever it is up). */
   | { kind: 'radarMast'; up: boolean }
   /** Transmit with the radar, or go silent. */
@@ -161,6 +170,14 @@ export function acknowledgement(o: Order): string {
       return `${o.action === 'ready' ? 'Klart' : o.action === 'secure' ? 'Säkra' : 'Ladda'} tub ${o.tube}, ja`;
     case 'ping':
       return 'Ping, ja';
+    case 'wire':
+      return o.action === 'update' ? `Torped ${o.torpedo} mot målet, ja` : o.action === 'seek' ? `Torped ${o.torpedo} sök, ja` : o.action === 'cut' ? `Kapa tråden till torped ${o.torpedo}, ja` : `Torped ${o.torpedo} kurs ${String(Math.round(o.course ?? 0) % 360).padStart(3, '0')}, ja`;
+    case 'doors':
+      return o.shut ? 'Stäng vattentäta dörrar, ja' : 'Öppna vattentäta dörrar, ja';
+    case 'drain':
+      return o.compartment ? `Länsa ${(SUBMARINE.compartments.find((x) => x.id === o.compartment)?.name ?? o.compartment).toLowerCase()} först, ja` : 'Länsa det blötaste först, ja';
+    case 'decoy':
+      return o.course === undefined ? 'Lockmål akterut, ja' : `Lockmål på kurs ${String(Math.round(o.course) % 360).padStart(3, '0')}, ja`;
     case 'radarMast':
       return `Radarmast ${o.up ? 'upp' : 'ned'}, ja`;
     case 'radar':

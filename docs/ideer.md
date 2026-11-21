@@ -2,13 +2,11 @@
 
 Förslag på vad som skulle förbättra spelet, med läge och en rekommenderad ordning. Det som är gjort beskrivs i README och de andra dokumenten. Här står bara det som återstår och varför.
 
-Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv och aktiv sonar, radar och radarvarnare, sjökort, målrörelseanalys, torpeder och torpedrum, korvetter som jagar, svävning utan fart och en startsida med egen musik. Det som saknas är framför allt **mer variation i motståndet** och **en kampanj** som binder ihop uppdragen.
+Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv och aktiv sonar, radar och radarvarnare, sjökort, målrörelseanalys, torpeder och torpedrum, korvetter som jagar och samarbetar, lockmål, trådstyrda torpeder, skott och länsning, svävning utan fart och en startsida med egen musik.
 
 ## Rekommenderad ordning
 
-1. **Flera fartyg som samarbetar:** två korvetter som söker tillsammans, och en konvoj som sprider ut sig eller vänder när ett fartyg träffas.
-2. **Motmedel:** ett lockmål (decoy) som låter som ubåten och drar korvettens ping och sjunkbomber, i ett begränsat antal.
-3. **En kampanj:** uppdragen i ordning, där batteri, torpeder och skador följer med mellan dem.
+Inget av förslagen återstår just nu. Nya idéer läggs till här.
 
 ## System
 
@@ -23,12 +21,15 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Sväva utan fart** | Klar | Se README (Besättningen och du) och `docs/fysikmodell.md`. |
 | **Välja mål och tub** | Klar | Målraden och tubknapparna i eldledningspanelen. Se README (Anfall). |
 | **Genomgång och målruta** | Klar | Se README (Scenarier) och `docs/grafik.md`. |
-| **Trådstyrda torpeder** | Återstår | Styr om en torped efter avfyrningen via tråden, när lösningen blivit bättre. |
+| **Trådstyrda torpeder** | Klar | Styr, Sök och Kapa i eldledningspanelen. Se README (Anfall). |
+| **Motmedel** | Klar | Fyra lockmål som låter som ubåten. Se README (Anfall). |
+| **Fartyg som samarbetar** | Klar | Korvetter i par (en lyssnar, en fäller) och konvojer som sicksackar. Se README (Korvetter som jagar). |
+| **Telegrafen** | Klar | Läget Marsch, 12 knop, mellan Halv och Full fram. |
 | **Aktiv sonar på ubåten** | Klar | En ping ger avstånd direkt men hörs långt. Se README (Aktiv sonar och radar). |
 | **Radar och radarvarnare** | Klar | En egen mast, radarhorisonten, svep var 3:e s och korvetternas radarvarnare. Se README. |
 | **Torpedrummet** | Klar | Tubernas steg (klar, säkra, ladda), laddrälsen, besättningen och torpedernas vikt. Se README (Torpedrummet). |
 | **Bäringen utanför periskopet** | Klar | Bäringsbandet under eller ovanför okularet. Se `docs/grafik.md`. |
-| **Skott och länsning** | Återstår | Vattentäta dörrar som besättningen stänger, så att en läcka hålls i en avdelning, och vatten som flyttar sig när ubåten lutar. |
+| **Skott och länsning** | Klar | Vattentäta dörrar, vatten som rinner till den låga änden och länsa först. Se README (Läckage och skador). |
 
 ## Grafik
 
@@ -41,7 +42,7 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Startsidan** | Klar | Ubåten glider förbi under vattnet i dagsljus, lugn musik, menyn som en färdorder. Se `docs/ljud.md` och `docs/grafik.md`. |
 | **Skärmkontrollerna** | Klar | Yta som vanlig stigning, Per.djup, System ▾ på alla skärmar och vyknappar med ikoner mellan telegrafen och kompassen. |
 | **Scenariolistan** | Klar | Fem flikar efter vad scenariot övar på och kompakta kort. Se README (Scenarier). |
-| **Ytan underifrån** | Återstår | Ett ljust fönster rakt ovanför och mörkt utanför (totalreflektion), sett från under ytan. |
+| **Ytan underifrån** | Klar | Snells fönster i havsytans shader. Se `docs/grafik.md`. |
 
 ## Tekniskt
 
@@ -55,9 +56,8 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 
 ## Mindre idéer
 
-- **Kortare långa tester:** testerna går nu på alla kärnor (~2,5 min). Mer tid går bara att vinna genom att simulera mindre, till exempel med mål närmare starten i testerna.
-- **Fysiken i en Web Worker:** frigör huvudtråden, men lönar sig först när en kampanj eller fler fartyg och torpeder spräcker fysikbudgeten i `docs/prestanda.md`. Gränssnittet läser i dag `sim` direkt på många ställen och skulle i stället få en tunn kopia av tillståndet per bild.
-- **Telegrafen:** steget från Halv fram (8 knop) till Full fram (19 knop) är stort. Halv fram kan höjas till 10–12 knop, eller så kan ett läge till läggas in.
+- **Kortare långa tester:** testerna av tidsgränser körs med en kopia av scenariot med kortare `timeLimit`. Resten kan gå fortare med mål närmare starten.
+- **Fysiken i en Web Worker:** frigör huvudtråden, men lönar sig först när fler fartyg och torpeder spräcker fysikbudgeten i `docs/prestanda.md`. Gränssnittet läser i dag `sim` direkt på många ställen och skulle i stället få en tunn kopia av tillståndet per bild.
 
 ## Från provspelningen (november 2026)
 

@@ -14,6 +14,15 @@
  *              charges set to the depth it measured, then turns and pings
  *              again
  *
+ * Corvettes with the same `group` (VesselDef) hunt together. The one that
+ * starts a search or an attack calls the others, which search from its
+ * position; an echo is shared by all of them. With two or more attacking,
+ * one is the striker, running in and dropping, and the others direct: they
+ * stand off `directorStandoff` metres at listening speed and ping, where
+ * their own speed does not deafen them. After each pattern the striker and
+ * a director change places (the creeping attack). A corvette alone hunts as
+ * before.
+ *
  * Without contact for `giveUp` seconds, or with its depth charges spent, it
  * goes back to patrolling. The last
  * known position carries an error that shrinks with the awareness; the
@@ -52,8 +61,13 @@ interface Hunt {
 /** A fixed pseudo-random value in −1…1 (deterministic errors). */
 const noise = (t: number, key: number) => Math.sin(t * 0.71 + key * 3.1) * Math.cos(t * 0.29 + key * 1.3);
 
+/** A director stands this far [m] from where the boat is believed to be. */
+const DIRECTOR_STANDOFF = 1500;
+
 export class Hunter {
   readonly hunts: Record<string, Hunt> = {};
+  /** The striker of each hunting group (vessel id), by group. */
+  readonly strikers: Record<string, string> = {};
   /** Active sonar pings so far (the sound plays one per new ping). */
   pings = 0;
   /** False: the patrol vessels only follow their routes (the demo behind the start page). */
@@ -125,7 +139,7 @@ export class Hunter {
       const aware = c.sonar.awareness[v.def.id] ?? 0;
       if (c.sonar.noticed[v.def.id]) {
         h.lastContact = now;
-        this.estimate(h, v, aware);
+        this.estimate(h, v, aware, c.sonar.heardFrom[v.def.id] ?? undefined);
       }
       // Spent: back on patrol for good. It used to turn on the boat again a second later and break off at once,
       // four log lines every two seconds for as long as it could hear the boat.
@@ -151,10 +165,58 @@ export class Hunter {
     }
   }
 
+  /** The other corvettes of a corvette's group, afloat. */
+  private partners(v: Vessel): Vessel[] {
+    const g = v.def.group;
+    if (!g) return [];
+    return this.ctrl.world.vessels.filter((o) => o !== v && o.def.kind === 'patrol' && o.def.group === g && !o.state.sinking);
+  }
+
+  /** What a corvette believes about the boat goes to its group. */
+  private share(v: Vessel, h: Hunt, attack: boolean): void {
+    for (const o of this.partners(v)) {
+      const oh = this.hunt(o.def.id);
+      if (!h.lkp) continue;
+      oh.lkp = [h.lkp[0], h.lkp[1]];
+      oh.lkpDepth = h.lkpDepth;
+      oh.lastContact = h.lastContact;
+      if (attack) {
+        this.ctrl.sonar.alert(o.def.id, 1);
+        this.enter(o, oh, 'attack');
+      }
+    }
+  }
+
+  /** The group's striker: kept while it can drop; else the one with charges nearest where the boat is believed to be. */
+  private striker(v: Vessel, h: Hunt): string {
+    const g = v.def.group!;
+    const attackers = [v, ...this.partners(v)].filter((o) => this.hunt(o.def.id).state === 'attack' && this.hunt(o.def.id).charges > 0);
+    const now = this.strikers[g];
+    if (now && attackers.some((o) => o.def.id === now)) return now;
+    const lkp = h.lkp ?? [v.state.north, v.state.east];
+    const d = (o: Vessel) => Math.hypot(lkp[0] - o.state.north, lkp[1] - o.state.east);
+    const best = [...attackers].sort((a, b) => d(a) - d(b))[0] ?? v;
+    this.strikers[g] = best.def.id;
+    return best.def.id;
+  }
+
   private enter(v: Vessel, h: Hunt, state: HuntState): void {
     if (h.state === state) return;
     h.state = state;
     const c = this.ctrl;
+    // Starting a search or an attack: the rest of the group is called in.
+    if ((state === 'search' || state === 'attack') && v.def.group) {
+      if (!h.lkp) this.estimate(h, v, c.sonar.awareness[v.def.id] ?? 0.5);
+      for (const o of this.partners(v)) {
+        const oh = this.hunt(o.def.id);
+        if (oh.charges <= 0 || (oh.state !== 'patrol' && oh.state !== 'suspicion')) continue;
+        c.addLog(`Sonar: ${v.def.name} ropar på ${o.def.name}.`, 'info');
+        oh.lkp = h.lkp ? [h.lkp[0], h.lkp[1]] : null;
+        oh.lastContact = c.sim.t;
+        c.sonar.alert(o.def.id, Math.max(0, 0.85 - (c.sonar.awareness[o.def.id] ?? 0)));
+        this.enter(o, oh, 'search');
+      }
+    }
     // Starting a hunt: from where it believes the boat is now.
     if (state !== 'patrol' && !h.lkp) this.estimate(h, v, c.sonar.awareness[v.def.id] ?? 0.5);
     const name = v.def.name;
@@ -181,10 +243,11 @@ export class Hunter {
    * bearing is good, the range is not (passive sonar gives no range). The
    * error along the bearing is 10–50 % of the range, less the surer it is.
    */
-  private estimate(h: Hunt, v: Vessel, aware: number): void {
+  private estimate(h: Hunt, v: Vessel, aware: number, from?: [number, number]): void {
     const sim = this.ctrl.sim;
-    const dn = sim.y[0]! - v.state.north;
-    const de = sim.y[1]! - v.state.east;
+    // What it heard: the boat, or a decoy taken for it.
+    const dn = (from ? from[0] : sim.y[0]!) - v.state.north;
+    const de = (from ? from[1] : sim.y[1]!) - v.state.east;
     const range = Math.hypot(dn, de);
     const bearing = Math.atan2(de, dn) + 0.03 * noise(sim.t, v.def.id.length + 5);
     const believed = range * (1 + (0.1 + 0.4 * (1 - Math.min(1, aware))) * noise(sim.t, v.def.id.length));
@@ -192,29 +255,47 @@ export class Hunter {
     h.lastContact = sim.t;
   }
 
-  /** An active ping: an echo gives the boat's position and depth. */
+  /** The echo excess [dB] of a target at (n, e, depth) with target strength `ts`, or −∞ out of range or in the baffles. */
+  private echo(v: Vessel, n: number, e: number, depth: number, ts: number): number {
+    const sim = this.ctrl.sim;
+    const dn = n - v.state.north;
+    const de = e - v.state.east;
+    const range = Math.hypot(dn, de);
+    if (range > W.pingRange) return -Infinity;
+    // The hull sonar is blind astern, in its own wake (the baffles).
+    const rel = Math.atan2(de, dn) - v.state.heading;
+    if (Math.abs(Math.atan2(Math.sin(rel), Math.cos(rel))) > W.baffles) return -Infinity;
+    // Its own speed drowns a weak echo: fast, it is deaf.
+    return W.pingLevel - 2 * transmissionLoss(range, depth, 5, sim.water) + ts - patrolNoise(v.state.speed) + ACOUSTICS.patrolArrayGain - W.pingThreshold;
+  }
+
+  /** An active ping: an echo gives the boat's position and depth, or a decoy's (weaker) taken for it. */
   private ping(v: Vessel, h: Hunt): void {
     const c = this.ctrl;
     const sim = c.sim;
     h.lastPing = sim.t;
     this.pings++;
-    const dn = sim.y[0]! - v.state.north;
-    const de = sim.y[1]! - v.state.east;
-    const range = Math.hypot(dn, de);
-    if (range > W.pingRange) return;
-    // The hull sonar is blind astern, in its own wake (the baffles).
-    const rel = Math.atan2(de, dn) - v.state.heading;
-    if (Math.abs(Math.atan2(Math.sin(rel), Math.cos(rel))) > W.baffles) return;
     const depth = Math.max(0, sim.y[2]!);
-    // Its own speed drowns a weak echo: fast, it is deaf.
-    const echo = W.pingLevel - 2 * transmissionLoss(range, depth, 5, sim.water) + W.targetStrength - patrolNoise(v.state.speed) + ACOUSTICS.patrolArrayGain - W.pingThreshold;
-    if (echo <= 0) return;
-    h.lkp = [sim.y[0]!, sim.y[1]!];
-    h.lkpDepth = Math.max(10, depth + 8 * noise(sim.t, v.def.id.length + 3));
+    const boat = this.echo(v, sim.y[0]!, sim.y[1]!, depth, W.targetStrength);
+    let decoy: (typeof c.world.decoys)[number] | null = null;
+    let best = boat;
+    for (const d of c.world.decoys) {
+      const e = this.echo(v, d.north, d.east, d.depth, WEAPONS.decoy.targetStrength);
+      if (e > best) {
+        best = e;
+        decoy = d;
+      }
+    }
+    if (best <= 0) return;
+    const at = decoy ? { n: decoy.north, e: decoy.east, depth: decoy.depth } : { n: sim.y[0]!, e: sim.y[1]!, depth };
+    h.lkp = [at.n, at.e];
+    h.lkpDepth = Math.max(10, at.depth + 8 * noise(sim.t, v.def.id.length + 3));
     h.lastContact = sim.t;
     c.sonar.alert(v.def.id, 1);
-    c.sonar.found(v.def.name);
+    // Only the boat's own echo finds it.
+    if (!decoy) c.sonar.found(v.def.name);
     this.enter(v, h, 'attack');
+    this.share(v, h, true);
   }
 
   private steer(v: Vessel, h: Hunt, now: number): void {
@@ -226,6 +307,15 @@ export class Hunter {
       return;
     }
     if (h.state === 'attack') {
+      // Hunting together: a director stands off and listens and pings while the striker runs in.
+      if (v.def.group && this.partners(v).some((o) => this.hunt(o.def.id).state === 'attack') && this.striker(v, h) !== v.def.id) {
+        const dn = v.state.north - h.lkp[0];
+        const de = v.state.east - h.lkp[1];
+        const d = Math.hypot(dn, de) || 1;
+        v.goal = [h.lkp[0] + (dn / d) * DIRECTOR_STANDOFF, h.lkp[1] + (de / d) * DIRECTOR_STANDOFF];
+        v.goalSpeed = Math.abs(d - DIRECTOR_STANDOFF) < 200 ? 0 : W.listen;
+        return;
+      }
       v.goal = h.lkp;
       v.goalSpeed = W.attack;
       const d = Math.hypot(h.lkp[0] - v.state.north, h.lkp[1] - v.state.east);
@@ -233,6 +323,14 @@ export class Hunter {
         h.lastAttack = now;
         h.charges -= WEAPONS.depthCharge.pattern;
         this.ctrl.world.dropCharges(v, h.lkpDepth ?? 50);
+        // The creeping attack: after a pattern a director takes over as striker.
+        if (v.def.group) {
+          const next = this.partners(v).find((o) => this.hunt(o.def.id).state === 'attack' && this.hunt(o.def.id).charges > 0);
+          if (next) {
+            this.strikers[v.def.group] = next.def.id;
+            this.ctrl.addLog(`Sonar: ${next.def.name} går in, ${v.def.name} lyssnar.`, 'info');
+          }
+        }
         // Run on past the drop before turning back: aim beyond the position.
         h.lkp = [h.lkp[0] + 400 * Math.cos(v.state.heading), h.lkp[1] + 400 * Math.sin(v.state.heading)];
       }

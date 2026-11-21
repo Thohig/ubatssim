@@ -200,6 +200,14 @@ function powerPanel(tapButton: TapButton): PanelView {
   const snorkel = h('span', { class: 'helm-panel-value' });
   const drain = h('span', { class: 'helm-panel-value' });
   const leaks = h('div', { class: 'helm-leaks' });
+  const doors = h('span', { class: 'helm-panel-value' });
+  const doorBtn = tapButton('Stäng', 'Stäng eller öppna de vattentäta dörrarna mellan avdelningarna', (c) => c.submit({ kind: 'doors', shut: !c.sim.commands.doorsShut }, 'touch'));
+  // The drain pump's first choice: the wettest, or one compartment after another.
+  const drainFirst = tapButton('det blötaste', 'Välj vilken avdelning länspumpen tar först', (c) => {
+    const ids = [null, ...c.sim.systems.flooding.compartments.map((x) => x.id)];
+    const next = ids[(ids.indexOf(c.sim.systems.flooding.drainTarget) + 1) % ids.length] ?? null;
+    c.submit({ kind: 'drain', compartment: next }, 'touch');
+  });
   const el = h(
     'div',
     { class: 'helm-panel-body', hidden: true },
@@ -221,7 +229,9 @@ function powerPanel(tapButton: TapButton): PanelView {
       tapButton('Start', 'Starta dieslarna', (c) => c.submit({ kind: 'diesel', on: true }, 'touch')),
       tapButton('Stopp', 'Stoppa dieslarna', (c) => c.submit({ kind: 'diesel', on: false }, 'touch')),
     ),
+    h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Dörrar'), doors, doorBtn),
     h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Läns'), drain),
+    h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Länsa först'), drainFirst),
     leaks,
   );
   const leakRows = new Map<string, ReturnType<typeof level>>();
@@ -236,6 +246,10 @@ function powerPanel(tapButton: TapButton): PanelView {
         snorkel,
         t.snorkel > 0.99 ? (t.inductionAir ? 'uppe, luft' : 'uppe, ventilen stängd') : t.snorkel < 0.01 ? 'nere' : `${Math.round(t.snorkel * 100)} %`,
       );
+      const shut = t.doors.reduce((a, b) => a + b, 0) / Math.max(1, t.doors.length);
+      setText(doors, shut > 0.99 ? 'stängda' : shut < 0.01 ? 'öppna' : `${shut > 0.5 ? 'stängs' : 'öppnas'}…`);
+      setText(doorBtn, shut > 0.5 ? 'Öppna' : 'Stäng');
+      setText(drainFirst, t.drainTarget ? (t.compartments.find((x) => x.id === t.drainTarget)?.name.toLowerCase() ?? t.drainTarget) : 'det blötaste');
       const wet = t.compartments.filter((x) => x.water > 0.001 || x.holeArea > 0);
       setText(drain, wet.length === 0 ? 'torrt, ingen läcka' : t.drainPumpRunning ? 'länspumpen går' : 'länspumpen orkar inte på det här djupet');
       for (const x of t.compartments) {

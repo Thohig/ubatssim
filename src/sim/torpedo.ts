@@ -5,6 +5,10 @@
  * vessel whose noise reaches the seeker within the cone is homed on (pure
  * pursuit). It hits a vessel when inside its hull and shallower than its
  * keel, and is spent after its range. The world (world.ts) steps it.
+ *
+ * It is wire-guided while `wired`: the boat can give it a new gyro course,
+ * running depth and seek point (its `orders`) through the wire; the
+ * control layer decides when the wire parts (control/wire.ts).
  */
 import { transmissionLoss, vesselSourceLevel } from './acoustics';
 import { WEAPONS } from './config/weapons';
@@ -30,6 +34,8 @@ export interface TorpedoState {
   homing: string | null;
   /** How it ended. */
   result: 'hit' | 'miss' | null;
+  /** Still guided through its wire. */
+  wired: boolean;
 }
 
 export interface TorpedoOrders {
@@ -54,7 +60,7 @@ export class Torpedo {
     at: { north: number; east: number; depth: number; heading: number },
     readonly orders: TorpedoOrders,
   ) {
-    this.state = { id, ...at, speed: T.speed, run: 0, phase: 'run', homing: null, result: null };
+    this.state = { id, ...at, speed: T.speed, run: 0, phase: 'run', homing: null, result: null, wired: true };
   }
 
   get armed(): boolean {

@@ -5,7 +5,10 @@
  * salvo and Fyr fires; the tubes show ready (green), at work (amber, with
  * the seconds left), loaded but not ready (the number) or empty (–). A tap
  * on a ready tube fires that one, on a loaded tube makes it ready, on an
- * empty one loads it (torpedoRoom.ts). With more than one target, a row of their
+ * empty one loads it (torpedoRoom.ts). Lock launches a decoy astern. A
+ * row per wire-guided torpedo in the water (T1 …) has Styr (aim it again
+ * at its target's present solution), Sök (wake its seeker) and Kapa (cut
+ * the wire; control/wire.ts). With more than one target, a row of their
  * labels (M1, M2 …) shows the current one, and a tap chooses another. The
  * solution line gives range, course, speed and quality, the gyro course and
  * the running time. Every button submits an ordinary order (source 'touch');
@@ -60,6 +63,7 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
   const range = btn('Avst', 'Mät avståndet med stadimetern (R)', (c) => rangeOrder(c, views));
   const spread = btn('1 torped', 'Torpeder per salva', (c) => c.submit({ kind: 'setSpread', count: (c.fire.spread % 3) + 1 }, 'touch'));
   const fire = btn('Fyr', 'Skjut mot målet (F)', (c) => c.submit({ kind: 'fireTorpedo' }, 'touch'), 'fire-go');
+  const decoy = btn('Lock', 'Skjut ut ett lockmål akterut (L): det låter som ubåten och drar korvetterna', (c) => c.submit({ kind: 'decoy' }, 'touch'), 'fire-decoy');
   const tubes = [0, 1, 2, 3].map((i) =>
     btn(
       String(i + 1),
@@ -75,6 +79,15 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
   );
   const solution = h('div', { class: 'fire-solution' });
   const store = h('span', { class: 'fire-store' });
+  // The wire-guided torpedoes: a row each, rebuilt when the set changes.
+  const wireRows = h('div', { class: 'fire-wires' });
+  let wireKey = '';
+  const wireTimes = new Map<number, HTMLElement>();
+  wireRows.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-wire]');
+    const c = getCtrl();
+    if (b && c) c.submit({ kind: 'wire', torpedo: Number(b.dataset.torpedo), action: b.dataset.wire as 'update' | 'seek' | 'cut' }, 'touch');
+  });
   // The targets: one button each, rebuilt when the list changes.
   const targetRow = h('div', { class: 'fire-row fire-targets' });
   let targetsKey = '';
@@ -87,7 +100,8 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
     solution,
     targetRow,
     h('div', { class: 'fire-row fire-buttons' }, mark, range, spread, fire),
-    h('div', { class: 'fire-row fire-tubes' }, h('span', { class: 'fire-label' }, 'Tuber'), ...tubes, store),
+    h('div', { class: 'fire-row fire-tubes' }, h('span', { class: 'fire-label' }, 'Tuber'), ...tubes, store, decoy),
+    wireRows,
   );
   root.hidden = true;
 
@@ -123,7 +137,37 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
       el.disabled = ready ? !solved : busy || (!t.loaded && f.reserve === 0);
     });
     set(store, `${f.reserve} i förråd`);
+    set(decoy, `Lock ${c.decoys}`);
+    decoy.disabled = c.decoys <= 0;
     fire.disabled = !solved || !f.tubes.some(isReady);
+    const wired = c.wire.wired();
+    const wk = wired.map((t) => t.state.id).join(',');
+    if (wk !== wireKey) {
+      wireKey = wk;
+      wireTimes.clear();
+      wireRows.replaceChildren(
+        ...wired.map((t) => {
+          const id = t.state.id;
+          const time = h('span', { class: 'fire-wire-time' });
+          wireTimes.set(id, time);
+          const b = (action: string, label: string, title: string) =>
+            h('button', { type: 'button', class: 'touch-btn fire-btn', 'data-wire': action, 'data-torpedo': String(id), title, 'aria-label': title }, label);
+          return h(
+            'div',
+            { class: 'fire-row fire-wire' },
+            h('span', { class: 'fire-label' }, `T${id} ${c.wire.targetOf(id) ?? ''}`),
+            time,
+            b('update', 'Styr', `Styr torped ${id} mot målets lösning nu`),
+            b('seek', 'Sök', `Torped ${id} söker nu`),
+            b('cut', 'Kapa', `Kapa tråden till torped ${id}`),
+          );
+        }),
+      );
+    }
+    for (const t of wired) {
+      const el = wireTimes.get(t.state.id);
+      if (el) set(el, `${(t.state.run / 1000).toFixed(1).replace('.', ',')} km${t.state.phase === 'home' ? ' · målsöker' : t.state.phase === 'seek' ? ' · söker' : ''}`);
+    }
     const key = `${f.targets.map((t) => `${t.label}:${t.name}`).join(',')}|${f.current}`;
     if (key !== targetsKey) {
       targetsKey = key;

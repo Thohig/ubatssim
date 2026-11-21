@@ -15,9 +15,11 @@ import { CHARGE_STOP, PlantWatch } from './plantWatch';
 import { HOVER } from './hover';
 import { TrimAssist } from './trimAssist';
 import { Radar } from './radar';
+import { WireGuidance } from './wire';
 import { Sonar } from './sonar';
 import { FireControl } from './fireControl';
 import { Hunter } from './hunter';
+import { WEAPONS } from '../sim/config/weapons';
 import { World } from '../sim/world';
 
 const DEG = Math.PI / 180;
@@ -114,12 +116,16 @@ export class Controller {
   readonly fire: FireControl = new FireControl(this);
   /** The corvettes' hunt for the boat. */
   readonly hunter: Hunter = new Hunter(this);
+  /** Wire guidance of the torpedoes in the water. */
+  readonly wire: WireGuidance = new WireGuidance(this);
   /** The radar and the radar warning receiver on the radar mast. */
   readonly radar: Radar = new Radar(this);
   /** Logs what the plant does on its own (plantWatch.ts). */
   readonly plant: PlantWatch = new PlantWatch(this);
   /** Torpedoes fired and hits this game (for the result). */
   torpedoesFired = 0;
+  /** Decoys left (WEAPONS.decoy.count at the start). */
+  decoys: number = WEAPONS.decoy.count;
   hits = 0;
   /** Recent explosions (torpedo hits, depth charges) for the graphics and the sound, newest last. */
   blasts: { id: number; kind: 'hit' | 'charge'; at: [number, number, number]; distance: number }[] = [];
@@ -339,6 +345,7 @@ export class Controller {
     this.hunter.update();
     this.fire.update(DT);
     this.radar.update(DT);
+    this.wire.update(DT);
 
     if (this.shutVentsWhenFull) {
       // Air can stay trapped at the top of a tank at the surface; it vents once the boat is under way down.

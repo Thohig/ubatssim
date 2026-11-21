@@ -11,8 +11,10 @@ import { Simulation } from '../../src/sim/simulation';
 
 type Who = 'crew' | 'player';
 
-function start(id: string, who: Who) {
-  const sc = SCENARIOS.find((s) => s.id === id)!;
+/** `timeLimit` [s] shortens the scenario's: the rule that fails it is the same, the test far shorter. */
+function start(id: string, who: Who, timeLimit?: number) {
+  const found = SCENARIOS.find((s) => s.id === id)!;
+  const sc = timeLimit === undefined ? found : { ...found, timeLimit };
   const c = new Controller(new Simulation(sc.initial));
   // The runner sets the locks and adds the traffic; then the crew takes the rest, as in a game.
   const runner = new ScenarioRunner(sc, c);
@@ -116,8 +118,8 @@ describe('"Ekot"', () => {
   });
 
   it('fails when time runs out', () => {
-    const s = start('echo', 'crew');
-    s.run(3100);
+    const s = start('echo', 'crew', 60);
+    s.run(70);
     expect(s.runner.status).toBe('failed');
     expect(s.runner.message).toBe('Tiden tog slut.');
   });
@@ -154,8 +156,8 @@ describe('"Klart för eld"', () => {
   });
 
   it('fails when time runs out, the tubes never made ready', () => {
-    const s = start('tubes', 'crew');
-    s.run(1900);
+    const s = start('tubes', 'crew', 60);
+    s.run(70);
     expect(s.runner.status).toBe('failed');
     expect(s.c.fire.tubes.some((x) => x.open)).toBe(false);
   });

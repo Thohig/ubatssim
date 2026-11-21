@@ -62,6 +62,8 @@ export const wrapAngle = (a: number): number => {
 };
 
 const DEG = Math.PI / 180;
+/** Heading errors beyond this [rad] keep the turn's direction (see `Autopilot.rudder`). */
+const REVERSAL = 170 * DEG;
 
 export const AUTOPILOT_TUNING = {
   /**
@@ -169,8 +171,16 @@ export class Autopilot {
   /** Rudder command [rad], positive = starboard. */
   rudder(targetHeading: number, s: AutopilotInput, dt: number): number {
     const dir = this.direction(s.speed);
-    return dir * this.headingPid.update(wrapAngle(targetHeading - s.heading), s.yawRate, dt, 0, this.gainScale(s.speed));
+    let err = wrapAngle(targetHeading - s.heading);
+    // Near a reversal (±180°) the wrapped error flips sign each time the heading crosses the far side,
+    // and the boat stood still on its old course: keep turning the way it started.
+    if (Math.abs(err) > REVERSAL && this.turnSign !== 0) err = this.turnSign * Math.abs(err);
+    else if (Math.abs(err) > DEG) this.turnSign = Math.sign(err);
+    return dir * this.headingPid.update(err, s.yawRate, dt, 0, this.gainScale(s.speed));
   }
+
+  /** The way the heading autopilot is turning (+1 starboard, −1 port), kept through a reversal. */
+  private turnSign = 0;
 
   /**
    * Shaft speed command [rev/s] around a feed-forward value, within the

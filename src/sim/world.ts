@@ -31,8 +31,22 @@ export interface Contact {
   bearing: number;
 }
 
+/** A decoy in the water (see WEAPONS.decoy). */
+export interface Decoy {
+  id: number;
+  north: number;
+  east: number;
+  depth: number;
+  heading: number;
+  /** Seconds since launch. */
+  age: number;
+}
+
 export class World {
   readonly vessels: Vessel[] = [];
+  /** Decoys running (spent ones are removed). */
+  decoys: Decoy[] = [];
+  private nextDecoy = 1;
   /** Torpedoes in the water (spent ones are removed). */
   torpedoes: Torpedo[] = [];
   /** Depth charges sinking (exploded ones are removed). */
@@ -69,6 +83,14 @@ export class World {
     return t;
   }
 
+  /** Launches a decoy on a course [rad] at the boat's depth. */
+  launchDecoy(course: number): Decoy {
+    const sub = this.sub;
+    const d: Decoy = { id: this.nextDecoy++, north: sub.y[0]!, east: sub.y[1]!, depth: Math.max(2, sub.y[2]!), heading: course, age: 0 };
+    this.decoys.push(d);
+    return d;
+  }
+
   /** A corvette drops a pattern of depth charges along its track, set to a depth [m]. */
   dropCharges(by: Vessel, setDepth: number): void {
     const D = WEAPONS.depthCharge;
@@ -94,12 +116,24 @@ export class World {
       const hit = this.vessels.find((v) => !v.state.sinking && t.hits(v));
       if (hit) {
         hit.sink();
+        // The rest of its convoy speeds up and zigzags (corvettes hunt instead: control/hunter.ts).
+        if (hit.def.group) for (const o of this.vessels) if (o !== hit && o.def.group === hit.def.group && o.def.kind !== 'patrol') o.alarm();
         t.state.phase = 'done';
         t.state.result = 'hit';
         this.events.push({ kind: 'hit', torpedo: t.state.id, vesselId: hit.def.id, vessel: hit.def.name, at: [t.state.north, t.state.east, t.state.depth] });
       } else if (t.state.result === 'miss') this.events.push({ kind: 'miss', torpedo: t.state.id });
     }
     this.torpedoes = this.torpedoes.filter((t) => t.state.phase !== 'done');
+    if (this.decoys.length) {
+      const D = WEAPONS.decoy;
+      for (const d of this.decoys) {
+        d.age += dt;
+        d.north += D.speed * Math.cos(d.heading) * dt;
+        d.east += D.speed * Math.sin(d.heading) * dt;
+        d.depth += D.sinkRate * dt;
+      }
+      this.decoys = this.decoys.filter((d) => d.age < D.life);
+    }
     for (const c of this.charges) if (c.step(dt)) this.explode(c);
     this.charges = this.charges.filter((c) => !c.state.exploded);
     const hit = this.vessels.find((v) => this.touches(v)) ?? null;

@@ -27,6 +27,14 @@ export const WEAPONS = {
     seekerThreshold: 6,
     /** Launch point in the bow, body frame [m]. */
     launch: [27, 0, 0.5] as [number, number, number],
+    /**
+     * The guidance wire: it parts when the boat goes faster than `wireSpeed`
+     * [m/s] for `wireGrace` s, or turns more than `wireTurn` [rad] from its
+     * heading at the launch (the wire fouls the hull). APPROX (typical).
+     */
+    wireSpeed: 4.1,
+    wireGrace: 5,
+    wireTurn: (120 * Math.PI) / 180,
     /** Radiated noise while running [dB re 1 µPa at 1 m] and the launch transient. APPROX. */
     noise: 150,
     launchNoise: 165,
@@ -74,6 +82,26 @@ export const WEAPONS = {
     /** A pattern: charges per pass and their spacing along the track [m]. */
     pattern: 4,
     spacing: 30,
+  },
+
+  /**
+   * Decoys (countermeasures): a self-propelled canister launched from a
+   * signal ejector that radiates the boat's own sound for a few minutes,
+   * a little louder than the boat at slow speed, on a straight course at the
+   * launch depth. A corvette that hears it better than the boat takes it for
+   * the boat; its echo is weaker than the hull's. APPROX (typical of the class).
+   */
+  decoy: {
+    count: 4,
+    /** Seconds it runs, and its speed [m/s] (~6 knots). */
+    life: 300,
+    speed: 3.1,
+    /** It sinks slowly [m/s]. */
+    sinkRate: 0.05,
+    /** Radiated level [dB re 1 µPa at 1 m]: the boat's at ~7 knots. */
+    level: 120,
+    /** Target strength for an active ping [dB] (the hull's is 10). */
+    targetStrength: 4,
   },
 
   /**

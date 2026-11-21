@@ -297,6 +297,9 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm .touch-btn.helm-system.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
 .helm .touch-btn.helm-system.self { border-color: var(--warn); color: var(--warn); }
 .helm .touch-btn.helm-perdepth { min-width: 72px; }
+.fire-wires { display: flex; flex-direction: column; gap: 4px; }
+.fire-wires:empty { display: none; }
+.fire-wire-time { font-size: 11px; color: var(--muted); flex: 1 1 auto; white-space: nowrap; }
 .helm .touch-btn.helm-emergency { flex: 1 1 auto; color: #fff; background: rgba(255, 107, 107, 0.25); border-color: var(--error); font-weight: 700; }
 
 /* The view buttons between the telegraph and the course (computers; on phones they are under Vyer ▾). */
@@ -444,13 +447,13 @@ body.cutaway #log { display: none; }
   .helm .helm-context .touch-btn { flex: 1 1 0; min-width: 0 !important; height: 40px; padding: 0 4px; font-size: 14px; white-space: nowrap; }
   .helm .helm-context .touch-btn.helm-system { font-size: 13px; }
 
-  /* The telegraph as a lever: a track with seven detents; the ordered one is the handle. */
+  /* The telegraph as a lever: a track with eight detents (three astern, stop, four ahead); the ordered one is the handle. */
   .helm-telegraph { width: 100%; gap: 2px; }
   /* Between two bells the lever shows the ordered speed (there is no instrument panel). */
   .helm-telegraph:not(.exact) .helm-telegraph-head { display: flex; }
   .helm-bells {
     position: relative; gap: 0; width: 100%; height: 40px; border-radius: 20px; border: 1px solid var(--panel-border);
-    background: linear-gradient(90deg, rgba(255, 107, 107, 0.18) 0%, rgba(255, 107, 107, 0.18) 42.86%, rgba(255, 179, 71, 0.16) 42.86%, rgba(255, 179, 71, 0.16) 57.14%, rgba(95, 211, 255, 0.14) 57.14%), var(--panel-bg);
+    background: linear-gradient(90deg, rgba(255, 107, 107, 0.18) 0%, rgba(255, 107, 107, 0.18) 37.5%, rgba(255, 179, 71, 0.16) 37.5%, rgba(255, 179, 71, 0.16) 50%, rgba(95, 211, 255, 0.14) 50%), var(--panel-bg);
     touch-action: none; user-select: none; -webkit-user-select: none; cursor: ew-resize;
   }
   .helm .touch-btn.helm-bell {
@@ -604,7 +607,7 @@ body.nav-open #fire { z-index: 5; }
   /* Beside the chart, under it on the right. */
   body.nav-open #fire { left: auto; right: 64px; transform: none; width: var(--nav-w); }
   body.nav-open .fire-buttons { grid-template-columns: repeat(4, 1fr); }
-  body.nav-open #nav { height: min(400px, calc(100% - var(--helm-h, 200px) - 160px)); }
+  body.nav-open #nav { height: min(400px, calc(100% - var(--helm-h, 200px) - 190px)); }
 }
 @media (max-width: 840px), (max-height: 500px) {
   body.nav-open #nav { height: calc(100% - var(--helm-h, 200px) - 170px - max(8px, env(safe-area-inset-top))); }

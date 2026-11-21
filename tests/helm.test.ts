@@ -394,7 +394,8 @@ describe('the phone layout', () => {
 
   it('the telegraph is a lever: a tap or a drag along it orders the position on release', () => {
     expect(telegraphIndex(0)).toBe(0);
-    expect(telegraphIndex(0.5)).toBe(TELEGRAPH.findIndex((b) => b.knots === 0));
+    const stop = TELEGRAPH.findIndex((b) => b.knots === 0);
+    expect(telegraphIndex((stop + 0.5) / TELEGRAPH.length)).toBe(stop);
     expect(telegraphIndex(1)).toBe(TELEGRAPH.length - 1);
     phone(true);
     const c = crewGame();

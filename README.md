@@ -89,7 +89,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Kompass** (Auto) | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
 | **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
 | **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. På mobil en knapp som visar Auto eller Hand (gul) och växlar vid tryck. |
-| **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. Den beordrade farten står i instrumentpanelen. På mobil är telegrafen ett reglage: tryck eller dra längs det, och läget skickas när du släpper. |
+| **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv, Marsch och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram, och Marsch (marschfart) är 12 knop. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. Den beordrade farten står i instrumentpanelen. På mobil är telegrafen ett reglage: tryck eller dra längs det, och läget skickas när du släpper. |
 | **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. Yta är en vanlig stigning: djupmålet blir ytan, ubåten stiger på djuprodren och huvudballasten blåses på 15 m. Är ubåten för tung för att stiga, tryck **Nödblåsning** i panelen Ballast (eller Shift + S). |
 | **Per.djup** | Mitten | Djupmålet 13 m, periskopdjup. I ytläge dyker ubåten dit. På mobil gör djupskalans **13 m** samma sak. |
 | **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
@@ -143,6 +143,7 @@ Piltangenterna följer Auto / Hand.
 | Y | Radarmast upp / ned | Samma |
 | X | Radarn sänd / tyst (hissar masten) | Samma |
 | A | En ping med den aktiva sonaren | Samma |
+| L | Lockmål akterut | Samma |
 | G | Dieslarna start / stopp (tar över laddningen) | Samma |
 | K / H | Sjökortet / sonaren | Samma |
 | M | Ljud av / på | Samma |
@@ -215,6 +216,8 @@ Vatten kan tränga in i tryckskrovets avdelningar genom hål. Inflödet är Q = 
 - **Besättningen tätar** varje hål med en tidskonstant på 150 s, utom under krossdjupet. **Länspumpen** tar 20 l/s vid ytan och allt mindre ju djupare. På 250 m orkar den inte alls. Gå alltså grundare, så tätar besättningen fortare än vattnet kommer in.
 - **Vattnet väger:** det ligger i avdelningens botten och gör ubåten tyngre där. Över 15 ton varnar loggen, och skyddsnätet blåser huvudballasten.
 - **Följder:** ett maskinrum som är vattenfyllt till 30 % stoppar dieslarna, och ett elmotorrum till 30 % stoppar motorn.
+- **Vattentäta dörrar:** skotten mellan avdelningarna har dörrar. Vid en läcka stänger besättningen dem (10 s), så att vattnet stannar där det kom in, och öppnar dem igen när allt är tätat och länsat. I panelen El stänger och öppnar du dem själv. Står de öppna rinner vattnet över tröskeln till grannavdelningen där ytan står lägre, Q = Cd·A·√(2g·Δh). Lutar ubåten rinner vattnet alltså till den låga änden, och tyngden där gör lutningen värre.
+- **Länsa först:** i panelen El väljer du vilken avdelning länspumpen tar först. Annars tar den den blötaste.
 - **Visas** i statusraden (LÄCKA), i instrumentpanelen, i panelen El och i genomskärningen, och hörs som ett väsande och länspumpens surr.
 
 Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
@@ -253,6 +256,9 @@ Periskopet är eldledningens öga. I periskopvyn (och på bryggan) ligger eldled
 3. **Lösningen** är målets position, kurs och fart, räknad med minsta kvadrat ur alla bäringar och avstånd (målrörelseanalys). Kvaliteten är dålig, ok eller bra. Bäringar från sonaren ger avståndet först när ubåten har bytt kurs: två ben med minst 30° emellan. Håll sedan kursen några minuter: eldledaren säger till. Panelen visar avstånd, kurs, fart, kvalitet, skjutkurs och gångtid.
 4. **Fyr** (F): torpeden går mot träffpunkten, där den och målet möts. Den går 40 knop, räcker 10 km och söker passivt de sista 600 m inom ±30°, med samma akustik som sonaren. Den träffar under målets vattenlinje, och fartyget sjunker. **Spridning** 2 eller 3 skjuter flera torpeder med 3° emellan, för en sämre lösning.
 5. **Tuberna:** fyra förtuber och åtta torpeder i stället (se [Torpedrummet](#torpedrummet)). Fyr skjuter från de klara tuberna (gröna). Ett tryck på en klar tub skjuter från just den, på en laddad tub gör det den klar och på en tom tub laddar det om den.
+6. **Tråden:** torpeden är trådstyrd. I eldledningspanelen har varje torped med tråd en rad: **Styr** riktar den mot målets lösning som den är nu (ny gyrokurs från där torpeden är, och sökaren vaknar 600 m före den nya träffpunkten), **Sök** väcker sökaren direkt och **Kapa** kapar tråden. Skjut tidigt på en sämre lösning och styr när den blivit bättre. Tråden går av om ubåten går fortare än 8 knop i mer än 5 s eller svänger mer än 120° från kursen vid avfyrningen. Sjökortet ritar tråden som en tunn streckad linje.
+
+**Motmedel:** **Lock** i eldledningspanelen (L) skjuter ut ett lockmål akterut. Det går rakt i 6 knop på ubåtens djup och sänder ubåtens eget ljud i 5 min, lite starkare än ubåten i låg fart. En korvett som hör lockmålet bättre än ubåten tar det för ubåten, söker där och fäller sina sjunkbomber där. Dess eko vid ping är svagare än skrovets, så på nära håll hittar korvetten ubåten om den är närmare. Ubåten har fyra lockmål, och sjökortet visar dem som små romber.
 
 Avfyrningen hörs långt: en korvett i närheten vet ungefär var du är och börjar söka. Pingen och radarn ger avstånd utan stadimeter, men avslöjar ubåten (se [Aktiv sonar och radar](#aktiv-sonar-och-radar)).
 
@@ -286,7 +292,9 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 - **Aktiv sonar** når 3 km, men skiktet dämpar ekot kraftigt (20 dB per väg), och den egna farten gör korvetten döv. Under skiktet hittar en sökande korvett dig inom några hundra meter. Akterut ser sonaren inget.
 - **Sjunkbomberna** ger ett stort hål inom 8 m och ett mindre ut till 40 m, i avdelningen närmast explosionen (se [Läckage och skador](#läckage-och-skador)). Korvetten har 24.
 - **Den ger upp** när den inte haft kontakt på fem minuter, eller när sjunkbomberna är slut. Har den hört en avfyrning inom 6 km går den dit först och räknar de fem minuterna därifrån.
-- **Så kommer du undan:** gå djupt under skiktet, sakta (4 knop), byt kurs och byt djup när den går över dig.
+- **Så kommer du undan:** gå djupt under skiktet, sakta (4 knop), byt kurs och byt djup när den går över dig. Ett lockmål drar korvetten åt ett annat håll.
+- **Två som samarbetar:** korvetter i samma grupp jagar tillsammans. Den som börjar söka eller anfalla ropar på de andra, och ett eko delas av alla. När två anfaller går den ena in och fäller medan den andra står 1,5 km bort i låg fart, lyssnar och pingar, och efter varje mönster byter de plats (krypande anfall). Den som står still hör dig mycket bättre än den som kör: håll avståndet till den.
+- **Konvojer:** när ett fartyg i en konvoj träffas ökar de andra farten med 30 % och sicksackar ±30° kring kursen i ett fast mönster, två minuter per ben. Eskorten söker där avfyrningen hördes.
 
 ## Scenarier
 
@@ -333,11 +341,14 @@ Scenarierna ligger under fem flikar efter vad de övar på, de lättaste först 
 | Scenario | Svårighet | Mål |
 |---|---|---|
 | Övningsskott | medel | Atlanten: markera ett målfartyg i periskopet, mät avståndet, få en lösning och träffa. |
+| Lockmålet | medel | En korvett jagar dig på nära håll. Skjut ut ett lockmål och smyg åt ett annat håll medan korvetten jagar det. |
 | Klart för eld | medel | Du sköter torpedrummet: gör tuberna klara, sänk två målfartyg och ladda om. |
 | Nattanfall | svår | Natt: gör en sonarkontakt till mål, byt kurs så att bäringarna ger avstånd, och sänk fartyget. |
 | Ekot | svår | Ping ger avståndet till ett lastfartyg direkt. Sänk det och ta dig undan korvetten som hörde pingen. |
 | Konvojen | svår | Sänk ett lastfartyg med en korvett som eskort, och ta dig sedan undan eskorten. |
 | Jagad | svår | En korvett anfaller. Gå djupt och tyst och klara dig tills den tappar dig eller har slut på sjunkbomber. |
+| Två jägare | svår | Två korvetter jagar tillsammans: den ena lyssnar på avstånd, den andra fäller. Skaka av dig båda. |
+| Stora konvojen | svår | Tre lastfartyg med eskort. Sänk ett, se de andra sicksacka, och ta dig undan eskorten. |
 
 Innan ett scenario börjar visar **genomgången** uppdraget, alla mål i ordning (med hålltid), förhållandena, tidsgränsen och vem som sköter vad. Därifrån kan du ändra besättningen innan du trycker **Till sjöss**. Starta om hoppar över genomgången.
 
@@ -357,7 +368,7 @@ Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, ta
 - **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor och fiskebåtar, och i Östersjön en patrullerande korvett. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas. Torpederna fungerar också i fritt spel, och korvetten i Östersjön jagar den som avslöjar sig.
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
 - **Ljusstrålar** faller ner från ytan på dagen och tonas ut mot 70 m. De kan stängas av i Inställningar.
-- **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet.
+- **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet. Underifrån syns himlen bara genom **Snells fönster**, en ljus skiva rakt ovanför inom 48,6° från lodlinjen. Utanför den speglar ytan det mörka vattnet (totalreflektion).
 - **Ljus och sikt:** dag (sikt ~15 km), skymning (mörkrött ljus, lanternorna tänds), natt (~5 km) eller dimma (~200 m). På natten syns fyrarna, som blinkar med sin egen karaktär, långt innan land syns.
 - **Sjögång:** lugnt, måttlig sjö (Hs 1,25 m) eller grov sjö (Hs 3 m). Vågorna påverkar flytkraften i ytläge, periskopet och bryggan. Djupare ner märks de inte.
 
@@ -450,6 +461,7 @@ Testerna täcker bland annat:
 - läckage (inflöde efter trycket, vattnets massa, länspumpen, tätning, grundstötning, kollision, krossdjup och kollaps)
 - akustiken och sonaren (spridning och skikt, ubåtens ljud, kontakter, bäring och klassning) och att en korvett upptäcker en högljudd ubåt men inte en tyst under skiktet
 - målrörelseanalysen (ett ben ger ingen lösning, två ben ger kurs, fart och avstånd, avståndsmätningar), träffpunkten, anfallet genom periskopet (markera, mät, skjut, träffa, ladda om), spridning, en torped som går under en grund båt, sjunkbomber och korvettens lägen
+- trådstyrningen (en torped på fel kurs träffar efter Styr, Sök, Kapa, tråden som går av vid hög fart eller stor sväng), lockmålet (korvetten fäller vid lockmålet), korvetter som samarbetar (ropar, delar ekot, styr och fäller i tur och ordning), konvojens sicksack, skotten (vattnet rinner genom öppna dörrar och till den låga änden, besättningen stänger och öppnar, länsa först) och scenarierna Lockmålet, Två jägare och Stora konvojen
 - torpedrummet (klar, säkra, ladda, laddrälsen, besättningen, vikten, luckan som hörs), den aktiva sonaren (ekon, avstånd, korvetten som hör pingen), radarn (horisonten, antennen över vattnet, mastens motstånd, radarvarnaren) och scenarierna Radar i dimman, Ekot och Klart för eld med besättningen och spelaren
 - propellern back (svagare dragkraft, varvtalsgräns, kontinuitet genom noll) och att skyddsnätet tittar akterut när ubåten backar
 - besättningen: att besättningen dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att övertagande och lämning sker utan ryck, att en order tar över rätt system, att låsningar vägras och att simuleringen fortfarande är deterministisk

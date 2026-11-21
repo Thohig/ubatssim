@@ -228,6 +228,35 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       if (o.on && c.radar.antennaHeight() <= 0) c.afterAck.push('Radarn sänder när antennen är över vattnet.');
     },
   },
+  wire: {
+    refuse: (c, o) => c.wire.refusal(o.torpedo, o.action),
+    apply: (c, o) => {
+      c.afterAck.push(c.wire.act(o.torpedo, o.action, o.course));
+    },
+  },
+  doors: {
+    apply: (c, o) => {
+      c.sim.commands.doorsShut = o.shut;
+      // The player's call now: the crew does not open them again by itself.
+      c.plant.doorsByCrew = false;
+    },
+  },
+  drain: {
+    refuse: (c, o) => (o.compartment !== null && !c.sim.systems.flooding.compartments.some((x) => x.id === o.compartment) ? `Det finns ingen avdelning ${o.compartment}.` : null),
+    apply: (c, o) => {
+      c.sim.systems.flooding.drainTarget = o.compartment;
+    },
+  },
+  decoy: {
+    refuse: (c) => (c.decoys <= 0 ? 'Inga lockmål kvar.' : null),
+    apply: (c, o, k) => {
+      const course = o.course === undefined ? (k.heading + Math.PI) % (2 * Math.PI) : (((o.course % 360) + 360) % 360) * DEG;
+      const d = c.world.launchDecoy(course);
+      c.decoys--;
+      const deg = String(Math.round((course / DEG + 360) % 360) % 360).padStart(3, '0');
+      c.afterAck.push(`Lockmål ${d.id} ute på kurs ${deg}°: det låter som ubåten i ${Math.round(WEAPONS.decoy.life / 60)} min. ${c.decoys} kvar.`);
+    },
+  },
   ping: {
     refuse: (c) => {
       const wait = c.sonar.pingWait();
@@ -342,6 +371,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
           seekAfter: Math.max(WEAPONS.torpedo.arming, aim.distance - WEAPONS.torpedo.seekBefore),
         });
         c.torpedoesFired++;
+        c.wire.launched(torpedo, t.label);
         const deg = String(Math.round(((aim.course + offset) * 180) / Math.PI + 360) % 360).padStart(3, '0');
         const run = Math.round(aim.time);
         c.afterAck.push(`Torped ${torpedo.state.id} gick från tub ${i + 1} mot ${t.label}: kurs ${deg}°, gångtid ${Math.floor(run / 60)} min ${run % 60} s.`);

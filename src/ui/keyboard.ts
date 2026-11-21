@@ -71,7 +71,7 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   C  cutaway on/off   + / −  cutaway zoom
  *   B  report the bearing of the cross hair / bridge look
  *   N  snorkel up/down   G  diesels start/stop
- *   A  one ping with the active sonar   Y  radar mast up/down   X  radar transmit/silent (raises the mast)
+ *   L  launch a decoy astern   A  one ping with the active sonar   Y  radar mast up/down   X  radar transmit/silent (raises the mast)
  *   T  mark the vessel in the cross hair   R  range it   F  fire (periscope or bridge)
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
@@ -154,6 +154,9 @@ export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState)
         break;
       case 'a':
         ctrl.submit({ kind: 'ping' }, 'keyboard');
+        break;
+      case 'l':
+        ctrl.submit({ kind: 'decoy' }, 'keyboard');
         break;
       case 'y':
         ctrl.submit({ kind: 'radarMast', up: !ctrl.sim.commands.radarUp }, 'keyboard');

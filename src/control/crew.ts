@@ -129,6 +129,8 @@ export const TELEGRAPH: readonly TelegraphBell[] = [
   { knots: 0, label: 'Stopp', name: 'Stopp' },
   { knots: 4, label: 'Sakta', name: 'Sakta fram' },
   { knots: 8, label: 'Halv', name: 'Halv fram' },
+  /** Cruising speed under water: the step from 8 to 19 knots was too large. */
+  { knots: 12, label: 'Marsch', name: 'Marschfart' },
   /** The top speed (~18.9 knots at 240 rpm in salt water): full power. */
   { knots: 19, label: 'Full', name: 'Full fram' },
 ];

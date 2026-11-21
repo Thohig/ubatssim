@@ -5,6 +5,7 @@
  * deterministic and testable without any UI.
  */
 import { ENVIRONMENT } from '../sim/config/environment';
+import { WEAPONS } from '../sim/config/weapons';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
 import { CREW_NAME, CREW_SYSTEMS, PERISCOPE_DEPTH, type CrewLocks, type CrewSystem } from './crew';
@@ -162,6 +163,18 @@ const FIRE_SHIP_A: VesselDef = { ...freighter('mal-a', 'målfartyget Alfa', [[35
 const FIRE_SHIP_B: VesselDef = { ...freighter('mal-b', 'målfartyget Bravo', [[3500, -4500], [3500, 9000]]), speed: 5 * KN };
 /** What a player handling the torpedo room must do before firing. */
 const TUBES_HINT = 'Tuberna måste vara klara: tryck på en tub i eldledningspanelen (eller Klar i panelen Torped) och vänta tills den lyser grönt. ';
+/** "Två jägare": one corvette already hunting 1,5 km north, its partner patrolling 5 km east; they hunt together. */
+const PAIR_A: VesselDef = { ...corvette('falken', 'korvetten Falken', [[1500, 0], [1500, 4000]]), group: 'paret' };
+const PAIR_B: VesselDef = { ...corvette('hoken', 'korvetten Höken', [[0, 5000], [4000, 5000]]), group: 'paret' };
+/** "Stora konvojen": three freighters west-bound in line abreast, with an escort; hit one and the others zigzag. */
+const BIG_CONVOY: VesselDef[] = [
+  { ...freighter('ettan', 'M/S Ettan', [[3500, 3000], [3500, -14000]]), speed: 7 * KN, group: 'konvojen' },
+  { ...freighter('tvaan', 'M/S Tvåan', [[4300, 3200], [4300, -14000]]), speed: 7 * KN, group: 'konvojen' },
+  { ...freighter('trean', 'M/S Trean', [[5100, 3000], [5100, -14000]]), speed: 7 * KN, group: 'konvojen' },
+];
+const BIG_ESCORT: VesselDef = { ...corvette('vakten', 'korvetten Vakten', [[5900, 3400], [5900, -14000]], 7), group: 'konvojen' };
+/** "Lockmålet": a corvette already hunting, 1,2 km north. */
+const DECOY_HUNTER = corvette('spejaren', 'korvetten Spejaren', [[1200, 0], [1200, 4000]]);
 const ready = (c: Controller) => c.fire.tubes.filter((x) => x.loaded && x.flooded && x.open && x.plan.length === 0).length;
 const good = (c: Controller, id: string) => {
   const t = c.fire.targets.find((x) => x.vesselId === id);
@@ -708,6 +721,90 @@ export const SCENARIOS: Scenario[] = [
         text: 'Ta dig undan eskorten',
         hint: 'Sänk periskopet, gå djupt under skiktet, sakta, och byt kurs. Eskorten hörde avfyrningen.',
         check: (_t, c) => shaken(c, ESCORT.id),
+        holdSeconds: 30,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : t.depth < 8 ? 'Ubåten bröt ytan och upptäcktes av eskorten.' : null),
+    timeLimit: 3000,
+  },
+  {
+    id: 'decoy',
+    title: 'Lockmålet',
+    group: 'attack',
+    description: 'En korvett jagar dig på nära håll. Skjut ut ett lockmål som låter som ubåten, smyg åt ett annat håll och låt korvetten jaga lockmålet tills den tappar bort dig.',
+    difficulty: 'medel',
+    initial: { area: 'atlantic', depth: 60, speed: 4 * KN, neutral: true, heading: 180 * DEG },
+    traffic: [DECOY_HUNTER],
+    setup: (c) => {
+      c.sonar.alert(DECOY_HUNTER.id, 0.9);
+    },
+    objectives: [
+      {
+        text: 'Skjut ut ett lockmål',
+        hint: 'Tryck Lock i eldledningspanelen (eller L). Det går akterut, mot korvetten, och låter som ubåten i fem minuter.',
+        check: (_t, c) => c.decoys < WEAPONS.decoy.count,
+      },
+      {
+        text: 'Skaka av dig korvetten',
+        system: 'depth',
+        hint: 'Djuproder ned under skiktet, sakta till 4 knop och sväng bort från lockmålets kurs. Skjut ut ett till om korvetten hittar dig.',
+        hintCrew: 'Tryck på djupskalan vid 200 m, sakta till 4 knop och sväng bort från lockmålets kurs. Skjut ut ett till om korvetten hittar dig.',
+        check: (_t, c) => shaken(c, DECOY_HUNTER.id),
+        holdSeconds: 30,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
+    timeLimit: 1800,
+  },
+  {
+    id: 'hunting-pair',
+    title: 'Två jägare',
+    group: 'attack',
+    description: 'Två korvetter jagar tillsammans: den ena lyssnar och pingar på avstånd medan den andra går in och fäller. Gå djupt under skiktet, sakta och tyst, och skaka av dig båda.',
+    difficulty: 'svår',
+    initial: { area: 'atlantic', depth: 60, speed: 4 * KN, neutral: true, heading: 180 * DEG },
+    traffic: [PAIR_A, PAIR_B],
+    setup: (c) => {
+      c.sonar.alert(PAIR_A.id, 0.9);
+    },
+    objectives: [
+      {
+        text: 'Gå djupare än 150 m',
+        system: 'depth',
+        hint: 'Djuproder ned och Halv fram tills du är under skiktet. Sakta sedan in.',
+        hintCrew: 'Tryck på djupskalan vid 200 m och Halv fram tills du är under skiktet. Sakta sedan in.',
+        check: (t) => t.depth > 150,
+      },
+      {
+        text: 'Skaka av dig båda korvetterna',
+        hint: 'Håll 4 knop och byt kurs. Den som står still och lyssnar hör dig bäst: håll avståndet till den. Byt djup när den andra går över dig.',
+        check: (_t, c) => shaken(c, PAIR_A.id) && shaken(c, PAIR_B.id),
+        holdSeconds: 30,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
+    timeLimit: 2400,
+  },
+  {
+    id: 'big-convoy',
+    title: 'Stora konvojen',
+    group: 'attack',
+    description: 'Tre lastfartyg går västerut med en korvett som eskort. Sänk ett av dem. Då ökar de andra farten och sicksackar, och eskorten söker efter dig. Ta dig undan.',
+    difficulty: 'svår',
+    initial: { area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 },
+    traffic: [...BIG_CONVOY, BIG_ESCORT],
+    objectives: [
+      {
+        text: 'Sänk ett lastfartyg',
+        system: 'torpedoRoom',
+        hint: TUBES_HINT + 'Periskop upp, Mål och Avst på ett lastfartyg (inte korvetten), Fyr.',
+        hintCrew: 'Periskop upp, Mål och Avst på ett lastfartyg (inte korvetten), Fyr.',
+        check: (_t, c) => BIG_CONVOY.some((v) => sunk(c, v.id)),
+      },
+      {
+        text: 'Ta dig undan eskorten',
+        hint: 'Sänk periskopet, gå djupt under skiktet, sakta, och byt kurs. Konvojen sicksackar och eskorten hörde avfyrningen.',
+        check: (_t, c) => shaken(c, BIG_ESCORT.id),
         holdSeconds: 30,
       },
     ],
