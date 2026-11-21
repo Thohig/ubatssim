@@ -31,6 +31,23 @@ describe('charging', () => {
     expect(logs(c)).toContain('Batteriet är laddat. Dieslarna stoppade.');
   });
 
+  it('lowering the snorkel with the diesels running is no fault (no alarm), but a dipping snorkel head is', () => {
+    const c = game({ depth: 13, neutral: true, speed: 4 * KN, battery: 0.5 });
+    c.submit({ kind: 'snorkel', up: true }, 'keyboard');
+    run(c, 20);
+    expect(c.sim.telemetry().dieselRunning).toBe(true);
+    c.submit({ kind: 'snorkel', up: false }, 'keyboard');
+    run(c, 10);
+    expect(c.sim.telemetry().dieselRunning).toBe(false);
+    expect(logs(c)).toContain('Dieslarna stoppade: snorkeln är nere.');
+    expect(c.log.some((e) => e.kind === 'error' && /luftintaget/.test(e.text))).toBe(false);
+    c.submit({ kind: 'snorkel', up: true }, 'keyboard');
+    run(c, 20);
+    c.submit({ kind: 'setDepth', depth: 20 }, 'keyboard');
+    run(c, 60);
+    expect(logs(c)).toContain('Dieslarna har stannat: luftintaget är under vatten.');
+  });
+
   it('a diesel order takes the charging over; without air the diesels wait', () => {
     const c = game({ depth: 40, designTrim: true, battery: 0.5 });
     c.submit({ kind: 'diesel', on: true }, 'keyboard');

@@ -39,7 +39,10 @@ export class PlantWatch {
     }
     if (el.dieselRunning !== this.dieselWasRunning) {
       if (el.dieselRunning) c.addLog('Dieslarna går. Batteriet laddas.', 'info');
-      else if (sim.commands.diesel && el.starved > 0) c.addLog('Dieslarna har stannat: luftintaget är under vatten.', 'error');
+      // The snorkel lowered on purpose with the diesels running (surfaced: the induction is the open hatch) is no fault.
+      else if (sim.commands.diesel && el.starved > 0 && !sim.commands.snorkelUp && sim.actuators.snorkel < 1 && !el.airAtInduction()) {
+        c.addLog('Dieslarna stoppade: snorkeln är nere.', 'info');
+      } else if (sim.commands.diesel && el.starved > 0) c.addLog('Dieslarna har stannat: luftintaget är under vatten.', 'error');
       else if (sim.commands.diesel) c.addLog('Dieslarna har stannat: maskinrummet tar in vatten.', 'error');
       else if (el.soc >= CHARGE_STOP) c.addLog('Batteriet är laddat. Dieslarna stoppade.', 'info');
       else c.addLog('Dieslarna stoppade.', 'info');
