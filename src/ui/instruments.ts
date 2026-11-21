@@ -209,24 +209,25 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
 };
 
 /** Every instrument under "Mer", in order (those in the main panel are left out there). */
-const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'load', 'diesel', 'snorkel', 'radar', 'flood', 'tubes', 'sep', 'net', 'tanks', 'air'];
+const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'load', 'diesel', 'snorkel', 'radar', 'flood', 'tubes', 'sep', 'trim', 'net', 'tanks', 'air'];
 
 /**
  * The panel for who handles what: the main panel leads with depth, speed,
- * course, the water under the keel and the trim; what the player takes over
+ * course, the water under the keel and the battery (the plan line on the
+ * helm says what the crew does, conn.ts); what the player takes over
  * joins it (planes and pitch for the depth, the rudder for the course, the
- * shaft for the speed, buoyancy and tanks for the trim, tanks and HP air for
+ * shaft for the speed, trim, buoyancy and tanks for the trim, tanks and HP air for
  * the ballast, the diesels and the load for the charging). Water inside the
  * hull joins it while there is any (`flooded`). Everything else is under "Mer".
  */
 export function instrumentLayout(d: CrewDuties, flooded = false): { main: string[]; more: string[] } {
-  const main = ['time', 'sep', 'depth', 'speed', 'heading', 'keel', 'trim', 'battery'];
+  const main = ['time', 'sep', 'depth', 'speed', 'heading', 'keel', 'battery'];
   if (flooded) main.push('flood');
   const extra: string[] = [];
   if (!d.depth) extra.push('pitch', 'planes');
   if (!d.heading) extra.push('rudder');
   if (!d.speed) extra.push('rpm', 'power');
-  if (!d.trim) extra.push('net');
+  if (!d.trim) extra.push('trim', 'net');
   if (!d.trim || !d.ballast) extra.push('tanks');
   if (!d.ballast) extra.push('air');
   if (!d.charging) extra.push('diesel', 'snorkel', 'load');

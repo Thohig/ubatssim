@@ -30,6 +30,7 @@ Inget av förslagen återstår just nu. Nya idéer läggs till här.
 | **Torpedrummet** | Klar | Tubernas steg (klar, säkra, ladda), laddrälsen, besättningen och torpedernas vikt. Se README (Torpedrummet). |
 | **Bäringen utanför periskopet** | Klar | Bäringsbandet under eller ovanför okularet. Se `docs/grafik.md`. |
 | **Skott och länsning** | Klar | Vattentäta dörrar, vatten som rinner till den låga änden och länsa först. Se README (Läckage och skador). |
+| **Besättningen sköter manövern** | Klar | Spelaren väljer fart, kurs och djup (Yta, Periskop, Djup), och vakthavande officer (`conn.ts`) väljer hur: inbromsning utan back, fartgräns och mjukare roder nära periskopdjup, tyst gång när en korvett jagar, trim före djupbytet. Planraden och detaljerna på tavlan, handstyrning i expertläge. Se README (Besättningen och du). |
 
 ## Grafik
 
@@ -40,7 +41,7 @@ Inget av förslagen återstår just nu. Nya idéer läggs till här.
 | **Sikt under vattnet** | Klar | Mörker efter djupet, vattnets färg och klarhet per havsområde, och ljusstrålar nära ytan. |
 | **Genomskärningen: etapp 4** | Klar | Vatten i läckande avdelningar, batterierna, dieslarna, torpedtuberna och reservtorpederna. |
 | **Startsidan** | Klar | Ubåten glider förbi under vattnet i dagsljus, lugn musik, menyn som en färdorder. Se `docs/ljud.md` och `docs/grafik.md`. |
-| **Skärmkontrollerna** | Klar | Yta som vanlig stigning, Per.djup, System ▾ på alla skärmar och vyknappar med ikoner mellan telegrafen och kompassen. |
+| **Skärmkontrollerna** | Klar | Yta / Periskop / Djup, planraden med detaljerna, expertläget och vyknappar med ikoner mellan telegrafen och kompassen. |
 | **Scenariolistan** | Klar | Fem flikar efter vad scenariot övar på och kompakta kort. Se README (Scenarier). |
 | **Ytan underifrån** | Klar | Snells fönster i havsytans shader. Se `docs/grafik.md`. |
 

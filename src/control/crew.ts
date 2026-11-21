@@ -31,6 +31,19 @@ export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'c
 
 export const CREW_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'charging', 'fireControl', 'torpedoRoom', 'safetyNet'];
 
+/**
+ * The manoeuvre: what the crew always handles unless the player is in expert mode (`Controller.options.expert`).
+ * The player gives speed, course and depth; the crew chooses how (conn.ts).
+ */
+export const MANOEUVRE_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'safetyNet'];
+
+/** Refusal of a hand order outside expert mode. */
+export const EXPERT_TEXT = 'Besättningen sköter manövern. Slå på Expertläge under ☰ → Besättning för att styra själv.';
+
+/** True if a scenario's locks make the player handle part of the manoeuvre (it is then played in expert mode). */
+export const needsExpert = (locks: CrewLocks | undefined): boolean =>
+  MANOEUVRE_SYSTEMS.some((s) => s !== 'safetyNet' && locks?.[s] === false);
+
 /** Systems that are an autopilot axis (crew = autopilot on). */
 export const AXES = ['depth', 'heading', 'speed'] as const;
 export type Axis = (typeof AXES)[number];

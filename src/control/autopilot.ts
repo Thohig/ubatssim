@@ -170,8 +170,12 @@ export class Autopilot {
   }
 
   /** Rudder command [rad], positive = starboard. */
-  rudder(targetHeading: number, s: AutopilotInput, dt: number): number {
+  rudder(targetHeading: number, s: AutopilotInput, dt: number, maxRudder?: number): number {
     const dir = this.direction(s.speed);
+    // A smaller limit (near the surface) is the PID's own, so its integral stops there too.
+    const most = Math.min(this.tuning.heading.maxRudder, maxRudder ?? Infinity);
+    this.headingPid.outMin = -most;
+    this.headingPid.outMax = most;
     let err = wrapAngle(targetHeading - s.heading);
     // Near a reversal (±180°) the wrapped error flips sign each time the heading crosses the far side,
     // and the boat stood still on its old course: keep turning the way it started.

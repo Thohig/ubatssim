@@ -75,7 +75,8 @@ export class Ascent {
 
   /** The speed the crew runs at [knots] (at least the player's while rising), or null for the player's. */
   speedGoal(setpoint: number): number | null {
-    if (this.phase === 'rise') return Math.max(setpoint, ASCENT.riseSpeed);
+    // A corvette on to the boat: the crew rises slowly and quietly (conn.ts).
+    if (this.phase === 'rise') return Math.max(setpoint, this.ctrl.conn.quiet ? ASCENT.listenSpeed : ASCENT.riseSpeed);
     if (this.phase) return ASCENT.listenSpeed;
     return null;
   }
@@ -113,7 +114,7 @@ export class Ascent {
     if (depth <= ASCENT.startBelow) return;
     this.target = target;
     this.phase = 'rise';
-    c.afterAck.push(`Stigning i ${Math.max(c.setpoints.speed, ASCENT.riseSpeed)} knop. Besättningen planar ut på ${ASCENT.levelDepth} m och lyssnar innan den går upp.`);
+    c.afterAck.push(`Stigning i ${this.speedGoal(c.setpoints.speed)!} knop${c.conn.quiet ? ' (tyst gång)' : ''}. Besättningen planar ut på ${ASCENT.levelDepth} m och lyssnar innan den går upp.`);
   }
 
   /** A speed order from the player (cuts the ascent short, said in the log), or the main ballast blown (`quiet`). */
@@ -155,8 +156,10 @@ export class Ascent {
       return;
     }
     if (this.phase === 'final') {
-      const surface = this.target < 5;
-      const there = surface ? k.depth < 4 && !sim.tanks.some((t) => t.blowOpen) : Math.abs(k.depth - this.target) < 1;
+      // Waiting at periscope depth for the hunters to leave (conn.ts) ends the ascent there.
+      const surface = this.target < 5 && !c.conn.surfaceHeld;
+      const goal = c.conn.surfaceHeld ? c.conn.depthGoal : this.target;
+      const there = surface ? k.depth < 4 && !sim.tanks.some((t) => t.blowOpen) : Math.abs(k.depth - goal) < 1;
       this.settled = there ? this.settled + DT : 0;
       if (this.settled >= (surface ? 5 : ASCENT.settle)) this.end(true);
     }

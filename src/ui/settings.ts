@@ -23,6 +23,8 @@ export interface Settings {
   /** The start page's music, and its volume 0…1. */
   music: boolean;
   musicVolume: number;
+  /** Expert mode: the player may take the manoeuvre over by hand (☰ → Besättning; Controller.options.expert). */
+  expert: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   voice: false,
   music: true,
   musicVolume: 0.7,
+  expert: false,
 };
 
 const KEY = 'ubatssim.settings';
@@ -57,6 +60,7 @@ export function loadSettings(): Settings {
       soundAmbience: s.soundAmbience !== false,
       voice: s.voice === true,
       music: s.music !== false,
+      expert: s.expert === true,
       musicVolume: typeof s.musicVolume === 'number' && s.musicVolume >= 0 && s.musicVolume <= 1 ? s.musicVolume : DEFAULT_SETTINGS.musicVolume,
     };
   } catch {

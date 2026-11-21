@@ -24,6 +24,8 @@ export interface MenuHandlers {
   settingsChanged(s: Settings): void;
   /** ☰ → Besättning: hand a system (or all) to the crew, or take it over. */
   crewChange(system: CrewSystem | 'all', crew: boolean): void;
+  /** Expert mode on or off (☰ → Besättning). */
+  expertChange(on: boolean): void;
   /** The introduction was dismissed. */
   introDone(): void;
   /** The scenario briefing was dismissed ("Till sjöss"). */
@@ -44,7 +46,7 @@ export class Menu {
   private error: string | null = null;
   private logLines: MenuState['logLines'] = [];
   private graphicsBack = false;
-  private pauseInfo: PauseInfo = { duties: null, locks: {} };
+  private pauseInfo: PauseInfo = { duties: null, locks: {}, expert: false, expertForced: false };
   /** Free play: chosen area and light/visibility. */
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
@@ -190,6 +192,9 @@ export class Menu {
         this.h.crewChange(system as CrewSystem | 'all', crew === '1');
         break;
       }
+      case 'expert':
+        this.h.expertChange(arg === '1');
+        break;
       case 'introDone':
         this.h.introDone();
         break;

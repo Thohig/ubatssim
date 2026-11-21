@@ -5,6 +5,7 @@
  */
 import { AREA_INFO, type ConditionsId } from '../control/areas';
 import { Controller } from '../control/controller';
+import { MANOEUVRE_SYSTEMS, needsExpert } from '../control/crew';
 import { ScenarioRunner, lockText, type Scenario } from '../control/scenarios';
 import type { AreaId } from '../sim/config/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
@@ -66,6 +67,22 @@ export class GameSession {
     this.ctrl.step();
     this.runner?.update();
     this.propellerAngle += 2 * Math.PI * this.sim.y[IDX_SHAFT]! * DT;
+  }
+
+  /** True if the scenario makes the player handle part of the manoeuvre: always expert mode then. */
+  get expertForced(): boolean {
+    return needsExpert(this.spec.scenario?.locks);
+  }
+
+  /**
+   * Expert mode on or off (the player's setting). Off, the crew takes the manoeuvre back: ordinary
+   * `crew` orders, acknowledged in the log when the game goes on.
+   */
+  setExpert(on: boolean): void {
+    const c = this.ctrl;
+    c.options.expert = on || this.expertForced;
+    if (c.options.expert) return;
+    for (const s of MANOEUVRE_SYSTEMS) if (!c.duty(s) && c.options.locks[s] === undefined) c.submit({ kind: 'crew', system: s, crew: true }, 'touch');
   }
 
   /** The same start again (the crew handles everything again). */

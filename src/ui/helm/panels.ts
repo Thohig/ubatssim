@@ -1,12 +1,16 @@
 /**
- * The panels Ballast, Trim, Fart and El under the screen controls: each
- * system's state and its controls. A button in a panel gives an ordinary
- * order, which takes the system over from the crew (the order registry's
- * `effects`); the panel's header (index.ts) hands it back. Nödblåsning in
- * the Ballast panel is the exception: its orders leave the ballast to whoever has it.
+ * The details under the plan line (index.ts): Manöver (what the crew does
+ * and why, with the planes, rudder and shaft), and the panels Ballast, Trim,
+ * Fart, El and Torped with each system's state. The buttons that take the
+ * manoeuvre over by hand (rows marked `helm-hand`) show only in expert mode
+ * (`Controller.options.expert`); a button gives an ordinary order, which
+ * takes the system over from the crew (the order registry's `effects`), and
+ * the panel's header (index.ts) hands it back. Nödblåsning in the Ballast
+ * panel is the exception: its orders leave the ballast to whoever has it.
  */
 import type { Controller } from '../../control/controller';
 import type { CrewSystem } from '../../control/crew';
+import { MANOEUVRE_NAME } from '../../control/conn';
 import { LIMITS } from '../../control/parser';
 import type { Telemetry } from '../../sim/simulation';
 import { h } from '../dom';
@@ -14,10 +18,11 @@ import { isReady, tubeState } from '../../control/torpedoRoom';
 import { submitEmergencyBlow } from '../keyboard';
 import { DEG, fmt, setText } from './mappings';
 
-export type Panel = 'ballast' | 'trim' | 'speed' | 'power' | 'torpedo';
-export const PANELS: readonly Panel[] = ['ballast', 'trim', 'speed', 'power', 'torpedo'];
-export const PANEL_SYSTEM: Record<Panel, CrewSystem> = { ballast: 'ballast', trim: 'trim', speed: 'speed', power: 'charging', torpedo: 'torpedoRoom' };
-export const PANEL_TITLE: Record<Panel, string> = { ballast: 'Ballast', trim: 'Trim', speed: 'Fart', power: 'El', torpedo: 'Torped' };
+export type Panel = 'manoeuvre' | 'ballast' | 'trim' | 'speed' | 'power' | 'torpedo';
+export const PANELS: readonly Panel[] = ['manoeuvre', 'ballast', 'trim', 'speed', 'power', 'torpedo'];
+/** The system a panel shows (null: the manoeuvre as a whole, which the crew handles outside expert mode). */
+export const PANEL_SYSTEM: Record<Panel, CrewSystem | null> = { manoeuvre: null, ballast: 'ballast', trim: 'trim', speed: 'speed', power: 'charging', torpedo: 'torpedoRoom' };
+export const PANEL_TITLE: Record<Panel, string> = { manoeuvre: 'Manöver', ballast: 'Ballast', trim: 'Trim', speed: 'Fart', power: 'El', torpedo: 'Torped' };
 
 /** A button that acts once on press (no repeat). */
 export type TapButton = (label: string, title: string, run: (c: Controller) => void, className?: string) => HTMLButtonElement;
@@ -29,7 +34,65 @@ export interface PanelView {
 
 /** The five panels, built with the helm's button factory. */
 export function createPanels(tapButton: TapButton): Record<Panel, PanelView> {
-  return { ballast: ballastPanel(tapButton), trim: trimPanel(tapButton), speed: speedPanel(tapButton), power: powerPanel(tapButton), torpedo: torpedoPanel(tapButton) };
+  return { manoeuvre: manoeuvrePanel(), ballast: ballastPanel(tapButton), trim: trimPanel(tapButton), speed: speedPanel(tapButton), power: powerPanel(tapButton), torpedo: torpedoPanel(tapButton) };
+}
+
+const bearing = (deg: number) => String(Math.round(((deg % 360) + 360) % 360) % 360).padStart(3, '0');
+const angle = (deg: number, pos: string, neg: string) => (Math.abs(deg) < 0.5 ? '0°' : `${Math.round(Math.abs(deg))}° ${deg > 0 ? pos : neg}`);
+
+/**
+ * Manöver: what the crew does now and why (conn.ts `plan()`), and how: the depth, speed and course
+ * goals the autopilot steers for and the planes, rudder and shaft it gives.
+ */
+function manoeuvrePanel(): PanelView {
+  const mode = h('b', { class: 'helm-plan-name' });
+  const text = h('span');
+  const details = h('ul', { class: 'helm-plan-details' });
+  const row = (label: string) => {
+    const value = h('span', { class: 'helm-panel-value' });
+    return { el: h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, label), value), value };
+  };
+  const depth = row('Djup');
+  const speed = row('Fart');
+  const course = row('Kurs');
+  const planes = row('Djuproder');
+  const rudder = row('Roder');
+  const shaft = row('Varv');
+  const el = h(
+    'div',
+    { class: 'helm-panel-body', hidden: true },
+    h('div', { class: 'helm-plan-now' }, mode, ' ', text),
+    details,
+    depth.el,
+    speed.el,
+    course.el,
+    planes.el,
+    rudder.el,
+    shaft.el,
+  );
+  let lastDetails = '';
+  return {
+    el,
+    update(t: Telemetry, c: Controller) {
+      const p = c.conn.plan();
+      setText(mode, MANOEUVRE_NAME[p.mode]);
+      setText(text, p.text);
+      const key = p.details.join('\n');
+      if (key !== lastDetails) {
+        lastDetails = key;
+        details.replaceChildren(...p.details.map((d) => h('li', null, d)));
+      }
+      const kn = (t.u * 3600) / 1852;
+      const goal = c.ap.depth ? (c.surfaceHold ? 'yta' : `${Math.round(c.depthGoal)} m`) : 'hand';
+      setText(depth.value, `${fmt(t.depth)} m → ${goal} · stamp ${fmt(t.pitch * DEG)}°`);
+      const run = c.crewSpeed()?.knots ?? (c.ap.speed ? c.setpoints.speed : null);
+      setText(speed.value, `${kn < -0.05 ? `back ${fmt(-kn)}` : fmt(Math.max(0, kn))} knop${run === null ? ' · hand' : ` → ${run < 0 ? `back ${fmt(-run)}` : fmt(run)} knop`}`);
+      setText(course.value, `${bearing(t.heading * DEG)}°${c.ap.heading ? ` → ${bearing(c.ascent.headingGoal() ?? c.setpoints.heading)}°` : ' · hand'} · gir ${fmt(t.r * DEG)}°/s`);
+      setText(planes.value, angle(t.sternPlanes * DEG, 'ned', 'upp'));
+      setText(rudder.value, angle(t.rudder * DEG, 'SB', 'BB'));
+      setText(shaft.value, `${Math.round(t.rps * 60)} rpm · ${Math.round(t.shaftPower / 1000)} kW`);
+    },
+  };
 }
 
 /**
@@ -87,7 +150,7 @@ function ballastPanel(tapButton: TapButton): PanelView {
   const group = (g: 'fwd' | 'aft' | 'all', label: string) =>
     h(
       'div',
-      { class: 'helm-panel-row' },
+      { class: 'helm-panel-row helm-hand' },
       h('span', { class: 'helm-panel-label' }, label),
       tapButton('Fyll', `Fyll huvudballast ${label.toLowerCase()}`, (c) => c.submit({ kind: 'mainBallast', action: 'flood', group: g }, 'touch')),
       tapButton('Blås', `Blås huvudballast ${label.toLowerCase()}`, (c) => c.submit({ kind: 'mainBallast', action: 'blow', group: g }, 'touch')),
@@ -149,7 +212,7 @@ function trimPanel(tapButton: TapButton): PanelView {
     comp.el,
     h(
       'div',
-      { class: 'helm-panel-row' },
+      { class: 'helm-panel-row helm-hand' },
       h('span', { class: 'helm-panel-label' }, 'Kompensera'),
       step('In 100', 'Kompensera in 100 liter', (n) => ({ kind: 'compensate', litres: n }), 100),
       step('In 500', 'Kompensera in 500 liter', (n) => ({ kind: 'compensate', litres: n }), 500),
@@ -160,7 +223,7 @@ function trimPanel(tapButton: TapButton): PanelView {
     aft.el,
     h(
       'div',
-      { class: 'helm-panel-row' },
+      { class: 'helm-panel-row helm-hand' },
       h('span', { class: 'helm-panel-label' }, 'Trimma'),
       step('För 100', 'Trimma 100 liter förut', (n) => ({ kind: 'trim', litres: n }), 100),
       step('För 500', 'Trimma 500 liter förut', (n) => ({ kind: 'trim', litres: n }), 500),

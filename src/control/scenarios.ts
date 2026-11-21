@@ -10,9 +10,7 @@ import { canyonAt } from '../sim/terrain';
 import { WEAPONS } from '../sim/config/weapons';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
-import { CREW_NAME, CREW_SYSTEMS, PERISCOPE_DEPTH, type CrewLocks, type CrewSystem } from './crew';
-
-const PERISCOPE_DEPTH_TEXT = `${PERISCOPE_DEPTH} m`;
+import { CREW_NAME, CREW_SYSTEMS, type CrewLocks, type CrewSystem } from './crew';
 import { AREA_INFO, corvette, freighter, type ConditionsId } from './areas';
 import type { VesselDef } from '../sim/vessel';
 import type { AircraftDef } from '../sim/aircraft';
@@ -213,14 +211,14 @@ export const SCENARIOS: Scenario[] = [
         text: 'Klara bryggan',
         system: 'ballast',
         hint: 'Öppna panelen Ballast och tryck Klart bryggan. Ingen får vara kvar på bryggan när ubåten dyker.',
-        hintCrew: 'Tryck Dyk (eller D). Besättningen utrymmer bryggan.',
+        hintCrew: 'Tryck Djup eller Periskop (eller D). Besättningen utrymmer bryggan.',
         check: (_t, c) => !c.bridgeManned,
       },
       {
         text: 'Öppna ventilerna till huvudballasten',
         system: 'ballast',
         hint: 'Tryck Fyll vid Båda i panelen Ballast. Stäng ventilerna först när båda visar 100 %: luft som blir kvar håller ubåten i ytan.',
-        hintCrew: 'Tryck Dyk (eller D). Ventilerna stängs när tankarna är fulla.',
+        hintCrew: 'Tryck Djup eller Periskop (eller D). Ventilerna stängs när tankarna är fulla.',
         check: (t) => mbt(t).every((x) => x.ventOpen || x.fill > 0.95),
       },
       {
@@ -383,7 +381,7 @@ export const SCENARIOS: Scenario[] = [
         text: 'Gå genom sundet till den gula bojen',
         system: 'heading',
         hint: 'Tryck Sakta fram och styr med rodret (◀ BB och SB ▶). Bojen är den gula pricken. Sundet slingrar sig mot nordost.',
-        hintCrew: 'Tryck Sakta fram och styr med kompassen eller ◀/▶. Bojen är den gula pricken på kompassen. Sundet slingrar sig mot nordost.',
+        hintCrew: 'Tryck Sakta fram och styr med kompassen (eller ← / →). Bojen är den gula pricken på kompassen. Sundet slingrar sig mot nordost.',
         check: (t) => waypointInfo(t, [1200, 2848]).distance < 60,
       },
     ],
@@ -520,7 +518,7 @@ export const SCENARIOS: Scenario[] = [
         text: 'Passera tröskeln',
         system: 'depth',
         hint: 'Håll 30–40 m med djuprodret och följ "Under köl". Tröskeln ligger kring mynningen, rakt norrut.',
-        hintCrew: 'Håll 30–40 m med djupskalan och styr med kompassen eller ◀/▶. Följ "Under köl".',
+        hintCrew: 'Håll 30–40 m med djupskalan och styr med kompassen (eller ← / →). Följ "Under köl".',
         check: (t) => t.position[0] > 350,
       },
       {
@@ -565,7 +563,7 @@ export const SCENARIOS: Scenario[] = [
         text: 'Gå upp på periskopdjup',
         system: 'depth',
         hint: 'Styr upp med djuprodret till 13 m och håll djupet där. Håll 4 knop: djuprodren behöver fart.',
-        hintCrew: `Tryck ${PERISCOPE_DEPTH_TEXT} på djupskalan och håll 4 knop (Sakta fram): djuprodren behöver fart.`,
+        hintCrew: 'Tryck Periskop och håll 4 knop (Sakta fram): djuprodren behöver fart.',
         check: (t) => t.depth < 15,
         holdSeconds: 10,
       },

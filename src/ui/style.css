@@ -272,16 +272,13 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-telegraph .touch-row { width: 100%; }
 .helm-telegraph-row { display: flex; align-items: center; gap: 4px; width: 100%; }
 .helm-telegraph-row .helm-bells { flex: 1 1 auto; min-width: 0; }
-/* The Auto lamp: dark until the crew runs its own speed; then the bells dim (they still take orders) and the
+/* While the crew runs its own speed the bells dim (they still take orders), the readout over them says why, and the
    ordered bell keeps an outline: the telegraph goes back there. */
-.helm-auto {
-  flex: none; padding: 0 6px; height: 28px; line-height: 26px; border-radius: 6px; border: 1px solid var(--panel-border);
-  font-size: 11px; font-weight: 600; color: var(--muted); opacity: 0.45; user-select: none; -webkit-user-select: none;
-}
-.helm-auto.on { opacity: 1; background: var(--accent); border-color: var(--accent); color: #02121c; box-shadow: 0 0 8px rgba(95, 211, 255, 0.55); }
 .helm-telegraph.crew .helm-bell { opacity: 0.45; }
+.helm-telegraph.crew .helm-readout { color: var(--accent); border-color: var(--accent); }
 .helm .helm-telegraph.crew .touch-btn.helm-bell.on { background: transparent; color: var(--text); box-shadow: inset 0 0 0 2px var(--accent); opacity: 0.85; }
 .helm-telegraph-head { display: none; justify-content: center; align-items: center; width: 100%; }
+.helm-telegraph.crew .helm-telegraph-head { display: flex; }
 .helm .touch-btn.helm-bell { flex: 1 1 0; min-width: 0; padding: 0 2px; font-size: 13px; }
 .helm-bell.astern { color: #ff9e9e; }
 .helm-bell.stop { color: var(--warn); }
@@ -289,11 +286,11 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-bell.on { background: var(--accent); border-color: var(--accent); color: #02121c; }
 .helm-bell.astern.on { background: var(--error); border-color: var(--error); }
 .helm-bell.stop.on { background: var(--warn); border-color: var(--warn); }
-.helm-ballast { min-width: 72px !important; color: var(--warn); }
 
 /* Group heads: label, readout and (for the course) the Auto / Hand switch. */
 .helm-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
 .helm-switch { display: flex; border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; flex: none; }
+.helm-switch[hidden] { display: none; }
 .helm-switch.vertical { flex-direction: column; }
 .helm .touch-btn.helm-seg { height: 24px; min-width: 0; border: none; border-radius: 0; padding: 0 8px; font-size: 11px; background: var(--panel-bg); color: var(--muted); }
 .helm-switch.vertical .touch-btn.helm-seg { height: 22px; padding: 0 4px; }
@@ -303,11 +300,30 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-depth-scale[hidden], .helm-depth-btns[hidden], .helm-band-row[hidden], .helm-course-btns[hidden] { display: none; }
 .helm-depth-scale { height: 178px; }
 .helm-course-btns { justify-content: center; }
-.helm-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.helm .touch-btn.helm-system { min-width: 88px; }
-.helm .touch-btn.helm-system.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
-.helm .touch-btn.helm-system.self { border-color: var(--warn); color: var(--warn); }
-.helm .touch-btn.helm-perdepth { min-width: 72px; }
+.helm-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; width: min(100%, 500px); }
+/* Yta, Periskop, Djup: the lit one is the kind of depth target. */
+.helm .helm-modes .touch-btn.helm-mode { min-width: 72px; height: 40px; font-size: 13px; }
+.helm .helm-modes .touch-btn.helm-mode.on { background: var(--accent); border-color: var(--accent); color: #02121c; }
+/* The plan line: what the crew does now; a tap opens the details. */
+.helm-plan {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 4px 10px;
+  font: inherit; font-size: 13px; text-align: left; color: var(--text); cursor: pointer;
+  background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 8px;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.helm-plan-name { flex: none; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); }
+.helm-plan-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.helm-plan-more { flex: none; color: var(--accent); }
+.helm-plan.open { border-color: var(--accent); background: rgba(95, 211, 255, 0.12); }
+.helm-plan.quiet .helm-plan-name { color: var(--warn); }
+.helm-plan.self, .helm-plan.hand .helm-plan-name { border-color: var(--warn); color: var(--warn); }
+.helm-plan-now { font-size: 14px; }
+.helm-plan-now .helm-plan-name { margin-right: 4px; }
+.helm-plan-details { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+.helm-plan-details:empty { display: none; }
+/* The buttons that take the manoeuvre over by hand: expert mode only. */
+.helm-panel:not(.expert) .helm-hand { display: none; }
+.helm-panel-crew[hidden] { display: none; }
 .fire-wires { display: flex; flex-direction: column; gap: 4px; }
 .fire-wires:empty { display: none; }
 .fire-wire-time { font-size: 11px; color: var(--muted); flex: 1 1 auto; white-space: nowrap; }
@@ -387,8 +403,8 @@ body.cutaway #log { display: none; }
 /* ======================================================================
    Compact layout (phones): src/ui/compact.ts uses the same query.
    A status bar instead of the instrument panel (a tap shows it), one log
-   line, one "Vyer" button, one Auto/Hand chip per axis, "System ▾" for the
-   three panels and a telegraph lever. Upright: depth on the left, course,
+   line, one "Vyer" button, the plan line (a tap shows the details), in
+   expert mode one Auto/Hand chip per axis, and a telegraph lever. Upright: depth on the left, course,
    buttons and lever on the right. Sideways: one group per thumb, the middle free.
    ====================================================================== */
 @media (max-width: 840px), (max-height: 500px) {
@@ -442,6 +458,7 @@ body.cutaway #log { display: none; }
     color: var(--accent); border-color: var(--accent);
   }
   .helm .touch-btn.helm-chip.hand { color: #02121c; background: var(--warn); border-color: var(--warn); }
+  .helm .touch-btn.helm-chip[hidden] { display: none; }
   .helm .touch-btn.helm-chip:disabled { opacity: 0.45; }
   .helm-readout { font-size: 13px; }
   .helm-depth-side { gap: 4px; justify-content: space-between; }
@@ -451,13 +468,13 @@ body.cutaway #log { display: none; }
   .helm-band-row { width: 100%; }
   .helm-band { flex: 1 1 auto; width: auto; min-width: 0; height: 40px; }
   .helm-course-btns:not([hidden]) { display: flex; }
-  .helm .touch-btn.helm-system { flex: 1 1 auto; }
   .helm-views { display: none; }
-  /* The depth scale's "13 m" does the same on phones, and four buttons do not fit. */
-  .helm .touch-btn.helm-perdepth { display: none; }
-  .helm-context { width: 100%; }
-  .helm .helm-context .touch-btn { flex: 1 1 0; min-width: 0 !important; height: 40px; padding: 0 4px; font-size: 14px; white-space: nowrap; }
-  .helm .helm-context .touch-btn.helm-system { font-size: 13px; }
+  .helm-actions { width: 100%; }
+  .helm-plan { width: 100%; min-height: 36px; font-size: 12px; gap: 6px; }
+  /* Two lines on phones rather than a cut sentence; the text says what the mode's name does. */
+  .helm-plan > .helm-plan-name { display: none; }
+  .helm-plan-text { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .helm .helm-modes .touch-btn.helm-mode { min-width: 0; height: 36px; font-size: 12px; padding: 0 6px; }
 
   /* The telegraph as a lever: a track with eight detents (three astern, stop, four ahead); the ordered one is the handle. */
   .helm-telegraph { width: 100%; gap: 2px; }
@@ -512,8 +529,9 @@ body.cutaway #log { display: none; }
   }
   .helm-centre { display: contents; }
   .helm-actions { grid-area: actions; align-self: end; }
-  .helm-actions .helm-context { flex-direction: column; width: auto; }
-  .helm .helm-actions .helm-context .touch-btn { flex: none; min-width: 84px !important; }
+  /* The plan line as a narrow card under the left thumb: up to three lines. */
+  .helm-actions { width: 150px; }
+  .helm-plan-text { -webkit-line-clamp: 3; }
   .helm-telegraph { grid-area: tele; }
   .helm-course { grid-area: course; }
   .helm-depth-scale { height: 116px; }

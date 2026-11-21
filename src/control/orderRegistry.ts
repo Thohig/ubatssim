@@ -51,6 +51,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       if (!c.ap.depth) c.resetDepthLoops();
       c.setpoints.depth = o.depth;
       c.ap.depth = true;
+      c.conn.onDepthOrder();
       c.checkBallastForDepth();
       c.ascent.onDepthOrder();
     },
@@ -178,6 +179,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       }
       c.setpoints.depth = depth;
       c.ap.depth = true;
+      c.conn.onDepthOrder();
       c.checkBallastForDepth();
     },
   },

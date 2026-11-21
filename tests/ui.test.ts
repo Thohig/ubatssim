@@ -34,7 +34,7 @@ const allCrew = (over: Partial<CrewDuties> = {}): CrewDuties => ({ ...(Object.fr
 
 const state = (over: Partial<MenuState> = {}): MenuState => ({
   settings: { ...DEFAULT_SETTINGS },
-  pauseInfo: { duties: allCrew(), locks: {} },
+  pauseInfo: { duties: allCrew(), locks: {}, expert: true, expertForced: false },
   result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312, selfHandled: ['trim', 'safetyNet'] },
   briefing: SCENARIOS.find((s) => s.id === 'trim-drill')!,
   order: { text: 'Ta er obemärkt genom sundet.', no: 417 },
@@ -122,18 +122,30 @@ describe('menu screens', () => {
     expect(a.textContent).toMatch(/Besättningen sköter allt/);
     expect(a.querySelector('[data-arg="crew"]')).not.toBeNull();
     const b = document.createElement('div');
-    b.innerHTML = SCREENS.pause(state({ pauseInfo: { duties: allCrew({ trim: false, depth: false, safetyNet: false }), locks: {} } })).value;
+    b.innerHTML = SCREENS.pause(state({ pauseInfo: { duties: allCrew({ trim: false, depth: false, safetyNet: false }), locks: {}, expert: true, expertForced: false } })).value;
     expect(b.textContent).toMatch(/Du sköter djup och trim\. Besättningen sköter resten\. Skyddsnätet är av\./);
   });
 
   it('☰ → Besättning has a choice per system, with locked choices disabled', () => {
     const div = document.createElement('div');
-    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew({ depth: false }), locks: { depth: false } } })).value;
-    expect(div.querySelectorAll('.crew-row').length).toBe(CREW_SYSTEMS.length);
+    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew({ depth: false }), locks: { depth: false }, expert: true, expertForced: true } })).value;
+    // The manoeuvre row first, then one per system.
+    expect(div.querySelectorAll('.crew-row').length).toBe(CREW_SYSTEMS.length + 1);
+    expect(div.querySelector<HTMLButtonElement>('[data-action="expert"][data-arg="0"]')!.disabled).toBe(true);
     expect(div.querySelector<HTMLButtonElement>('[data-arg="depth:1"]')!.disabled).toBe(true);
     expect(div.querySelector('[data-arg="depth:0"]')!.getAttribute('aria-pressed')).toBe('true');
     expect(div.querySelector<HTMLButtonElement>('[data-arg="trim:0"]')!.disabled).toBe(false);
     expect(div.textContent).toMatch(/Här styr du djupet själv/);
+  });
+
+  it('outside expert mode ☰ → Besättning shows only what the crew does besides the manoeuvre', () => {
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew(), locks: {}, expert: false, expertForced: false } })).value;
+    expect(div.querySelector('[data-arg="depth:0"]')).toBeNull();
+    expect(div.querySelector('[data-arg="charging:0"]')).not.toBeNull();
+    expect(div.querySelector('[data-arg="all:0"]')).toBeNull();
+    expect(div.querySelector('[data-action="expert"][data-arg="0"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(div.querySelector<HTMLButtonElement>('[data-action="expert"][data-arg="1"]')!.disabled).toBe(false);
   });
 
   it('the result says what the player handled', () => {
@@ -159,6 +171,7 @@ describe('menu screens', () => {
         toMainMenu: () => calls.push('main'),
         settingsChanged: (s) => calls.push(`settings ${s.timeScale}`),
         crewChange: (system, crew) => calls.push(`crew ${system} ${crew}`),
+        expertChange: (on) => calls.push(`expert ${on}`),
         introDone: () => calls.push('intro'),
         briefingDone: () => calls.push('briefing'),
         reload: () => calls.push('reload'),
@@ -173,10 +186,11 @@ describe('menu screens', () => {
     fog.checked = true;
     fog.dispatchEvent(new Event('change', { bubbles: true }));
     (root.querySelector('[data-action="free"]') as HTMLElement).click();
-    menu.setPauseInfo({ duties: allCrew(), locks: {} });
+    menu.setPauseInfo({ duties: allCrew(), locks: {}, expert: true, expertForced: false });
     menu.show('crew');
     (root.querySelector('[data-arg="trim:0"]') as HTMLElement).click();
-    expect(calls).toEqual(['free fjord sea fog calm', 'crew trim false']);
+    (root.querySelector('[data-action="expert"][data-arg="0"]') as HTMLElement).click();
+    expect(calls).toEqual(['free fjord sea fog calm', 'crew trim false', 'expert false']);
   });
 
   it('the briefing lists every objective; Besättning comes back to it, Till sjöss starts', () => {
@@ -185,11 +199,11 @@ describe('menu screens', () => {
     const noop = () => {};
     const menu = new Menu(
       root,
-      { startFree: noop, startScenario: noop, resume: noop, restart: noop, toMainMenu: () => calls.push('main'), settingsChanged: noop, crewChange: noop, introDone: noop, briefingDone: () => calls.push('briefing'), reload: noop, graphicsOk: noop },
+      { startFree: noop, startScenario: noop, resume: noop, restart: noop, toMainMenu: () => calls.push('main'), settingsChanged: noop, crewChange: noop, expertChange: noop, introDone: noop, briefingDone: () => calls.push('briefing'), reload: noop, graphicsOk: noop },
       { ...DEFAULT_SETTINGS },
     );
     const sc = SCENARIOS.find((s) => s.id === 'trim-drill')!;
-    menu.setPauseInfo({ duties: allCrew({ depth: false, trim: false }), locks: sc.locks ?? {} });
+    menu.setPauseInfo({ duties: allCrew({ depth: false, trim: false }), locks: sc.locks ?? {}, expert: true, expertForced: true });
     menu.showBriefing(sc);
     expect(root.querySelector('h2')!.textContent).toMatch(sc.title);
     const goals = [...root.querySelectorAll('.briefing-goals li')].map((li) => li.textContent ?? '');
@@ -270,6 +284,7 @@ describe('error and lost graphics', () => {
     toMainMenu: () => calls.push('main'),
     settingsChanged: () => {},
     crewChange: () => {},
+    expertChange: () => {},
     introDone: () => {},
     briefingDone: () => {},
     reload: () => calls.push('reload'),

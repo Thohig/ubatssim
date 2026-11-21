@@ -7,12 +7,12 @@
 import type { Simulation } from '../sim/simulation';
 import { DT } from '../sim/simulation';
 import { Autopilot, type AutopilotInput } from './autopilot';
-import { CREW_SYSTEMS, LOCK_TEXT, isAxis, type CrewDuties, type CrewLocks, type CrewSystem } from './crew';
+import { CREW_SYSTEMS, EXPERT_TEXT, LOCK_TEXT, MANOEUVRE_SYSTEMS, isAxis, type CrewDuties, type CrewLocks, type CrewSystem } from './crew';
 import { OrderQueue } from './orderQueue';
 import { acknowledgement, type Order, type OrderSource } from './orders';
 import { BRIDGE_FREEBOARD, ORDERS, type Kinematics, type OrderRule } from './orderRegistry';
 import { CHARGE_STOP, PlantWatch } from './plantWatch';
-import { HOVER } from './hover';
+import { CONN, Conn } from './conn';
 import { TrimAssist } from './trimAssist';
 import { Radar } from './radar';
 import { Lookouts } from './lookouts';
@@ -27,7 +27,7 @@ import { World } from '../sim/world';
 
 const DEG = Math.PI / 180;
 /** Depth targets from this depth [m] need flooded main ballast. */
-const DIVE_TARGET_DEPTH = 5;
+const DIVE_TARGET_DEPTH = CONN.diveTargetDepth;
 /**
  * Deeper than this [m] the crew blows the forward main ballast first and the
  * after tanks `STAGED_BLOW_DELAY` seconds later. Blown together, the after
@@ -51,30 +51,14 @@ export const SURFACE_BLOW_DEPTH = 15;
 const AWASH_DEPTH = 5;
 const AWASH_TIME = 60;
 const AWASH_HINT_EVERY = 120;
-/** Seconds after touching the bottom during which the stall watch does not run the engine up. */
-const GROUNDED_QUIET = 120;
-/** Water under the keel [m] below which the stall watch does not run the engine up either. */
-const NEAR_BOTTOM = 10;
 /** Seconds without a new "Grundstötning!" line after one. */
 const GROUNDING_LOG_QUIET = 20;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
-const SURFACE_HOLD_DEPTH = 6;
+const SURFACE_HOLD_DEPTH = CONN.surfaceHoldDepth;
 const KNOT = 1852 / 3600;
 /** Stopp backs full until the speed through the water is below this [m/s] (~1 knot). */
-const CRASH_STOP_UNTIL = 0.5;
 /** A blow deeper than this [m] is heard by the corvettes (the high-pressure air roaring into the tanks). */
 const BLOW_HEARD_DEPTH = 20;
-/** Speed [knots] at which the planes can change the depth, and seconds stalled before the crew says so. */
-const PLANES_SPEED = 4;
-const STALL_TIME = 30;
-/** Fraction of full stern planes that counts as hard over for the stall watch. */
-const STALL_PLANES = 0.85;
-const STALL_HINT_EVERY = 120;
-/** Off the depth target by more than this [m], hard-over planes count as stalled (1 m matters at periscope depth). */
-const STALL_MIN_ERROR = 1;
-/** The boost ends when the depth has been within this of the target [m] for `DEPTH_SETTLE` seconds (not just passed through it). */
-const DEPTH_REACHED = 0.5;
-const DEPTH_SETTLE = 30;
 /** The crew starts the diesels below this state of charge (and stops them at `CHARGE_STOP`, plantWatch.ts). */
 const CHARGE_START = 0.95;
 
@@ -136,6 +120,8 @@ export class Controller {
   readonly radar: Radar = new Radar(this);
   /** Coming up from the deep in steps: rise, level off and listen, go up (ascent.ts). */
   readonly ascent: Ascent = new Ascent(this);
+  /** The officer of the watch: turns speed, course and depth into planes, rudder and shaft (conn.ts). */
+  readonly conn: Conn = new Conn(this);
   /** Patrol aircraft and coastal radar stations looking for the boat (lookouts.ts). */
   readonly lookouts: Lookouts = new Lookouts(this);
   /** Logs what the plant does on its own (plantWatch.ts). */
@@ -183,6 +169,7 @@ export class Controller {
       for (const [s, crew] of Object.entries(rule.effects?.(o, this) ?? {}) as [CrewSystem, boolean][]) {
         const lock = this.options.locks[s];
         if (lock !== undefined && lock !== crew) return LOCK_TEXT[s][lock ? 0 : 1];
+        if (!crew && !this.options.expert && MANOEUVRE_SYSTEMS.includes(s)) return EXPERT_TEXT;
       }
     }
     return rule.refuse?.(this, o) ?? null;
@@ -205,9 +192,20 @@ export class Controller {
    * Controller has the player handling everything (as tests expect); a game
    * starts with `crewTakesAll()`.
    */
-  options: { crew: { ballast: boolean; trim: boolean; charging: boolean; fireControl: boolean; torpedoRoom: boolean; safetyNet: boolean }; locks: CrewLocks } = {
+  options: {
+    crew: { ballast: boolean; trim: boolean; charging: boolean; fireControl: boolean; torpedoRoom: boolean; safetyNet: boolean };
+    locks: CrewLocks;
+    /**
+     * Expert mode: the player may take the manoeuvre (`MANOEUVRE_SYSTEMS`: planes, rudder, shaft, ballast,
+     * trim, safety net) over by hand. Without it the crew always manoeuvres and the player gives only speed,
+     * course and depth; orders that would take it over are refused. A new Controller is in expert mode (as
+     * tests expect); a game follows the player's setting (`GameSession`).
+     */
+    expert: boolean;
+  } = {
     crew: { ballast: false, trim: false, charging: false, fireControl: false, torpedoRoom: false, safetyNet: false },
     locks: {},
+    expert: true,
   };
 
   /** True if the crew handles the system now. */
@@ -310,43 +308,12 @@ export class Controller {
       speed: tel.u,
     };
 
-    // Surfaced with empty main ballast and a shallow target, the boat simply floats:
-    // the depth autopilot keeps the planes at zero instead of fighting ~200 t of buoyancy.
-    this.surfaceHold = this.ap.depth && this.setpoints.depth < DIVE_TARGET_DEPTH && tel.depth < SURFACE_HOLD_DEPTH && this.mainBallastEmpty();
-    // Hovering (hover.ts): without speed the planes do nothing, so they rest at zero and the loops do not wind up.
-    const planesRest = this.surfaceHold || this.hovering;
-    if (planesRest) this.resetDepthLoops();
-    sim.commands.sternPlanes = planesRest
-      ? 0
-      : this.ap.depth
-        ? this.autopilot.planes(this.depthGoal, input, DT, this.ascent.maxPitch() ?? undefined)
-        : this.manual.planes * DEG;
-    sim.commands.rudder = this.ap.heading ? this.autopilot.rudder((this.ascent.headingGoal() ?? this.setpoints.heading) * DEG, input, DT) : this.manual.rudder * DEG;
-
-    const { maxRps, maxRpsAstern, maxRpsBrake, brakeSpeed } = sim.cfg.propulsion;
-    // Still going ahead the drive may brake harder astern than it may run stern first.
-    const astern = tel.u > brakeSpeed ? maxRpsBrake : maxRpsAstern;
-    let target: number;
-    this.watchDepthStall(tel);
+    this.conn.steer(tel, input);
+    this.conn.watchDepthStall(tel, this.lastGroundedAt);
     this.watchAwash(tel);
     this.watchAscent(tel);
-    // Stopp, as a crew does it: full astern until the way is almost off, then the shaft to zero.
-    // Not while the engine gives the planes speed (`depthBoost`): the two fought, and a boat stopped deep
-    // and told to surface swung between 0 and 2 knots and sank slowly instead of coming up.
-    const crashStop = this.ap.speed && this.setpoints.speed === 0 && !this.depthBoost && !this.ascent.active && tel.u > CRASH_STOP_UNTIL;
-    if (this.crashStopping && !crashStop) this.autopilot.speedPid.reset();
-    this.crashStopping = crashStop;
-    if (crashStop) {
-      target = -astern;
-    } else if (this.ap.speed) {
-      // While the crew lifts the boat with too little speed for the planes, the engine gives at least `PLANES_SPEED`.
-      // Coming up from the deep, the crew runs its own speeds (ascent.ts).
-      const v = this.runSpeed() * KNOT;
-      target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT, -astern, maxRps);
-    } else {
-      target = this.manual.rpm / 60;
-    }
-    target = Math.max(-astern, Math.min(maxRps, target));
+    this.conn.watchHeld();
+    const target = this.conn.drive(tel, input);
     const slew = this.autopilot.tuning.rpsSlew * DT;
     this.rpsCmd += Math.max(-slew, Math.min(slew, target - this.rpsCmd));
     sim.commands.rps = this.rpsCmd;
@@ -417,85 +384,6 @@ export class Controller {
   private grounded = false;
   private lastGroundingLog = -Infinity;
   private lastGroundedAt = -Infinity;
-
-  /** True while Stopp runs the shaft full astern to take the way off. */
-  private crashStopping = false;
-
-  /** Seconds the depth autopilot has had the planes hard over without the depth changing. */
-  private stalled = 0;
-  private lastStallHint = -Infinity;
-  /** The engine runs at least `PLANES_SPEED` until the depth target is reached (the crew handles the speed). */
-  depthBoost = false;
-  /** Seconds the boosted boat has been within `DEPTH_REACHED` of the target. */
-  private boostSettled = 0;
-  /** Depth target and speed a boost last ended at; a second stall there keeps the boost (`boostHeld`). */
-  private boostEndedAt: { depth: number; speed: number } | null = null;
-  /** The boost stays until the depth target or the speed is changed (the planes stalled twice at them). */
-  private boostHeld = false;
-
-  /**
-   * The planes' lift grows with the speed squared: at 3 knots they cannot
-   * lift or push the boat far. When the depth autopilot has held the planes
-   * hard over for `STALL_TIME` seconds, more than `STALL_MIN_ERROR` off the
-   * target and without the depth changing, it says so; if the crew handles
-   * the speed too, the engine goes up to `PLANES_SPEED` until the depth has
-   * been reached for `DEPTH_SETTLE` seconds and then back to the player's
-   * speed. Should the planes stall again at the same depth target and speed
-   * (a raised mast at periscope depth, say), the crew keeps `PLANES_SPEED`
-   * until the player changes either.
-   */
-  private watchDepthStall(k: Kinematics): void {
-    const sim = this.sim;
-    const sp = this.setpoints;
-    const err = this.depthGoal - k.depth;
-    this.boostSettled = this.depthBoost && Math.abs(err) < DEPTH_REACHED ? this.boostSettled + DT : 0;
-    if (this.depthBoost) {
-      const changed = this.boostHeld && (sp.depth !== this.boostEndedAt?.depth || sp.speed !== this.boostEndedAt?.speed);
-      const reached = !this.boostHeld && this.boostSettled >= DEPTH_SETTLE;
-      if (!this.ap.depth || !this.ap.speed || changed || reached) {
-        this.depthBoost = false;
-        this.boostSettled = 0;
-        this.boostHeld = false;
-        this.boostEndedAt = reached ? { depth: sp.depth, speed: sp.speed } : null;
-        // The depth and pitch integrals hold a bow angle for the old speed.
-        this.resetDepthLoops();
-        if (this.ap.speed && sp.speed < PLANES_SPEED) {
-          this.addLog(`${reached ? 'Djupet nått. ' : ''}Maskinen går tillbaka till ${sp.speed.toString().replace('.', ',')} knop.`, 'info');
-        }
-      }
-    }
-    // Nearly hard over counts too: a boat stuck at 24° of 25° is just as stuck. The depth integral stops at 90 %
-    // (autopilot.ts), so a stuck boat rests right there: the watch starts a little below.
-    const hardOver = Math.abs(sim.commands.sternPlanes) >= STALL_PLANES * this.autopilot.tuning.pitch.maxPlanes;
-    const stuck = this.ap.depth && !this.surfaceHold && Math.abs(err) > STALL_MIN_ERROR && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
-    // On or near the bottom the planes are not what holds the boat: no engine boost into the ground.
-    const nearBottom = sim.t - this.lastGroundedAt < GROUNDED_QUIET || sim.ground(sim.y[0]!, sim.y[1]!) - (k.depth + sim.cfg.hull.radius) < NEAR_BOTTOM;
-    this.stalled = stuck && !nearBottom ? this.stalled + DT : 0;
-    if (this.stalled < STALL_TIME || this.depthBoost || this.ascent.active || this.hovering) return;
-    // Stopped on purpose (quiet): the crew hovers if it has the trim (returned above once it does); a player
-    // handling the trim is told how. Where hovering is not possible (shallow, ballast not full) the engine helps.
-    const stopped = this.ap.speed && sp.speed >= 0 && sp.speed <= HOVER.maxOrderedSpeed;
-    if (stopped && !this.options.crew.trim) {
-      if (sim.t - this.lastStallHint > STALL_HINT_EVERY) {
-        this.lastStallHint = sim.t;
-        this.addLog('Ubåten har ingen fart, så djuprodren verkar inte. Ändra djupet med In och Ut i panelen Trim, eller öka farten.', 'error');
-      }
-    } else if (this.ap.speed && sp.speed >= 0 && sp.speed < PLANES_SPEED) {
-      this.depthBoost = true;
-      this.boostHeld = this.boostEndedAt !== null && this.boostEndedAt.depth === sp.depth && this.boostEndedAt.speed === sp.speed;
-      this.boostEndedAt = this.boostHeld ? { depth: sp.depth, speed: sp.speed } : null;
-      this.resetDepthLoops();
-      this.addLog(
-        this.boostHeld
-          ? `Djuprodren orkar inte heller nu. Maskinen håller ${PLANES_SPEED} knop tills djup eller fart ändras.`
-          : `Djuprodren orkar inte vid den här farten. Maskinen ökar till ${PLANES_SPEED} knop tills djupet är nått.`,
-        'info',
-      );
-    } else if (sim.t - this.lastStallHint > STALL_HINT_EVERY) {
-      this.lastStallHint = sim.t;
-      this.addLog(`Djuprodren orkar inte vid den här farten. Öka till minst ${PLANES_SPEED} knop.`, 'error');
-    }
-  }
 
   /** The speed target when the boat caught a trawl, to go back to once free (the crew backing out). */
   private speedBeforeSnag: number | null = null;
@@ -587,42 +475,38 @@ export class Controller {
     if (this.blowCommitted && depth < SURFACE_HOLD_DEPTH) this.blowCommitted = false;
   }
 
-  /** The speed the speed autopilot runs at [knots]: the ordered one, or the crew's own while it rises or boosts the planes. */
-  private runSpeed(): number {
-    const kn = this.ascent.speedGoal(this.setpoints.speed) ?? this.setpoints.speed;
-    return this.depthBoost ? Math.max(kn, PLANES_SPEED) : kn;
-  }
-
-  /**
-   * The speed the crew runs for a while instead of the ordered one [knots], and why (the telegraph's Auto lamp),
-   * or null. The ordered speed is unchanged, so the telegraph goes back to it when this ends.
-   */
+  /** The speed the crew runs for a while instead of the ordered one, and why (conn.ts), or null. */
   crewSpeed(): { knots: number; reason: string } | null {
-    if (!this.ap.speed) return null;
-    const kn = this.runSpeed();
-    if (kn === this.setpoints.speed) return null;
-    const phase = this.ascent.phase;
-    const reason = phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : 'för djuprodren';
-    return { knots: kn, reason };
+    return this.conn.crewSpeed();
   }
 
-  /** The depth the depth autopilot steers for now [m]: the setpoint, or the levelling depth of an ascent. */
+  /** The depth the depth autopilot steers for now [m] (conn.ts). */
   get depthGoal(): number {
-    return this.ascent.depthGoal(this.setpoints.depth);
+    return this.conn.depthGoal;
   }
 
   get hovering(): boolean {
-    return this.assist.hover.active && this.options.crew.trim && this.ap.depth;
+    return this.conn.hovering;
   }
 
-  /**
-   * True while the depth autopilot holds the boat on the surface: planes at
-   * zero, the boat floats (shown as "→ yta" on the instruments).
-   */
-  surfaceHold = false;
+  /** True while the depth autopilot holds the boat on the surface (conn.ts; "→ yta" on the instruments). */
+  get surfaceHold(): boolean {
+    return this.conn.surfaceHold;
+  }
+
+  /** The engine runs at least 4 knots for the planes (conn.ts). */
+  get depthBoost(): boolean {
+    return this.conn.depthBoost;
+  }
+
+  /** True while a normal ascent to the surface waits to blow the main ballast at 15 m. */
+  get blowingOnRise(): boolean {
+    return this.blowOnRise;
+  }
 
   /** Main ballast (mostly) empty, with vents and blows shut: the boat floats on the surface. */
-  private mainBallastEmpty(): boolean {
+  /** @internal For conn.ts. */
+  mainBallastEmpty(): boolean {
     const sim = this.sim;
     return sim.tankDefs.every((d, i) => {
       const s = sim.tanks[i]!;
@@ -639,7 +523,7 @@ export class Controller {
   private watchAscent(k: Kinematics): void {
     if (this.blowOnRise) {
       if (!this.ap.depth || this.setpoints.depth >= DIVE_TARGET_DEPTH) this.blowOnRise = false;
-      else if (k.depth <= SURFACE_BLOW_DEPTH) this.checkBallastForSurface();
+      else if (k.depth <= SURFACE_BLOW_DEPTH && !this.conn.surfaceHeld) this.checkBallastForSurface();
     }
   }
   /** Seconds the boat has hung awash although it should dive (see `AWASH_DEPTH`). */
@@ -747,6 +631,11 @@ export class Controller {
     });
     if (!flooded || sim.tanks.some((t) => t.blowOpen)) {
       this.blowOnRise = false;
+      return;
+    }
+    // A corvette is on to the boat: it waits at periscope depth and blows once nobody hunts (conn.ts).
+    if (this.conn.surfaceHeld) {
+      this.blowOnRise = true;
       return;
     }
     if (sim.kinematics().depth > SURFACE_BLOW_DEPTH) {

@@ -153,3 +153,32 @@ describe('the demo behind the start page', () => {
     expect(d.ctrl.blasts).toHaveLength(0);
   });
 });
+
+describe('expert mode', () => {
+  it('off, the crew always manoeuvres and hand orders are refused; on, the player may take over', () => {
+    const g = free();
+    g.setExpert(false);
+    g.ctrl.submit({ kind: 'rudder', angle: 10 }, 'touch');
+    g.step();
+    expect(g.ctrl.ap.heading).toBe(true);
+    expect(g.ctrl.log.some((e) => /Expertläge/.test(e.text))).toBe(true);
+    g.setExpert(true);
+    g.ctrl.submit({ kind: 'rudder', angle: 10 }, 'touch');
+    g.step();
+    expect(g.ctrl.ap.heading).toBe(false);
+    // Off again: the crew takes the rudder back.
+    g.setExpert(false);
+    g.step();
+    expect(g.ctrl.ap.heading).toBe(true);
+  });
+
+  it('a scenario that makes the player steer is played in expert mode', () => {
+    const trim = SCENARIOS.find((s) => s.id === 'trim-drill')!;
+    const g = new GameSession(scenarioSpec(trim, ''));
+    expect(g.expertForced).toBe(true);
+    g.setExpert(false);
+    expect(g.ctrl.options.expert).toBe(true);
+    const dive = SCENARIOS.find((s) => s.id === 'first-dive')!;
+    expect(new GameSession(scenarioSpec(dive, '')).expertForced).toBe(false);
+  });
+});

@@ -20,11 +20,17 @@
 import { ENVIRONMENT } from '../sim/config/environment';
 import { DT } from '../sim/simulation';
 import type { Controller } from './controller';
-import { Hover } from './hover';
+import { HOVER, Hover } from './hover';
 
 const DEG = Math.PI / 180;
 
 export const ASSIST = {
+  /** Share of the expected change in heaviness pumped ahead of a depth change (the rest is measured). */
+  anticipateFraction: 0.8,
+  /** Smaller expected changes than this are left to the measured compensation [kg]. */
+  anticipateMinKg: 150,
+  /** Largest compensation ahead of a depth change [l]. */
+  anticipateMaxLitres: 2000,
   /** Time between evaluations [s]. */
   interval: 1,
   /** Net buoyancy filter time constant [s]. */
@@ -130,6 +136,8 @@ export class TrimAssist {
 
   /** Depth without speed: the compensating tank instead of the planes. */
   readonly hover: Hover;
+  /** Ground rises ahead faster than the boat can climb (the last safety-net check): the crew brakes astern. */
+  shoalDanger = false;
 
   constructor(private readonly ctrl: Controller) {
     this.hover = new Hover(ctrl);
@@ -205,6 +213,7 @@ export class TrimAssist {
       depth >= ASSIST.minDepth &&
       u > 1 &&
       limits.some((x) => x.distance > 0 && depth - x.limit > ASSIST.climbRate * (x.distance / u));
+    this.shoalDanger = danger;
     if (!danger) {
       if (sim.t - this.shoalSince > ASSIST.shoalRearm) this.shoalArmed = true;
       return;
@@ -252,6 +261,34 @@ export class TrimAssist {
     } else if (underKeel > ASSIST.keelRearm) {
       this.keelArmed = true;
     }
+  }
+
+  /**
+   * Compensates ahead of a depth change, as a trimming officer does who knows the water: the hull is
+   * squeezed deeper down (heavier) and the water is denser below a layer (lighter). The change from
+   * `from` to `to` [m] is pumped at once (`ASSIST.anticipateFraction` of it), on top of any compensation
+   * under way, so the boat arrives nearly neutral instead of hanging under or over the layer for minutes.
+   * Only while the crew handles the trim, submerged with flooded main ballast and way on (hovering
+   * compensates by itself).
+   */
+  anticipate(from: number, to: number): void {
+    const ctrl = this.ctrl;
+    const sim = ctrl.sim;
+    if (!ctrl.options.crew.trim || this.hover.wanted() || (ctrl.ap.speed && ctrl.setpoints.speed <= HOVER.maxOrderedSpeed)) return;
+    if (from < ASSIST.minDepth || to < ASSIST.minDepth) return;
+    const t = sim.telemetry();
+    if (t.submergedFraction < 0.999 || t.grounded || !t.tanks.every((x) => x.kind !== 'mainBallast' || (x.fill > 0.98 && !x.blowOpen))) return;
+    const heavier = sim.heavinessChange(from, to) * ASSIST.anticipateFraction;
+    if (Math.abs(heavier) < ASSIST.anticipateMinKg) return;
+    // Heavier there → pump out now. Compensating water has surface density.
+    const litres = Math.round((-heavier / (sim.water.rhoSurface / 1000) + sim.compRemaining * 1000) / 10) * 10;
+    const most = ASSIST.anticipateMaxLitres;
+    const portion = Math.max(-most, Math.min(most, litres));
+    if (portion === 0) return;
+    ctrl.addLog(`Trimmet förbereds för ${Math.round(to)} m: ${heavier > 0 ? 'tyngre' : 'lättare'} där.`, 'info', 'assist');
+    ctrl.submit({ kind: 'compensate', litres: portion }, 'assist');
+    this.compIdleSince = sim.t;
+    this.netFiltered = null;
   }
 
   private compensate(): void {

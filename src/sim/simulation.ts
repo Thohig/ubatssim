@@ -457,6 +457,22 @@ export class Simulation {
   }
 
   /** Remaining compensating transfer [m^3], positive = flood from sea. */
+  /**
+   * How much heavier [kg] the boat becomes going from depth `from` to `to` [m], level, with the main
+   * ballast flooded and nothing else changed: the hull is compressed and the water's density changes
+   * (the layers). Positive = heavier. Pure: does not touch the state. The crew uses it to compensate
+   * ahead of a depth change (trimAssist.ts).
+   */
+  heavinessChange(from: number, to: number): number {
+    const heaviness = (z: number): number => {
+      const hs = restoringForces(this.hull, [0, 0, z], mat3Diag(1, 1, 1), 0, [0, 0, 0], this.cfg.hull.compressibility, this.water);
+      let mbt = 0;
+      for (const d of this.tankDefs) if (d.kind === 'mainBallast') mbt += d.volume;
+      return mbt * waterDensity(z, this.water) - hs.buoyancy / E.g;
+    };
+    return heaviness(to) - heaviness(from);
+  }
+
   get compRemaining(): number {
     return this.systems.pumps.compRemaining;
   }

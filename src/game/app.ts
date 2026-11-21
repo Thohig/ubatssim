@@ -80,11 +80,12 @@ export function startApp(): void {
 
   /** The first log lines of a game: the crew handles everything, and where to take over. */
   const HELP_HINT =
-    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna panelerna Ballast, Trim, Fart och El under System ▾ för att sköta något själv. ☰ → Hjälp förklarar.';
+    'Besättningen sköter ubåten. Välj fart, kurs och djup med kontrollerna längst ner, så väljer besättningen hur. Planraden säger vad den gör. ☰ → Hjälp förklarar.';
 
   /** Shows a session: log, instruments, sound, camera, buoy, ships and the area. */
   const attach = (s: GameSession): GameSession => {
     const { sim, ctrl, runner } = s;
+    s.setExpert(settings.expert);
     bindLog(logEl, ctrl);
     setInstrumentsOpen(false);
     updateInstruments = createInstruments(instrumentsEl, ctrl);
@@ -148,6 +149,14 @@ export function startApp(): void {
         saveSettings(s);
         applySettings();
       },
+      expertChange(on) {
+        settings = { ...settings, expert: on };
+        saveSettings(settings);
+        menu.setSettings(settings);
+        session.setExpert(on);
+        menu.setPauseInfo(pauseInfo());
+        menu.show('crew');
+      },
       crewChange(system, crew) {
         // An order like any other: carried out when the game continues (the menu shows it already).
         session.ctrl.submit({ kind: 'crew', system, crew }, 'touch');
@@ -197,7 +206,7 @@ export function startApp(): void {
     flow.go('playing');
   }
 
-  const pauseInfo = () => ({ duties: session.ctrl.pendingDuties(), locks: session.ctrl.options.locks });
+  const pauseInfo = () => ({ duties: session.ctrl.pendingDuties(), locks: session.ctrl.options.locks, expert: session.ctrl.options.expert, expertForced: session.expertForced });
 
   function showPause(): void {
     menu.setPauseInfo(pauseInfo());

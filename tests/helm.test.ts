@@ -47,9 +47,9 @@ const press = (el: Element) => {
 };
 const byTitle = (root: Element, title: string) => root.querySelector<HTMLButtonElement>(`button[title="${title}"]`)!;
 const tabOf = (root: Element, name: string) => [...root.querySelectorAll<HTMLButtonElement>('.helm-tab')].find((t) => t.textContent === name)!;
-/** Opens a panel as the player does: System ▾, then its tab. Returns the tab. */
+/** Opens a panel as the player does: the plan line, then its tab. Returns the tab. */
 const openPanel = (root: Element, name: string) => {
-  if (root.querySelector<HTMLElement>('.helm-panel')!.hidden) press(root.querySelector('.helm-system')!);
+  if (root.querySelector<HTMLElement>('.helm-panel')!.hidden) root.querySelector<HTMLButtonElement>('.helm-plan')!.click();
   const tab = tabOf(root, name);
   if (!tab.classList.contains('on')) tab.click();
   return tab;
@@ -127,11 +127,11 @@ describe('screen controls with the crew', () => {
     expect([...root.querySelectorAll('.helm-bell.near')].map((b) => b.getAttribute('title'))).toEqual(['Sakta fram', 'Halv fram']);
   });
 
-  it('while the crew runs its own speed the bells dim, Auto lights, and the telegraph goes back to the ordered bell', () => {
+  it('while the crew runs its own speed the bells dim, the readout says why, and the telegraph goes back to the ordered bell', () => {
     const c = crewGame({ depth: 60, designTrim: true });
     const { root, refresh } = helm(c);
     const tele = root.querySelector('.helm-telegraph')!;
-    const lamp = root.querySelector('.helm-auto')!;
+    const lamp = root.querySelector('.helm-telegraph .helm-readout')!;
     c.submit({ kind: 'setSpeed', knots: 0 }, 'touch');
     c.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, 'touch');
     c.step();
@@ -139,7 +139,7 @@ describe('screen controls with the crew', () => {
     refresh();
     expect(c.crewSpeed()).toEqual({ knots: 8, reason: 'stiger' });
     expect(tele.classList.contains('crew')).toBe(true);
-    expect(lamp.classList.contains('on')).toBe(true);
+    expect(tele.classList.contains('crew')).toBe(true);
     expect(lamp.getAttribute('title')).toMatch(/8 knop \(stiger\)/);
     // The ordered bell keeps its place (an outline): that is where the telegraph goes back.
     expect(root.querySelector('.helm-bell.on')?.getAttribute('title')).toBe('Stopp');
@@ -151,15 +151,15 @@ describe('screen controls with the crew', () => {
     refresh();
     expect(c.crewSpeed()).toBeNull();
     expect(tele.classList.contains('crew')).toBe(false);
-    expect(lamp.classList.contains('on')).toBe(false);
+    expect(lamp.getAttribute('title')).toBe('');
     expect(root.querySelector('.helm-bell.on')?.getAttribute('title')).toBe('Stopp');
 
     // The planes need way: at least 4 knots over an ordered Stopp.
-    c.depthBoost = true;
+    c.conn.depthBoost = true;
     refresh();
     expect(c.crewSpeed()).toEqual({ knots: 4, reason: 'för djuprodren' });
-    expect(lamp.classList.contains('on')).toBe(true);
-    c.depthBoost = false;
+    expect(tele.classList.contains('crew')).toBe(true);
+    c.conn.depthBoost = false;
   });
 
   it('a dimmed bell still takes an order, and it holds at once', () => {
@@ -220,19 +220,22 @@ describe('screen controls with the crew', () => {
     expect(c.setpoints.heading).toBe(90);
   });
 
-  it('Dyk/Yta follows the main ballast', () => {
+  it('Yta, Periskop and Djup: the lit one follows the depth target', () => {
     const surfaced = crewGame({});
-    const a = helm(surfaced).root.querySelector('.helm-ballast')!;
-    expect(a.textContent).toBe('Dyk');
-    press(a);
+    const r = helm(surfaced);
+    const mode = (label: string) => [...r.root.querySelectorAll<HTMLButtonElement>('.helm-mode')].find((b) => b.textContent === label)!;
+    expect(mode('Yta').classList.contains('on')).toBe(true);
+    // Djup from the surface: the crew floods the main ballast for the first deep target.
+    press(mode('Djup'));
     surfaced.step();
-    expect(surfaced.log.some((e) => e.text.startsWith('Dyk'))).toBe(true);
+    r.refresh();
+    expect(surfaced.setpoints.depth).toBe(50);
+    expect(surfaced.log.some((e) => e.text === 'Huvudballasten fylls för dykning.')).toBe(true);
+    expect(mode('Djup').classList.contains('on')).toBe(true);
 
     const dived = crewGame({ depth: 40, designTrim: true });
     const { root } = helm(dived);
-    const b = root.querySelector('.helm-ballast')!;
-    expect(b.textContent).toBe('Yta');
-    press(b);
+    press([...root.querySelectorAll<HTMLButtonElement>('.helm-mode')].find((b) => b.textContent === 'Yta')!);
     dived.step();
     // A normal ascent: the surface as the target, the main ballast blown only near the surface.
     expect(dived.setpoints.depth).toBe(0);
@@ -240,20 +243,64 @@ describe('screen controls with the crew', () => {
     expect(dived.log.some((e) => /Stigning till ytan/.test(e.text))).toBe(true);
   });
 
-  it('Håll keeps the present course and depth; ▲ makes the depth target 5 m shallower', () => {
+  it('Periskop goes to periscope depth and Djup back to the last deep target', () => {
     const c = crewGame({ depth: 42, designTrim: true, speed: 4 * KN });
     c.submit({ kind: 'setDepth', depth: 100 }, 'keyboard');
     c.step();
-    const { root } = helm(c);
-    press(byTitle(root, 'Håll nuvarande kurs och djup'));
+    const { root, refresh } = helm(c);
+    const mode = (label: string) => [...root.querySelectorAll<HTMLButtonElement>('.helm-mode')].find((b) => b.textContent === label)!;
+    press(mode('Periskop'));
     c.step();
-    expect(c.setpoints.depth).toBe(42);
-    press(byTitle(root, 'Djup 5 m grundare'));
-    c.step();
-    expect(c.setpoints.depth).toBe(37);
-    press(byTitle(root, `Periskopdjup, ${PERISCOPE_DEPTH} m`));
-    c.step();
+    refresh();
     expect(c.setpoints.depth).toBe(PERISCOPE_DEPTH);
+    expect(mode('Periskop').classList.contains('on')).toBe(true);
+    expect(mode('Periskop').getAttribute('aria-pressed')).toBe('true');
+    press(mode('Djup'));
+    c.step();
+    expect(c.setpoints.depth).toBe(100);
+  });
+
+  it('the plan line says what the boat does and opens the details', () => {
+    const c = crewGame({ depth: 60, designTrim: true, speed: 6 * KN });
+    c.submit({ kind: 'setSpeed', knots: 6 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: 100 }, 'touch');
+    c.step();
+    const { root, refresh } = helm(c);
+    const plan = root.querySelector<HTMLButtonElement>('.helm-plan')!;
+    expect(plan.textContent).toMatch(/Djupbyte.*Går ned till 100 m/);
+    expect(plan.getAttribute('aria-expanded')).toBe('false');
+    plan.click();
+    refresh();
+    const panel = root.querySelector<HTMLElement>('.helm-panel')!;
+    expect(panel.hidden).toBe(false);
+    expect(plan.getAttribute('aria-expanded')).toBe('true');
+    expect(tabOf(root, 'Manöver').classList.contains('on')).toBe(true);
+    // The manoeuvre panel has no crew header: it shows the planes, rudder and shaft.
+    expect(root.querySelector<HTMLElement>('.helm-panel-crew')!.hidden).toBe(true);
+    expect(panel.textContent).toMatch(/Djuproder/);
+    expect(panel.textContent).toMatch(/→ 100 m/);
+  });
+
+  it('outside expert mode the hand controls and the manoeuvre\'s Ta över are gone; El keeps its own', () => {
+    const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
+    c.options.expert = false;
+    const { root, refresh } = helm(c);
+    expect(root.querySelector<HTMLElement>('.helm-switch')!.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>('.helm-chip')!.hidden).toBe(true);
+    openPanel(root, 'Trim');
+    refresh();
+    const panel = root.querySelector<HTMLElement>('.helm-panel')!;
+    expect(panel.classList.contains('expert')).toBe(false);
+    const toggle = () => [...panel.querySelectorAll<HTMLButtonElement>('.helm-panel-crew button')].find((b) => /Ta över|Lämna/.test(b.textContent ?? ''))!;
+    expect(toggle().hidden).toBe(true);
+    openPanel(root, 'El');
+    refresh();
+    expect(toggle().hidden).toBe(false);
+    // A hand order is refused, and says how to get expert mode.
+    c.submit({ kind: 'compensate', litres: -100 }, 'touch');
+    c.step();
+    expect(c.options.crew.trim).toBe(true);
+    expect(c.log.at(-1)!.text).toMatch(/Expertläge/);
   });
 });
 
@@ -533,23 +580,23 @@ describe('the phone layout', () => {
     expect(byTitle(helm(locked).root, 'Djup: växla mellan Auto och Hand').disabled).toBe(true);
   });
 
-  it('"System ▾" opens the panel last shown; the tabs switch between the three', () => {
+  it('the plan line opens the panel last shown; the tabs switch between them', () => {
     const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
     const { root, refresh } = helm(c);
-    const system = root.querySelector<HTMLButtonElement>('.helm-system')!;
+    const system = root.querySelector<HTMLButtonElement>('.helm-plan')!;
     const panel = root.querySelector<HTMLElement>('.helm-panel')!;
     const tab = (name: string) => [...root.querySelectorAll<HTMLButtonElement>('.helm-tab')].find((t) => t.textContent === name)!;
-    press(system);
+    system.click();
     refresh();
     expect(panel.hidden).toBe(false);
-    expect(tab('Ballast').classList.contains('on')).toBe(true);
+    expect(tab('Manöver').classList.contains('on')).toBe(true);
     tab('Fart').click();
     refresh();
     expect(panel.textContent).toMatch(/rpm/);
     expect(tab('Fart').getAttribute('aria-selected')).toBe('true');
-    press(system);
+    system.click();
     expect(panel.hidden).toBe(true);
-    press(system);
+    system.click();
     expect(tab('Fart').classList.contains('on')).toBe(true);
     // A system the player handles marks its tab and the button.
     press(byTitle(root, 'Propellervarv +10 rpm'));
@@ -592,7 +639,7 @@ describe('the phone layout', () => {
 describe('the panels', () => {
   it('one button opens the panels, on phones and computers alike', () => {
     const { root } = helm(crewGame());
-    expect(root.querySelectorAll('.helm-system').length).toBe(1);
+    expect(root.querySelectorAll('.helm-plan').length).toBe(1);
     expect(root.querySelector('.helm-panel-btn, .helm-panel-btns')).toBeNull();
   });
 
@@ -608,13 +655,14 @@ describe('the panels', () => {
     expect(c.duty('ballast')).toBe(true);
   });
 
-  it('Per.djup sets periscope depth; surfaced, the crew dives for it', () => {
+  it('Periskop sets periscope depth; surfaced, the crew dives for it', () => {
+    const periscope = (root: Element) => [...root.querySelectorAll<HTMLButtonElement>('.helm-mode')].find((b) => b.textContent === 'Periskop')!;
     const dived = crewGame({ depth: 40, designTrim: true });
-    press(helm(dived).root.querySelector('.helm-perdepth')!);
+    press(periscope(helm(dived).root));
     dived.step();
     expect(dived.setpoints.depth).toBe(PERISCOPE_DEPTH);
     const surfaced = crewGame({});
-    press(helm(surfaced).root.querySelector('.helm-perdepth')!);
+    press(periscope(helm(surfaced).root));
     surfaced.step();
     expect(surfaced.setpoints.depth).toBe(PERISCOPE_DEPTH);
     expect(surfaced.sim.tanks.some((t) => t.ventOpen)).toBe(true);

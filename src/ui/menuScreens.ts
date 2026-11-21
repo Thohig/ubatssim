@@ -5,7 +5,7 @@
  */
 import { formatSimTime } from '../control/controller';
 import { SCENARIO_GROUPS, lockText, scenariosIn, type Scenario, type ScenarioGroup } from '../control/scenarios';
-import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, LOCK_TEXT, swedishList, type CrewDuties, type CrewLocks, type CrewSystem } from '../control/crew';
+import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, LOCK_TEXT, MANOEUVRE_SYSTEMS, swedishList, type CrewDuties, type CrewLocks, type CrewSystem } from '../control/crew';
 import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
@@ -19,6 +19,9 @@ export interface PauseInfo {
   /** Who handles what (including orders still waiting in the queue); null outside a game. */
   duties: CrewDuties | null;
   locks: CrewLocks;
+  /** Expert mode (the player may take the manoeuvre over), and whether the scenario forces it. */
+  expert: boolean;
+  expertForced: boolean;
 }
 
 export interface ResultInfo {
@@ -180,32 +183,34 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <h2 class="menu-title small">Hjälp</h2>
       <div class="help">
         <h3>Besättningen och du</h3>
-        <p>Varje spel börjar med att besättningen sköter ubåten. Du tar över det du vill sköta själv, och lämnar tillbaka det när du vill:</p>
+        <p>Du väljer fart på telegrafen, kurs på kompassen och djup: <b>Yta</b>, <b>Periskop</b> eller <b>Djup</b> (vilket djup som helst på djupskalan). Besättningen bestämmer själv hur det ska gå till: roder, djuproder, ballast, trim, fart, inbromsning och back. Planraden ovanför telegrafen säger vad den gör, och ett tryck på den visar varför.</p>
         <ul>
-          <li><b>Djup</b> och <b>kurs</b>: omkopplaren <b>Auto / Hand</b> vid djupskalan och kompassen (på mobil en knapp som visar Auto eller Hand). På Auto håller djupstyraren och rorsmannen dina mål. På Hand styr du djuprodret och rodret själv.</li>
-          <li><b>Fart</b>: telegrafen ger maskinen ett fartmål. I panelen <b>Fart</b> styr du propellervarvet själv.</li>
-          <li><b>Ballast och brygga</b>: Dyk / Yta och Per.djup låter besättningen sköta det. I panelen <b>Ballast</b> fyller, blåser och stänger du huvudballasten och klarar bryggan själv.</li>
-          <li><b>Trim</b>: trimassistenten kompenserar och trimmar. I panelen <b>Trim</b> gör du det själv.</li>
+          <li><b>Djupbyten</b>: med fart på djuprodren, utan fart med kompenseringstanken (ubåten svävar). Går djuprodren inte att använda vid din fart, ökar maskinen till 4 knop tills djupet är nått. Före ett djupbyte pumpar trimassistenten för vattnet där nere, till exempel under ett språngskikt.</li>
+          <li><b>Från djupet</b> stiger besättningen till 35 m, lyssnar runt och går sedan upp. <b>Yta</b> blåser huvudballasten på 15 m. Misstänker eller jagar en korvett ubåten, stannar besättningen på periskopdjup i stället för att blåsa, eftersom blåsningen hörs långt. Tryck Yta igen för att gå upp ändå.</li>
+          <li><b>Nära periskopdjup</b> håller besättningen farten under 6 knop (inte på Full fram) och lägger högst 15° roder, så att tornet inte bryter ytan.</li>
+          <li><b>Lägre fart</b>: ubåten glider ned i fart utan att backa, vilket är tystare. Stopp, och grunt vatten förut, backar för fullt.</li>
+          <li><b>Expertläge</b> (☰ → Besättning): du kan ta över djup och kurs (<b>Auto / Hand</b> vid djupskalan och kompassen), farten (propellervarvet i panelen Fart), ballasten, trimmet och skyddsnätet. Panelens övre knapp lämnar det tillbaka. Vissa scenarier, till exempel Trimövning, spelas alltid i expertläge.</li>
           <li><b>Eldledning</b>: eldledaren mäter avståndet till målet genom periskopet och ger råd om kursbyten. Annars mäter du själv med <b>Avst</b>. Att skjuta är alltid din order.</li>
           <li><b>Skott:</b> vid en läcka stänger besättningen de vattentäta dörrarna, så att vattnet stannar i en avdelning. I panelen El stänger och öppnar du dem och väljer vilken avdelning länspumpen tar först. Står dörrarna öppna rinner vattnet till den låga änden när ubåten lutar.</li>
           <li><b>Torpedrum</b>: torpedrummet gör tuberna klara när ett mål är markerat, och säkrar och laddar om tomma tuber. I panelen <b>Torped</b> gör du det själv.</li>
           <li><b>Laddning</b>: maskinisten startar dieslarna när snorkeln är uppe eller ubåten ligger i ytläge. I panelen <b>El</b> startar och stoppar du dem själv. Snorkeln hissar alltid du.</li>
           <li><b>Skyddsnät</b>: nödblåsning nära krossdjupet och när ubåten tagit in mycket vatten, djupgräns över botten och varning för grunt vatten. Slås av under ☰ → Besättning.</li>
         </ul>
-        <p>Panelerna Ballast, Trim, Fart och El öppnas med <b>System ▾</b>. Flikarna överst byter panel. Trycker du på en knapp i en panel tar du över systemet. Panelens övre knapp lämnar det till besättningen. ☰ → Besättning visar alla på ett ställe. Vissa scenarier låser något, till exempel Trimövning.</p>
+        <p>Planraden öppnar detaljerna: <b>Manöver</b> (vad besättningen gör, varför, och roder, djuproder och varv) och panelerna Ballast, Trim, Fart, El och Torped. Flikarna överst byter panel. I El och Torped kan du ta över laddningen och tuberna, och i expertläge också ballasten, trimmet och farten. ☰ → Besättning visar allt på ett ställe.</p>
         <h3>Kontrollerna</h3>
         <ul>
-          <li><b>Djupskalan</b> (vänster, Auto) visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. ▲ / ▼ ändrar 5 m, och <b>13 m</b> går till periskopdjup. På Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
-          <li><b>Kompassen</b> (höger, Auto) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. På Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
+          <li><b>Djup</b> (vänster): <b>Yta</b>, <b>Periskop</b> (13 m, i ytläge dyker ubåten dit) och <b>Djup</b> (tillbaka till ditt senaste djupa djupmål, först 50 m). Djupskalan visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. I expertläge på Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
+          <li><b>Kompassen</b> (höger) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. I expertläge på Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
+          <li><b>Planraden</b> (ovanför telegrafen) säger vad besättningen gör just nu. Tryck på den för detaljerna.</li>
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv, Marsch och Full fram (2 och 4 knop back, 4, 8 och 12 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
-          <li><b>Dyk / Yta</b> byter efter ballasten. Dyk fyller huvudballasten. Yta gör ytan till djupmålet: ubåten stiger på djuprodren, och huvudballasten blåses på 15 m. Är ubåten för tung för att stiga, tryck <b>Nödblåsning</b> i panelen Ballast (eller Shift + S): båda tankarna blåses på vilket djup som helst, med full fart och ytan som mål. <b>Per.djup</b> går till periskopdjup (13 m), och i ytläge dyker ubåten dit. <b>Håll</b> behåller kurs och djup på Auto.</li>
+          <li><b>Nödblåsning</b> i panelen Ballast (eller Shift + S): är ubåten för tung för att stiga, blåses båda tankarna på vilket djup som helst, med full fart och ytan som mål.</li>
           <li><b>Vyknapparna</b> mellan telegrafen och kompassen: ögat byter vy (också till genomskärningen), sjökortet och sonarbågarna öppnar sjökortet och sonaren, och periskopet, snorkeln och radarn hissar och sänker masterna. Masterna syns när ubåten är grundare än 25 m eller en mast är uppe. På mobil ligger de under <b>Vyer ▾</b>.</li>
           <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen.</li>
           <li><b>Loggboken</b> ligger överst i mitten och visar högst två rader. Varje rad tonas bort efter några sekunder (fel efter 6 s), och fönstret med den. Tryck på den för de senaste raderna, och tryck igen eller Esc för att stänga.</li>
         </ul>
         <h3>Tangentbord</h3>
         <table>
-          <tr><th></th><th>Auto / besättningen</th><th>Hand / du</th></tr>
+          <tr><th></th><th>Besättningen</th><th>Hand (expertläge)</th></tr>
           <tr><td>← / →</td><td>Kurs 10° babord / styrbord</td><td>Roder 5° babord / styrbord</td></tr>
           <tr><td>↑ / ↓</td><td>Djup 5 m grundare / djupare</td><td>Djuproder 5° upp / ned</td></tr>
           <tr><td>Mellanslag</td><td>Håll kurs och djup</td><td>Roder midskepps</td></tr>
@@ -284,12 +289,12 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
     return html`
       <h2 class="menu-title small">Besättningen sköter ubåten</h2>
       <ul class="intro">
-        <li><b>Djupskalan</b> till vänster: tryck eller dra för att välja djup. ▲ / ▼ ändrar 5 m.</li>
-        <li><b>Kompassen</b> till höger: tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°.</li>
+        <li>Du väljer fart, kurs och djup. Besättningen bestämmer hur: roder, ballast, trim, inbromsning och back.</li>
+        <li><b>Yta</b>, <b>Periskop</b> och <b>Djup</b> till vänster, och djupskalan: tryck eller dra för att välja djup.</li>
+        <li><b>Kompassen</b> till höger: tryck eller dra för att välja kurs.</li>
         <li><b>Telegrafen</b> väljer fart, från Full back till Full fram. På mobil drar du längs reglaget.</li>
-        <li><b>Dyk / Yta</b> dyker och stiger till ytan, <b>Per.djup</b> går till periskopdjup och <b>Håll</b> behåller kurs och djup.</li>
-        <li>Trimassistenten trimmar ubåten. Det den gör syns i loggen.</li>
-        <li>Vill du sköta något själv? Växla djup eller kurs till <b>Hand</b>, eller öppna panelerna under <b>System ▾</b>. ☰ → Besättning visar allt.</li>
+        <li><b>Planraden</b> ovanför telegrafen säger vad besättningen gör. Tryck på den för detaljer, ballast, trim, el och torpeder.</li>
+        <li>Vill du styra själv? Slå på <b>Expertläge</b> under ☰ → Besättning.</li>
         <li>På dator fungerar också tangenterna: ↑ / ↓ djup, ← / → kurs, Shift + ↑ / ↓ fart, D dyk och S yta.</li>
       </ul>
       <div class="menu-list">
@@ -309,13 +314,27 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <div class="crew-choice">${choice(true, x === 'safetyNet' ? 'På' : 'Besättningen')}${choice(false, x === 'safetyNet' ? 'Av' : 'Du')}</div>
       </div>`;
     };
+    const { expert, expertForced } = m.pauseInfo;
+    const mode = (on: boolean, label: string) =>
+      html`<button class="menu-btn seg ${expert === on ? 'on' : ''}" data-action="expert" data-arg="${on ? '1' : '0'}" ${expertForced ? 'disabled' : ''} aria-pressed="${String(expert === on)}">${label}</button>`;
+    const modeRow = html`<div class="crew-row crew-expert">
+        <div><b>Manövern</b><small>${
+          expertForced
+            ? 'Här styr du själv delar av manövern (expertläge).'
+            : expert
+              ? 'Expertläge: du kan ta över roder, djuproder, varvtal, ballast, trim och skyddsnät.'
+              : 'Du väljer fart, kurs och djup. Besättningen sköter roder, ballast, trim och fart och väljer själv hur.'
+        }</small></div>
+        <div class="crew-choice">${mode(false, 'Besättningen')}${mode(true, 'Expert')}</div>
+      </div>`;
+    const systems = expert ? CREW_SYSTEMS : CREW_SYSTEMS.filter((x) => !MANOEUVRE_SYSTEMS.includes(x));
     return html`
       <h2 class="menu-title small">Besättning</h2>
       <p class="menu-sub">Vem sköter vad? Ändringen gäller när du fortsätter.</p>
-      <div class="crew-list">${CREW_SYSTEMS.map(row)}</div>
+      <div class="crew-list">${modeRow}${systems.map(row)}</div>
       <div class="menu-list">
         <button class="menu-btn" data-action="crew" data-arg="all:1">Besättningen sköter allt</button>
-        <button class="menu-btn" data-action="crew" data-arg="all:0">Du sköter allt</button>
+        ${expert ? html`<button class="menu-btn" data-action="crew" data-arg="all:0">Du sköter allt</button>` : ''}
       </div>
       ${back}`;
   },
