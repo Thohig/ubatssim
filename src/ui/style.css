@@ -268,8 +268,19 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-depth-scale { width: 56px; cursor: ns-resize; }
 .helm-band { width: 240px; height: 44px; cursor: ew-resize; }
 .helm-band-row { align-items: center; }
-.helm-telegraph { width: min(100%, 460px); }
+.helm-telegraph { width: min(100%, 500px); }
 .helm-telegraph .touch-row { width: 100%; }
+.helm-telegraph-row { display: flex; align-items: center; gap: 4px; width: 100%; }
+.helm-telegraph-row .helm-bells { flex: 1 1 auto; min-width: 0; }
+/* The Auto lamp: dark until the crew runs its own speed; then the bells dim (they still take orders) and the
+   ordered bell keeps an outline: the telegraph goes back there. */
+.helm-auto {
+  flex: none; padding: 0 6px; height: 28px; line-height: 26px; border-radius: 6px; border: 1px solid var(--panel-border);
+  font-size: 11px; font-weight: 600; color: var(--muted); opacity: 0.45; user-select: none; -webkit-user-select: none;
+}
+.helm-auto.on { opacity: 1; background: var(--accent); border-color: var(--accent); color: #02121c; box-shadow: 0 0 8px rgba(95, 211, 255, 0.55); }
+.helm-telegraph.crew .helm-bell { opacity: 0.45; }
+.helm .helm-telegraph.crew .touch-btn.helm-bell.on { background: transparent; color: var(--text); box-shadow: inset 0 0 0 2px var(--accent); opacity: 0.85; }
 .helm-telegraph-head { display: none; justify-content: center; align-items: center; width: 100%; }
 .helm .touch-btn.helm-bell { flex: 1 1 0; min-width: 0; padding: 0 2px; font-size: 13px; }
 .helm-bell.astern { color: #ff9e9e; }
@@ -451,7 +462,7 @@ body.cutaway #log { display: none; }
   /* The telegraph as a lever: a track with eight detents (three astern, stop, four ahead); the ordered one is the handle. */
   .helm-telegraph { width: 100%; gap: 2px; }
   /* Between two bells the lever shows the ordered speed (there is no instrument panel). */
-  .helm-telegraph:not(.exact) .helm-telegraph-head { display: flex; }
+  .helm-telegraph:not(.exact) .helm-telegraph-head, .helm-telegraph.crew .helm-telegraph-head { display: flex; }
   .helm-bells {
     position: relative; gap: 0; width: 100%; height: 40px; border-radius: 20px; border: 1px solid var(--panel-border);
     background: linear-gradient(90deg, rgba(255, 107, 107, 0.18) 0%, rgba(255, 107, 107, 0.18) 37.5%, rgba(255, 179, 71, 0.16) 37.5%, rgba(255, 179, 71, 0.16) 50%, rgba(95, 211, 255, 0.14) 50%), var(--panel-bg);

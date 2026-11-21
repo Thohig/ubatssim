@@ -127,6 +127,58 @@ describe('screen controls with the crew', () => {
     expect([...root.querySelectorAll('.helm-bell.near')].map((b) => b.getAttribute('title'))).toEqual(['Sakta fram', 'Halv fram']);
   });
 
+  it('while the crew runs its own speed the bells dim, Auto lights, and the telegraph goes back to the ordered bell', () => {
+    const c = crewGame({ depth: 60, designTrim: true });
+    const { root, refresh } = helm(c);
+    const tele = root.querySelector('.helm-telegraph')!;
+    const lamp = root.querySelector('.helm-auto')!;
+    c.submit({ kind: 'setSpeed', knots: 0 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, 'touch');
+    c.step();
+    expect(c.ascent.phase).toBe('rise');
+    refresh();
+    expect(c.crewSpeed()).toEqual({ knots: 8, reason: 'stiger' });
+    expect(tele.classList.contains('crew')).toBe(true);
+    expect(lamp.classList.contains('on')).toBe(true);
+    expect(lamp.getAttribute('title')).toMatch(/8 knop \(stiger\)/);
+    // The ordered bell keeps its place (an outline): that is where the telegraph goes back.
+    expect(root.querySelector('.helm-bell.on')?.getAttribute('title')).toBe('Stopp');
+    expect(c.setpoints.speed).toBe(0);
+    expect(root.querySelector('.helm-telegraph-head')!.textContent).toBe('8 kn · stiger');
+
+    // Done rising: back to the ordered bell, nothing dimmed.
+    c.ascent.phase = null;
+    refresh();
+    expect(c.crewSpeed()).toBeNull();
+    expect(tele.classList.contains('crew')).toBe(false);
+    expect(lamp.classList.contains('on')).toBe(false);
+    expect(root.querySelector('.helm-bell.on')?.getAttribute('title')).toBe('Stopp');
+
+    // The planes need way: at least 4 knots over an ordered Stopp.
+    c.depthBoost = true;
+    refresh();
+    expect(c.crewSpeed()).toEqual({ knots: 4, reason: 'för djuprodren' });
+    expect(lamp.classList.contains('on')).toBe(true);
+    c.depthBoost = false;
+  });
+
+  it('a dimmed bell still takes an order, and it holds at once', () => {
+    const c = crewGame({ depth: 60, designTrim: true });
+    const { root, refresh } = helm(c);
+    c.submit({ kind: 'setSpeed', knots: 0 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, 'touch');
+    c.step();
+    refresh();
+    expect(root.querySelector('.helm-telegraph')!.classList.contains('crew')).toBe(true);
+    press(byTitle(root, 'Marschfart'));
+    c.step();
+    refresh();
+    expect(c.setpoints.speed).toBe(12);
+    expect(c.crewSpeed()).toBeNull();
+    expect(root.querySelector('.helm-telegraph')!.classList.contains('crew')).toBe(false);
+    expect(root.querySelector('.helm-bell.on')?.getAttribute('title')).toBe('Marschfart');
+  });
+
   it('dragging on the depth scale orders the depth under the finger on release', () => {
     const c = crewGame();
     const { root } = helm(c);

@@ -47,6 +47,9 @@ import { bindDrag } from './drag';
 import { DEG, angleText, bandBearing, bearing3, bearingTo, fmt, fractionToDepth, gaugeAngle, setText, setTitle, telegraphIndex } from './mappings';
 import { PANELS, PANEL_SYSTEM, PANEL_TITLE, createPanels, type Panel } from './panels';
 
+/** The Auto lamp's title while it is out. */
+const AUTO_OFF = 'Auto: tänds när besättningen tillfälligt kör en egen fart, till exempel för att stiga.';
+
 export { BAND_HALF_WIDTH, bandBearing, bandFraction, depthToFraction, fractionToDepth, gaugeAngle, telegraphIndex } from './mappings';
 
 const DIVE_TITLE = 'Dyk: fyll huvudballasten';
@@ -252,12 +255,15 @@ export function createHelm(
     undefined,
     isCompact,
   );
+  // Lit while the crew runs its own speed for a while (rising, giving the planes way): the bells dim but still take
+  // orders, and the telegraph is back at the ordered bell when it goes out. A lamp, not a button.
+  const autoLamp = h('span', { class: 'helm-auto', role: 'status', title: AUTO_OFF }, 'Auto');
   const telegraph = h(
     'div',
     { class: 'helm-group helm-telegraph' },
-    // The ordered speed, only on phones between two bells (style.css): the instruments show it otherwise.
+    // The ordered speed, only on phones between two bells or while Auto is lit (style.css): the instruments show it otherwise.
     h('div', { class: 'helm-telegraph-head' }, speedReadout),
-    bellRow,
+    h('div', { class: 'helm-telegraph-row' }, bellRow, autoLamp),
   );
 
   // ---- Dyk/Yta, Per.djup, Håll and System ▾.
@@ -369,10 +375,22 @@ export function createHelm(
     );
     const order = c.ap.speed ? c.setpoints.speed : null;
     const bell = order === null ? null : TELEGRAPH.find((b) => Math.abs(b.knots - order) < 0.01);
+    const crew = c.crewSpeed();
     setText(
       speedReadout,
-      order === null ? `Varv ${Math.round(t.rpsCmd * 60)}` : bell ? bell.name : order < 0 ? `Back ${fmt(-order)} kn` : `${fmt(order)} kn`,
+      crew
+        ? `${fmt(crew.knots)} kn · ${crew.reason}`
+        : order === null
+          ? `Varv ${Math.round(t.rpsCmd * 60)}`
+          : bell
+            ? bell.name
+            : order < 0
+              ? `Back ${fmt(-order)} kn`
+              : `${fmt(order)} kn`,
     );
+    telegraph.classList.toggle('crew', !!crew);
+    autoLamp.classList.toggle('on', !!crew);
+    setTitle(autoLamp, crew ? `Besättningen kör ${fmt(crew.knots)} knop (${crew.reason}). Telegrafen går tillbaka när den är klar, och en ny order gäller direkt.` : AUTO_OFF);
 
     // Telegraph: the ordered bell lit; a speed between two bells marks both neighbours.
     const above = order === null || bell ? undefined : TELEGRAPH.find((x) => x.knots > order)?.knots;

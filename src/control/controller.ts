@@ -341,9 +341,7 @@ export class Controller {
     } else if (this.ap.speed) {
       // While the crew lifts the boat with too little speed for the planes, the engine gives at least `PLANES_SPEED`.
       // Coming up from the deep, the crew runs its own speeds (ascent.ts).
-      let kn = this.ascent.speedGoal(this.setpoints.speed) ?? this.setpoints.speed;
-      if (this.depthBoost) kn = Math.max(kn, PLANES_SPEED);
-      const v = kn * KNOT;
+      const v = this.runSpeed() * KNOT;
       target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT, -astern, maxRps);
     } else {
       target = this.manual.rpm / 60;
@@ -587,6 +585,25 @@ export class Controller {
     if (blowing && !this.wasBlowing && depth > BLOW_HEARD_DEPTH) this.hunter.heard(ACOUSTICS.blowLevel, 0.5, 0.6, true);
     this.wasBlowing = blowing;
     if (this.blowCommitted && depth < SURFACE_HOLD_DEPTH) this.blowCommitted = false;
+  }
+
+  /** The speed the speed autopilot runs at [knots]: the ordered one, or the crew's own while it rises or boosts the planes. */
+  private runSpeed(): number {
+    const kn = this.ascent.speedGoal(this.setpoints.speed) ?? this.setpoints.speed;
+    return this.depthBoost ? Math.max(kn, PLANES_SPEED) : kn;
+  }
+
+  /**
+   * The speed the crew runs for a while instead of the ordered one [knots], and why (the telegraph's Auto lamp),
+   * or null. The ordered speed is unchanged, so the telegraph goes back to it when this ends.
+   */
+  crewSpeed(): { knots: number; reason: string } | null {
+    if (!this.ap.speed) return null;
+    const kn = this.runSpeed();
+    if (kn === this.setpoints.speed) return null;
+    const phase = this.ascent.phase;
+    const reason = phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : 'för djuprodren';
+    return { knots: kn, reason };
   }
 
   /** The depth the depth autopilot steers for now [m]: the setpoint, or the levelling depth of an ascent. */

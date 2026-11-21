@@ -122,7 +122,11 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
   speed: (c) =>
     row('Fart (knop)', (t) => knots(t.u * KN), c, {
       big: true,
-      setpoint: (k) => (k.ap.speed ? `→ ${knots(k.setpoints.speed)}` : ''),
+      setpoint: (k) => {
+        if (!k.ap.speed) return '';
+        const crew = k.crewSpeed();
+        return crew ? `→ ${knots(crew.knots)} auto` : `→ ${knots(k.setpoints.speed)}`;
+      },
     }),
   heading: (c) =>
     row('Kurs (°)', (t) => deg3(t.heading), c, {
