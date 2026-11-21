@@ -21,15 +21,25 @@ test('a scenario starts with the briefing; the objective folds to one line and o
   await menu.locator('[data-action="briefingDone"]').click();
   // The first game shows the introduction to the crew, then plays.
   await expect(menu).toHaveAttribute('data-screen', 'intro');
+  // The objective opens by itself for 6 s of real time. On a slow CI machine that can pass before
+  // an assertion gets to look, so record the opening as it happens instead of trying to catch it.
+  await page.evaluate(() => {
+    const el = document.getElementById('objective')!;
+    const w = window as unknown as { objectiveOpened: boolean };
+    w.objectiveOpened = el.classList.contains('expanded');
+    new MutationObserver(() => {
+      if (el.classList.contains('expanded')) w.objectiveOpened = true;
+    }).observe(el, { attributes: true, attributeFilter: ['class'] });
+  });
   await menu.locator('[data-action="introDone"]').click();
   await expect(menu).toBeHidden();
 
   const objective = page.locator('#objective');
   await expect(objective).toBeVisible();
   await expect(objective.locator('.obj-step')).toHaveText('1/6');
-  await expect(objective).toHaveClass(/expanded/);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { objectiveOpened: boolean }).objectiveOpened)).toBe(true);
   // Folds by itself after a few seconds of play.
-  await expect(objective).not.toHaveClass(/expanded/, { timeout: 12_000 });
+  await expect(objective).not.toHaveClass(/expanded/);
   const folded = await objective.boundingBox();
   await objective.locator('.obj-head').click();
   await expect(objective).toHaveClass(/expanded/);
