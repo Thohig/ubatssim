@@ -110,6 +110,8 @@ export class Ascent {
       this.target = target;
       return;
     }
+    // An emergency blow from the deep is already on its way up: no levelling off or listening on top of it.
+    if (c.blowCommitted) return;
     const depth = c.sim.kinematics().depth;
     if (depth <= ASCENT.startBelow) return;
     this.target = target;

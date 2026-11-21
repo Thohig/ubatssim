@@ -4,6 +4,7 @@ import { Controller } from '../../src/control/controller';
 import type { Order } from '../../src/control/orders';
 import { Simulation, type InitialConditions } from '../../src/sim/simulation';
 import type { VesselDef } from '../../src/sim/vessel';
+import { submitEmergencyBlow } from '../../src/ui/keyboard';
 
 const KN = 1852 / 3600;
 const NO_CURRENT = { speed: 0, toward: 0, decay: 1 };
@@ -106,6 +107,22 @@ describe('the main ballast blown', () => {
     expect(c.sim.y[2]!).toBeLessThan(4);
     run(10);
     expect(c.blowCommitted).toBe(false);
+  });
+
+  it('Nödblåsning from 150 m (surface, full ahead, 0 m): no stepped ascent on top of it, full speed all the way', () => {
+    const { c, run } = start({ depth: 150, speed: 0, neutral: true, heading: 0 });
+    run(20);
+    submitEmergencyBlow(c, 'keyboard');
+    let slowest = Infinity;
+    run(300, () => {
+      expect(c.ascent.active).toBe(false);
+      const k = c.sim.kinematics();
+      if (k.u > 8 * KN) slowest = Math.min(slowest, k.u / KN);
+      return k.depth < 4;
+    });
+    expect(c.sim.y[2]!).toBeLessThan(4);
+    expect(slowest).toBeGreaterThan(8);
+    expect(logged(c, /Stigning i|Planar ut på/)).toBe(false);
   });
 
   it('a shallow blow (Yta at 15 m) is stopped and vented when a depth under water is ordered', () => {
