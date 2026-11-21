@@ -286,6 +286,7 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm .touch-btn.helm-system.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
 .helm .touch-btn.helm-system.self { border-color: var(--warn); color: var(--warn); }
 .helm .touch-btn.helm-perdepth { min-width: 72px; }
+.helm .touch-btn.helm-emergency { flex: 1 1 auto; color: #fff; background: rgba(255, 107, 107, 0.25); border-color: var(--error); font-weight: 700; }
 
 /* The view buttons between the telegraph and the course (computers; on phones they are under Vyer ▾). */
 .helm-views {

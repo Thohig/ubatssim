@@ -324,8 +324,8 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Nå ytan',
         system: 'ballast',
-        hint: 'Tryck Blås vid Båda i panelen Ballast, tryck Full fram och styr uppåt.',
-        hintCrew: 'Ubåten är för tung för att stiga på djuprodren. Tryck Blås vid Båda i panelen Ballast och Full fram, och sätt djupet till ytan. Här finns inget skyddsnät.',
+        hint: 'Tryck Nödblåsning i panelen Ballast (eller Shift + S) och styr uppåt.',
+        hintCrew: 'Ubåten är för tung för att stiga på djuprodren. Tryck Nödblåsning i panelen Ballast (eller Shift + S). Här finns inget skyddsnät.',
         check: (t) => t.depth < 10,
       },
     ],

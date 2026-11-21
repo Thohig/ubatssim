@@ -51,7 +51,7 @@ Det finns ett spel och en ubåt. För varje system väljer du om **besättningen
 | **Djup** | **Auto:** djupstyraren håller djupmålet från djupskalan. | **Hand:** du styr djuprodret. |
 | **Kurs** | **Auto:** rorsmannen håller kursmålet från kompassen. | **Hand:** du styr rodret. |
 | **Fart** | Maskinen följer telegrafen. | Du styr propellervarvet (panelen Fart). |
-| **Ballast och brygga** | Dyk / Yta och Per.djup. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. Från djupare än 15 m stiger ubåten först på djuprodren, och huvudballasten blåses på 15 m. Ordern `ytläge` (och skyddsnätet) blåser på vilket djup som helst. Djupare än 20 m blåses då huvudballasten för först och akter 15 s senare, så att fören kommer upp. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (panelen Ballast). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
+| **Ballast och brygga** | Dyk / Yta och Per.djup. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. Från djupare än 15 m stiger ubåten först på djuprodren, och huvudballasten blåses på 15 m. **Nödblåsning** (panelen Ballast eller Shift + S), ordern `ytläge` och skyddsnätet blåser på vilket djup som helst. Djupare än 20 m blåses då huvudballasten för först och akter 15 s senare, så att fören kommer upp. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (panelen Ballast). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
 | **Trim** | Trimassistenten kompenserar och trimmar. | Du kompenserar och trimmar (panelen Trim). |
 | **Eldledning** | Eldledaren mäter avståndet till målet genom periskopet var 30:e sekund och föreslår kursbyten för målrörelseanalysen. | Du mäter avståndet själv (Avst eller R). Att skjuta är alltid din order. |
 | **Laddning** | Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge, och stoppar dem när batteriet är fullt. | Du startar och stoppar dieslarna (panelen El). Att hissa snorkeln är alltid ditt beslut. |
@@ -87,11 +87,11 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
 | **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. På mobil en knapp som visar Auto eller Hand (gul) och växlar vid tryck. |
 | **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. Den beordrade farten står i instrumentpanelen. På mobil är telegrafen ett reglage: tryck eller dra längs det, och läget skickas när du släpper. |
-| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. Yta är en vanlig stigning: djupmålet blir ytan, ubåten stiger på djuprodren och huvudballasten blåses på 15 m. Är ubåten för tung för att stiga (Nödblåsning), blås i panelen Ballast. |
+| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. Yta är en vanlig stigning: djupmålet blir ytan, ubåten stiger på djuprodren och huvudballasten blåses på 15 m. Är ubåten för tung för att stiga, tryck **Nödblåsning** i panelen Ballast (eller Shift + S). |
 | **Per.djup** | Mitten | Djupmålet 13 m, periskopdjup. I ytläge dyker ubåten dit. På mobil gör djupskalans **13 m** samma sak. |
 | **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
 | **System ▾** | Mitten | Öppnar panelen som visades senast. Flikarna Ballast, Trim, Fart och El byter panel. |
-| Panelen **Ballast** | | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
+| Panelen **Ballast** | | **Nödblåsning** (blåser båda tankarna på vilket djup som helst, full fart och djupmålet ytan; besättningen behåller ballasten), huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
 | Panelen **Trim** | | Flytkraft, stampvinkel, pumparna, kompenserings- och trimtankarna. Kompensera in / ut och trimma för / akter, 100 eller 500 liter. |
 | Panelen **Fart** | | Fart, varvtal och axeleffekt. Fartmålet ±1 knop, varvtalet ±10 rpm och Stopp. |
 | Panelen **El** | | Batteriets laddning, elförbrukningen, snorkeln (Upp / Ned), dieslarna (Start / Stopp) och länspumpen, med vattnet i varje avdelning som läcker. |
@@ -124,7 +124,8 @@ Piltangenterna följer Auto / Hand.
 | ↑ / ↓ | Djup 5 m grundare / djupare | Djuproder 5° upp / ned |
 | Mellanslag | Håll nuvarande kurs och djup | Roder (eller djuproder) i noll |
 | Shift + ↑ / ↓ | Telegrafen ett läge fram / back | Varv ±10 rpm |
-| D / S | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) / ytläge | Samma |
+| D / S | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) / Yta (stigning, huvudballasten blåses på 15 m) | Samma |
+| Shift + S | Nödblåsning: båda huvudballasttankarna blåses på vilket djup som helst, full fart och djupmålet ytan | Samma |
 | V | Byt vy (yttre, bryggan, periskopet). Besättningen bemannar bryggan i ytläge. | Byt vy (bryggan måste vara bemannad) |
 | P | Periskop upp / ned | Samma |
 | Z | Periskopets förstoring, 1,5× / 6× (i genomskärningen: ovanifrån / från sidan) | Samma |

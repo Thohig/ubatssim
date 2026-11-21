@@ -1,6 +1,6 @@
 import type { Controller } from '../control/controller';
 import { markOrder, rangeOrder } from './firePanel';
-import { PERISCOPE_DEPTH, telegraphStep } from '../control/crew';
+import { PERISCOPE_DEPTH, TELEGRAPH, telegraphStep } from '../control/crew';
 import { LIMITS } from '../control/parser';
 import type { OrderSource } from '../control/orders';
 import { cycleView, reportViewBearing, toggleCutaway, togglePeriscope, type ViewState } from './views';
@@ -16,6 +16,16 @@ export function submitDive(ctrl: Controller, source: OrderSource): void {
 
 /** "Yta": the surface as the depth target, a normal ascent (the crew blows the main ballast near the surface). */
 export function submitSurface(ctrl: Controller, source: OrderSource): void {
+  ctrl.submit({ kind: 'setDepth', depth: 0 }, source);
+}
+
+/**
+ * "Nödblåsning": blow all main ballast at any depth ("ytläge"), full ahead
+ * and the surface as the depth target. The crew keeps the ballast.
+ */
+export function submitEmergencyBlow(ctrl: Controller, source: OrderSource): void {
+  ctrl.submit({ kind: 'surface' }, source);
+  ctrl.submit({ kind: 'setSpeed', knots: Math.max(...TELEGRAPH.map((b) => b.knots)) }, source);
   ctrl.submit({ kind: 'setDepth', depth: 0 }, source);
 }
 
@@ -46,7 +56,7 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   ↑/↓  Auto: depth ∓5 m       Hand: stern planes up/down 5°
  *   Shift+↑/↓  crew: telegraph one position ahead/astern; player: ±10 rpm
  *   Space  both Auto: hold present depth and heading; else rudder (or planes) to zero
- *   D  dive   S  surface
+ *   D  dive   S  surface (a normal ascent)   Shift+S  emergency blow
  *   V  next view   P  periscope up/down   Z  periscope magnification (cutaway: side/top)
  *   C  cutaway on/off   + / −  cutaway zoom
  *   B  report the bearing of the cross hair / bridge look
@@ -135,7 +145,8 @@ export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState)
         ctrl.submit({ kind: 'diesel', on: !ctrl.sim.commands.diesel }, 'keyboard');
         break;
       case 's':
-        submitSurface(ctrl, 'keyboard');
+        if (e.shiftKey) submitEmergencyBlow(ctrl, 'keyboard');
+        else submitSurface(ctrl, 'keyboard');
         break;
       default:
         return;

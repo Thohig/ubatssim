@@ -5,6 +5,7 @@ import type { Order } from '../../src/control/orders';
 import { SCENARIOS, ScenarioRunner, waypointInfo } from '../../src/control/scenarios';
 import { ASSIST } from '../../src/control/trimAssist';
 import { Simulation, type InitialConditions } from '../../src/sim/simulation';
+import { submitEmergencyBlow } from '../../src/ui/keyboard';
 
 const G = 9.80665;
 const DEG = 180 / Math.PI;
@@ -155,11 +156,18 @@ describe('scenarios with the crew handling everything', () => {
     expect(idle.c.log.some((e) => /nödblåsning/.test(e.text))).toBe(false);
 
     const { c, runner, run } = start('emergency-blow');
-    c.submit({ kind: 'mainBallast', action: 'blow', group: 'all' }, 'touch');
-    c.submit({ kind: 'setSpeed', knots: 19 }, 'touch');
-    c.submit({ kind: 'setDepth', depth: 0 }, 'touch');
+    submitEmergencyBlow(c, 'touch');
     run(600);
     expect(runner.status).toBe('completed');
+    expect(c.duty('ballast')).toBe(true); // Nödblåsning leaves the ballast to the crew
+
+    // Blås vid Båda in the panel (the player takes the ballast over), full ahead and the surface.
+    const panel = start('emergency-blow');
+    panel.c.submit({ kind: 'mainBallast', action: 'blow', group: 'all' }, 'touch');
+    panel.c.submit({ kind: 'setSpeed', knots: 19 }, 'touch');
+    panel.c.submit({ kind: 'setDepth', depth: 0 }, 'touch');
+    panel.run(600);
+    expect(panel.runner.status).toBe('completed');
 
     // The order "ytläge" (an emergency blow from any depth) still saves it.
     const ytl = start('emergency-blow');

@@ -502,6 +502,18 @@ describe('the panels', () => {
     expect(root.querySelector('.helm-panel-btn, .helm-panel-btns')).toBeNull();
   });
 
+  it('Nödblåsning in the Ballast panel blows both tanks at depth, full ahead, the surface as target; the crew keeps the ballast', () => {
+    const c = crewGame({ depth: 120, designTrim: true, speed: 4 * KN });
+    const { root } = helm(c);
+    openPanel(root, 'Ballast');
+    press(root.querySelector('.helm-emergency')!);
+    c.step();
+    expect(c.sim.tanks.some((t) => t.blowOpen)).toBe(true);
+    expect(c.setpoints.depth).toBe(0);
+    expect(c.setpoints.speed).toBe(19);
+    expect(c.duty('ballast')).toBe(true);
+  });
+
   it('Per.djup sets periscope depth; surfaced, the crew dives for it', () => {
     const dived = crewGame({ depth: 40, designTrim: true });
     press(helm(dived).root.querySelector('.helm-perdepth')!);

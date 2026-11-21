@@ -2,13 +2,15 @@
  * The panels Ballast, Trim, Fart and El under the screen controls: each
  * system's state and its controls. A button in a panel gives an ordinary
  * order, which takes the system over from the crew (the order registry's
- * `effects`); the panel's header (index.ts) hands it back.
+ * `effects`); the panel's header (index.ts) hands it back. Nödblåsning in
+ * the Ballast panel is the exception: its orders leave the ballast to whoever has it.
  */
 import type { Controller } from '../../control/controller';
 import type { CrewSystem } from '../../control/crew';
 import { LIMITS } from '../../control/parser';
 import type { Telemetry } from '../../sim/simulation';
 import { h } from '../dom';
+import { submitEmergencyBlow } from '../keyboard';
 import { DEG, fmt, setText } from './mappings';
 
 export type Panel = 'ballast' | 'trim' | 'speed' | 'power';
@@ -60,9 +62,12 @@ function ballastPanel(tapButton: TapButton): PanelView {
   const bridgeState = h('span', { class: 'helm-panel-label' });
   let manned = false;
   const bridgeBtn = tapButton('', '', (c) => c.submit({ kind: 'bridge', manned: !manned }, 'touch'));
+  // Blows both tanks at any depth, full ahead, the surface as the target; the crew keeps the ballast.
+  const emergency = tapButton('Nödblåsning', 'Nödblåsning: blås båda huvudballasttankarna på vilket djup som helst, full fart och djupmålet ytan (Shift + S)', (c) => submitEmergencyBlow(c, 'touch'), 'helm-emergency');
   const el = h(
     'div',
     { class: 'helm-panel-body', hidden: true },
+    h('div', { class: 'helm-panel-row' }, emergency),
     fwd.el,
     aft.el,
     group('fwd', 'För'),
