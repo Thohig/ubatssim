@@ -8,14 +8,18 @@
  *   clock and anything that depends on the order of a Map or a Set filled
  *   from outside.
  * - The hashes are compared with REFERENCE. They change, on purpose, when the
- *   physics, the crew or a scenario changes: then run this file, copy the new
- *   values printed by the failing test and say so in the commit message.
+ *   physics, the crew or a scenario changes: then run `npm run
+ *   update-determinism` (it writes the new values for this platform into this
+ *   file) or copy the values printed by the failing test, and say so in the
+ *   commit message.
  *   An optimisation must not change them (CLAUDE.md, "Optimeringar ska vara exakta").
  *   Floating point may differ in the last bit between platforms (macOS on
  *   ARM and Linux on x64 give different hashes after a minute, with the same
  *   Node), and a long simulation makes that visible: there is one reference
  *   per platform, and the test is skipped on a platform without one.
  */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { Order } from '../../src/control/orders';
 import { SCENARIOS } from '../../src/control/scenarios';
@@ -100,6 +104,14 @@ describe('determinism', () => {
   });
 
   it.skipIf(!REFERENCE[PLATFORM])(`the state matches the reference for ${PLATFORM} (changes only when the simulation is meant to)`, () => {
+    // `npm run update-determinism` writes the new values into this file instead (no copying by hand).
+    if (process.env.UPDATE_DETERMINISM === '1' && JSON.stringify(first) !== JSON.stringify(REFERENCE[PLATFORM])) {
+      const file = fileURLToPath(import.meta.url);
+      const line = new RegExp(`(  '${PLATFORM}': )\\[[^\\]]*\\]`);
+      writeFileSync(file, readFileSync(file, 'utf8').replace(line, `$1[${first.map((h) => `'${h}'`).join(', ')}]`));
+      console.log(`Determinism reference for ${PLATFORM} updated: ${JSON.stringify(first)}`);
+      return;
+    }
     expect(first, `new reference for ${PLATFORM}: ${JSON.stringify(first)}`).toEqual(REFERENCE[PLATFORM]);
   });
 });
