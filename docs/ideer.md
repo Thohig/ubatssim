@@ -21,6 +21,7 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Korvetter som jagar** | Klar | Se README och `docs/fysikmodell.md`. |
 | **Målrörelseanalys och torpeder** | Klar | Se README (Anfall) och `docs/fysikmodell.md`. |
 | **Sväva utan fart** | Klar | Se README (Besättningen och du) och `docs/fysikmodell.md`. |
+| **Välja mål och tub** | Klar | Målraden och tubknapparna i eldledningspanelen. Se README (Anfall). |
 | **Genomgång och målruta** | Klar | Se README (Scenarier) och `docs/grafik.md`. |
 | **Trådstyrda torpeder** | Återstår | Styr om en torped efter avfyrningen via tråden, när lösningen blivit bättre. |
 | **Aktiv sonar på ubåten** | Återstår | En ping som ger avstånd direkt, men som hörs långt och avslöjar ubåten. |
@@ -46,6 +47,7 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Determinismtest** | Klar | Referens per plattform. Se CLAUDE.md (Simulering). |
 | **Tester i webbläsaren** | Klar | Playwright i `tests/e2e/`, också i publiceringen. |
 | **Uppdelning** | Klar | `src/ui/helm/`, `orderRegistry.ts` och `plantWatch.ts`. |
+| **Ingen konsol** | Klar | Allt går med skärmkontrollerna och tangenterna. Loggen visas alltid men kortfattat, och historiken finns under ☰ → Loggbok. Parsern finns kvar för testerna. |
 
 ## Mindre idéer
 
