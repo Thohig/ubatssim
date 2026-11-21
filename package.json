@@ -14,7 +14,8 @@
     "lint": "eslint src tests",
     "bench": "vitest run --config scripts/bench.config.ts --silent=false",
     "update-determinism": "UPDATE_DETERMINISM=1 vitest run tests/long/determinism.long.test.ts --silent=false",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "update-durations": "node scripts/update-durations.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"

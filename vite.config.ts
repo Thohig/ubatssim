@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { DurationSequencer } from './tests/sequencer.ts';
 
 // `base` must match the GitHub repository name for GitHub Pages.
 export default defineConfig({
@@ -22,5 +23,7 @@ export default defineConfig({
     // The tests are CPU-bound: one worker per core (the default leaves one idle). Measured on 4 cores:
     // 182 s → 142 s for `npm run test:all`. Splitting the long files further did not help (all cores were busy).
     maxWorkers: '100%',
+    // `--shard` on CI splits the files by measured time (tests/durations.json), not by the hash of the path.
+    sequence: { sequencer: DurationSequencer },
   },
 });

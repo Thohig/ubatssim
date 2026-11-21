@@ -499,6 +499,7 @@ npm run bench
 ```
 
 - `npm test` kör de snabba testerna med Vitest (~30 s). `npm run test:all` kör också de långa scenario- och simuleringstesterna i `tests/long/` (~2,5 min på 4 kärnor), som publiceringen alltid kör. Testerna är processorbundna och körs med en arbetare per kärna (`maxWorkers: '100%'`). Fysiken testas utan grafik.
+- `npm run update-durations` mäter varje testfil och skriver tiderna till `tests/durations.json`, som publiceringen använder för att dela testerna jämnt på tre maskiner. Kör det när testfiler läggs till eller delas.
 - `npm run lint` kör ESLint och kontrollerar bland annat att fysiklagret inte importerar Three.js eller DOM.
 - `npm run build` gör typkontroll och produktionsbygge till `dist/`.
 - `npm run test:e2e` bygger och kör spelet i Chromium med Playwright (`tests/e2e/`, ~1 min): genomgången och målrutan, paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, förlorad grafik och felrutan. Första gången: `npx playwright install chromium-headless-shell`.

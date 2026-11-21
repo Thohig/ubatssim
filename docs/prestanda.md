@@ -64,3 +64,5 @@ Snittvyns JavaScript är litet: en profil med 4× strypt processor visar vatteny
 ## Testerna
 
 `npm run test:all` är processorbunden: med Vitests standard (en arbetare mindre än antalet kärnor) tog den 182 s på 4 kärnor, med användartid ~550 s. Med en arbetare per kärna (`maxWorkers: '100%'` i vite.config.ts) tar den 142 s, nära golvet 550 s / 4. Att dela upp de långa filerna per `describe` provades och gav inget (195 s), eftersom alla kärnor redan var upptagna och varje fil kostar uppstart. De snabba testerna tar ~30 s.
+
+På CI går `test:all` på tre maskiner (`--shard`). Vitests egen delning går efter en hash av sökvägen och gav 14, 55 och 78 s lokalt, och 3 min 38 s för den långsammaste delen på CI. Där är golvet inte summan / kärnorna utan också den längsta filen, eftersom en fil inte kan delas: `attack.long` tog 102 s och `crew.long` 83 s. De delades (`attack`, `hunted`, `convoy` och `crewScenarios`), och `DurationSequencer` (`tests/sequencer.ts`) fördelar filerna efter uppmätta tider i `tests/durations.json` (längst först till den maskin som har minst). Det gav 45, 46 och 44 s lokalt. Tiderna mäts med `npm run update-durations`.
