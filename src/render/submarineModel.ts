@@ -28,6 +28,9 @@ export interface SubmarineModel {
   periscopeHead: THREE.Mesh;
   snorkelMast: THREE.Mesh;
   snorkelHead: THREE.Mesh;
+  /** The radar mast and its antenna (a flat bar across the boat). */
+  radarMast: THREE.Mesh;
+  radarHead: THREE.Mesh;
   /** Tank meshes by id, for showing fill levels later. */
   tankMeshes: Map<string, THREE.Mesh>;
 }
@@ -188,6 +191,15 @@ export function buildSubmarineModel(cfg: SubmarineConfig): SubmarineModel {
   const snorkelHead = new THREE.Mesh(new THREE.BoxGeometry(sn.diameter * 1.3, 0.7, sn.diameter * 2.2), materials.sail);
   snorkelHead.visible = false;
   appendages.add(snorkelMast, snorkelHead);
+  const rd = cfg.radar;
+  const radarGeo = new THREE.CylinderGeometry(rd.diameter / 2, rd.diameter / 2, 1, 12);
+  radarGeo.translate(0, 0.5, 0);
+  const radarMast = new THREE.Mesh(radarGeo, materials.fins);
+  radarMast.position.copy(bodyToLocal(rd.base));
+  radarMast.visible = false;
+  const radarHead = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 0.35), materials.sail);
+  radarHead.visible = false;
+  appendages.add(radarMast, radarHead);
   root.add(appendages);
 
   return {
@@ -201,6 +213,8 @@ export function buildSubmarineModel(cfg: SubmarineConfig): SubmarineModel {
     periscopeHead,
     snorkelMast,
     snorkelHead,
+    radarMast,
+    radarHead,
     tankMeshes,
   };
 }
@@ -219,7 +233,15 @@ export function updateSubmarineModel(
   periscopeExtension = 7.5,
   snorkel = 0,
   snorkelExtension = 7.2,
+  radar = 0,
+  radarExtension = 7.0,
 ): void {
+  const r = radar * radarExtension;
+  m.radarMast.visible = r > 0.05;
+  m.radarHead.visible = r > 0.05;
+  m.radarMast.scale.y = Math.max(0.01, r);
+  m.radarHead.position.copy(m.radarMast.position);
+  m.radarHead.position.y += r;
   const s = snorkel * snorkelExtension;
   m.snorkelMast.visible = s > 0.05;
   m.snorkelHead.visible = s > 0.05;

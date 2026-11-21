@@ -31,8 +31,34 @@ export const WEAPONS = {
     noise: 150,
     launchNoise: 165,
   },
-  /** The bow tubes and the torpedo room's racks. */
-  tubes: { count: 4, reserve: 8, reloadTime: 120 },
+  /**
+   * The bow tubes and the torpedo room's racks. A tube is fired with its
+   * torpedo in, flooded and the muzzle door open; it is secured by shutting
+   * the door and draining it, and reloaded (one at a time, on the loading
+   * rail) when dry and shut. Times [s]. APPROX (typical of the class).
+   */
+  tubes: {
+    count: 4,
+    reserve: 8,
+    reloadTime: 120,
+    floodTime: 15,
+    openTime: 8,
+    shutTime: 6,
+    drainTime: 15,
+    /** Opening a muzzle door is a transient a corvette may hear, within a couple of kilometres [dB re 1 µPa at 1 m]. APPROX. */
+    doorNoise: 135,
+    /** A torpedo [kg]; the water in a flooded tube around a torpedo and in an empty one [kg]. APPROX. */
+    torpedoMass: 1600,
+    annulusWater: 300,
+    tubeWater: 1750,
+    /** Centre of the tubes along the boat, and of the racks (body frame [m]); the tubes' y and z as the cutaway draws them. */
+    tubeX: 17.9,
+    tubeY: [-0.5, 0.5] as readonly number[],
+    tubeZ: [-0.3, 0.5] as readonly number[],
+    rack: [16.6, 0, 0.5] as [number, number, number],
+    /** The tanks round the tubes (WRT), under the torpedo room's deck [m]. */
+    wrt: [17, 0, 1.8] as [number, number, number],
+  },
   /** Spread: degrees between the torpedoes of a salvo. */
   spreadAngle: 3,
 
@@ -48,6 +74,52 @@ export const WEAPONS = {
     /** A pattern: charges per pass and their spacing along the track [m]. */
     pattern: 4,
     spacing: 30,
+  },
+
+  /**
+   * The submarine's own active sonar (the bow array transmitting): a ping is
+   * heard by every corvette within reach of its source level, far beyond the
+   * echo's range. APPROX [U83].
+   */
+  ping: {
+    level: 215,
+    threshold: 10,
+    /** Least time between two pings [s]. */
+    interval: 10,
+    /** Echoes come back from no further than this [m]. */
+    range: 12000,
+    /** Target strength by vessel kind [dB]. APPROX [U83]. */
+    targetStrength: { freighter: 25, ferry: 25, fishing: 10, patrol: 15 } as Record<string, number>,
+    /** Range error (fraction) and bearing error [rad] of an echo. APPROX. */
+    rangeError: 0.004,
+    bearingError: (1 * Math.PI) / 180,
+  },
+
+  /**
+   * The surface-search radar on the radar mast and the radar warning
+   * receiver (ESM) beside it. Radar horizon d = 4.12·(√h₁ + √h₂) km for
+   * heights in metres (standard refraction). The corvettes' ESM hears the
+   * boat's radar further than the radar sees them, and the boat's ESM hears
+   * a corvette's radar the same way. APPROX.
+   */
+  radar: {
+    /** Seconds per sweep, and the most it shows [m]. */
+    sweep: 3,
+    maxRange: 24000,
+    /** Mast height above the water of other vessels [m]. APPROX. */
+    targetHeight: { freighter: 25, ferry: 28, fishing: 6, patrol: 15 } as Record<string, number>,
+    /** In a sea with waves higher than this [m], small boats hide in the clutter within `clutterRange`. */
+    clutterWave: 1.5,
+    clutterRange: 2500,
+    /** Range error (fraction) and bearing error [rad] of an echo. APPROX. */
+    rangeError: 0.003,
+    bearingError: (0.5 * Math.PI) / 180,
+    /** ESM hears a radar this many times further than the radar horizon between the two antennas. */
+    esmFactor: 1.6,
+    /** A corvette's radar antenna height [m]. */
+    patrolAntenna: 18,
+    /** Awareness per second a corvette gains from hearing the boat's radar: a bearing, not yet a position (found after ~40 s on the air). APPROX (game balance). */
+    esmAware: 0.025,
   },
 
   corvette: {

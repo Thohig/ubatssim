@@ -125,6 +125,20 @@ export const SUBMARINE = {
   },
 
   /**
+   * Radar mast in the sail, between the periscope and the snorkel: a
+   * surface-search radar (X band) with a radar warning receiver (ESM) on the
+   * same head. Raised, the antenna is about as high as the periscope head.
+   * APPROX (typical of this class).
+   */
+  radar: {
+    base: [7.5, 0, -7.7] as Vec3,
+    extension: 7.0,
+    raiseTime: 9,
+    diameter: 0.4,
+    dragCoefficient: 1.0,
+  },
+
+  /**
    * Snorkel (induction) mast in the sail, beside the periscope. Raised, the
    * head reaches about as high as the periscope's, so the boat snorkels at
    * periscope depth. The head valve shuts when a wave covers the head. APPROX.

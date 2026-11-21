@@ -339,3 +339,24 @@ describe('objective box', () => {
     expect(box.el.querySelector('.obj-list li.current')!.textContent).toBe(sc.objectives[1]!.text);
   });
 });
+
+describe('the periscope eyepiece and its bearing band', () => {
+  it('the band lies outside the circle: below it with room above the controls, else above it', async () => {
+    const { periscopeLayout } = await import('../src/ui/viewOverlay');
+    for (const [w, h, clear] of [
+      [1400, 860, 700],
+      [1280, 800, 560],
+      [375, 812, 520],
+      [812, 375, 300],
+      [1920, 1080, 1000],
+    ] as const) {
+      const { r, bandY } = periscopeLayout(w, h, clear);
+      const cy = h / 2;
+      expect(r).toBeGreaterThan(Math.min(w, h) * 0.25);
+      // The band (its label 44 px above the line, the buoy mark 30 px below) does not reach into the circle.
+      expect(bandY + 30 <= cy - r || bandY - 44 >= cy + r, `${w}×${h}`).toBe(true);
+      expect(bandY - 44).toBeGreaterThanOrEqual(0);
+      if (bandY > cy) expect(bandY + 30).toBeLessThanOrEqual(clear);
+    }
+  });
+});

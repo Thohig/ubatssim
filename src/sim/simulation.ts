@@ -88,6 +88,18 @@ export interface Commands {
   snorkelUp: boolean;
   /** Run the diesel generators (they run only with air: surfaced or snorkelling). */
   diesel: boolean;
+  /** Raise (true) or lower the radar mast. */
+  radarUp: boolean;
+}
+
+/**
+ * A point mass [kg] at a body-frame point [m], added to the boat: what has
+ * moved or gone from the design loadout (torpedoes fired or moved from the
+ * racks into the tubes, water in the tubes). Negative for mass gone.
+ */
+export interface PayloadMass {
+  m: number;
+  r: Vec3;
 }
 
 export interface InitialConditions {
@@ -192,6 +204,11 @@ export interface Telemetry {
   /** Snorkel mast extension 0 … 1, and the depth of its head [m] (negative = above the water). */
   snorkel: number;
   snorkelHeadDepth: number;
+  /** Radar mast extension 0 … 1, and the depth of its head [m] (negative = above the water). */
+  radar: number;
+  radarHeadDepth: number;
+  /** Change of mass from the design loadout (torpedoes and the water in the tubes) [kg]. */
+  payload: number;
   /** Battery state of charge 0…1. */
   battery: number;
   /** Electrical load [W] and battery power [W, positive = discharge, negative = charge]. */
@@ -252,7 +269,13 @@ export class Simulation {
   y: Float64Array = new Float64Array(STATE_SIZE);
   tanks: TankState[];
   air: AirState;
-  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false, snorkelUp: false, diesel: false };
+  commands: Commands = { rudder: 0, sternPlanes: 0, rps: 0, periscopeUp: false, lpBlower: false, snorkelUp: false, diesel: false, radarUp: false };
+  /**
+   * Point masses that differ from the design loadout, written by the
+   * controller (the torpedo room). Replace the array to change it; empty =
+   * the design loadout, which the dry mass already holds.
+   */
+  payload: readonly PayloadMass[] = [];
 
   /** The boat's subsystems (see systems/types.ts). */
   readonly systems: {
@@ -263,6 +286,7 @@ export class Simulation {
     electrics: Electrics;
     periscopeMast: Mast;
     snorkelMast: Mast;
+    radarMast: Mast;
   };
   /** Run once per step, in this order, before the integration. */
   private readonly updateOrder: Subsystem[];
@@ -286,6 +310,7 @@ export class Simulation {
     periscope: number;
     rps: number;
     snorkel: number;
+    radar: number;
     powerLimit: number;
     ext: ReturnType<Simulation['externalForces']>;
   } | null = null;
@@ -300,10 +325,11 @@ export class Simulation {
       electrics: new Electrics(this, init.battery),
       periscopeMast: new Mast(this, 'periscope'),
       snorkelMast: new Mast(this, 'snorkel'),
+      radarMast: new Mast(this, 'radar'),
     };
     // Flooding before the electrics: the drain pump is part of the load.
     this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps, this.systems.flooding, this.systems.electrics];
-    this.forceOrder = [this.systems.periscopeMast, this.systems.snorkelMast];
+    this.forceOrder = [this.systems.periscopeMast, this.systems.snorkelMast, this.systems.radarMast];
     for (const [id, area] of Object.entries(init.leaks ?? {})) this.systems.flooding.damage(id, area, undefined);
     this.areaId = init.area ?? 'westCoast';
     this.water = AREAS[this.areaId].water;
@@ -507,6 +533,12 @@ export class Simulation {
     return [p.base[0], p.base[1], p.base[2] - p.extension * this.actuators.snorkel];
   }
 
+  /** Body-frame point of the radar antenna at the present extension. */
+  radarHead(): Vec3 {
+    const p = this.cfg.radar;
+    return [p.base[0], p.base[1], p.base[2] - p.extension * this.actuators.radar];
+  }
+
   /** Body-frame point of the periscope head at the present extension. */
   periscopeHead(): Vec3 {
     const p = this.cfg.periscope;
@@ -539,7 +571,7 @@ export class Simulation {
       this.tankDefs,
       this.tanks,
       (def) => (def.kind === 'mainBallast' ? waterDensity(Math.max(0, this.tankWorldDepths(def).centre), this.water) : this.water.rhoSurface),
-      this.systems.flooding.masses(),
+      this.payload.length ? [...this.systems.flooding.masses(), ...this.payload] : this.systems.flooding.masses(),
     );
     const MRB = rigidBodyMassMatrix(this.massProps);
     this.body = new RigidBody(MRB.plus(this.MA), MRB);
@@ -627,6 +659,7 @@ export class Simulation {
       c.planes !== a.sternPlanes ||
       c.periscope !== a.periscope ||
       c.snorkel !== a.snorkel ||
+      c.radar !== a.radar ||
       c.powerLimit !== this.systems.electrics.powerLimit ||
       c.rps !== this.commands.rps
     ) {
@@ -639,6 +672,7 @@ export class Simulation {
         periscope: a.periscope,
         rps: this.commands.rps,
         snorkel: a.snorkel,
+        radar: a.radar,
         powerLimit: this.systems.electrics.powerLimit,
         ext: this.externalForces(this.y),
       };
@@ -683,6 +717,9 @@ export class Simulation {
       bridgeDeckDepth: this.bodyPointDepth(this.cfg.bridge.deck),
       snorkel: this.actuators.snorkel,
       snorkelHeadDepth: this.bodyPointDepth(this.snorkelHead()),
+      radar: this.actuators.radar,
+      radarHeadDepth: this.bodyPointDepth(this.radarHead()),
+      payload: this.payload.reduce((s, x) => s + x.m, 0),
       battery: this.systems.electrics.soc,
       electricalLoad: this.systems.electrics.load,
       batteryPower: this.systems.electrics.batteryPower,

@@ -136,6 +136,10 @@ describe('the attack', () => {
     c.submit({ kind: 'setSpread', count: 3 }, 'keyboard');
     c.submit({ kind: 'fireTorpedo', tube: 2 }, 'keyboard');
     run(c, 1);
+    expect(c.log.at(-1)!.text).toMatch(/^Tub 2 är inte klar|^Tuberna görs klara/);
+    run(c, 25); // the torpedo room floods the tubes and opens the doors
+    c.submit({ kind: 'fireTorpedo', tube: 2 }, 'keyboard');
+    run(c, 1);
     expect(c.world.torpedoes).toHaveLength(3);
     expect(c.fire.tubes.map((t) => t.loaded)).toEqual([true, false, false, false]);
   });

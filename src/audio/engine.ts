@@ -28,7 +28,8 @@ export type Cue =
   | 'launch'
   | 'explosion'
   | 'depthCharge'
-  | 'activePing';
+  | 'activePing'
+  | 'ownPing';
 
 export interface AudioOptions {
   /** Master volume 0…1. */
@@ -198,6 +199,12 @@ export class AudioEngine {
         // A corvette's active sonar: a ringing ping and its echo through the hull.
         this.tone(3300, t, 0.7, 0.22, 'sine', this.outside);
         this.tone(3300, t + 0.45, 0.6, 0.07, 'sine', this.outside);
+        break;
+      case 'ownPing':
+        // The boat's own active sonar: a loud ping through the hull and its echoes coming back.
+        this.tone(2400, t, 0.9, 0.3, 'sine', this.inside);
+        this.tone(2400, t + 1.6, 0.6, 0.06, 'sine', this.outside);
+        this.tone(2400, t + 3.1, 0.5, 0.035, 'sine', this.outside);
         break;
       case 'objective':
         this.tone(660, t, 0.15, 0.2, 'sine', this.inside);

@@ -8,6 +8,7 @@ import { WEAPONS } from '../sim/config/weapons';
 import type { Controller } from './controller';
 import { AXES, CREW_SYSTEMS, type CrewDuties } from './crew';
 import type { Target } from './fireControl';
+import { isReady, tubeState } from './torpedoRoom';
 import type { Order, OrderKind, OrderOf, TankGroup } from './orders';
 import { LIMITS } from './parser';
 
@@ -214,6 +215,34 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       c.sim.commands.snorkelUp = o.up;
     },
   },
+  radarMast: {
+    apply: (c, o) => {
+      c.sim.commands.radarUp = o.up;
+      if (!o.up) c.radar.transmitting = false;
+    },
+  },
+  radar: {
+    refuse: (c, o) => (o.on && !c.sim.commands.radarUp ? 'Radarmasten är nere. Hissa den först.' : null),
+    apply: (c, o) => {
+      c.radar.transmitting = o.on;
+      if (o.on && c.radar.antennaHeight() <= 0) c.afterAck.push('Radarn sänder när antennen är över vattnet.');
+    },
+  },
+  ping: {
+    refuse: (c) => {
+      const wait = c.sonar.pingWait();
+      return wait > 0 ? `Sonaren kan pinga igen om ${Math.ceil(wait)} s.` : null;
+    },
+    apply: (c) => c.sonar.ping(),
+  },
+  tube: {
+    effects: () => ({ torpedoRoom: false }),
+    refuse: (c, o) => {
+      const plan = c.fire.room.planFor(o.tube - 1, o.action);
+      return typeof plan === 'string' ? plan : null;
+    },
+    apply: (c, o) => c.fire.room.order(o.tube - 1, o.action),
+  },
   markTarget: {
     refuse: (c, o) => {
       if (o.label) {
@@ -282,8 +311,15 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       const t = c.fire.target;
       if (!t) return 'Inget mål. Markera målet först (Mål).';
       if (!t.solution) return `Ingen lösning på ${t.label} ännu.`;
-      if (o.tube !== undefined && !c.fire.tubes[o.tube - 1]?.loaded) return `Tub ${o.tube} är inte laddad.`;
-      if (!c.fire.tubes.some((x) => x.loaded)) return 'Alla tuber är tomma. Omladdning pågår.';
+      const tubes = c.fire.tubes;
+      if (o.tube !== undefined && !tubes[o.tube - 1]?.loaded) return `Tub ${o.tube} är inte laddad.`;
+      if (o.tube !== undefined && !isReady(tubes[o.tube - 1]!)) return `Tub ${o.tube} är inte klar: ${tubeState(tubes[o.tube - 1]!)}.`;
+      if (!tubes.some((x) => x.loaded)) return c.fire.reserve > 0 || tubes.some((x) => x.plan.includes('load')) ? 'Alla tuber är tomma. Omladdning pågår.' : 'Inga torpeder kvar.';
+      if (!tubes.some(isReady)) {
+        const busy = tubes.filter((x) => x.loaded && (x.plan[0] === 'flood' || x.plan[0] === 'open'));
+        if (busy.length) return `Tuberna görs klara (${Math.ceil(Math.min(...busy.map((x) => x.left + (x.plan.length > 1 ? WEAPONS.tubes.openTime : 0))))} s).`;
+        return 'Ingen tub är klar. Gör en tub klar: tryck på den, eller i panelen Torped.';
+      }
       const aim = c.fire.aim();
       if (!aim) return `Torpeden hinner inte ikapp ${t.label}.`;
       if (aim.distance > WEAPONS.torpedo.range - 200) return `${t.label} är utom räckhåll (${(aim.distance / 1000).toFixed(1).replace('.', ',')} km).`;
@@ -293,12 +329,12 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       const fire = c.fire;
       const t = fire.target as Target;
       const aim = fire.aim()!;
-      const tubes = fire.tubes.map((x, i) => ({ x, i })).filter(({ x }) => x.loaded);
+      const tubes = fire.tubes.map((x, i) => ({ x, i })).filter(({ x }) => isReady(x));
       const first = o.tube !== undefined ? tubes.findIndex(({ i }) => i === o.tube! - 1) : 0;
       const salvo = [...tubes.slice(first), ...tubes.slice(0, first)].slice(0, fire.spread);
       const spread = (WEAPONS.spreadAngle * Math.PI) / 180;
-      salvo.forEach(({ x, i }, k) => {
-        x.loaded = false;
+      salvo.forEach(({ i }, k) => {
+        fire.room.fired(i);
         const offset = (k - (salvo.length - 1) / 2) * spread;
         const torpedo = c.world.launch({
           course: (aim.course + offset + 2 * Math.PI) % (2 * Math.PI),

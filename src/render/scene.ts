@@ -24,6 +24,8 @@ export interface RenderState {
   /** Periscope and snorkel extension 0…1. */
   periscope: number;
   snorkel?: number;
+  /** Radar mast extension 0…1. */
+  radar?: number;
   /** Bubbles, wake, spray and exhaust (effects.ts); none in the cutaway. */
   effects?: EffectsInput | null;
   /** Torpedoes in the water: NED position and heading [rad]. */
@@ -303,7 +305,7 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       nedToThree(state.position, subPos);
       model.root.position.copy(subPos);
       rotationToThree(state.rotation, model.root.quaternion);
-      updateSubmarineModel(model, state.rudder, state.sternPlanes, state.propellerAngle, state.periscope, cfg.periscope.extension, state.snorkel ?? 0, cfg.snorkel.extension);
+      updateSubmarineModel(model, state.rudder, state.sternPlanes, state.propellerAngle, state.periscope, cfg.periscope.extension, state.snorkel ?? 0, cfg.snorkel.extension, state.radar ?? 0, cfg.radar.extension);
       const wantCutaway = view.mode === 'cutaway';
       if (wantCutaway !== cutawayOn) {
         cutawayOn = wantCutaway;

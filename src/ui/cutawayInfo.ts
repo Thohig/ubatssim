@@ -2,6 +2,7 @@
  * The cutaway's information box: the tapped space's name, what is there and
  * its live state from the telemetry. Pure (no DOM), tested in tests/cutaway.test.ts.
  */
+import { tubeState, type Tube } from '../control/torpedoRoom';
 import type { SubmarineConfig } from '../sim/config/submarine';
 import type { Telemetry } from '../sim/simulation';
 import { OUTSIDE, spaces } from '../render/interior';
@@ -22,7 +23,7 @@ export function cutawayInfo(
   cfg: SubmarineConfig,
   id: string,
   t: Telemetry,
-  extra: { bridgeManned: boolean; tubes?: { loaded: boolean; loading: number }[]; reserve?: number },
+  extra: { bridgeManned: boolean; tubes?: Tube[]; reserve?: number },
 ): CutawayInfo | null {
   const space = spaces(cfg).find((s) => s.id === id);
   if (!space) return null;
@@ -59,7 +60,7 @@ export function cutawayInfo(
       lines.push(`Snorkeln: ${t.snorkel > 0.99 ? (t.inductionAir ? 'uppe, luft kommer in' : 'uppe, huvudventilen stängd') : t.snorkel < 0.01 ? 'nere' : `${f(t.snorkel * 100)} % uppe`}.`);
     }
     if (id === 'torpedo' && extra.tubes) {
-      const tubes = extra.tubes.map((x, i) => `${i + 1}: ${x.loaded ? 'laddad' : x.loading > 0 ? `laddas, ${Math.ceil(x.loading)} s` : 'tom'}`);
+      const tubes = extra.tubes.map((x, i) => `${i + 1}: ${tubeState(x)}`);
       lines.push(`Tuberna: ${tubes.join(', ')}.`);
       lines.push(`${extra.reserve ?? 0} torpeder i stället.`);
     }

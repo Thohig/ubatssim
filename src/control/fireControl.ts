@@ -1,5 +1,6 @@
 /**
- * Fire control: targets, target motion analysis and the torpedo tubes.
+ * Fire control: targets and target motion analysis. The tubes are in the
+ * torpedo room (torpedoRoom.ts).
  *
  * A target (M1, M2 …) is a vessel the player has marked: through the
  * periscope or from the bridge (a precise bearing, ±0.3°) or from a sonar
@@ -22,6 +23,9 @@ import { WEAPONS } from '../sim/config/weapons';
 import { interceptTime } from '../sim/torpedo';
 import type { Vessel } from '../sim/vessel';
 import type { Controller } from './controller';
+import { TorpedoRoom, type Tube } from './torpedoRoom';
+
+export type { Tube } from './torpedoRoom';
 
 const DEG = Math.PI / 180;
 /** Seconds between sonar bearings added to a target. */
@@ -78,12 +82,6 @@ export interface Target {
   name: string;
   obs: Observation[];
   solution: Solution | null;
-}
-
-export interface Tube {
-  loaded: boolean;
-  /** Seconds left of loading (0 when loaded or waiting). */
-  loading: number;
 }
 
 /**
@@ -205,8 +203,8 @@ export class FireControl {
   targets: Target[] = [];
   /** The target the tubes are aimed at (label), or null. */
   current: string | null = null;
-  readonly tubes: Tube[] = Array.from({ length: WEAPONS.tubes.count }, () => ({ loaded: true, loading: 0 }));
-  reserve: number = WEAPONS.tubes.reserve;
+  /** The torpedo room: the tubes and the racks. */
+  readonly room: TorpedoRoom;
   /** Torpedoes per salvo (1–3). */
   spread = 1;
   private steps = 0;
@@ -214,7 +212,18 @@ export class FireControl {
   private lastCrewRange = -Infinity;
   private lastAdvice = -Infinity;
 
-  constructor(private readonly ctrl: Controller) {}
+  constructor(private readonly ctrl: Controller) {
+    this.room = new TorpedoRoom(ctrl);
+  }
+
+  get tubes(): Tube[] {
+    return this.room.tubes;
+  }
+
+  /** Torpedoes left in the racks. */
+  get reserve(): number {
+    return this.room.reserve;
+  }
 
   get target(): Target | null {
     return this.targets.find((x) => x.label === this.current) ?? null;
@@ -294,26 +303,11 @@ export class FireControl {
     return { course: (Math.atan2(at[1] - own[1], at[0] - own[0]) + 2 * Math.PI) % (2 * Math.PI), distance, time, depth };
   }
 
-  /** Call once per step: sonar bearings to targets, the crew's ranging and advice, reloading. */
+  /** Call once per step: the torpedo room, sonar bearings to targets, the crew's ranging and advice. */
   update(dt: number): void {
     const c = this.ctrl;
     const now = c.sim.t;
-    // Reload one tube at a time from the racks.
-    const loading = this.tubes.find((x) => !x.loaded && x.loading > 0);
-    if (loading) {
-      loading.loading -= dt;
-      if (loading.loading <= 0) {
-        loading.loading = 0;
-        loading.loaded = true;
-        c.addLog(`Tub ${this.tubes.indexOf(loading) + 1} laddad.`, 'info');
-      }
-    } else if (this.reserve > 0) {
-      const empty = this.tubes.find((x) => !x.loaded);
-      if (empty) {
-        this.reserve--;
-        empty.loading = WEAPONS.tubes.reloadTime;
-      }
-    }
+    this.room.update(dt);
 
     if (this.steps++ % Math.round(SONAR_EVERY / dt) !== 0) return;
     for (const t of this.targets) {

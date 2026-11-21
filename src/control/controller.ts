@@ -14,6 +14,7 @@ import { BRIDGE_FREEBOARD, ORDERS, type Kinematics, type OrderRule } from './ord
 import { CHARGE_STOP, PlantWatch } from './plantWatch';
 import { HOVER } from './hover';
 import { TrimAssist } from './trimAssist';
+import { Radar } from './radar';
 import { Sonar } from './sonar';
 import { FireControl } from './fireControl';
 import { Hunter } from './hunter';
@@ -113,6 +114,8 @@ export class Controller {
   readonly fire: FireControl = new FireControl(this);
   /** The corvettes' hunt for the boat. */
   readonly hunter: Hunter = new Hunter(this);
+  /** The radar and the radar warning receiver on the radar mast. */
+  readonly radar: Radar = new Radar(this);
   /** Logs what the plant does on its own (plantWatch.ts). */
   readonly plant: PlantWatch = new PlantWatch(this);
   /** Torpedoes fired and hits this game (for the result). */
@@ -178,8 +181,8 @@ export class Controller {
    * Controller has the player handling everything (as tests expect); a game
    * starts with `crewTakesAll()`.
    */
-  options: { crew: { ballast: boolean; trim: boolean; charging: boolean; fireControl: boolean; safetyNet: boolean }; locks: CrewLocks } = {
-    crew: { ballast: false, trim: false, charging: false, fireControl: false, safetyNet: false },
+  options: { crew: { ballast: boolean; trim: boolean; charging: boolean; fireControl: boolean; torpedoRoom: boolean; safetyNet: boolean }; locks: CrewLocks } = {
+    crew: { ballast: false, trim: false, charging: false, fireControl: false, torpedoRoom: false, safetyNet: false },
     locks: {},
   };
 
@@ -335,6 +338,7 @@ export class Controller {
     this.sonar.update();
     this.hunter.update();
     this.fire.update(DT);
+    this.radar.update(DT);
 
     if (this.shutVentsWhenFull) {
       // Air can stay trapped at the top of a tank at the surface; it vents once the boat is under way down.

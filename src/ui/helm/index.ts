@@ -19,7 +19,7 @@
  *    it lies between two bells).
  *  - Dyk/Yta (follows the main ballast; Yta is a normal ascent, the surface
  *    as the depth target), Per.djup, Håll, and "System ▾", which opens the
- *    panels Ballast, Trim, Fart and El (battery, snorkel, diesels, leaks)
+ *    panels Ballast, Trim, Fart, El (battery, snorkel, diesels, leaks) and Torped (the tubes)
  *    with each system's state and controls. A button in a panel takes that
  *    system over (as the order does); the panel's header hands it back to
  *    the crew. The panel's tabs switch between them.
@@ -31,7 +31,7 @@
  *
  * The parts: mappings.ts (screen position ↔ depth, bearing, angle; pure,
  * exported for the tests), canvas.ts (drawing on 2D canvases), drag.ts
- * (tap or drag), panels.ts (the four panels) and this file, which builds the
+ * (tap or drag), panels.ts (the five panels) and this file, which builds the
  * controls and updates them.
  */
 import type { Controller } from '../../control/controller';
@@ -279,7 +279,7 @@ export function createHelm(
   /** The panel "System ▾" opens: the one last shown. */
   let lastPanel: Panel = 'ballast';
   // One button for the panels (the tabs switch between them).
-  const systemBtn = tapButton('System ▾', 'Ballast, trim, fart och el: visa läget och reglagen', () => toggle(open ? null : lastPanel), 'helm-system');
+  const systemBtn = tapButton('System ▾', 'Ballast, trim, fart, el och torpedrum: visa läget och reglagen', () => toggle(open ? null : lastPanel), 'helm-system');
   systemBtn.setAttribute('aria-expanded', 'false');
   const actions = h('div', { class: 'helm-actions' }, h('div', { class: 'touch-row helm-context' }, ballastBtn, periscopeDepthBtn, holdBtn, systemBtn));
 

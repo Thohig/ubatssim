@@ -16,6 +16,9 @@
  *               raised periscope and advises course changes for the target
  *               motion analysis; or the player ranges (Avst). Firing is
  *               always the player's order.
+ *   torpedoRoom – the torpedo room secures and reloads empty tubes and makes
+ *               the loaded ones ready once a target is marked; or the player
+ *               does it with tube orders (torpedoRoom.ts).
  *   safetyNet – emergency blow near crush depth, depth limit over the sea bed
  *               and the keel warning; or none.
  *
@@ -24,9 +27,9 @@
  * the heading, a trim order the trim), see `ORDERS` in orderRegistry.ts.
  */
 
-export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'charging' | 'fireControl' | 'safetyNet';
+export type CrewSystem = 'depth' | 'heading' | 'speed' | 'ballast' | 'trim' | 'charging' | 'fireControl' | 'torpedoRoom' | 'safetyNet';
 
-export const CREW_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'charging', 'fireControl', 'safetyNet'];
+export const CREW_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'speed', 'ballast', 'trim', 'charging', 'fireControl', 'torpedoRoom', 'safetyNet'];
 
 /** Systems that are an autopilot axis (crew = autopilot on). */
 export const AXES = ['depth', 'heading', 'speed'] as const;
@@ -48,6 +51,7 @@ export const CREW_NAME: Record<CrewSystem, string> = {
   trim: 'Trim',
   charging: 'Laddning',
   fireControl: 'Eldledning',
+  torpedoRoom: 'Torpedrum',
   safetyNet: 'Skyddsnät',
 };
 
@@ -60,6 +64,7 @@ export const CREW_ROLE: Record<CrewSystem, [string, string]> = {
   trim: ['Trimassistenten kompenserar och trimmar.', 'Du kompenserar och trimmar.'],
   charging: ['Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge.', 'Du startar och stoppar dieslarna.'],
   fireControl: ['Eldledaren mäter avståndet till målet genom periskopet och ger råd om kursbyten.', 'Du mäter avståndet själv (Avst i periskopet).'],
+  torpedoRoom: ['Torpedrummet laddar om tuberna och gör dem klara när ett mål är markerat.', 'Du gör tuberna klara, säkrar och laddar om dem.'],
   safetyNet: ['Nödblåsning nära krossdjupet och vid läckage, djupgräns över botten och varning för grunt vatten.', 'Inget skyddsnät.'],
 };
 
@@ -72,6 +77,7 @@ export const LOCK_TEXT: Record<CrewSystem, [string, string]> = {
   trim: ['Här sköter trimassistenten trimmet.', 'Här trimmar du själv.'],
   charging: ['Här sköter maskinisten laddningen.', 'Här startar och stoppar du dieslarna själv.'],
   fireControl: ['Här sköter eldledaren avståndsmätningen.', 'Här mäter du avståndet själv.'],
+  torpedoRoom: ['Här sköter torpedrummet tuberna.', 'Här sköter du tuberna själv.'],
   safetyNet: ['Här är skyddsnätet alltid på.', 'Här finns inget skyddsnät.'],
 };
 
@@ -84,6 +90,7 @@ export const CREW_NOUN: Record<CrewSystem, string> = {
   trim: 'trimmet',
   charging: 'laddningen',
   fireControl: 'eldledningen',
+  torpedoRoom: 'tuberna',
   safetyNet: 'utan skyddsnät',
 };
 

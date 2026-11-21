@@ -7,7 +7,7 @@
   --ok: #6be3a1;
   --warn: #ffb347;
   --error: #ff6b6b;
-  /* The start page's war-time red. */
+  /* The start page's stamp and rule. */
   --stamp: #4a9cc4;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 13px;
@@ -329,7 +329,9 @@ legend { color: var(--muted); padding: 0 4px; }
 
 /* Phone-only controls, shown by the compact layout below. */
 #status, .helm .touch-btn.helm-chip, #view-btns .views-menu { display: none; }
-.helm-tabs { display: flex; gap: 4px; }
+.helm-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.helm-tube-state { flex: 1 1 auto; min-width: 9em; }
+.helm-tube-state.ready { color: var(--ok); }
 .helm-tab {
   font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer;
   background: transparent; border: 1px solid var(--panel-border); color: var(--muted);
@@ -459,7 +461,7 @@ body.cutaway #log { display: none; }
     font-size: 12px; gap: 4px; padding: 8px 10px;
   }
   .helm-panel .touch-btn.helm-small { height: 32px; min-width: 46px; font-size: 12px; }
-  .helm-tab { padding: 6px 12px; }
+  .helm-tab { padding: 6px 8px; }
 }
 
 /* Upright phones: depth on the left; course, buttons and the lever on the right. */

@@ -237,6 +237,19 @@ TL = 20·log₁₀ r + α·r + 20 dB per skikt mellan källa och mottagare      
 - **Sjunkbomben** sjunker 3,5 m/s och smäller på inställt djup. Avståndet till skrovets yta ger hålet: 0,03 m² inom 8 m, och 4·10⁻³·(1 − (d − 8)/32)² m² ut till 40 m, i avdelningen närmast explosionen.
 - **Korvettens jakt** (`hunter.ts`, en gång per sekund) har lägena patrull, misstanke, sök och anfall, och styr fartygets `goal` och `goalSpeed`. Den tror att ubåten ligger i rätt bäring men med ett avståndsfel på 10–50 %. Aktiv sonar: SE = 210 − 2·TL + 10 − NL(v) + 15 − 10, högst 3 km och inte i akterns ±45°. Den fäller ett mönster om fyra sjunkbomber (30 m isär) inom 150 m från den tänkta positionen, högst var 45:e sekund och 24 bomber totalt. Den ger upp efter 300 s utan kontakt. Söker den en plats inom 6 km (till exempel efter en hörd avfyrning) räknas tiden först från att den kommit fram, så att en eskort några kilometer bort hinner leta. Med alla bomber fällda bryter den anfallet för gott, och i scenarierna räknas den då som avskakad, liksom när den är sänkt.
 - **Bäringen** till en kontakt avviker med 4/(1 + SE/4) grader gånger en deterministisk sinus. Inget slumptal används.
+- **Ljud från ubåten** som korvetterna kan höra (`Hunter.heard`): avfyrningen (165 dB) ger vetskap +0,5 och sök, en mynningslucka som öppnas (135 dB, ett par km) +0,1, och ubåtens egen ping (215 dB) +0,6, en nästan exakt position och sök. De hörs om SL − TL − NL(v) + 15 − 5 > 0.
+
+## Aktiv sonar och radar (src/control/sonar.ts, src/control/radar.ts, `config/weapons.ts`)
+
+- **Pingen:** ekot från ett fartyg hörs om SE = 215 − 2·TL + TS − NL + 18 − 10 > 0, med TL mellan ubåtens djup och fartygets halva djupgående och NL ubåtens eget brus. Målstyrkan TS är 25 dB för lastfartyg och färjor, 15 för korvetter och 10 för fiskebåtar (APPROX [U83]). Ekon kommer från högst 12 km. Avståndet har felet 0,4 % och bäringen 1° (fasta funktioner av tiden). Ett markerat mål får ekot som en observation med avstånd. Mellan två pingar går minst 10 s.
+- **Radarhorisonten:** d = 4,12·(√h₁ + √h₂) km för antennhöjderna i meter (standardrefraktion, k = 4/3). Antennen sitter på radarmasten (`config/submarine.ts`, `radar`, 7,0 m utskjutning), och dess höjd över den lokala vågytan är `−Simulation.bodyPointDepth(radarHead())`. Fartygens masthöjd är 25 m (lastfartyg), 28 m (färja), 15 m (korvett) och 6 m (fiskebåt). Radarn visar högst 24 km. I sjö med Hs > 1,5 m döljer sjöklottret fiskebåtar inom 2,5 km. Ett svep var 3:e s ger avstånd (0,3 %) och bäring (0,5°).
+- **Radarvarnare (ESM):** en radar hörs inom 1,6 gånger radarhorisonten mellan antennerna (korvettens antenn 18 m). Medan ubåtens radar sänder växer en korvetts vetskap med 0,025 per sekund (efter ~40 s är ubåten upptäckt). Ubåtens radarvarnare varnar för en korvetts radar när antennen är över vattnet.
+- **Radarmasten** ger motstånd i vattnet som periskopet och snorkeln (`systems/masts.ts`): en cylinder med diametern 0,4 m och Cd = 1,0.
+
+## Torpedrummet (src/control/torpedoRoom.ts)
+
+- **Tubens steg:** vattenfyll (15 s), öppna mynningsluckan (8 s), stäng (6 s), länsa (15 s) och ladda (120 s). Laddrälsen tar en torped i taget. En tub skjuter bara när torpeden är i, tuben vattenfylld och luckan öppen.
+- **Vikten:** konstruktionsläget har alla fyra tuber laddade och torra och åtta torpeder i stället, och den torra massan härleds med dem. Det som skiljer går till fysiken som punktmassor (`Simulation.payload`, med i `computeMassProperties` som vattnet vid en läcka): −1600 kg för varje tom tub (x = 17,9 m), (reserv − 8)·1600 kg vid stället (x = 16,6 m) och havsvattnet som fyllt tuberna efter skotten, 1450 kg per skott, i tanken runt tuberna (x = 17 m). Vattnet som fyller tuben runt en torped kommer från den tanken och ändrar inte vikten. En salva gör alltså ubåten 150 kg lättare per torped, förut. Utan skillnad är listan tom, och massan räknas exakt som förut.
 
 ## Grundstötning
 

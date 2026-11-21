@@ -531,7 +531,7 @@ describe('the panels', () => {
     const dock = document.createElement('div');
     const c = crewGame({ depth: PERISCOPE_DEPTH, designTrim: true });
     bindViewButtons(root, () => c, new ViewState(), { mode: () => null, toggle: () => {} }, dock)(c);
-    expect([...dock.querySelectorAll<HTMLButtonElement>('button')].map((b) => b.dataset.v)).toEqual(['view', 'chart', 'periscope', 'sonar', 'snorkel']);
+    expect([...dock.querySelectorAll<HTMLButtonElement>('button')].map((b) => b.dataset.v)).toEqual(['view', 'chart', 'periscope', 'sonar', 'snorkel', 'radar']);
     for (const b of dock.querySelectorAll('button')) {
       expect(b.querySelector('svg')).not.toBeNull();
       expect(b.getAttribute('aria-label')).toBeTruthy();
@@ -628,6 +628,11 @@ describe('the fire control panel', () => {
     c.step();
     update(c);
     expect(solutionText(c)).toMatch(/^M1 målet: 3,0 km/);
+    // The torpedo room makes the tubes ready (flood, open the doors) once a target is marked.
+    expect(fire.disabled).toBe(true);
+    expect(root.querySelectorAll('.fire-tube.loading')).toHaveLength(4);
+    for (let i = 0; i < 2500; i++) c.step();
+    update(c);
     expect(fire.disabled).toBe(false);
     expect(root.querySelectorAll('.fire-tube.loaded')).toHaveLength(4);
   });
@@ -662,9 +667,9 @@ describe('the fire control panel', () => {
     update(c);
     expect(c.fire.current).toBe('M1');
     expect(row.querySelector('.fire-target.on')!.textContent).toBe('M1');
-    // With a solution (the crew's fire controller ranges too) tube 3 fires and empties.
+    // With a solution (the crew's fire controller ranges too) and the tubes made ready by the torpedo room, tube 3 fires and empties.
     c.submit({ kind: 'rangeTarget', bearing: bearingTo(3000, 0) }, 'keyboard');
-    c.step();
+    for (let i = 0; i < 2500; i++) c.step();
     update(c);
     const tube3 = byTitle(root, 'Skjut från tub 3');
     expect(tube3.disabled).toBe(false);

@@ -6,6 +6,7 @@
 import { AudioDirector } from '../audio/director';
 import { SCENARIOS } from '../control/scenarios';
 import { AREA_INFO } from '../control/areas';
+import { isReady } from '../control/torpedoRoom';
 import { createScene } from '../render/scene';
 import type { CutawayState } from '../render/cutaway';
 import { quatToMat3 } from '../sim/math/quat';
@@ -17,7 +18,7 @@ import { SUBMARINE } from '../sim/config/submarine';
 import { createHelm } from '../ui/helm';
 import { bindModeIndicator } from '../ui/inputMode';
 import { createInstruments, layoutKey } from '../ui/instruments';
-import { bindKeyboard } from '../ui/keyboard';
+import { bindKeyboard, submitRadarToggle } from '../ui/keyboard';
 import { bindLog, bindLogToggle } from '../ui/log';
 import { Menu } from '../ui/menu';
 import { isLandscapePhone } from '../ui/compact';
@@ -325,7 +326,13 @@ export function startApp(): void {
     if (info) cutawayInfoEl.replaceChildren(h('h3', null, info.title), h('p', null, info.description), h('ul', null, ...info.lines.map((l) => h('li', null, l))));
     else cutawayInfoEl.replaceChildren(h('p', null, 'Tryck på ett rum, en tank eller tornet för att se vad som finns där.'));
   };
-  const nav = createNavPanel(el('nav'), (label) => activeCtrl()?.submit({ kind: 'markTarget', label }, 'touch'));
+  const nav = createNavPanel(el('nav'), (label) => activeCtrl()?.submit({ kind: 'markTarget', label }, 'touch'), {
+    ping: () => activeCtrl()?.submit({ kind: 'ping' }, 'touch'),
+    radar: () => {
+      const c = activeCtrl();
+      if (c) submitRadarToggle(c, 'touch');
+    },
+  });
   const updateFire = createFirePanel(el('fire'), activeCtrl, views, () => nav.mode !== null);
   const navSwitch = { mode: () => nav.mode, toggle: (m: 'chart' | 'sonar') => nav.toggle(m) };
   // On computers Vy, Per, Snork, Karta and Sonar sit in the screen controls, between the telegraph and the course.
@@ -462,7 +469,7 @@ export function startApp(): void {
       battery: t.battery,
       charging: t.batteryPower < -1000,
       dieselRunning: t.dieselRunning,
-      tubes: s.ctrl.fire.tubes.map((x) => ({ loaded: x.loaded, loading: x.loading })),
+      tubes: s.ctrl.fire.tubes.map((x) => ({ loaded: x.loaded, loading: x.loading, ready: isReady(x), busy: x.plan.length > 0 })),
       reserve: s.ctrl.fire.reserve,
     };
   }
@@ -479,6 +486,7 @@ export function startApp(): void {
 
   let last = performance.now();
   let lastPings = 0;
+  let lastOwnPings = 0;
   let lastUi = 0;
 
   /** One frame, first asking for the next: an error does not stop the loop (it pauses the game). */
@@ -511,6 +519,7 @@ export function startApp(): void {
       propellerAngle: s.propellerAngle,
       periscope: sim.actuators.periscope,
       snorkel: sim.actuators.snorkel,
+      radar: sim.actuators.radar,
       effects: views.mode === 'cutaway' ? null : effectsInput(s),
       torpedoes: s.ctrl.world.torpedoes.map((t) => t.state),
       vessels: s.ctrl.world.vessels.map((v) => v.state),
@@ -537,6 +546,11 @@ export function startApp(): void {
       if (s.ctrl.hunter.pings !== lastPings) {
         if (flow.state === 'playing' && s.ctrl.hunter.pings > lastPings) audio.engine.cue('activePing');
         lastPings = s.ctrl.hunter.pings;
+      }
+      // The boat's own ping.
+      if (s.ctrl.sonar.pings !== lastOwnPings) {
+        if (flow.state === 'playing' && s.ctrl.sonar.pings > lastOwnPings) audio.engine.cue('ownPing');
+        lastOwnPings = s.ctrl.sonar.pings;
       }
       nav.update({ ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
       if (views.mode === 'cutaway') sampleCutaway(s);

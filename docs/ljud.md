@@ -58,6 +58,7 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Träff | En låg, rullande smäll långt bort |
 | Sjunkbomb inom 120 m | Ett hårt knäpp, en tung smäll och skrovet som klingar |
 | Korvettens aktiva sonar | En klingande ping och dess eko genom skrovet, vid varje ping |
+| Ubåtens egen ping | En kraftig ping genom skrovet (2,4 kHz) och två svagare ekon utifrån, vid varje ping (`ownPing`) |
 | Huvudballasten full | Ett klonk när ventilerna stängs |
 | Ny fartorder (telegrafen, `fart`, `back`) | Maskintelegrafens klocka, två slag |
 | Mål klart | Två stigande toner |

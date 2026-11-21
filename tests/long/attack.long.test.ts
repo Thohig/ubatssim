@@ -30,10 +30,16 @@ function start(id: string, who: Who) {
   return { c, runner, send, run, bearingTo };
 }
 
+/** The player makes all four tubes ready (the torpedo room does it once a target is marked). */
+function readyTubes(send: (o: Order) => void, who: Who) {
+  if (who === 'player') for (let tube = 1; tube <= 4; tube++) send({ kind: 'tube', tube, action: 'ready' });
+}
+
 /** Periscope attack: mark and range (the player every 30 s; the crew ranges itself), then fire. */
 function periscopeAttack(s: ReturnType<typeof start>, who: Who, id: string) {
   const { runner, send, run, bearingTo } = s;
   send({ kind: 'periscope', up: true });
+  readyTubes(send, who);
   run(12);
   const good = () => ['ok', 'bra'].includes(s.c.fire.target?.solution?.quality ?? '');
   for (let i = 0; i < 8 && !good(); i++) {
@@ -72,6 +78,7 @@ describe('"Nattanfall"', () => {
     send({ kind: 'setSpeed', knots: 5 });
     run(5);
     send({ kind: 'markTarget', label: 'S1' });
+    readyTubes(send, who);
     run(240);
     send({ kind: 'setHeading', heading: 300 });
     run(420, () => runner.progress.index >= 2);

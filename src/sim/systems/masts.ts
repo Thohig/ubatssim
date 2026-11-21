@@ -1,5 +1,5 @@
 /**
- * Drag of the wetted part of a raised mast (periscope or snorkel: a circular
+ * Drag of the wetted part of a raised mast (periscope, radar or snorkel: a circular
  * cylinder, cross-flow in surge and sway), applied at the middle of the
  * wetted length.
  */
@@ -8,7 +8,7 @@ import { mat3MulVec } from '../math/mat';
 import type { Simulation } from '../simulation';
 import type { ForceContext, Subsystem } from './types';
 
-export type MastId = 'periscope' | 'snorkel';
+export type MastId = 'periscope' | 'snorkel' | 'radar';
 
 export class Mast implements Subsystem {
   readonly name: string;

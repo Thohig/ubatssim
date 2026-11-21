@@ -83,17 +83,31 @@ export class Hunter {
 
   /** The boat launched a torpedo: every corvette within hearing knows roughly where it is. */
   heardLaunch(): void {
+    this.heard(WEAPONS.torpedo.launchNoise, 0.5, 0.6, true);
+  }
+
+  /**
+   * A sound from the boat (a launch, a muzzle door, its own ping) at
+   * `level` [dB re 1 µPa at 1 m]: every corvette that hears it gains
+   * `alert` awareness and an estimate of the position as good as `quality`
+   * (0…1); with `search` it starts searching there. Returns how many heard it.
+   */
+  heard(level: number, alert: number, quality: number, search: boolean): number {
     const c = this.ctrl;
+    let n = 0;
     for (const k of c.world.contacts()) {
       const v = k.vessel;
       if (v.def.kind !== 'patrol' || v.state.sinking) continue;
       const tl = transmissionLoss(k.range, Math.max(0, c.sim.y[2]!), 5, c.sim.water);
-      if (WEAPONS.torpedo.launchNoise - tl - patrolNoise(v.state.speed) + ACOUSTICS.patrolArrayGain - ACOUSTICS.patrolThreshold <= 0) continue;
-      c.sonar.alert(v.def.id, 0.5);
+      if (level - tl - patrolNoise(v.state.speed) + ACOUSTICS.patrolArrayGain - ACOUSTICS.patrolThreshold <= 0) continue;
+      n++;
+      c.sonar.alert(v.def.id, alert);
+      if (!this.enabled) continue;
       const h = this.hunt(v.def.id);
-      this.estimate(h, v, 0.6);
-      if (h.charges > 0 && (h.state === 'patrol' || h.state === 'suspicion')) this.enter(v, h, 'search');
+      this.estimate(h, v, quality);
+      if (search && h.charges > 0 && (h.state === 'patrol' || h.state === 'suspicion')) this.enter(v, h, 'search');
     }
+    return n;
   }
 
   /** Call once per step; works once a second. */

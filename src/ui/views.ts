@@ -279,15 +279,16 @@ const ICONS = {
   snorkel: '<path d="M11 21V9a4 4 0 0 1 8 0v1"/><path d="M5 3v5m-2-2 2 2 2-2"/><path d="M3 16c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 3-1.2 4.5 0 3 1.2 4.5 0"/>',
   chart: '<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
   sonar: '<circle cx="5" cy="19" r="1.5"/><path d="M5 13a6 6 0 0 1 6 6M5 8a11 11 0 0 1 11 11M5 3a16 16 0 0 1 16 16"/>',
+  radar: '<path d="M12 21V11"/><path d="M5 7.5c4.5-3 9.5-3 14 0L12 11z"/><path d="M3 16c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 3-1.2 4.5 0 3 1.2 4.5 0"/>',
 } as const;
 const icon = (k: keyof typeof ICONS) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
 /** The buttons that move to the screen controls on computers (`dock`), in their order there. */
-const DOCKED = ['view', 'chart', 'periscope', 'sonar', 'snorkel'] as const;
+const DOCKED = ['view', 'chart', 'periscope', 'sonar', 'snorkel', 'radar'] as const;
 
 /**
  * Buttons for the views next to the menu button (mouse and touch), and Karta
  * and Sonar. On phones (style.css) only "Vyer ▾" shows; it folds the others
- * out, and a choice folds them in. On computers Vy, Per, Snork, Karta and
+ * out, and a choice folds them in. On computers Vy, Per, Snork, the radar mast, Karta and
  * Sonar (icons) go to `dock`, between the telegraph and the course; Zoom,
  * Brg, Ovan and Hela stay at the top right, where they follow the view.
  */
@@ -303,6 +304,7 @@ export function bindViewButtons(
     <button type="button" data-v="view" class="icon" title="Byt vy (V)" aria-label="Byt vy">${icon('view')}</button>
     <button type="button" data-v="periscope" class="icon" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">${icon('periscope')}</button>
     <button type="button" data-v="snorkel" class="icon" title="Snorkel upp/ned (N)" aria-label="Snorkel upp eller ned">${icon('snorkel')}</button>
+    <button type="button" data-v="radar" class="icon" title="Radarmast upp/ned (Y): radarvarnaren lyssnar när den är uppe" aria-label="Radarmast upp eller ned">${icon('radar')}</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
     <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>
     <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
@@ -314,6 +316,7 @@ export function bindViewButtons(
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
   const snork = root.querySelector<HTMLButtonElement>('[data-v="snorkel"]')!;
+  const radarBtn = root.querySelector<HTMLButtonElement>('[data-v="radar"]')!;
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
   const plan = root.querySelector<HTMLButtonElement>('[data-v="plan"]')!;
   const whole = root.querySelector<HTMLButtonElement>('[data-v="whole"]')!;
@@ -332,6 +335,7 @@ export function bindViewButtons(
     plan.textContent = views.cutPlan === 'side' ? 'Ovan' : 'Sida';
     per.hidden = deep;
     snork.hidden = deep;
+    radarBtn.hidden = deep;
     chartBtn.classList.toggle('on', nav?.mode() === 'chart');
     sonarBtn.classList.toggle('on', nav?.mode() === 'sonar');
   };
@@ -374,6 +378,7 @@ export function bindViewButtons(
     else if (b.dataset.v === 'view') cycleView(ctrl, views, 'touch');
     else if (b.dataset.v === 'periscope') togglePeriscope(ctrl, 'touch');
     else if (b.dataset.v === 'snorkel') ctrl.submit({ kind: 'snorkel', up: !ctrl.sim.commands.snorkelUp }, 'touch');
+    else if (b.dataset.v === 'radar') ctrl.submit({ kind: 'radarMast', up: !ctrl.sim.commands.radarUp }, 'touch');
     else if (b.dataset.v === 'bearing') reportViewBearing(ctrl, views, 'touch');
     else views.toggleZoom();
   };
@@ -386,7 +391,11 @@ export function bindViewButtons(
    */
   return (ctrl) => {
     const k = ctrl.sim.kinematics();
-    const next = k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01 && ctrl.sim.actuators.snorkel < 0.01;
+    const next = k.depth > PERISCOPE_BUTTON_DEPTH && ctrl.sim.actuators.periscope < 0.01 && ctrl.sim.actuators.snorkel < 0.01 && ctrl.sim.actuators.radar < 0.01;
+    // The masts that are up light their buttons.
+    per.classList.toggle('on', ctrl.sim.commands.periscopeUp);
+    snork.classList.toggle('on', ctrl.sim.commands.snorkelUp);
+    radarBtn.classList.toggle('on', ctrl.sim.commands.radarUp);
     // The chart and the sonar may also open with K and H.
     const navChanged = chartBtn.classList.contains('on') !== (nav?.mode() === 'chart') || sonarBtn.classList.contains('on') !== (nav?.mode() === 'sonar');
     if (next !== deep || navChanged) {

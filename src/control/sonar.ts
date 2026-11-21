@@ -12,6 +12,15 @@
  *    signal excess and with a raised periscope or snorkel or a surfaced boat
  *    within sight, and decays slowly otherwise. At 1 the submarine is found.
  *
+ *  - the boat's radar on the air adds to a corvette's awareness within reach
+ *    of its radar warning receiver (radar.ts).
+ *
+ * The active sonar (`ping`): one ping gives an echo, a range and a bearing,
+ * from every vessel whose echo excess (SL − 2·TL + TS − NL + AG − DT) is
+ * above zero, and a marked target gets them as an observation. Every
+ * corvette within hearing of the ping knows roughly where the boat is
+ * (hunter.ts, `heard`).
+ *
  * The levels come from the sonar equation in src/sim/acoustics.ts.
  */
 import {
@@ -23,6 +32,7 @@ import {
   vesselSourceLevel,
 } from '../sim/acoustics';
 import { ACOUSTICS } from '../sim/config/acoustics';
+import { WEAPONS } from '../sim/config/weapons';
 import { DT } from '../sim/simulation';
 import type { VesselKind } from '../sim/vessel';
 import type { Controller } from './controller';
@@ -68,8 +78,22 @@ export interface SonarSample {
 /** "stark", "medel", "svag" for a signal excess [dB]. */
 export const strength = (excess: number): string => (excess > 25 ? 'stark' : excess > 10 ? 'medel' : 'svag');
 
+/** An echo of the boat's own ping. */
+export interface PingEcho {
+  vesselId: string;
+  /** The sonar contact it belongs to (S1 …), if any. */
+  label: string | null;
+  /** Measured true bearing [deg] and range [m]. */
+  bearing: number;
+  range: number;
+}
+
 export class Sonar {
   contacts: SonarContact[] = [];
+  /** The echoes of the last ping, its time, and the pings so far (the sound plays one per new ping). */
+  echoes: PingEcho[] = [];
+  lastPing = -Infinity;
+  pings = 0;
   history: SonarSample[] = [];
   /** Each patrol vessel's awareness of the submarine 0…1, by vessel id. */
   readonly awareness: Record<string, number> = {};
@@ -159,6 +183,7 @@ export class Sonar {
     if (t.periscope > 0.99 && t.periscopeHeadDepth < 0 && range < A.sightPeriscope) rate += SIGHT_RATE.periscope;
     if (t.snorkel > 0.99 && t.snorkelHeadDepth < 0 && range < A.sightSnorkel) rate += SIGHT_RATE.snorkel;
     if (t.bridgeDeckDepth < 0 && range < A.sightSurfaced) rate += SIGHT_RATE.surfaced;
+    if (c.radar.heardAt(range)) rate += WEAPONS.radar.esmAware;
     this.noticed[id] = rate > 0;
     const before = this.awareness[id] ?? 0;
     const now = Math.min(1, Math.max(0, before + (rate > 0 ? rate : -AWARE_DECAY)));
@@ -168,6 +193,49 @@ export class Sonar {
       c.addLog(`Varning: ${name} kan ha hört eller sett något. Gå djupare och saktare, och sänk masterna.`, 'error');
     } else if (now < 0.3) this.warned.delete(id);
     if (now >= 1) this.found(name);
+  }
+
+  /** Seconds until the sonar may ping again (0 = now). */
+  pingWait(): number {
+    return Math.max(0, WEAPONS.ping.interval - (this.ctrl.sim.t - this.lastPing));
+  }
+
+  /**
+   * One active ping: echoes with range and bearing from the vessels within
+   * reach, as observations of marked targets, and a sound every corvette
+   * within hearing hears. Logs what came back.
+   */
+  ping(): void {
+    const c = this.ctrl;
+    const sim = c.sim;
+    const P = WEAPONS.ping;
+    const now = sim.t;
+    this.lastPing = now;
+    this.pings++;
+    const k0 = sim.kinematics();
+    const noise = subReceiverNoise(k0.u, sim.sea.hs);
+    const echoes: PingEcho[] = [];
+    for (const k of c.world.contacts()) {
+      const v = k.vessel;
+      if (k.range > P.range || v.state.sinking) continue;
+      const tl = transmissionLoss(k.range, Math.max(0, k0.depth), Math.max(1, v.def.draft / 2), sim.water);
+      const excess = P.level - 2 * tl + (P.targetStrength[v.def.kind] ?? 15) - noise + ACOUSTICS.subArrayGain - P.threshold;
+      if (excess <= 0) continue;
+      const key = v.def.id.length * 13 + v.def.id.charCodeAt(0);
+      const range = k.range * (1 + P.rangeError * Math.sin(now * 0.91 + key));
+      const bearing = k.bearing + P.bearingError * Math.cos(now * 0.53 + key);
+      const label = this.contacts.find((x) => x.vesselId === v.def.id)?.label ?? null;
+      echoes.push({ vesselId: v.def.id, label, bearing: (((bearing * 180) / Math.PI) % 360 + 360) % 360, range });
+      const t = c.fire.targets.find((x) => x.vesselId === v.def.id);
+      if (t) c.fire.observe(t, { bearing, sigma: P.bearingError, range, rangeError: P.rangeError });
+    }
+    this.echoes = echoes;
+    const text = echoes
+      .slice(0, 4)
+      .map((e) => `${e.label ?? 'eko'} ${deg3(e.bearing)} ${e.range >= 1000 ? `${(e.range / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(e.range)} m`}`)
+      .join(', ');
+    c.afterAck.push(echoes.length ? `Sonar: ekon från ${text}.` : 'Sonar: inget eko.');
+    c.hunter.heard(P.level, 0.6, 0.9, true);
   }
 
   /** A patrol vessel has found the boat (by listening, looking or its active sonar). */

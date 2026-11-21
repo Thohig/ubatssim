@@ -118,7 +118,7 @@ describe('scenarios with the crew handling everything', () => {
   it('"Trimövning" locks the depth on Hand and the trim on the player; other scenarios leave the choice', () => {
     const { c } = start('trim-drill');
     expect(c.duties()).toMatchObject({ depth: false, trim: false, heading: true, ballast: true });
-    for (const s of SCENARIOS.filter((x) => x.id !== 'trim-drill' && x.id !== 'emergency-blow')) expect(s.locks).toBeUndefined();
+    for (const s of SCENARIOS.filter((x) => !['trim-drill', 'emergency-blow', 'tubes'].includes(x.id))) expect(s.locks).toBeUndefined();
   });
 
   it('"Första dykningen" can be completed with D, ↓ and S, the assistant trimming', () => {

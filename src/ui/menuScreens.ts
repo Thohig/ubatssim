@@ -175,6 +175,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Ballast och brygga</b>: Dyk / Yta och Per.djup låter besättningen sköta det. I panelen <b>Ballast</b> fyller, blåser och stänger du huvudballasten och klarar bryggan själv.</li>
           <li><b>Trim</b>: trimassistenten kompenserar och trimmar. I panelen <b>Trim</b> gör du det själv.</li>
           <li><b>Eldledning</b>: eldledaren mäter avståndet till målet genom periskopet och ger råd om kursbyten. Annars mäter du själv med <b>Avst</b>. Att skjuta är alltid din order.</li>
+          <li><b>Torpedrum</b>: torpedrummet gör tuberna klara när ett mål är markerat, och säkrar och laddar om tomma tuber. I panelen <b>Torped</b> gör du det själv.</li>
           <li><b>Laddning</b>: maskinisten startar dieslarna när snorkeln är uppe eller ubåten ligger i ytläge. I panelen <b>El</b> startar och stoppar du dem själv. Snorkeln hissar alltid du.</li>
           <li><b>Skyddsnät</b>: nödblåsning nära krossdjupet och när ubåten tagit in mycket vatten, djupgräns över botten och varning för grunt vatten. Slås av under ☰ → Besättning.</li>
         </ul>
@@ -185,7 +186,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Kompassen</b> (höger, Auto) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. ◀ / ▶ ändrar 10°. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. På Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram (2 och 4 knop back, 4 och 8 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Dyk / Yta</b> byter efter ballasten. Dyk fyller huvudballasten. Yta gör ytan till djupmålet: ubåten stiger på djuprodren, och huvudballasten blåses på 15 m. Är ubåten för tung för att stiga, tryck <b>Nödblåsning</b> i panelen Ballast (eller Shift + S): båda tankarna blåses på vilket djup som helst, med full fart och ytan som mål. <b>Per.djup</b> går till periskopdjup (13 m), och i ytläge dyker ubåten dit. <b>Håll</b> behåller kurs och djup på Auto.</li>
-          <li><b>Vyknapparna</b> mellan telegrafen och kompassen: ögat byter vy (också till genomskärningen), sjökortet och sonarbågarna öppnar sjökortet och sonaren, och periskopet och snorkeln hissar och sänker masterna. De två sista syns när ubåten är grundare än 25 m eller en mast är uppe. På mobil ligger de under <b>Vyer ▾</b>.</li>
+          <li><b>Vyknapparna</b> mellan telegrafen och kompassen: ögat byter vy (också till genomskärningen), sjökortet och sonarbågarna öppnar sjökortet och sonaren, och periskopet, snorkeln och radarn hissar och sänker masterna. Masterna syns när ubåten är grundare än 25 m eller en mast är uppe. På mobil ligger de under <b>Vyer ▾</b>.</li>
           <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen.</li>
           <li><b>Loggboken</b> ligger överst i mitten och visar högst två rader. Varje rad tonas bort efter några sekunder (fel efter 6 s), och fönstret med den. Tryck på den för de senaste raderna, och tryck igen eller Esc för att stänga.</li>
         </ul>
@@ -207,6 +208,8 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>Esc</td><td colspan="2">Stäng loggens historik, lämna en vy, eller pausa</td></tr>
           <tr><td>T / R / F</td><td colspan="2">Markera fartyget i hårkorset / mät avståndet / skjut (periskopet eller bryggan)</td></tr>
           <tr><td>N</td><td colspan="2">Snorkel upp / ned</td></tr>
+          <tr><td>Y / X</td><td colspan="2">Radarmast upp / ned, radarn sänd / tyst</td></tr>
+          <tr><td>A</td><td colspan="2">En ping med den aktiva sonaren</td></tr>
           <tr><td>G</td><td colspan="2">Dieslarna start / stopp (du tar över laddningen)</td></tr>
           <tr><td>K / H</td><td colspan="2">Sjökortet / sonaren</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
@@ -224,8 +227,13 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Sonar och sjökort</h3>
         <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, bojen, fyrarna och sonarens bäringar.</p>
         <p>En <b>korvett</b> lyssnar efter ubåten och spanar efter master. Den hör dig bättre ju fortare du går (och när propellern kaviterar) och om dieslarna går, och den ser periskopet, snorkeln och tornet. Språngskiktet mellan er dämpar ljudet. Gå sakta, djupt och med masterna nere.</p>
+        <h3>Aktiv sonar och radar</h3>
+        <p><b>Ping</b> i sonaren (A) sänder en ping med den aktiva sonaren. Ekona ger avstånd och bäring till fartygen inom räckhåll, och ett mål får dem direkt: några pingar ger en bra lösning utan kursbyten. Men pingen hörs långt, och en korvett som hör den vet ungefär var du är och kommer. Mellan två pingar går minst 10 s.</p>
+        <p><b>Radarn</b> sitter på en egen mast (radarknappen eller Y). På periskopdjup når antennen nätt och jämnt över vattnet. Hissad lyssnar <b>radarvarnaren</b>: den säger till när en korvetts radar når ubåten, med bäringen. <b>Radar</b> på sjökortet (X) sänder: varje svep (3 s) ger avstånd och bäring till fartygen innanför radarhorisonten, också i dimma och mörker, och de syns som gröna kryss på kortet. Men korvetternas radarvarnare hör radarn längre bort än radarn ser dem: sänd kort.</p>
+        <h3>Torpedrummet</h3>
+        <p>En tub skjuter bara när den är <b>klar</b>: torpeden i, tuben vattenfylld och mynningsluckan öppen (drygt 20 s). En korvett nära kan höra luckan. Efter skottet är tuben tom, full med vatten och öppen. <b>Säkra</b> stänger luckan och länsar tuben, och <b>Ladda</b> tar en torped från stället (2 min, en tub i taget på laddrälsen). I eldledningspanelen gör ett tryck på en laddad tub den klar, och på en tom tub laddar det om den. Torpederna väger: en salva gör ubåten lättare förut, och trimmet märker det.</p>
         <h3>Anfall</h3>
-        <p>I periskopvyn finns eldledningen. Sätt hårkorset på ett fartyg och tryck <b>Mål</b> (T), mät avståndet med <b>Avst</b> (R, noggrannare på 6×) och vänta tills lösningen är ok eller bra. <b>Fyr</b> (F) skjuter mot träffpunkten, och ett tryck på en laddad tub skjuter från just den. Har du flera mål visar panelen dem (M1, M2 …): tryck på ett för att sikta på det. Torpeden går 40 knop och söker själv det sista stycket. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Då ger bäringarna avståndet först när du bytt kurs minst 30° och hållit den några minuter. Fyra tuber, åtta torpeder i förråd och 2 minuters omladdning.</p>
+        <p>I periskopvyn finns eldledningen. Sätt hårkorset på ett fartyg och tryck <b>Mål</b> (T), mät avståndet med <b>Avst</b> (R, noggrannare på 6×) och vänta tills lösningen är ok eller bra. <b>Fyr</b> (F) skjuter mot träffpunkten från de klara tuberna (gröna), och ett tryck på en klar tub skjuter från just den. Har du flera mål visar panelen dem (M1, M2 …): tryck på ett för att sikta på det. Torpeden går 40 knop och söker själv det sista stycket. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Då ger bäringarna avståndet först när du bytt kurs minst 30° och hållit den några minuter. Fyra tuber och åtta torpeder i stället (se Torpedrummet).</p>
         <h3>Korvetter som jagar</h3>
         <p>En korvett som hört eller sett dig saktar in och svänger mot dig. Sedan söker den med aktiv sonar (pingar som hörs i skrovet) och anfaller med sjunkbomber inställda på djupet den mätte. Avfyrningar hörs. Kom undan genom att gå djupt under skiktet, sakta, byta kurs och byta djup när den går över dig. Den ger upp efter fem minuter utan kontakt, eller när bomberna är slut.</p>
         <h3>Scenarier</h3>

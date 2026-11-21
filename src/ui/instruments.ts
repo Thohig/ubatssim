@@ -7,6 +7,7 @@
  */
 import { formatSimTime, type Controller } from '../control/controller';
 import type { CrewDuties } from '../control/crew';
+import { isReady } from '../control/torpedoRoom';
 import type { Telemetry } from '../sim/simulation';
 import { h, type Component } from './dom';
 
@@ -182,7 +183,14 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
   tubes: (c) =>
     row('Torpeder', () => {
       const loaded = c.fire.tubes.filter((x) => x.loaded).length;
-      return `${loaded}/${c.fire.tubes.length} laddade, ${c.fire.reserve} kvar`;
+      const ready = c.fire.tubes.filter(isReady).length;
+      return `${loaded}/${c.fire.tubes.length}, ${ready} klara, ${c.fire.reserve} kvar`;
+    }, c),
+  radar: (c) =>
+    row('Radar', (t) => {
+      const mast = t.radar > 0.99 ? 'uppe' : t.radar < 0.01 ? 'nere' : `${f(t.radar * 100)} %`;
+      if (c.radar.active) return `sänder, ${c.radar.echoes.length} ekon`;
+      return c.radar.esm.length ? `${mast}, radar hörs` : mast;
     }, c),
   diesel: (c) =>
     row('Diesel', (t) => (t.dieselRunning ? `går, ${f(t.generatorPower / 1000)} kW` : t.dieselOrdered ? 'väntar på luft' : 'stopp'), c),
@@ -197,7 +205,7 @@ const INSTRUMENTS: Record<string, (c: Controller) => Instrument> = {
 };
 
 /** Every instrument under "Mer", in order (those in the main panel are left out there). */
-const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'load', 'diesel', 'snorkel', 'flood', 'tubes', 'sep', 'net', 'tanks', 'air'];
+const ALL_MORE = ['pitch', 'rudder', 'planes', 'sep', 'depthRate', 'sog', 'current', 'roll', 'rpm', 'power', 'sep', 'load', 'diesel', 'snorkel', 'radar', 'flood', 'tubes', 'sep', 'net', 'tanks', 'air'];
 
 /**
  * The panel for who handles what: the main panel leads with depth, speed,
@@ -218,7 +226,7 @@ export function instrumentLayout(d: CrewDuties, flooded = false): { main: string
   if (!d.trim || !d.ballast) extra.push('tanks');
   if (!d.ballast) extra.push('air');
   if (!d.charging) extra.push('diesel', 'snorkel', 'load');
-  if (!d.fireControl) extra.push('tubes');
+  if (!d.fireControl || !d.torpedoRoom) extra.push('tubes');
   if (extra.length) main.push('sep', ...extra);
   main.push('sep');
   const more = ALL_MORE.filter((id) => id === 'sep' || !main.includes(id));

@@ -6,11 +6,14 @@
  *
  *  Chart: depth shading sampled from the sea bed the physics uses (so what
  *  the chart shows is what the boat can hit), the track, the buoy, the
- *  lighthouses, sonar bearing lines, and vessels in sight from a raised
- *  periscope or the bridge.
+ *  lighthouses, sonar bearing lines, vessels in sight from a raised
+ *  periscope or the bridge, radar echoes (green crosses), the last ping's
+ *  echoes (rings) and the bearings of corvette radars the radar warning
+ *  receiver hears (red). "Radar" in the head turns the radar on and off.
  *  Sonar: bearing relative to the bow across, time downwards (newest at
  *  the top), brighter for a stronger signal; the contacts and the boat's
- *  own noise and the risk of being found below.
+ *  own noise and the risk of being found below. "Ping" in the head sends
+ *  one ping with the active sonar.
  *
  * The pure helpers (`chartScales`, `depthColor`, `chartPoint`) are tested.
  */
@@ -64,8 +67,17 @@ export interface NavPanel {
   update(ctx: NavContext): void;
 }
 
+/** What the buttons in the head do: one ping, and the radar on or off. */
+export interface NavActions {
+  ping(): void;
+  radar(): void;
+}
+
+/** Seconds a ping's echoes stay on the chart. */
+const ECHO_LIFE = 60;
+
 /** `onMark` makes a sonar contact the target (a tap on its line in the sonar list). */
-export function createNavPanel(root: HTMLElement, onMark?: (label: string) => void): NavPanel {
+export function createNavPanel(root: HTMLElement, onMark?: (label: string) => void, actions?: NavActions): NavPanel {
   let mode: NavMode | null = null;
   let zoom = 1;
   let size = { w: 0, h: 0 };
@@ -84,11 +96,15 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
   zoomOut.addEventListener('click', () => (zoom = Math.min(chartScales.length - 1, zoom + 1)));
   zoomIn.addEventListener('click', () => (zoom = Math.max(0, zoom - 1)));
   const zoomBox = h('span', { class: 'nav-zoom' }, zoomOut, zoomIn);
+  const pingBtn = h('button', { type: 'button', class: 'helm-tab nav-action', title: 'En ping med den aktiva sonaren (A). Ger avstånd, men hörs långt.' }, 'Ping');
+  pingBtn.addEventListener('click', () => actions?.ping());
+  const radarBtn = h('button', { type: 'button', class: 'helm-tab nav-action', title: 'Radarn: sänd eller tyst (X). Hissar radarmasten.' }, 'Radar');
+  radarBtn.addEventListener('click', () => actions?.radar());
   const close = h('button', { type: 'button', class: 'helm-panel-close', 'aria-label': 'Stäng' }, '✕');
   close.addEventListener('click', () => set(null));
   const canvas = h('canvas', { class: 'nav-canvas' });
   const info = h('div', { class: 'nav-info' });
-  root.replaceChildren(h('div', { class: 'helm-panel-head' }, h('div', { class: 'helm-tabs', role: 'tablist' }, tabs.chart, tabs.sonar), zoomBox, close), canvas, info);
+  root.replaceChildren(h('div', { class: 'helm-panel-head' }, h('div', { class: 'helm-tabs', role: 'tablist' }, tabs.chart, tabs.sonar), radarBtn, pingBtn, zoomBox, close), canvas, info);
   root.hidden = true;
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver((e) => {
@@ -104,6 +120,8 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
     tabs.chart.classList.toggle('on', m === 'chart');
     tabs.sonar.classList.toggle('on', m === 'sonar');
     zoomBox.hidden = m !== 'chart';
+    radarBtn.hidden = m !== 'chart' || !actions;
+    pingBtn.hidden = m !== 'sonar' || !actions;
     document.body.classList.toggle('nav-open', m !== null);
   }
 
@@ -254,6 +272,48 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
         g.lineTo(x + Math.sin(s.heading) * 10, y - Math.cos(s.heading) * 10);
         g.stroke();
       }
+      // Radar echoes: green crosses.
+      g.strokeStyle = '#6be3a1';
+      g.lineWidth = 2;
+      for (const e of c.radar.echoes) {
+        const a = e.bearing * DEG;
+        const [x, y] = pt([pos[0] + e.range * Math.cos(a), pos[1] + e.range * Math.sin(a)]);
+        g.beginPath();
+        g.moveTo(x - 5, y);
+        g.lineTo(x + 5, y);
+        g.moveTo(x, y - 5);
+        g.lineTo(x, y + 5);
+        g.stroke();
+      }
+      g.lineWidth = 1;
+      // The last ping's echoes: rings where they came from, fading.
+      const age = sim.t - c.sonar.lastPing;
+      if (age < ECHO_LIFE) {
+        g.strokeStyle = `rgba(95, 211, 255, ${1 - age / ECHO_LIFE})`;
+        for (const e of c.sonar.echoes) {
+          const a = e.bearing * DEG;
+          const [x, y] = pt([pos[0] + e.range * Math.cos(a), pos[1] + e.range * Math.sin(a)]);
+          g.beginPath();
+          g.arc(x, y, 7, 0, 2 * Math.PI);
+          g.stroke();
+          if (e.label) {
+            g.fillStyle = '#5fd3ff';
+            g.fillText(e.label, x + 9, y + 4);
+          }
+        }
+      }
+      // Corvette radars heard by the radar warning receiver: short red lines towards them.
+      g.strokeStyle = '#ff6b6b';
+      g.lineWidth = 2;
+      for (const r of c.radar.esm) {
+        const a = r.bearing * DEG;
+        const len = Math.min(w, H) * 0.3;
+        g.beginPath();
+        g.moveTo(bx + Math.sin(a) * 14, by - Math.cos(a) * 14);
+        g.lineTo(bx + Math.sin(a) * len, by - Math.cos(a) * len);
+        g.stroke();
+      }
+      g.lineWidth = 1;
       // Lighthouses.
       for (const l of ctx.lighthouses) {
         const [x, y] = pt(l.position);
@@ -330,7 +390,10 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
       lines.push(`${tg.label}${tg.label === c.fire.current ? ' (valt)' : ''}: ${tg.name}, ${Math.round(Math.hypot(v[0], v[1]) / KN)} kn, lösning ${tg.solution.quality}`);
     }
     if (c.world.torpedoes.length) lines.push(`${c.world.torpedoes.length} torped${c.world.torpedoes.length > 1 ? 'er' : ''} i vattnet.`);
-    lines.push('Streckat: bäringar från sonaren. Rutor: fartyg i sikte. Romber: mål med lösning (färg efter kvaliteten).');
+    const mast = t.radar > 0.99 ? (t.radarHeadDepth < 0 ? 'uppe' : 'uppe, under vattnet') : t.radar > 0.01 ? 'rör sig' : 'nere';
+    lines.push(c.radar.active ? ['nav-warn', `Radarn sänder (${c.radar.echoes.length} ekon). Korvetter hör den långt.`] : `Radarn tyst, masten ${mast}.`);
+    for (const r of c.radar.esm) lines.push(['nav-alarm', `Radarvarnare: radar i bäring ${String(Math.round(r.bearing) % 360).padStart(3, '0')}°, ${r.strength}.`]);
+    lines.push('Streckat: bäringar från sonaren. Rutor: fartyg i sikte. Kryss: radarekon. Ringar: ekon från pingen. Romber: mål med lösning (färg efter kvaliteten). Rött: radar som hörs.');
     setInfo(lines);
   }
 
@@ -399,6 +462,13 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
       lines.push([target && target.label === c.fire.current ? 'on' : '', text, k.label]);
     }
     if (s.contacts.length) lines.push('Tryck på en kontakt för att göra den till mål.');
+    const age = c.sim.t - s.lastPing;
+    if (age < ECHO_LIFE) {
+      const echoes = s.echoes.map((e) => `${e.label ?? 'eko'} ${String(Math.round(e.bearing) % 360).padStart(3, '0')}° ${(e.range / 1000).toFixed(1).replace('.', ',')} km`);
+      lines.push(['nav-warn', `Ping för ${Math.round(age)} s sedan: ${echoes.length ? echoes.join(', ') : 'inget eko'}.`]);
+    }
+    const wait = s.pingWait();
+    lines.push(wait > 0 ? `Pingen är klar om ${Math.ceil(wait)} s.` : 'Ping (A) ger avstånd till kontakterna, men hörs långt.');
     setInfo(lines);
   }
 
@@ -425,6 +495,11 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
       if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 25) {
         track.push(p);
         if (track.length > 3000) track.shift();
+      }
+      const on = ctx.ctrl.radar.transmitting;
+      if (radarBtn.classList.contains('on') !== on) {
+        radarBtn.classList.toggle('on', on);
+        radarBtn.textContent = on ? 'Radar sänder' : 'Radar';
       }
       if (mode === 'chart') drawChart(ctx);
       else if (mode === 'sonar') drawSonar(ctx);

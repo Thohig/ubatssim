@@ -29,6 +29,16 @@ export function submitEmergencyBlow(ctrl: Controller, source: OrderSource): void
   ctrl.submit({ kind: 'setDepth', depth: 0 }, source);
 }
 
+/** Radar on (raising the mast if it is down) or silent. */
+export function submitRadarToggle(ctrl: Controller, source: OrderSource): void {
+  if (ctrl.radar.transmitting) {
+    ctrl.submit({ kind: 'radar', on: false }, source);
+    return;
+  }
+  if (!ctrl.sim.commands.radarUp) ctrl.submit({ kind: 'radarMast', up: true }, source);
+  ctrl.submit({ kind: 'radar', on: true }, source);
+}
+
 /** "Periskopdjup": the depth target at periscope depth (surfaced, the crew handling the ballast dives). */
 export function submitPeriscopeDepth(ctrl: Controller, source: OrderSource): void {
   ctrl.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, source);
@@ -61,6 +71,7 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   C  cutaway on/off   + / −  cutaway zoom
  *   B  report the bearing of the cross hair / bridge look
  *   N  snorkel up/down   G  diesels start/stop
+ *   A  one ping with the active sonar   Y  radar mast up/down   X  radar transmit/silent (raises the mast)
  *   T  mark the vessel in the cross hair   R  range it   F  fire (periscope or bridge)
  * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
  */
@@ -140,6 +151,15 @@ export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState)
         break;
       case 'n':
         ctrl.submit({ kind: 'snorkel', up: !ctrl.sim.commands.snorkelUp }, 'keyboard');
+        break;
+      case 'a':
+        ctrl.submit({ kind: 'ping' }, 'keyboard');
+        break;
+      case 'y':
+        ctrl.submit({ kind: 'radarMast', up: !ctrl.sim.commands.radarUp }, 'keyboard');
+        break;
+      case 'x':
+        submitRadarToggle(ctrl, 'keyboard');
         break;
       case 'g':
         ctrl.submit({ kind: 'diesel', on: !ctrl.sim.commands.diesel }, 'keyboard');

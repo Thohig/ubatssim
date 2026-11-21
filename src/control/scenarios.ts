@@ -130,6 +130,22 @@ const STEALTH_BUOY: [number, number] = [2500, 0];
 const STEALTH_CORVETTE = corvette('vaktaren', 'korvetten Väktaren', [[1300, -3000], [1300, 3000]]);
 /** The freighter in "Fartyget": northbound west of the boat. */
 const RECCE_SHIP = freighter('skagerack', 'M/S Skagerack', [[-2500, -1500], [6000, -1500]]);
+/** "Radar i dimman": a freighter 6 km north going west, and a corvette patrolling 9 km to the east. */
+const FOG_SHIP: VesselDef = { ...freighter('dimman', 'M/S Dimman', [[6000, 3000], [6000, -12000]]), speed: 8 * KN };
+const FOG_CORVETTE = corvette('lyssnaren', 'korvetten Lyssnaren', [[0, 9000], [8000, 9000]]);
+/** "Ekot": a freighter 4,5 km off to the north-west going east, and a corvette 11 km south that hears pings. */
+const ECHO_SHIP: VesselDef = { ...freighter('ekot', 'M/S Ekot', [[3500, -3000], [3500, 9000]]), speed: 7 * KN };
+const ECHO_CORVETTE = corvette('hornet', 'korvetten Hornet', [[-11000, -3000], [-11000, 3000]]);
+/** "Klart för eld": two target ships in line, 3,5 km north, east-bound. */
+const FIRE_SHIP_A: VesselDef = { ...freighter('mal-a', 'målfartyget Alfa', [[3500, -3000], [3500, 9000]]), speed: 5 * KN };
+const FIRE_SHIP_B: VesselDef = { ...freighter('mal-b', 'målfartyget Bravo', [[3500, -4500], [3500, 9000]]), speed: 5 * KN };
+/** What a player handling the torpedo room must do before firing. */
+const TUBES_HINT = 'Tuberna måste vara klara: tryck på en tub i eldledningspanelen (eller Klar i panelen Torped) och vänta tills den lyser grönt. ';
+const ready = (c: Controller) => c.fire.tubes.filter((x) => x.loaded && x.flooded && x.open && x.plan.length === 0).length;
+const good = (c: Controller, id: string) => {
+  const t = c.fire.targets.find((x) => x.vesselId === id);
+  return t?.solution?.quality === 'bra';
+};
 
 export const SCENARIOS: Scenario[] = [
   {
@@ -568,7 +584,9 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Skjut och träffa',
-        hint: 'Tryck Fyr (eller F). Torpeden går 40 knop: följ den på sjökortet (sjökortsknappen eller K).',
+        system: 'torpedoRoom',
+        hint: 'Tuberna måste vara klara: tryck på en tub i eldledningspanelen (eller Klar i panelen Torped) och vänta tills den lyser grönt. Tryck sedan Fyr (eller F). Torpeden går 40 knop: följ den på sjökortet (sjökortsknappen eller K).',
+        hintCrew: 'Torpedrummet gör tuberna klara när målet är markerat. Tryck Fyr (eller F). Torpeden går 40 knop: följ den på sjökortet (sjökortsknappen eller K).',
         check: (_t, c) => sunk(c, PRACTICE_TARGET.id),
       },
     ],
@@ -595,7 +613,9 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Skjut och träffa',
-        hint: 'Tryck Fyr (eller F). Med en sämre lösning: välj 2 eller 3 torpeder per salva.',
+        system: 'torpedoRoom',
+        hint: 'Tuberna måste vara klara: tryck på en tub i eldledningspanelen (eller Klar i panelen Torped) och vänta tills den lyser grönt. Tryck sedan Fyr (eller F). Med en sämre lösning: välj 2 eller 3 torpeder per salva.',
+        hintCrew: 'Tryck Fyr (eller F). Med en sämre lösning: välj 2 eller 3 torpeder per salva.',
         check: (_t, c) => sunk(c, NIGHT_TARGET.id),
       },
     ],
@@ -640,7 +660,9 @@ export const SCENARIOS: Scenario[] = [
     objectives: [
       {
         text: 'Sänk M/S Lastaren',
-        hint: 'Periskop upp, Mål och Avst på lastfartyget (inte korvetten), Fyr. Ha periskopet uppe så kort tid som möjligt.',
+        system: 'torpedoRoom',
+        hint: 'Gör tuberna klara i panelen Torped, gärna innan periskopet går upp. Periskop upp, Mål och Avst på lastfartyget (inte korvetten), Fyr. Ha periskopet uppe så kort tid som möjligt.',
+        hintCrew: 'Periskop upp, Mål och Avst på lastfartyget (inte korvetten), Fyr. Ha periskopet uppe så kort tid som möjligt.',
         check: (_t, c) => sunk(c, CONVOY_SHIP.id),
       },
       {
@@ -652,6 +674,107 @@ export const SCENARIOS: Scenario[] = [
     ],
     failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : t.depth < 8 ? 'Ubåten bröt ytan och upptäcktes av eskorten.' : null),
     timeLimit: 3000,
+  },
+  {
+    id: 'radar-fog',
+    title: 'Radar i dimman',
+    description: 'Tät dimma på periskopdjup. Ett lastfartyg hörs norrut, men periskopet ser inget. Hissa radarmasten, ta en bra lösning med några svep och gå tyst igen. En korvett patrullerar i öster, och dess radarvarnare hör din radar långt bort.',
+    difficulty: 'medel',
+    conditions: 'fog',
+    initial: { area: 'atlantic', depth: 13, speed: 4 * KN, neutral: true, heading: 0 },
+    traffic: [FOG_SHIP, FOG_CORVETTE],
+    failWhenDetected: true,
+    objectives: [
+      {
+        text: 'Gör lastfartyget till mål',
+        hint: 'Öppna sonaren (sonarknappen eller H) och tryck på lastfartygets kontakt i listan.',
+        check: (_t, c) => c.fire.target?.vesselId === FOG_SHIP.id,
+      },
+      {
+        text: 'Hissa radarmasten',
+        hint: 'Tryck radarknappen (eller Y). Radarvarnaren lyssnar så fort antennen är över vattnet.',
+        check: (t) => t.radar > 0.99 && t.radarHeadDepth < 0,
+      },
+      {
+        text: 'Få en bra lösning med radarn',
+        hint: 'Öppna sjökortet och tryck Radar (eller X). Varje svep ger avstånd och bäring. Var kort: korvetten hör radarn.',
+        check: (_t, c) => good(c, FOG_SHIP.id),
+      },
+      {
+        text: 'Radarn tyst och masten nere',
+        hint: 'Tryck Radar sänder (eller X) och sedan radarknappen (eller Y).',
+        check: (t, c) => !c.radar.transmitting && t.radar < 0.01,
+        holdSeconds: 5,
+      },
+    ],
+    timeLimit: 900,
+  },
+  {
+    id: 'echo',
+    title: 'Ekot',
+    description: 'Ett lastfartyg går österut några kilometer norr om dig. Sonaren ger bara bäringen. En enda ping ger avståndet direkt, men hörs långt: en korvett i söder kommer. Sänk fartyget och ta dig undan.',
+    difficulty: 'svår',
+    initial: { area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, heading: 0 },
+    traffic: [ECHO_SHIP, ECHO_CORVETTE],
+    objectives: [
+      {
+        text: 'Gör sonarkontakten till mål',
+        hint: 'Öppna sonaren (sonarknappen eller H) och tryck på lastfartygets kontakt.',
+        check: (_t, c) => c.fire.target?.vesselId === ECHO_SHIP.id,
+      },
+      {
+        text: 'Pinga och få en bra lösning',
+        hint: 'Tryck Ping i sonaren (eller A). Ekot ger avståndet. Pinga igen efter en halv minut, så får eldledningen kurs och fart.',
+        check: (_t, c) => c.sonar.pings > 0 && good(c, ECHO_SHIP.id),
+      },
+      {
+        text: 'Skjut och träffa',
+        system: 'torpedoRoom',
+        hint: TUBES_HINT + 'Tryck sedan Fyr (eller F).',
+        hintCrew: 'Tryck Fyr (eller F) när tuberna lyser grönt.',
+        check: (_t, c) => sunk(c, ECHO_SHIP.id),
+      },
+      {
+        text: 'Ta dig undan korvetten',
+        hint: 'Den hörde pingen och avfyrningen. Gå djupt under skiktet, sakta, och byt kurs.',
+        check: (_t, c) => shaken(c, ECHO_CORVETTE.id),
+        holdSeconds: 30,
+      },
+    ],
+    failure: (t) => (t.depth > 300 ? 'Ubåten nådde krossdjupet 300 m.' : null),
+    timeLimit: 3000,
+  },
+  {
+    id: 'tubes',
+    title: 'Klart för eld',
+    description: 'Två målfartyg går österut 3,5 km norr om dig. Här sköter du torpedrummet själv: gör tuberna klara, sänk båda fartygen och ladda om.',
+    difficulty: 'medel',
+    initial: { area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 },
+    traffic: [FIRE_SHIP_A, FIRE_SHIP_B],
+    locks: { torpedoRoom: false },
+    objectives: [
+      {
+        text: 'Gör två tuber klara',
+        hint: 'Öppna panelen Torped och tryck Klar vid två tuber. De vattenfylls och mynningsluckorna öppnas: drygt 20 s.',
+        check: (_t, c) => ready(c) >= 2,
+      },
+      {
+        text: 'Sänk målfartyget Alfa',
+        hint: 'Periskop upp (P), Mål och Avst på det främre fartyget, och Fyr.',
+        check: (_t, c) => sunk(c, FIRE_SHIP_A.id),
+      },
+      {
+        text: 'Sänk målfartyget Bravo',
+        hint: 'Mål och Avst på nästa fartyg, och Fyr från en klar tub.',
+        check: (_t, c) => sunk(c, FIRE_SHIP_B.id),
+      },
+      {
+        text: 'Ladda om två tuber',
+        hint: 'Tryck Ladda vid de tomma tuberna i panelen Torped. Luckan stängs, tuben länsas och en torped från stället laddas: drygt två minuter, en tub i taget.',
+        check: (_t, c) => c.fire.tubes.every((x) => x.loaded),
+      },
+    ],
+    timeLimit: 1800,
   },
   {
     id: 'leak',

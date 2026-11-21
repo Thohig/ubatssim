@@ -10,13 +10,14 @@ import type { CrewSystem } from '../../control/crew';
 import { LIMITS } from '../../control/parser';
 import type { Telemetry } from '../../sim/simulation';
 import { h } from '../dom';
+import { isReady, tubeState } from '../../control/torpedoRoom';
 import { submitEmergencyBlow } from '../keyboard';
 import { DEG, fmt, setText } from './mappings';
 
-export type Panel = 'ballast' | 'trim' | 'speed' | 'power';
-export const PANELS: readonly Panel[] = ['ballast', 'trim', 'speed', 'power'];
-export const PANEL_SYSTEM: Record<Panel, CrewSystem> = { ballast: 'ballast', trim: 'trim', speed: 'speed', power: 'charging' };
-export const PANEL_TITLE: Record<Panel, string> = { ballast: 'Ballast', trim: 'Trim', speed: 'Fart', power: 'El' };
+export type Panel = 'ballast' | 'trim' | 'speed' | 'power' | 'torpedo';
+export const PANELS: readonly Panel[] = ['ballast', 'trim', 'speed', 'power', 'torpedo'];
+export const PANEL_SYSTEM: Record<Panel, CrewSystem> = { ballast: 'ballast', trim: 'trim', speed: 'speed', power: 'charging', torpedo: 'torpedoRoom' };
+export const PANEL_TITLE: Record<Panel, string> = { ballast: 'Ballast', trim: 'Trim', speed: 'Fart', power: 'El', torpedo: 'Torped' };
 
 /** A button that acts once on press (no repeat). */
 export type TapButton = (label: string, title: string, run: (c: Controller) => void, className?: string) => HTMLButtonElement;
@@ -26,9 +27,45 @@ export interface PanelView {
   update(t: Telemetry, c: Controller): void;
 }
 
-/** The four panels, built with the helm's button factory. */
+/** The five panels, built with the helm's button factory. */
 export function createPanels(tapButton: TapButton): Record<Panel, PanelView> {
-  return { ballast: ballastPanel(tapButton), trim: trimPanel(tapButton), speed: speedPanel(tapButton), power: powerPanel(tapButton) };
+  return { ballast: ballastPanel(tapButton), trim: trimPanel(tapButton), speed: speedPanel(tapButton), power: powerPanel(tapButton), torpedo: torpedoPanel(tapButton) };
+}
+
+/**
+ * The torpedo room: each tube's state with Klar (flood, open the door),
+ * Säkra (shut, drain) and Ladda (from the racks), and the racks.
+ */
+function torpedoPanel(tapButton: TapButton): PanelView {
+  const rows = [0, 1, 2, 3].map((i) => {
+    const state = h('span', { class: 'helm-panel-value helm-tube-state' });
+    const ready = tapButton('Klar', `Gör tub ${i + 1} klar: vattenfyll och öppna mynningsluckan`, (c) => c.submit({ kind: 'tube', tube: i + 1, action: 'ready' }, 'touch'));
+    const secure = tapButton('Säkra', `Säkra tub ${i + 1}: stäng mynningsluckan och länsa`, (c) => c.submit({ kind: 'tube', tube: i + 1, action: 'secure' }, 'touch'));
+    const load = tapButton('Ladda', `Ladda tub ${i + 1} från stället`, (c) => c.submit({ kind: 'tube', tube: i + 1, action: 'load' }, 'touch'));
+    return { el: h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, `Tub ${i + 1}`), state, ready, secure, load), state, ready, secure, load };
+  });
+  const store = h('span', { class: 'helm-panel-value' });
+  const el = h(
+    'div',
+    { class: 'helm-panel-body', hidden: true },
+    ...rows.map((r) => r.el),
+    h('div', { class: 'helm-panel-row' }, h('span', { class: 'helm-panel-label' }, 'Stället'), store),
+  );
+  return {
+    el,
+    update(_t: Telemetry, c: Controller) {
+      const room = c.fire.room;
+      room.tubes.forEach((tube, i) => {
+        const r = rows[i]!;
+        setText(r.state, tubeState(tube));
+        r.state.classList.toggle('ready', isReady(tube));
+        r.ready.disabled = !tube.loaded || isReady(tube) || tube.plan.includes('open');
+        r.secure.disabled = !tube.open && !tube.flooded;
+        r.load.disabled = tube.loaded || room.reserve === 0;
+      });
+      setText(store, `${room.reserve} ${room.reserve === 1 ? 'torped' : 'torpeder'}`);
+    },
+  };
 }
 
 /** A labelled level bar. */

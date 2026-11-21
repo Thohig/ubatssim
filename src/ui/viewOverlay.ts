@@ -2,7 +2,9 @@
  * 2D overlay for the on-board views, drawn on a canvas above the 3D view
  * and below the HUD panels:
  *   bridge    – compass band with the looking direction and the buoy
- *   periscope – round mask, cross hair, bearing scale, magnification
+ *   periscope – round mask, cross hair, magnification, and the bearing
+ *               band outside the eyepiece: below it when there is room above
+ *               the screen controls, else above it (`periscopeLayout`)
  */
 import { PERISCOPE_ZOOM, type ViewMode } from './views';
 
@@ -19,6 +21,30 @@ export interface OverlayState {
   fov: number;
   /** Top of the panels at the bottom of the screen [CSS px]: the periscope's bearing band stays above it. */
   clearBottom?: number;
+}
+
+/** Room the bearing band needs above and below its line [px] (the bearing label above, the buoy mark below). */
+const BAND_ABOVE = 44;
+const BAND_BELOW = 30;
+/** Kept free at the top for the objective and the log [px]. */
+const TOP_CLEAR = 96;
+
+/**
+ * The eyepiece (centred on the screen, where the camera looks) and the
+ * bearing band outside it: below the circle if a circle of at least 30 % of
+ * the screen still fits above the screen controls, else above it (under the
+ * objective and the log, or on a low screen at the very top). Pure.
+ */
+export function periscopeLayout(w: number, h: number, clearBottom: number): { r: number; bandY: number } {
+  const cy = h / 2;
+  const max = Math.min(w, h) * 0.44;
+  const below = Math.min(max, clearBottom - BAND_BELOW - BAND_ABOVE - cy);
+  const least = Math.min(w, h) * 0.3;
+  if (below >= least) return { r: below, bandY: cy + below + BAND_ABOVE };
+  // Above, under the objective and the log; on a low screen (a phone on its side) right at the top.
+  const top = cy - TOP_CLEAR - BAND_ABOVE - BAND_BELOW >= least ? TOP_CLEAR : 8;
+  const above = Math.max(40, Math.min(max, cy - top - BAND_ABOVE - BAND_BELOW));
+  return { r: above, bandY: cy - above - BAND_BELOW };
 }
 
 const ACCENT = '#5fd3ff';
@@ -104,7 +130,7 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     }
 
     // Periscope: everything outside the eyepiece circle is black.
-    const r = Math.min(w, h) * 0.44;
+    const { r, bandY } = periscopeLayout(w, h, s.clearBottom ?? h);
     const cx = w / 2;
     const cy = h / 2;
     ctx.save();
@@ -144,11 +170,9 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     ctx.stroke();
     ctx.restore();
 
-    // The bearing band spans the horizontal field of view.
+    // The bearing band, outside the eyepiece, spans the field of view of the circle's width.
     const hFov = (2 * Math.atan(Math.tan((s.fov * Math.PI) / 360) * (w / h)) * 180) / Math.PI;
     const width = Math.min(2 * r, w - 32);
-    // Low in the eyepiece, but above the screen controls and the fire panel, which would hide it.
-    const bandY = Math.max(cy + 46, Math.min(cy + r - 40, (s.clearBottom ?? h) - 34));
     band(cx, bandY, width, (hFov * width) / w, s.bearing, s.waypointBearing);
 
     ctx.save();

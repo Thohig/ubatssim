@@ -45,7 +45,7 @@ export interface CutawayState {
   charging?: boolean;
   dieselRunning?: boolean;
   /** Torpedo tubes (loaded, or seconds of loading left) and the torpedoes left in the racks. */
-  tubes?: readonly { loaded: boolean; loading: number }[];
+  tubes?: readonly { loaded: boolean; loading: number; ready?: boolean; busy?: boolean }[];
   reserve?: number;
   /** Time [s], for the animations. */
   t: number;
@@ -404,12 +404,13 @@ export function createCutaway(model: SubmarineModel, cfg: SubmarineConfig): Cuta
       engineMat.emissive.setHex(0xff7a3a);
       engineMat.emissiveIntensity = on ? 0.18 + 0.06 * Math.sin(s.t * 9) : 0;
     }
-    // Torpedo tubes: green loaded, amber loading, dark empty; the racks show the reserve left.
+    // Torpedo tubes: green ready to fire, blue loaded, amber at work (flooding, opening, loading …), dark empty; the racks show the reserve left.
     (s.tubes ?? []).forEach((tb, i) => {
       const dm = doors[i];
       if (!dm) return;
-      dm.emissive.setHex(tb.loaded ? 0x3ad17a : tb.loading > 0 ? 0xffb347 : 0x000000);
-      dm.emissiveIntensity = tb.loaded ? 0.6 : tb.loading > 0 ? 0.35 + 0.25 * Math.sin(s.t * 3) : 0;
+      const busy = tb.busy ?? tb.loading > 0;
+      dm.emissive.setHex(tb.ready ? 0x3ad17a : busy ? 0xffb347 : tb.loaded ? 0x3a8fd1 : 0x000000);
+      dm.emissiveIntensity = tb.ready ? 0.6 : busy ? 0.35 + 0.25 * Math.sin(s.t * 3) : tb.loaded ? 0.4 : 0;
     });
     if (s.reserve !== undefined) reserves.forEach((m, i) => (m.visible = i < (s.reserve ?? 0)));
   }

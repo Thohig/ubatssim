@@ -2,8 +2,10 @@
  * The fire control panel: shown in the periscope view (the primary place to
  * attack) and on the bridge. Mål marks the vessel in the cross hair, Avst
  * ranges it with the stadimeter (more precisely at 6×), Spridning sets the
- * salvo and Fyr fires; the tubes show loaded, loading or empty, and a tap on
- * a loaded tube fires that one. With more than one target, a row of their
+ * salvo and Fyr fires; the tubes show ready (green), at work (amber, with
+ * the seconds left), loaded but not ready (the number) or empty (–). A tap
+ * on a ready tube fires that one, on a loaded tube makes it ready, on an
+ * empty one loads it (torpedoRoom.ts). With more than one target, a row of their
  * labels (M1, M2 …) shows the current one, and a tap chooses another. The
  * solution line gives range, course, speed and quality, the gyro course and
  * the running time. Every button submits an ordinary order (source 'touch');
@@ -11,6 +13,7 @@
  */
 import type { Controller } from '../control/controller';
 import { solutionAt } from '../control/fireControl';
+import { isReady, tubeState } from '../control/torpedoRoom';
 import { h } from './dom';
 import type { ViewState } from './views';
 import { viewBearing } from './views';
@@ -58,7 +61,17 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
   const spread = btn('1 torped', 'Torpeder per salva', (c) => c.submit({ kind: 'setSpread', count: (c.fire.spread % 3) + 1 }, 'touch'));
   const fire = btn('Fyr', 'Skjut mot målet (F)', (c) => c.submit({ kind: 'fireTorpedo' }, 'touch'), 'fire-go');
   const tubes = [0, 1, 2, 3].map((i) =>
-    btn(String(i + 1), `Skjut från tub ${i + 1}`, (c) => c.submit({ kind: 'fireTorpedo', tube: i + 1 }, 'touch'), 'fire-tube'),
+    btn(
+      String(i + 1),
+      `Skjut från tub ${i + 1}`,
+      (c) => {
+        const t = c.fire.tubes[i];
+        if (!t) return;
+        if (isReady(t)) c.submit({ kind: 'fireTorpedo', tube: i + 1 }, 'touch');
+        else if (t.plan.length === 0) c.submit({ kind: 'tube', tube: i + 1, action: t.loaded ? 'ready' : 'load' }, 'touch');
+      },
+      'fire-tube',
+    ),
   );
   const solution = h('div', { class: 'fire-solution' });
   const store = h('span', { class: 'fire-store' });
@@ -97,13 +110,20 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
     const solved = !!f.target?.solution;
     f.tubes.forEach((t, i) => {
       const el = tubes[i]!;
-      el.classList.toggle('loaded', t.loaded);
-      el.classList.toggle('loading', !t.loaded && t.loading > 0);
-      set(el, t.loaded ? String(i + 1) : t.loading > 0 ? mmss(t.loading) : '–');
-      el.disabled = !t.loaded || !solved;
+      const ready = isReady(t);
+      const busy = t.plan.length > 0;
+      el.classList.toggle('loaded', ready);
+      el.classList.toggle('loading', busy);
+      set(el, busy ? mmss(t.left) : t.loaded ? String(i + 1) : '–');
+      const title = ready ? `Skjut från tub ${i + 1}` : busy ? `Tub ${i + 1}: ${tubeState(t)}` : t.loaded ? `Gör tub ${i + 1} klar` : `Ladda tub ${i + 1}`;
+      if (el.title !== title) {
+        el.title = title;
+        el.setAttribute('aria-label', title);
+      }
+      el.disabled = ready ? !solved : busy || (!t.loaded && f.reserve === 0);
     });
     set(store, `${f.reserve} i förråd`);
-    fire.disabled = !solved || !f.tubes.some((t) => t.loaded);
+    fire.disabled = !solved || !f.tubes.some(isReady);
     const key = `${f.targets.map((t) => `${t.label}:${t.name}`).join(',')}|${f.current}`;
     if (key !== targetsKey) {
       targetsKey = key;

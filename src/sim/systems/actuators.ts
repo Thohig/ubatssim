@@ -1,4 +1,4 @@
-/** Rudder, stern planes, shaft speed limits and the periscope and snorkel hoists: they follow their commands at limited rates. */
+/** Rudder, stern planes, shaft speed limits and the periscope, snorkel and radar hoists: they follow their commands at limited rates. */
 import type { Simulation } from '../simulation';
 import type { Subsystem } from './types';
 
@@ -10,11 +10,13 @@ export interface ActuatorState {
   periscope: number;
   /** Snorkel mast extension 0 (housed) … 1 (raised). */
   snorkel: number;
+  /** Radar mast extension 0 (housed) … 1 (raised). */
+  radar: number;
 }
 
 export class Actuators implements Subsystem {
   readonly name = 'actuators';
-  readonly state: ActuatorState = { rudder: 0, sternPlanes: 0, periscope: 0, snorkel: 0 };
+  readonly state: ActuatorState = { rudder: 0, sternPlanes: 0, periscope: 0, snorkel: 0, radar: 0 };
 
   constructor(private readonly sim: Simulation) {}
 
@@ -38,5 +40,8 @@ export class Actuators implements Subsystem {
     const snorkelStep = dt / cfg.snorkel.raiseTime;
     const snorkelTarget = commands.snorkelUp ? 1 : 0;
     this.state.snorkel += Math.max(-snorkelStep, Math.min(snorkelStep, snorkelTarget - this.state.snorkel));
+    const radarStep = dt / cfg.radar.raiseTime;
+    const radarTarget = commands.radarUp ? 1 : 0;
+    this.state.radar += Math.max(-radarStep, Math.min(radarStep, radarTarget - this.state.radar));
   }
 }

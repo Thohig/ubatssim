@@ -71,7 +71,7 @@ Tre partikelsystem (`THREE.Points`) med fasta pooler: bubblor (1 600), stänk (5
 - **Masterna:** ett periskop eller en snorkel som skär genom ytan i fart kastar upp en plym av stänk. Snorkeln ryker när dieslarna går.
 - **Bubblorna** försvinner vid ytan, stänket när det faller tillbaka och röken när den har levt ut.
 
-Snorkelmasten ritas i ubåtsmodellen som periskopet, med ett lådformat huvud med ventilen.
+Snorkelmasten ritas i ubåtsmodellen som periskopet, med ett lådformat huvud med ventilen. Radarmasten står mellan dem, med en platt antenn tvärs över båten.
 
 - **Torpederna** är mörka cylindrar (533 mm × 6 m) ur en liten pool, placerade efter sitt läge och sin kurs. De lämnar en ström av bubblor.
 - **Explosioner** (torpedträffar och sjunkbomber) kommer som `Controller.blasts` med ökande id. Var och en ger en gång en bubbelsky under vattnet och en plym av stänk vid ytan. En träff ger också rök.
@@ -81,13 +81,13 @@ Snorkelmasten ritas i ubåtsmodellen som periskopet, med ett lådformat huvud me
 
 En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden medan den är öppen. Storleken hålls av en `ResizeObserver`.
 
-- **Sjökortet:** norr uppåt och ubåten i mitten, med fyra skalor (750 m, 2, 5 och 12 km till kanten). Djupet ritas från samma botten som fysiken använder (`sim.ground`), 72 × 72 prov i en bild som byggs om när ubåten flyttat en tiondel av skalan. Ovanpå ritas spåret (en punkt per 25 m), fyrarna, bojen eller en pil mot den vid kanten, sonarens bäringar som streckade linjer och fartyg i sikte från periskopet eller bryggan (inom 8 km).
-- **Sonaren:** ett vattenfall med bäringen från fören (−180…180°) tvärs över och en rad per sekund nedåt, 180 s historik. Ljusare för starkare signal. Under det står kontakterna, ubåtens ljudnivå och risken att bli upptäckt.
+- **Sjökortet:** norr uppåt och ubåten i mitten, med fyra skalor (750 m, 2, 5 och 12 km till kanten). Djupet ritas från samma botten som fysiken använder (`sim.ground`), 72 × 72 prov i en bild som byggs om när ubåten flyttat en tiondel av skalan. Ovanpå ritas spåret (en punkt per 25 m), fyrarna, bojen eller en pil mot den vid kanten, sonarens bäringar som streckade linjer, fartyg i sikte från periskopet eller bryggan (inom 8 km), radarekon som gröna kryss, ekona från den senaste pingen som ringar (tonas bort på en minut) och bäringen till korvettradar som radarvarnaren hör som röda streck från ubåten. **Radar** i panelens huvud sänder eller tystnar (lyser och heter "Radar sänder" medan den sänder).
+- **Sonaren:** ett vattenfall med bäringen från fören (−180…180°) tvärs över och en rad per sekund nedåt, 180 s historik. Ljusare för starkare signal. Under det står kontakterna, ubåtens ljudnivå, risken att bli upptäckt och ekona från den senaste pingen. **Ping** i panelens huvud sänder en ping.
 - **På mobil** ligger panelen under statusraden, och målrutan och loggboken döljs medan den är öppen.
 
 ## Eldledningspanelen (`src/ui/firePanel.ts`)
 
-En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen (utom i genomskärningen, där rumsinformationen har den platsen). Den ligger vid sidan av periskopbilden, så att hårkorset och horisonten är fria: på datorn som en smal kolumn till höger ovanför skärmkontrollerna, på mobil i stående läge som en låg list ovanför skärmkontrollerna (knappar och tuber på en rad) och i liggande läge i hörnet till höger under Vyer ▾. Med sjökortet öppet ligger den under kortet. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
+En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen (utom i genomskärningen, där rumsinformationen har den platsen). Den ligger vid sidan av periskopbilden, så att hårkorset och horisonten är fria: på datorn som en smal kolumn till höger ovanför skärmkontrollerna, på mobil i stående läge som en låg list ovanför skärmkontrollerna (knappar och tuber på en rad) och i liggande läge i hörnet till höger under Vyer ▾. Med sjökortet öppet ligger den under kortet. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna: klar (grön), i arbete (gul, med tiden kvar), laddad men inte klar (numret) eller tom (–). Ett tryck på en klar tub skjuter från den, på en laddad tub gör det den klar och på en tom tub laddar det om den. Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
 
 Panelen har lösningsraden, en rad med målen (M1, M2 …, bara när det finns fler än ett; det aktuella är markerat och ett tryck väljer ett annat), knapparna Mål, Avst, spridningen och Fyr, och tuberna. En laddad tub är en knapp som skjuter från just den tuben, och den är avstängd tills målet har en lösning. Målraden byggs om bara när målen eller det aktuella målet ändras.
 
@@ -113,7 +113,7 @@ Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil unde
 
 - **Vyval:** vyn är spelarens tillstånd, inte simuleringens. `ViewState` håller vy, blickriktning, periskopets riktning och förstoring.
 - **Automatiskt byte:** `src/game/app.ts` öppnar periskopvyn när masten är uppe och lämnar en vy som inte längre finns, till exempel när bryggan utryms.
-- **Overlay** (`viewOverlay.ts`): hårkors, periskopmask, bäringsskala och bryggans kompassband ritas i 2D på en egen canvas ovanpå 3D-bilden och under panelerna. Bojens riktning visas som en gul markering på bandet.
+- **Overlay** (`viewOverlay.ts`): hårkors, periskopmask, bäringsskala och bryggans kompassband ritas i 2D på en egen canvas ovanpå 3D-bilden och under panelerna. Bojens riktning visas som en gul markering på bandet. I periskopet ligger bäringsbandet utanför okularet (`periscopeLayout`, testad): under det om en cirkel på minst 30 % av skärmen ryms ovanför skärmkontrollerna, annars ovanför det, under målrutan och loggen (på en låg skärm ända uppe). Okularet står kvar mitt på skärmen, där kameran tittar, och krymper hellre än att bandet hamnar i bilden.
 
 ## Genomskärningen (`cutaway.ts`, `interior.ts`, `tankLevel.ts`)
 
@@ -130,7 +130,7 @@ Etapp 4 (vad som lever i snittet): vattnet i läckande avdelningar ritas som avd
 
 Instrumentpanel, logg, menyer och skärmkontroller är vanlig HTML och CSS ovanpå 3D-bilden (`src/ui/`, `style.css`). HTML byggs med mallen `html` i `src/ui/dom.ts`, som escapar allt som infogas. Varje instrument är en liten komponent, och vilka instrument som visas i huvudpanelen följer vem som sköter vad (`instrumentLayout` i `instruments.ts`): panelen byggs om när det ändras. Menyskärmarna är en funktion var i `menuScreens.ts`.
 
-Skärmkontrollerna (`src/ui/helm/`) är knappar, de utfällbara panelerna Ballast, Trim och Fart, och fyra små 2D-canvas: djupskalan, kompassbandet och, på Hand, mätarna för djuproder och roder. Bara två av dem syns åt gången. De ritas om bara när något som syns har ändrats, ungefär en pixel, och storleken hålls av en `ResizeObserver`. Läser man `clientWidth` under uppdateringen tvingas webbläsaren göra om layouten direkt efter att instrumentpanelen bytt text. Färgerna läses från CSS-variablerna en gång. Loggen och instrumentpanelen hålls ovanför kontrollerna med CSS-variabeln `--helm-h`. En panel öppnas ovanför kontrollerna, högst så hög att ☰ syns. Panelens flikar byter mellan Ballast, Trim och Fart.
+Skärmkontrollerna (`src/ui/helm/`) är knappar, de utfällbara panelerna Ballast, Trim, Fart, El och Torped, och fyra små 2D-canvas: djupskalan, kompassbandet och, på Hand, mätarna för djuproder och roder. Bara två av dem syns åt gången. De ritas om bara när något som syns har ändrats, ungefär en pixel, och storleken hålls av en `ResizeObserver`. Läser man `clientWidth` under uppdateringen tvingas webbläsaren göra om layouten direkt efter att instrumentpanelen bytt text. Färgerna läses från CSS-variablerna en gång. Loggen och instrumentpanelen hålls ovanför kontrollerna med CSS-variabeln `--helm-h`. En panel öppnas ovanför kontrollerna, högst så hög att ☰ syns. Panelens flikar byter mellan Ballast, Trim, Fart, El och Torped.
 
 ### Mobilvyn
 

@@ -64,6 +64,14 @@ export type Order =
   | { kind: 'fireTorpedo'; tube?: number }
   /** Torpedoes per salvo, 1–3. */
   | { kind: 'setSpread'; count: number }
+  /** A tube (1–4): make it ready (flood, open the door), secure it (shut, drain) or load it from the racks. */
+  | { kind: 'tube'; tube: number; action: 'ready' | 'secure' | 'load' }
+  /** One ping with the active sonar. */
+  | { kind: 'ping' }
+  /** Raise or lower the radar mast (the radar warning receiver listens whenever it is up). */
+  | { kind: 'radarMast'; up: boolean }
+  /** Transmit with the radar, or go silent. */
+  | { kind: 'radar'; on: boolean }
   /** Hand a system (or all) to the crew (`crew: true`) or take it over (`crew: false`). See crew.ts. */
   | { kind: 'crew'; system: CrewSystem | 'all'; crew: boolean };
 
@@ -149,6 +157,14 @@ export function acknowledgement(o: Order): string {
       return o.tube ? `Fyr tub ${o.tube}, ja` : 'Fyr, ja';
     case 'setSpread':
       return o.count === 1 ? 'En torped per salva, ja' : `Spridning ${o.count} torpeder, ja`;
+    case 'tube':
+      return `${o.action === 'ready' ? 'Klart' : o.action === 'secure' ? 'Säkra' : 'Ladda'} tub ${o.tube}, ja`;
+    case 'ping':
+      return 'Ping, ja';
+    case 'radarMast':
+      return `Radarmast ${o.up ? 'upp' : 'ned'}, ja`;
+    case 'radar':
+      return o.on ? 'Radar sänd, ja' : 'Radar tyst, ja';
   }
 }
 
@@ -161,6 +177,7 @@ const CREW_ACK: Record<CrewSystem | 'all', [string, string]> = {
   trim: ['Trimassistenten tar trimmet, ja', 'Trimassistenten avlöst, ja'],
   charging: ['Maskinisten sköter laddningen, ja', 'Du sköter laddningen, ja'],
   fireControl: ['Eldledaren mäter avstånd, ja', 'Du mäter avstånd själv, ja'],
+  torpedoRoom: ['Torpedrummet sköter tuberna, ja', 'Du sköter tuberna, ja'],
   safetyNet: ['Skyddsnät på, ja', 'Skyddsnät av, ja'],
   all: ['Besättningen sköter allt, ja', 'Du sköter allt, ja'],
 };
