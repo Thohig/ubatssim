@@ -29,7 +29,6 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Torpedrummet** | Klar | Tubernas steg (klar, säkra, ladda), laddrälsen, besättningen och torpedernas vikt. Se README (Torpedrummet). |
 | **Bäringen utanför periskopet** | Klar | Bäringsbandet under eller ovanför okularet. Se `docs/grafik.md`. |
 | **Skott och länsning** | Återstår | Vattentäta dörrar som besättningen stänger, så att en läcka hålls i en avdelning, och vatten som flyttar sig när ubåten lutar. |
-| **Besättningens reaktionstid** | Återstår | Order verkställs efter några sekunder (deterministiskt), och kvittot kommer då. Ger realism när spelaren sköter ett system själv. |
 
 ## Grafik
 
@@ -41,6 +40,7 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Genomskärningen: etapp 4** | Klar | Vatten i läckande avdelningar, batterierna, dieslarna, torpedtuberna och reservtorpederna. |
 | **Startsidan** | Klar | Ubåten glider förbi under vattnet i dagsljus, lugn musik, menyn som en färdorder. Se `docs/ljud.md` och `docs/grafik.md`. |
 | **Skärmkontrollerna** | Klar | Yta som vanlig stigning, Per.djup, System ▾ på alla skärmar och vyknappar med ikoner mellan telegrafen och kompassen. |
+| **Scenariolistan** | Klar | Fem flikar efter vad scenariot övar på och kompakta kort. Se README (Scenarier). |
 | **Ytan underifrån** | Återstår | Ett ljust fönster rakt ovanför och mörkt utanför (totalreflektion), sett från under ytan. |
 
 ## Tekniskt
