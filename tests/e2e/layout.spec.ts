@@ -60,7 +60,7 @@ test('desktop: the instrument panel, the objective and the screen controls do no
   await page.locator('[data-action="scenario"][data-arg="fjord-entry"]').click();
   await page.locator('[data-action="briefingDone"]').click();
   await expect(page.locator('#objective')).toBeVisible();
-  const parts = ['#instruments', '#top-center', '#view-btns', '#helm'];
+  const parts = ['#instruments', '#top-center', '#view-btns', '#helm', '.helm-views'];
   const boxes = await Promise.all(parts.map((p) => box(page, p)));
   for (let i = 0; i < parts.length; i++) {
     for (let j = i + 1; j < parts.length; j++) {
@@ -69,6 +69,13 @@ test('desktop: the instrument panel, the objective and the screen controls do no
       if (a && b) expect(overlaps(a, b), `${parts[i]} and ${parts[j]}`).toBe(false);
     }
   }
+  // The view buttons: one column at the right edge, the views over the masts.
+  const order = await page.locator('.helm-views button').evaluateAll((bs) =>
+    bs.map((b) => ({ v: (b as HTMLElement).dataset.v, ...b.getBoundingClientRect().toJSON() })),
+  );
+  expect(order.map((b) => b.v)).toEqual(['view', 'chart', 'sonar', 'periscope', 'snorkel', 'radar']);
+  for (const b of order) expect(b.right).toBeGreaterThan(1280 - 64);
+  for (const [i, b] of order.slice(1).entries()) expect(b.top).toBeGreaterThan(order[i]!.bottom);
   errors.check();
 });
 
@@ -82,7 +89,7 @@ test('mid-sized screen (1024×700): periscope, fire panel and chart overlap noth
   await expect(page.locator('body')).toHaveClass(/onboard/, { timeout: 20_000 });
   await page.keyboard.press('k');
   await expect(page.locator('#nav')).toBeVisible();
-  const parts = ['#instruments', '#top-center', '#view-btns', '#helm', '#fire', '#nav', '#mode'];
+  const parts = ['#instruments', '#top-center', '#view-btns', '#helm', '#fire', '#nav', '#mode', '.helm-views'];
   const boxes = await Promise.all(parts.map((p) => box(page, p)));
   for (let i = 0; i < parts.length; i++) {
     for (let j = i + 1; j < parts.length; j++) {

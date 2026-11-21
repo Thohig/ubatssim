@@ -121,7 +121,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | Panelen **Fart** | | Fart, varvtal och axeleffekt. Sköter besättningen farten: fartmålet ±1 knop. Sköter du den: varvtalet ±10 rpm och 0 rpm. |
 | Panelen **Torped** | | Varje tub med sitt läge (klar, laddad, tom, eller vad den gör och hur länge) och Klar / Säkra / Ladda, och torpederna i stället. |
 | Panelen **El** | | Batteriets laddning, elförbrukningen, snorkeln (Upp / Ned), dieslarna (Start / Stopp) och länspumpen, med vattnet i varje avdelning som läcker. |
-| **Vyknapparna** | Mellan telegrafen och kompassen (mobil: under Vyer ▾) | Ikoner: ögat byter vy, sjökortet och sonarbågarna öppnar sjökortet och sonaren, periskopet, snorkeln och radarn hissar och sänker masterna (en mast som är uppe lyser). |
+| **Vyknapparna** | En kolumn mitt i högerkanten (låga fönster: mellan telegrafen och kompassen; mobil: under Vyer ▾) | Ikoner, uppifrån: ögat byter vy, sjökortet och sonarbågarna öppnar sjökortet och sonaren, och under dem hissar och sänker periskopet, snorkeln och radarn masterna (en mast som är uppe lyser). |
 
 En flik eller planraden är gul när du sköter något av systemen själv. Håll in rodrens knappar så upprepas de, och fortare ju längre du håller.
 
@@ -533,7 +533,7 @@ Testerna täcker bland annat:
 - genomskärningen: att all inredning ligger inom sin avdelning och tryckskrovet, att vattenytan i en lutande tank fyller rätt volym, att ett tryck hittar rätt utrymme och att informationsrutan har något att säga om varje utrymme
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
-- skärmkontrollerna (djupskala, Yta / Periskop / Djup, kompass, telegraf, planraden och detaljerna med panelen Manöver, expertläget med Auto / Hand, roder och djuproder, vyknapparna som ikoner i skärmkontrollerna), att tangenterna följer Auto / Hand och att inget scenariotips nämner en panelknapp
+- skärmkontrollerna (djupskala, Yta / Periskop / Djup, kompass, telegraf, planraden och detaljerna med panelen Manöver, expertläget med Auto / Hand, roder och djuproder, vyknapparna som ikoner), att tangenterna följer Auto / Hand och att inget scenariotips nämner en panelknapp
 - besättningens val (`tests/conn.test.ts`): att farten glider ned utan back och bromsar med grunt förut, fartgränsen och det mjukare rodret nära periskopdjup, att besättningen väntar på periskopdjup när en korvett jagar, trimmet före ett djupbyte och planraden
 - mobilvyn: telegrafreglaget, Auto / Hand-knappen, planraden med flikarna, Vyer ▾ och statusraden
 - loggboken: radernas livslängd, högst två rader, uttoning av raderna och fönstret, historiken och ☰ → Loggbok

@@ -282,8 +282,8 @@ const ICONS = {
   radar: '<path d="M12 21V11"/><path d="M5 7.5c4.5-3 9.5-3 14 0L12 11z"/><path d="M3 16c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 3-1.2 4.5 0 3 1.2 4.5 0"/>',
 } as const;
 const icon = (k: keyof typeof ICONS) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
-/** The buttons that move to the screen controls on computers (`dock`), in their order there. */
-const DOCKED = ['view', 'chart', 'periscope', 'sonar', 'snorkel', 'radar'] as const;
+/** The buttons that move to the dock on computers (`dock`, a column at the right edge), in their order there. */
+const DOCKED = ['view', 'chart', 'sonar', 'periscope', 'snorkel', 'radar'] as const;
 
 /**
  * Buttons for the views next to the menu button (mouse and touch), and Karta
@@ -347,7 +347,7 @@ export function bindViewButtons(
     menu.setAttribute('aria-expanded', String(open));
     menu.textContent = open ? 'Vyer ▴' : 'Vyer ▾';
   };
-  // Computers: the view buttons in the screen controls; phones: all under Vyer ▾, in their order.
+  // Computers: the view buttons in the column at the right edge; phones: all under Vyer ▾, in their order.
   const place = () => {
     if (!dock) return;
     if (isCompact()) root.append(...all);

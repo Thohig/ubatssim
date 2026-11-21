@@ -668,12 +668,12 @@ describe('the panels', () => {
     expect(surfaced.sim.tanks.some((t) => t.ventOpen)).toBe(true);
   });
 
-  it('on computers the view buttons go to the dock in the screen controls, as icons', () => {
+  it('on computers the view buttons go to the dock at the right edge, as icons: the views, then the masts', () => {
     const root = document.createElement('div');
     const dock = document.createElement('div');
     const c = crewGame({ depth: PERISCOPE_DEPTH, designTrim: true });
     bindViewButtons(root, () => c, new ViewState(), { mode: () => null, toggle: () => {} }, dock)(c);
-    expect([...dock.querySelectorAll<HTMLButtonElement>('button')].map((b) => b.dataset.v)).toEqual(['view', 'chart', 'periscope', 'sonar', 'snorkel', 'radar']);
+    expect([...dock.querySelectorAll<HTMLButtonElement>('button')].map((b) => b.dataset.v)).toEqual(['view', 'chart', 'sonar', 'periscope', 'snorkel', 'radar']);
     for (const b of dock.querySelectorAll('button')) {
       expect(b.querySelector('svg')).not.toBeNull();
       expect(b.getAttribute('aria-label')).toBeTruthy();

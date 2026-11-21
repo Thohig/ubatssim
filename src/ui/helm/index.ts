@@ -20,7 +20,7 @@
  *  - The plan line over the telegraph: what the boat does now ("Går ned
  *    till 100 m."). A tap opens the details: Manöver (why, and the planes,
  *    rudder and shaft) and the panels Ballast, Trim, Fart, El and Torped.
- *  - The view buttons (views.ts) between the telegraph and the course, in
+ *  - The view buttons (views.ts) in a column at the right edge, in
  *    `viewDock`, on computers.
  *
  * Expert mode (`Controller.options.expert`, ☰ → Besättning) adds the hand

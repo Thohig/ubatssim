@@ -248,7 +248,7 @@ legend { color: var(--muted); padding: 0 4px; }
 /* ---------------------------------------------------------- screen controls */
 .helm {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: grid; grid-template-columns: auto 1fr auto auto; grid-template-areas: "depth centre views course";
+  display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "depth centre course";
   align-items: end; gap: 12px;
   padding: 8px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   pointer-events: none;
@@ -335,17 +335,36 @@ legend { color: var(--muted); padding: 0 4px; }
 .fire-wire-time { font-size: 11px; color: var(--muted); flex: 1 1 auto; white-space: nowrap; }
 .helm .touch-btn.helm-emergency { flex: 1 1 auto; color: #fff; background: rgba(255, 107, 107, 0.25); border-color: var(--error); font-weight: 700; }
 
-/* The view buttons between the telegraph and the course (computers; on phones they are under Vyer ▾). */
+/* The view buttons in one column at the right edge, centred between the buttons under ☰ and the screen
+   controls (computers; on phones they are under Vyer ▾). The views first, then the masts; a hidden mast
+   keeps its place so that the others stay put. The column stays in the 64 px the panels keep free. */
 .helm-views {
-  grid-area: views; align-self: end; pointer-events: auto;
-  display: grid; grid-template-columns: repeat(2, 44px); grid-auto-rows: 44px; gap: 4px;
+  position: fixed; right: max(12px, env(safe-area-inset-right));
+  top: calc(max(12px, env(safe-area-inset-top)) + 140px); bottom: calc(var(--helm-h, 200px) + 8px);
+  display: flex; flex-direction: column; justify-content: center; gap: 4px; pointer-events: none;
 }
 .helm-views:empty { display: none; }
+.helm-views button { width: 44px; height: 44px; flex: none; pointer-events: auto; }
+.helm-views button[data-v="periscope"] { margin-top: 6px; }
+@media (max-height: 720px) {
+  .helm-views button { width: 38px; height: 38px; }
+}
+/* Too low for the column between ☰ and the screen controls: two columns of three (the views, the
+   masts) between the telegraph and the course (phones, ≤ 500 px, have them under Vyer ▾). */
+@media (max-height: 640px) {
+  .helm { grid-template-columns: auto 1fr auto auto; grid-template-areas: "depth centre views course"; }
+  .helm-views {
+    position: static; grid-area: views; align-self: end;
+    display: grid; grid-template-rows: repeat(3, 44px); grid-auto-columns: 44px; grid-auto-flow: column; gap: 4px;
+  }
+  .helm-views button { width: 44px; height: 44px; }
+  .helm-views button[data-v="periscope"] { margin-top: 0; }
+}
 .helm-views button, #view-btns button.icon {
   display: flex; align-items: center; justify-content: center; padding: 0;
   border-radius: 8px; background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--text); cursor: pointer;
 }
-.helm-views button[hidden] { display: none; }
+.helm-views button[hidden] { display: flex; visibility: hidden; }
 .helm-views button.on { border-color: var(--accent); color: var(--accent); }
 .helm-views svg, #view-btns svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 
