@@ -231,8 +231,12 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <p>I periskopvyn finns eldledningen. Sätt hårkorset på ett fartyg och tryck <b>Mål</b> (T), mät avståndet med <b>Avst</b> (R, noggrannare på 6×) och vänta tills lösningen är ok eller bra. <b>Fyr</b> (F) skjuter mot träffpunkten. Torpeden går 40 knop och söker själv det sista stycket. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Då ger bäringarna avståndet först när du bytt kurs minst 30° och hållit den några minuter. Fyra tuber, åtta torpeder i förråd och 2 minuters omladdning.</p>
         <h3>Korvetter som jagar</h3>
         <p>En korvett som hört eller sett dig saktar in och svänger mot dig. Sedan söker den med aktiv sonar (pingar som hörs i skrovet) och anfaller med sjunkbomber inställda på djupet den mätte. Avfyrningar hörs. Kom undan genom att gå djupt under skiktet, sakta, byta kurs och byta djup när den går över dig. Den ger upp efter fem minuter utan kontakt, eller när bomberna är slut.</p>
+        <h3>Scenarier</h3>
+        <p>Ett scenario börjar med en genomgång: uppdraget, alla mål i ordning, förhållandena och vem som sköter vad. Där kan du ändra besättningen innan du trycker <b>Till sjöss</b>. Under spelet visar målrutan överst det aktuella målet på en rad. Tryck på den, eller O, för tipset och hela listan. Den öppnas också själv en stund när ett nytt mål börjar.</p>
         <h3>Ljud</h3>
-        <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar.</p>
+        <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar. På startsidan spelar mörk musik, som slås av eller sänks under Inställningar.</p>
+        <h3>Om något går fel</h3>
+        <p>Vid ett fel pausas spelet och en ruta visar en felrapport som går att kopiera. Starta om eller ladda om sidan. Tar webbläsaren tillbaka grafiken, till exempel när fliken legat i bakgrunden, väntar spelet tills den är tillbaka.</p>
         <h3>Havsområden och väder</h3>
         <p>I fritt spel väljer du havsområde, ljus och sikt (dag, natt, dimma) och sjögång. Ubåtens fasta barlast är anpassad för området, men skikten i vattnet skiljer sig:</p>
         <ul>

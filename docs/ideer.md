@@ -2,7 +2,7 @@
 
 Förslag på vad som skulle förbättra spelet, med läge och en rekommenderad ordning. Det som är gjort beskrivs i README och de andra dokumenten. Här står bara det som återstår och varför.
 
-Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv sonar, sjökort, målrörelseanalys, torpeder och korvetter som jagar. Det som saknas är framför allt **mer variation i motståndet** och **en kampanj** som binder ihop uppdragen.
+Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, besättningen, genomskärningen, batteri och dieslar, läckage, passiv sonar, sjökort, målrörelseanalys, torpeder, korvetter som jagar, svävning utan fart och en startsida med egen musik. Det som saknas är framför allt **mer variation i motståndet** och **en kampanj** som binder ihop uppdragen.
 
 ## Rekommenderad ordning
 
@@ -20,6 +20,8 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Läckage och skador** | Klar | Se README och `docs/fysikmodell.md`. |
 | **Korvetter som jagar** | Klar | Se README och `docs/fysikmodell.md`. |
 | **Målrörelseanalys och torpeder** | Klar | Se README (Anfall) och `docs/fysikmodell.md`. |
+| **Sväva utan fart** | Klar | Se README (Besättningen och du) och `docs/fysikmodell.md`. |
+| **Genomgång och målruta** | Klar | Se README (Scenarier) och `docs/grafik.md`. |
 | **Trådstyrda torpeder** | Återstår | Styr om en torped efter avfyrningen via tråden, när lösningen blivit bättre. |
 | **Aktiv sonar på ubåten** | Återstår | En ping som ger avstånd direkt, men som hörs långt och avslöjar ubåten. |
 | **Skott och länsning** | Återstår | Vattentäta dörrar som besättningen stänger, så att en läcka hålls i en avdelning, och vatten som flyttar sig när ubåten lutar. |
@@ -33,7 +35,17 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 | **Livet under ytan** | Klar | Bubblor från huvudballasten, kölvatten, plym efter masterna och avgaser från snorkeln (`render/effects.ts`). |
 | **Sikt under vattnet** | Klar | Mörker efter djupet, vattnets färg och klarhet per havsområde, och ljusstrålar nära ytan. |
 | **Genomskärningen: etapp 4** | Klar | Vatten i läckande avdelningar, batterierna, dieslarna, torpedtuberna och reservtorpederna. |
+| **Startsidan** | Klar | Mörk musik, skymning, korvett och sjunkbomber, menyn som en order. Se `docs/ljud.md` och `docs/grafik.md`. |
 | **Ytan underifrån** | Återstår | Ett ljust fönster rakt ovanför och mörkt utanför (totalreflektion), sett från under ytan. |
+
+## Tekniskt
+
+| Förslag | Läge | Innehåll |
+|---|---|---|
+| **Robusthet** | Klar | Minnet på grafikkortet, förlorad grafik och felrutan. Se `docs/grafik.md`. |
+| **Determinismtest** | Klar | Referens per plattform. Se CLAUDE.md (Simulering). |
+| **Tester i webbläsaren** | Klar | Playwright i `tests/e2e/`, också i publiceringen. |
+| **Uppdelning** | Klar | `src/ui/helm/`, `orderRegistry.ts` och `plantWatch.ts`. |
 
 ## Mindre idéer
 

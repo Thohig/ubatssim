@@ -28,13 +28,15 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 
 ## Spelet
 
-Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubåten**, och du tar över det du vill sköta själv (se [Besättningen och du](#besättningen-och-du)). På startsidan finns fyra val:
+Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubåten**, och du tar över det du vill sköta själv (se [Besättningen och du](#besättningen-och-du)).
+
+**Startsidan** är utformad som en hemlig order, med ordernummer, stämpeln Hemligt och en fiktiv order som skrivs fram. Bakom menyn går ubåten i ytläge i skymning med en korvett vid sidan, och i fjärran faller sjunkbomber. Mörk, syntetiserad musik spelar (se [Ljud](#ljud)). Fyra val finns:
 
 | Val | Innehåll |
 |---|---|
 | **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, skymning, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
-| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order), loggboken, svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
+| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order, musik på startsidan och musikvolym), loggboken, svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
 | **Hjälp** | Besättningen, kontrollerna, tangenterna, alla konsolkommandon och tips. |
 
 På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
@@ -431,6 +433,11 @@ Testerna täcker bland annat:
 - propellern back (svagare dragkraft, varvtalsgräns, kontinuitet genom noll) och att skyddsnätet tittar akterut när ubåten backar
 - besättningen: att besättningen dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att övertagande och lämning sker utan ryck, att en order tar över rätt system, att låsningar vägras och att simuleringen fortfarande är deterministisk
 - att varje scenario går att klara och att det misslyckas när det ska
+- determinismen: "Jagad" körs i 4 minuter med fasta order två gånger och ska ge exakt samma tillstånd, och samma som en sparad referens per plattform
+- svävningen: djupbyten utan fart genom språngskiktet, uppåt och på djupt vatten, att djupet hålls efteråt, att svävningen slutar när farten kommer tillbaka och beskedet till en spelare som sköter trimmet
+- startsidans musik: partiturets delar, att alla toner ligger i D frygisk, att sjunkbomberna bara kommer i anfallet och att samma frö ger samma partitur; demons korvett och vattenpelare
+- frigörandet på grafikkortet (`disposeTree` och fartygen), felrutan och rutan för förlorad grafik
+- genomgången före ett scenario och målrutan (utfälld vid start, ihopfälld efter en stund, öppen vid tryck, nytt mål och nytt tips)
 - terrängen, grundstötning och navigering genom sundet
 - havsområdena: att trycket är integralen av densiteten, saltsprångskiktet, sötvattnet i fjorden, fjordens tröskel och att alla startlägen och fyrar ligger rätt
 - strömmen (drift, fart genom vattnet och över grund) och vågorna (signifikant våghöjd, rörelser i ytläge, lågtrycksblåsaren)
@@ -442,7 +449,8 @@ Testerna täcker bland annat:
 - mobilvyn: telegrafreglaget, Auto / Hand-knappen, System ▾ med flikarna, Vyer ▾ och statusraden
 - loggboken: radernas livslängd, högst tre rader, uttoning och historiken
 - panelen El, sjökortet och sonarvyn, knapparna Karta och Sonar, eldledningspanelen i periskopvyn
-- spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom).
+- spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom)
+- i en riktig webbläsare (Playwright, `tests/e2e/`): genomgången och målrutan, paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, förlorad och återställd grafik, felrutan och hela startsidans musik med ljudet igång.
 
 ## Projektstruktur
 
