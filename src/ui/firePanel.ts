@@ -83,7 +83,8 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
   };
   return (c) => {
     const lookout = views.mode === 'periscope' || views.mode === 'bridge';
-    const show = lookout || navOpen();
+    // Beside the chart or the sonar too, but not in the cutaway: there the room information has that place.
+    const show = lookout || (navOpen() && views.mode !== 'cutaway');
     // Mål and Avst need the cross hair or the bridge; from the chart or the sonar the target is a sonar contact.
     mark.disabled = range.disabled = !lookout;
     root.hidden = !show;

@@ -80,7 +80,12 @@ describe('orders while the crew handles the boat', () => {
     send({ kind: 'surface' });
     run(1);
     expect(c.setpoints.depth).toBe(0);
-    expect(sim.telemetry().tanks.filter((t) => t.kind === 'mainBallast').every((t) => t.blowOpen)).toBe(true);
+    // From 30 m forward first (the bow comes up), aft 15 s later.
+    const mbt = () => sim.telemetry().tanks.filter((t) => t.kind === 'mainBallast');
+    expect(mbt().map((t) => t.blowOpen)).toEqual([true, false]);
+    run(15);
+    expect(mbt()[1]!.blowOpen).toBe(true);
+    expect(c.log.some((e) => e.text === 'Huvudballasten akter blåses.')).toBe(true);
   });
 });
 

@@ -34,8 +34,17 @@ export const STADIMETER_ERROR = [0.08, 0.03] as const;
 const EYE_ERROR = 0.12;
 /** The crew's fire controller ranges a target in sight this often [s]. */
 const CREW_RANGE_EVERY = 30;
-/** Observations kept per target. */
+/**
+ * Observations kept per target. When there are more, the most crowded
+ * bearing (the one closest in time to both its neighbours) goes, not the
+ * oldest: the first leg of a bearings-only analysis must stay, or the
+ * range is lost again ten minutes after the course change.
+ */
 const MAX_OBS = 60;
+/** Own course change [rad] that gives a second leg for bearings-only ranging. */
+const LEG_CHANGE = 25 * DEG;
+/** Least distance [m] between two own positions for their direction to count as a course. */
+const LEG_MIN_RUN = 100;
 /** Vessels in sight within this range [m] (as the chart). */
 export const SIGHT_RANGE = 8000;
 
@@ -75,6 +84,40 @@ export interface Tube {
   loaded: boolean;
   /** Seconds left of loading (0 when loaded or waiting). */
   loading: number;
+}
+
+/**
+ * Index of the observation to drop from a full list: the unranged one with
+ * the least time between its neighbours (never the first or the last).
+ */
+export function crowdedObservation(obs: readonly Observation[]): number {
+  let best = 1;
+  let gap = Infinity;
+  for (let i = 1; i < obs.length - 1; i++) {
+    if (obs[i]!.range !== undefined) continue;
+    const g = obs[i + 1]!.t - obs[i - 1]!.t;
+    if (g < gap) {
+      gap = g;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** True when the own track during the observations has two legs (a course change of `LEG_CHANGE` or more). */
+export function hasSecondLeg(obs: readonly Observation[]): boolean {
+  const courses: number[] = [];
+  let from = obs[0]?.own;
+  for (const o of obs) {
+    if (!from) break;
+    const dn = o.own[0] - from[0];
+    const de = o.own[1] - from[1];
+    if (Math.hypot(dn, de) < LEG_MIN_RUN) continue;
+    courses.push(Math.atan2(de, dn));
+    from = o.own;
+  }
+  const diff = (a: number, b: number) => Math.abs(((a - b + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+  return courses.some((a) => courses.some((b) => diff(a, b) >= LEG_CHANGE));
 }
 
 /** A fixed pseudo-random value in −1…1 from a time and a key (deterministic measurement noise). */
@@ -212,7 +255,7 @@ export class FireControl {
   /** Adds an observation and solves again. */
   observe(t: Target, o: Omit<Observation, 'own' | 't'>): void {
     t.obs.push({ ...o, t: this.ctrl.sim.t, own: this.own() });
-    if (t.obs.length > MAX_OBS) t.obs.shift();
+    if (t.obs.length > MAX_OBS) t.obs.splice(crowdedObservation(t.obs), 1);
     this.resolve(t);
   }
 
@@ -289,7 +332,12 @@ export class FireControl {
       }
       if (t && t.solution && t.solution.quality === 'dålig' && !t.obs.some((o) => o.range !== undefined) && now - this.lastAdvice > 120 && t.obs.length >= 6) {
         this.lastAdvice = now;
-        c.addLog(`Eldledning: byt kurs minst 30° och håll den några minuter, så får vi avstånd till ${t.label}.`, 'info');
+        c.addLog(
+          hasSecondLeg(t.obs)
+            ? `Eldledning: håll kursen några minuter till, så blir lösningen på ${t.label} bättre.`
+            : `Eldledning: byt kurs minst 30° och håll den några minuter, så får vi avstånd till ${t.label}.`,
+          'info',
+        );
       }
     }
   }

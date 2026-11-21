@@ -3,7 +3,7 @@
  * panel, one log line, one view button and a telegraph lever (style.css).
  * The same media query is used in CSS and, for behaviour, here.
  */
-export const COMPACT_QUERY = '(max-width: 760px), (max-height: 500px)';
+export const COMPACT_QUERY = '(max-width: 840px), (max-height: 500px)';
 
 /** True when the compact (phone) layout is in use. */
 export function isCompact(): boolean {

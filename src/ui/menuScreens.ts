@@ -34,9 +34,9 @@ export interface ResultInfo {
 export function handledText(self: readonly CrewSystem[]): string {
   const systems = self.filter((x) => x !== 'safetyNet').map((x) => CREW_NOUN[x]);
   const parts: string[] = [];
-  if (systems.length) parts.push(`Du skötte själv ${swedishList(systems)}`);
+  parts.push(systems.length ? `Du skötte själv ${swedishList(systems)}` : 'Besättningen skötte allt');
   if (self.includes('safetyNet')) parts.push('utan skyddsnät');
-  return parts.length ? `${parts.join(', ')}.` : 'Besättningen skötte allt.';
+  return `${parts.join(', ')}.`;
 }
 
 /** What the screens show. */

@@ -145,4 +145,25 @@ describe('climb to periscope depth', () => {
     expect(shallowest).toBeGreaterThan(10);
     expect(Math.abs(c.sim.y[2]! - 13)).toBeLessThan(1.5);
   });
+
+  it('then holds 13 m without swinging, with the crew trimming (snorkel up)', () => {
+    // The depth integral and the trim assistant used to swing the boat 10.7–15.2 m about periscope depth with a
+    // period of ~7 minutes after this climb: the snorkel dipped and the diesels stopped every few minutes.
+    const c = new Controller(new Simulation({ area: 'atlantic', depth: 40, speed: 4 * KN, neutral: true, battery: 0.25 }));
+    c.crewTakesAll();
+    c.submit({ kind: 'setDepth', depth: 13 }, 'keyboard');
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0; i < 1500 * 100; i++) {
+      if (i === 400 * 100) c.submit({ kind: 'snorkel', up: true }, 'keyboard');
+      c.step();
+      if (i > 600 * 100) {
+        lo = Math.min(lo, c.sim.y[2]!);
+        hi = Math.max(hi, c.sim.y[2]!);
+      }
+    }
+    expect(lo).toBeGreaterThan(11.8);
+    expect(hi).toBeLessThan(14);
+    expect(c.log.some((e) => /Dieslarna har stannat/.test(e.text))).toBe(false);
+  });
 });

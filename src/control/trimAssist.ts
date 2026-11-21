@@ -49,6 +49,15 @@ export const ASSIST = {
   /** Averaging window for the stern-plane angle [s]. */
   trimWindow: 20,
   /**
+   * The plane angle is sampled for the trim only while the boat holds its
+   * depth: within this distance of the target [m] and slower than this
+   * vertical speed [m/s]. While the depth swings, the planes follow the
+   * swing, not the trim, and water moved for it made the swing larger
+   * (±2 m at periscope depth after a climb).
+   */
+  trimDepthBand: 1,
+  trimSteadyRate: 0.05,
+  /**
    * No trimming while the crew runs the engine up for the planes
    * (`Controller.depthBoost`), nor for this long [s] after it starts or
    * ends: the plane angle then comes from the speed, not from the trim, and
@@ -115,7 +124,7 @@ export class TrimAssist {
       this.boostChangedAt = sim.t;
     }
     const boostQuiet = ctrl.depthBoost || sim.t - this.boostChangedAt < ASSIST.boostQuiet;
-    if (!boostQuiet && ctrl.ap.depth && Math.abs(k.depth - ctrl.setpoints.depth) < 2 && Math.abs(k.depthRate) < 0.2 && k.u > 2 && k.depth > ASSIST.minDepth) {
+    if (!boostQuiet && ctrl.ap.depth && Math.abs(k.depth - ctrl.setpoints.depth) < ASSIST.trimDepthBand && Math.abs(k.depthRate) < ASSIST.trimSteadyRate && k.u > 2 && k.depth > ASSIST.minDepth) {
       this.planesSum += sim.actuators.sternPlanes;
       this.planesSamples++;
     } else {

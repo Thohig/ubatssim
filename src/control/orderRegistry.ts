@@ -105,6 +105,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
     apply: (c, o) => {
       const sim = c.sim;
       c.shutVentsWhenFull = false;
+      c.aftBlowAt = null;
       const ids = groupIds(o.group);
       if (o.action === 'flood') sim.setVents(true, ids);
       else if (o.action === 'blow') sim.setBlow(true, ids);
@@ -194,12 +195,12 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
     apply: (c) => {
       c.sim.setVents(true);
       c.shutVentsWhenFull = true;
+      c.aftBlowAt = null;
     },
   },
   surface: {
     apply: (c) => {
-      c.sim.setBlow(true);
-      c.shutVentsWhenFull = false;
+      if (c.blowMainBallast()) c.afterAck.push('Huvudballasten för blåses först, så att fören kommer upp. Akter om 15 s.');
       if (c.ap.depth) c.setpoints.depth = 0;
     },
   },

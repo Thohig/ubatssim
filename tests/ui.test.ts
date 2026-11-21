@@ -108,6 +108,7 @@ describe('menu screens', () => {
     expect(handledText([])).toBe('Besättningen skötte allt.');
     expect(handledText(['trim', 'ballast'])).toBe('Du skötte själv trimmet och ballasten.');
     expect(handledText(['safetyNet', 'depth'])).toBe('Du skötte själv djupet, utan skyddsnät.');
+    expect(handledText(['safetyNet'])).toBe('Besättningen skötte allt, utan skyddsnät.');
     const div = document.createElement('div');
     div.innerHTML = SCREENS.result(state()).value;
     expect(div.textContent).toMatch(/Du skötte själv trimmet, utan skyddsnät/);

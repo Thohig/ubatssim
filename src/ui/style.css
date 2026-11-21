@@ -175,7 +175,7 @@ legend { color: var(--muted); padding: 0 4px; }
 .help li { margin: 4px 0; }
 .help code { color: var(--warn); }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
   .menu-card { padding: 18px; }
   .menu-title { font-size: 28px; }
 }
@@ -332,7 +332,7 @@ legend { color: var(--muted); padding: 0 4px; }
 body.cutaway #log { display: none; }
 #view-btns button.on { border-color: var(--accent); color: var(--accent); }
 /* Small screens: the cutaway is for looking, so it gets the screen (Snitt or Esc goes back). */
-@media (max-width: 760px), (max-height: 500px) {
+@media (max-width: 840px), (max-height: 500px) {
   body.cutaway #helm, body.cutaway #instruments, body.cutaway #objective { display: none; }
   #cutaway-info {
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
@@ -348,7 +348,7 @@ body.cutaway #log { display: none; }
    three panels and a telegraph lever. Upright: depth on the left, course,
    buttons and lever on the right. Sideways: one group per thumb, the middle free.
    ====================================================================== */
-@media (max-width: 760px), (max-height: 500px) {
+@media (max-width: 840px), (max-height: 500px) {
   /* -- Top: status bar, menu button, view menu. */
   #menu-btn { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); }
   #status {
@@ -449,7 +449,7 @@ body.cutaway #log { display: none; }
 }
 
 /* Upright phones: depth on the left; course, buttons and the lever on the right. */
-@media (max-width: 760px) and (min-height: 501px) {
+@media (max-width: 840px) and (min-height: 501px) {
   .helm {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas: "depth course" "depth actions" "tele tele";
@@ -503,7 +503,7 @@ body.cutaway #log { display: none; }
 .nav-info { font-size: 12px; color: var(--muted); line-height: 1.45; max-height: 30%; overflow-y: auto; }
 .nav-info .nav-warn { color: var(--warn); }
 .nav-info .nav-alarm { color: var(--error); font-weight: 700; }
-@media (max-width: 760px), (max-height: 500px) {
+@media (max-width: 840px), (max-height: 500px) {
   #nav {
     top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px; width: auto;
     height: calc(100% - var(--helm-h, 200px) - 70px - max(8px, env(safe-area-inset-top)));
@@ -545,7 +545,7 @@ body.cutaway #log { display: none; }
 .fire-targets[hidden] { display: none; }
 .fire-store { color: var(--muted); font-size: 12px; margin-left: auto; }
 /* Phones: one low strip above the screen controls; the solution on top, the buttons and the tubes side by side. */
-@media (max-width: 760px), (max-height: 500px) {
+@media (max-width: 840px), (max-height: 500px) {
   #fire {
     width: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); padding: 5px 8px; font-size: 12px;
     display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; background: rgba(4, 16, 24, 0.6);
@@ -577,7 +577,7 @@ body.nav-open #fire { z-index: 5; }
   body.nav-open .fire-buttons { grid-template-columns: repeat(4, 1fr); }
   body.nav-open #nav { height: min(400px, calc(100% - var(--helm-h, 200px) - 150px)); }
 }
-@media (max-width: 760px), (max-height: 500px) {
+@media (max-width: 840px), (max-height: 500px) {
   body.nav-open #nav { height: calc(100% - var(--helm-h, 200px) - 170px - max(8px, env(safe-area-inset-top))); }
 }
 
@@ -615,7 +615,7 @@ body.nav-open #fire { z-index: 5; }
   padding: 8px 10px; max-height: 45vh; overflow-y: auto;
 }
 #log.expanded .log-entry { opacity: 1; text-shadow: none; }
-@media (max-width: 760px), (max-height: 500px) {
+@media (max-width: 840px), (max-height: 500px) {
   #top-center {
     top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px;
     width: auto; min-width: 0; transform: none;

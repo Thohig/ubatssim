@@ -87,7 +87,7 @@ En panel med två flikar, ritad på en 2D-canvas ungefär 10 gånger i sekunden 
 
 ## Eldledningspanelen (`src/ui/firePanel.ts`)
 
-En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen. Den ligger vid sidan av periskopbilden, så att hårkorset och horisonten är fria: på datorn som en smal kolumn till höger ovanför skärmkontrollerna, på mobil i stående läge som en låg list ovanför skärmkontrollerna (knappar och tuber på en rad) och i liggande läge i hörnet till höger under Vyer ▾. Med sjökortet öppet ligger den under kortet. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
+En HTML-panel som visas i periskopvyn, på bryggan och medan sjökortet eller sonaren är öppen (utom i genomskärningen, där rumsinformationen har den platsen). Den ligger vid sidan av periskopbilden, så att hårkorset och horisonten är fria: på datorn som en smal kolumn till höger ovanför skärmkontrollerna, på mobil i stående läge som en låg list ovanför skärmkontrollerna (knappar och tuber på en rad) och i liggande läge i hörnet till höger under Vyer ▾. Med sjökortet öppet ligger den under kortet. Den har lösningsraden (avstånd, kurs, fart, kvalitet, skjutkurs, gångtid, färgad efter kvaliteten), knapparna Mål, Avst, spridningen och Fyr, och tuberna (laddad, nedräkning eller tom). Mål och Avst använder periskopets bäring (`viewBearing`) och förstoring. Från sjökortet och sonaren väljs målet i stället genom att trycka på en kontakt i sonarlistan. Sjökortet ritar målens lösningar som romber med två minuters kursvektor och torpederna med sin kurs.
 
 Panelen har lösningsraden, en rad med målen (M1, M2 …, bara när det finns fler än ett; det aktuella är markerat och ett tryck väljer ett annat), knapparna Mål, Avst, spridningen och Fyr, och tuberna. En laddad tub är en knapp som skjuter från just den tuben, och den är avstängd tills målet har en lösning. Målraden byggs om bara när målen eller det aktuella målet ändras.
 
@@ -134,7 +134,7 @@ Skärmkontrollerna (`src/ui/helm/`) är knappar, de utfällbara panelerna Ballas
 
 ### Mobilvyn
 
-Smalare än 760 px eller lägre än 500 px gäller den kompakta layouten. Samma mediefråga finns i `style.css` och i `src/ui/compact.ts` (`isCompact()`), som beteendet använder. Målet är att 3D-bilden får det mesta av skärmen och att inget värde visas två gånger:
+Smalare än 840 px (också surfplattor på höjden) eller lägre än 500 px gäller den kompakta layouten. Samma mediefråga finns i `style.css` och i `src/ui/compact.ts` (`isCompact()`), som beteendet använder. Målet är att 3D-bilden får det mesta av skärmen och att inget värde visas två gånger:
 
 - **Statusraden** (`src/ui/statusBar.ts`, `#status`) ersätter instrumentpanelen. Den visar bara det som kontrollerna inte visar: tid, fart genom vattnet, vatten under kölen och trim (`statusFields()` är ren och testad). Ett tryck sätter `body.inst-open` och visar hela instrumentpanelen under raden.
 - **Loggboken** kortar varje rad till två textrader.

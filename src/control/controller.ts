@@ -22,6 +22,17 @@ import { World } from '../sim/world';
 const DEG = Math.PI / 180;
 /** Depth targets from this depth [m] need flooded main ballast. */
 const DIVE_TARGET_DEPTH = 5;
+/**
+ * Deeper than this [m] the crew blows the forward main ballast first and the
+ * after tanks `STAGED_BLOW_DELAY` seconds later. Blown together, the after
+ * tanks (shallower once the bow dips) emptied faster, and with the hull's
+ * lift ahead of the centre the boat pitched bow down to 40–60° and came up
+ * stern first. Forward first gives the bow-up angle of a real blow.
+ */
+const STAGED_BLOW_DEPTH = 20;
+const STAGED_BLOW_DELAY = 15;
+/** Seconds without a new "Grundstötning!" line after one. */
+const GROUNDING_LOG_QUIET = 20;
 /** Surface hold applies above this CO depth [m] (a surfaced boat floats at ~1.8 m). */
 const SURFACE_HOLD_DEPTH = 6;
 const KNOT = 1852 / 3600;
@@ -30,6 +41,8 @@ const CRASH_STOP_UNTIL = 0.5;
 /** Speed [knots] at which the planes can change the depth, and seconds stalled before the crew says so. */
 const PLANES_SPEED = 4;
 const STALL_TIME = 30;
+/** Fraction of full stern planes that counts as hard over for the stall watch. */
+const STALL_PLANES = 0.85;
 const STALL_HINT_EVERY = 120;
 /** Off the depth target by more than this [m], hard-over planes count as stalled (1 m matters at periscope depth). */
 const STALL_MIN_ERROR = 1;
@@ -214,6 +227,8 @@ export class Controller {
   /** Main ballast vents shut automatically once the tanks are full (after "dyk"). */
   /** @internal For the order registry (orderRegistry.ts). */
   shutVentsWhenFull = false;
+  /** @internal Simulation time at which the after main ballast is blown (a staged blow), or null. */
+  aftBlowAt: number | null = null;
 
   submit(order: Order, source: OrderSource): void {
     this.queue.push(order, source);
@@ -288,6 +303,12 @@ export class Controller {
       else if (soc >= CHARGE_STOP) sim.commands.diesel = false;
     }
 
+    if (this.aftBlowAt !== null && sim.t >= this.aftBlowAt) {
+      this.aftBlowAt = null;
+      sim.setBlow(true, this.mainBallastIds(false));
+      this.addLog('Huvudballasten akter blåses.', 'info');
+    }
+
     this.world.step();
     this.plant.update();
     this.watchWorld();
@@ -321,13 +342,16 @@ export class Controller {
     }
 
     const grounded = sim.groundContacts > 0;
-    if (grounded && !this.grounded) {
+    // A boat scraping along the bottom touches again and again: one line, then quiet for a while.
+    if (grounded && !this.grounded && sim.t - this.lastGroundingLog >= GROUNDING_LOG_QUIET) {
+      this.lastGroundingLog = sim.t;
       this.addLog(`Grundstötning! Fart ${(Math.abs(sim.y[7]!) / KNOT).toFixed(1).replace('.', ',')} knop.`, 'error');
     }
     this.grounded = grounded;
   }
 
   private grounded = false;
+  private lastGroundingLog = -Infinity;
 
   /** True while Stopp runs the shaft full astern to take the way off. */
   private crashStopping = false;
@@ -375,8 +399,9 @@ export class Controller {
         }
       }
     }
-    // Nearly hard over counts too: a boat stuck at 24° of 25° is just as stuck.
-    const hardOver = Math.abs(sim.commands.sternPlanes) >= 0.9 * this.autopilot.tuning.pitch.maxPlanes;
+    // Nearly hard over counts too: a boat stuck at 24° of 25° is just as stuck. The depth integral stops at 90 %
+    // (autopilot.ts), so a stuck boat rests right there: the watch starts a little below.
+    const hardOver = Math.abs(sim.commands.sternPlanes) >= STALL_PLANES * this.autopilot.tuning.pitch.maxPlanes;
     const stuck = this.ap.depth && !this.surfaceHold && Math.abs(err) > STALL_MIN_ERROR && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
     this.stalled = stuck ? this.stalled + DT : 0;
     if (this.stalled < STALL_TIME || this.depthBoost || this.hovering) return;
@@ -507,6 +532,7 @@ export class Controller {
       }
       sim.setVents(true);
       this.shutVentsWhenFull = true;
+      this.aftBlowAt = null;
       this.addLog('Huvudballasten fylls för dykning.', 'info');
     } else if (sim.t - this.lastBallastHint > 10) {
       this.lastBallastHint = sim.t;
@@ -528,13 +554,35 @@ export class Controller {
     });
     if (!flooded || sim.tanks.some((t) => t.blowOpen)) return;
     if (this.options.crew.ballast) {
-      sim.setBlow(true);
-      this.shutVentsWhenFull = false;
-      this.addLog('Huvudballasten blåses för ytläge.', 'info');
+      this.addLog(this.blowMainBallast() ? 'Huvudballasten blåses för ytläge, för först.' : 'Huvudballasten blåses för ytläge.', 'info');
     } else if (sim.t - this.lastBallastHint > 10) {
       this.lastBallastHint = sim.t;
-      this.addLog('Huvudballasten är full, så ubåten kommer inte upp i ytläge. Ge order "ytläge" eller "blås huvudballast".', 'error');
+      this.addLog('Huvudballasten är full, så ubåten kommer inte upp i ytläge. Tryck Yta, eller Blås i panelen Ballast.', 'error');
     }
+  }
+
+  /** Ids of the forward (or after) main ballast tanks. */
+  private mainBallastIds(forward: boolean): string[] {
+    return this.sim.tankDefs.filter((d) => d.kind === 'mainBallast' && d.position[0] > 0 === forward).map((d) => d.id);
+  }
+
+  /**
+   * @internal Blows the main ballast as a crew does: near the surface all
+   * tanks at once, from depth the forward tanks first and the after tanks
+   * `STAGED_BLOW_DELAY` s later (see `STAGED_BLOW_DEPTH`). Returns true for a
+   * staged blow.
+   */
+  blowMainBallast(): boolean {
+    const sim = this.sim;
+    this.shutVentsWhenFull = false;
+    if (sim.kinematics().depth > STAGED_BLOW_DEPTH) {
+      sim.setBlow(true, this.mainBallastIds(true));
+      this.aftBlowAt = sim.t + STAGED_BLOW_DELAY;
+      return true;
+    }
+    sim.setBlow(true);
+    this.aftBlowAt = null;
+    return false;
   }
 
   /** @internal For the order registry (orderRegistry.ts). */

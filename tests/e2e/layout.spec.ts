@@ -29,6 +29,28 @@ test.describe('phone (375×812)', () => {
   });
 });
 
+test.describe('tablet, portrait (768×1024)', () => {
+  test.use({ viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true });
+
+  test('uses the compact layout: the long instrument panel covered the objective and the periscope', async ({ page }) => {
+    const errors = watchErrors(page);
+    await open(page);
+    await startFree(page);
+    await expect(page.locator('#status')).toBeVisible();
+    await expect(page.locator('#instruments')).toBeHidden();
+    const parts = ['#status', '#top-center', '#view-btns', '#helm', '#menu-btn'];
+    const boxes = await Promise.all(parts.map((p) => box(page, p)));
+    for (let i = 0; i < parts.length; i++) {
+      for (let j = i + 1; j < parts.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (a && b) expect(overlaps(a, b), `${parts[i]} and ${parts[j]}`).toBe(false);
+      }
+    }
+    errors.check();
+  });
+});
+
 test('desktop: the instrument panel, the objective and the screen controls do not overlap', async ({ page }) => {
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 1280, height: 800 });

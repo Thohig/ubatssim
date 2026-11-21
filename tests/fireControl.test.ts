@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { corvette, freighter } from '../src/control/areas';
 import { Controller } from '../src/control/controller';
-import { fitSolution, type Observation } from '../src/control/fireControl';
+import { crowdedObservation, fitSolution, hasSecondLeg, type Observation } from '../src/control/fireControl';
 import { parseCommand } from '../src/control/parser';
 import { WEAPONS } from '../src/sim/config/weapons';
 import { chargeHole } from '../src/sim/depthCharge';
@@ -209,5 +209,23 @@ describe('depth charges and the hunt', () => {
     run(c, WEAPONS.corvette.giveUp + 120);
     expect(c.hunter.state('k')).toBe('patrol');
     expect(c.sonar.detectedBy).toBeNull();
+  });
+});
+
+describe('observations kept for the analysis', () => {
+  const obs = (times: number[], own: (t: number) => [number, number] = (t) => [2 * t, 0]): Observation[] =>
+    times.map((t) => ({ t, own: own(t), bearing: 0, sigma: DEG }));
+
+  it('a full list loses its most crowded bearing, never the first, the last or a range', () => {
+    const o = obs([0, 10, 20, 25, 30, 40]);
+    expect(crowdedObservation(o)).toBe(3); // 20–30 around t = 25: the closest neighbours
+    o[3]!.range = 1000;
+    expect(crowdedObservation(o)).toBe(2); // the range stays; 10–25 is the next closest
+  });
+
+  it('a course change of 25° or more is a second leg', () => {
+    expect(hasSecondLeg(obs([0, 60, 120, 180]))).toBe(false); // due north all the way
+    const turn = (t: number): [number, number] => (t <= 120 ? [2 * t, 0] : [240 + 2 * (t - 120) * Math.cos(DEG * 60), 2 * (t - 120) * Math.sin(DEG * 60)]);
+    expect(hasSecondLeg(obs([0, 60, 120, 180, 240], turn))).toBe(true);
   });
 });

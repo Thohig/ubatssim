@@ -51,7 +51,7 @@ Det finns ett spel och en ubåt. För varje system väljer du om **besättningen
 | **Djup** | **Auto:** djupstyraren håller djupmålet från djupskalan. | **Hand:** du styr djuprodret. |
 | **Kurs** | **Auto:** rorsmannen håller kursmålet från kompassen. | **Hand:** du styr rodret. |
 | **Fart** | Maskinen följer telegrafen. | Du styr propellervarvet (Fart ▾). |
-| **Ballast och brygga** | Dyk / Yta. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (Ballast ▾). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
+| **Ballast och brygga** | Dyk / Yta. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. Djupare än 20 m blåses huvudballasten för först och akter 15 s senare, så att fören kommer upp. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (Ballast ▾). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
 | **Trim** | Trimassistenten kompenserar och trimmar. | Du kompenserar och trimmar (Trim ▾). |
 | **Eldledning** | Eldledaren mäter avståndet till målet genom periskopet var 30:e sekund och föreslår kursbyten för målrörelseanalysen. | Du mäter avståndet själv (Avst eller R). Att skjuta är alltid din order. |
 | **Laddning** | Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge, och stoppar dem när batteriet är fullt. | Du startar och stoppar dieslarna (El ▾). Att hissa snorkeln är alltid ditt beslut. |
@@ -103,7 +103,7 @@ Knapparna Vy, Per, Snork, Zoom och Brg uppe till höger gör samma sak som V, P,
 
 ### Mobil
 
-På skärmar som är smalare än 760 px eller lägre än 500 px är vyn avskalad, så att 3D-bilden får plats:
+På skärmar som är smalare än 840 px (också surfplattor på höjden) eller lägre än 500 px är vyn avskalad, så att 3D-bilden får plats:
 
 - **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen (när det är under 300 m), trim, batteriet och, vid en läcka, vattnet som kommit in. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
 - **Loggboken** ligger under statusraden och målrutan (liggande: mellan statusraden och Vyer ▾). Varje rad kortas till två textrader, och hela texten finns i historiken.
@@ -226,11 +226,11 @@ Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
 
 ## Anfall: mål, lösning och torpeder
 
-Periskopet är eldledningens öga. I periskopvyn (och på bryggan) ligger eldledningspanelen vid sidan av periskopbilden, med **Mål**, **Avst**, spridningen, **Fyr** och tuberna. Den visas också medan sjökortet eller sonaren är öppen.
+Periskopet är eldledningens öga. I periskopvyn (och på bryggan) ligger eldledningspanelen vid sidan av periskopbilden, med **Mål**, **Avst**, spridningen, **Fyr** och tuberna. Den visas också medan sjökortet eller sonaren är öppen, utom i genomskärningen.
 
 1. **Mål** (T): sätt hårkorset på ett fartyg och tryck Mål. Det blir ett mål (M1, M2 …) med en exakt bäring. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Med flera mål visar panelen en rad med dem (M1, M2 …), och ett tryck väljer vilket tuberna siktar på. Då följer eldledningen dess bäringar var tionde sekund.
 2. **Avst** (R): stadimetern mäter avståndet med fartyget i hårkorset. Felet är ~8 % vid 1,5× och ~3 % vid 6×, och på bryggan ~12 % (ögonmått). Sköter besättningen eldledningen mäter eldledaren själv var 30:e sekund medan målet syns.
-3. **Lösningen** är målets position, kurs och fart, räknad med minsta kvadrat ur alla bäringar och avstånd (målrörelseanalys). Kvaliteten är dålig, ok eller bra. Bäringar från sonaren ger avståndet först när ubåten har bytt kurs: två ben med minst 30° emellan. Panelen visar avstånd, kurs, fart, kvalitet, skjutkurs och gångtid.
+3. **Lösningen** är målets position, kurs och fart, räknad med minsta kvadrat ur alla bäringar och avstånd (målrörelseanalys). Kvaliteten är dålig, ok eller bra. Bäringar från sonaren ger avståndet först när ubåten har bytt kurs: två ben med minst 30° emellan. Håll sedan kursen några minuter: eldledaren säger till. Panelen visar avstånd, kurs, fart, kvalitet, skjutkurs och gångtid.
 4. **Fyr** (F): torpeden går mot träffpunkten, där den och målet möts. Den går 40 knop, räcker 10 km och söker passivt de sista 600 m inom ±30°, med samma akustik som sonaren. Den träffar under målets vattenlinje, och fartyget sjunker. **Spridning** 2 eller 3 skjuter flera torpeder med 3° emellan, för en sämre lösning.
 5. **Tuberna:** fyra förtuber, och åtta torpeder i förråd. Omladdningen tar 2 minuter per tub, en i taget. Ett tryck på en laddad tub skjuter från just den.
 

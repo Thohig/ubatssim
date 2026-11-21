@@ -3,6 +3,7 @@ import { SUBMARINE } from '../src/sim/config/submarine';
 import { equilibriumFill } from '../src/sim/airSystem';
 import { pressureAt } from '../src/sim/environment';
 import { submergedCircle } from '../src/sim/hydrostatics';
+import { Controller } from '../src/control/controller';
 import { Simulation } from '../src/sim/simulation';
 
 const run = (s: Simulation, seconds: number) => {
@@ -120,5 +121,52 @@ describe('ballast', () => {
     const t = run(s, 240);
     expect(t.depth).toBeLessThan(SUBMARINE.hull.radius);
     expect(t.airPressure).toBeLessThan(SUBMARINE.air.bottlePressure);
+  });
+});
+
+describe('surfacing from depth (the crew blows forward first)', () => {
+  const KN = 1852 / 3600;
+  for (const knots of [4, 19]) {
+    it(`from 100 m at ${knots} knots the bow comes up and the boat surfaces bow first`, () => {
+      // Blowing both groups at once pitched the boat bow down to 40–60° and it came up stern first.
+      const c = new Controller(new Simulation({ area: 'atlantic', depth: 100, speed: knots * KN, neutral: true }));
+      c.crewTakesAll();
+      c.submit({ kind: 'setSpeed', knots }, 'keyboard');
+      c.submit({ kind: 'surface' }, 'keyboard');
+      let lowestPitch = 0;
+      let slowest = Infinity;
+      for (let i = 0; i < 120 * 100; i++) {
+        c.step();
+        const k = c.sim.kinematics();
+        lowestPitch = Math.min(lowestPitch, k.pitch);
+        slowest = Math.min(slowest, k.u);
+      }
+      expect(c.log.some((e) => /för blåses först/.test(e.text))).toBe(true);
+      expect(c.log.some((e) => /akter blåses/.test(e.text))).toBe(true);
+      expect(lowestPitch).toBeGreaterThan((-20 * Math.PI) / 180);
+      expect(slowest).toBeGreaterThan(0);
+      expect(c.sim.kinematics().depth).toBeLessThan(3);
+    });
+  }
+
+  it('near the surface all main ballast is blown at once', () => {
+    const c = new Controller(new Simulation({ depth: 13, speed: 4 * KN, neutral: true }));
+    c.crewTakesAll();
+    c.submit({ kind: 'surface' }, 'keyboard');
+    c.step();
+    expect(c.sim.tanks.filter((t) => t.blowOpen)).toHaveLength(2);
+    expect(c.aftBlowAt).toBeNull();
+  });
+
+  it('a ballast order before the after tanks are blown cancels the staged blow', () => {
+    const c = new Controller(new Simulation({ depth: 100, speed: 4 * KN, neutral: true }));
+    c.crewTakesAll();
+    c.submit({ kind: 'surface' }, 'keyboard');
+    c.step();
+    expect(c.aftBlowAt).not.toBeNull();
+    c.submit({ kind: 'dive' }, 'keyboard');
+    for (let i = 0; i < 20 * 100; i++) c.step();
+    expect(c.aftBlowAt).toBeNull();
+    expect(c.log.some((e) => /akter blåses/.test(e.text))).toBe(false);
   });
 });

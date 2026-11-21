@@ -54,3 +54,18 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng, fartyg, ljud, väder, b
 - **Kortare långa tester:** testerna går nu på alla kärnor (~2,5 min). Mer tid går bara att vinna genom att simulera mindre, till exempel med mål närmare starten i testerna.
 - **Fysiken i en Web Worker:** frigör huvudtråden, men lönar sig först när en kampanj eller fler fartyg och torpeder spräcker fysikbudgeten i `docs/prestanda.md`. Gränssnittet läser i dag `sim` direkt på många ställen och skulle i stället få en tunn kopia av tillståndet per bild.
 - **Telegrafen:** steget från Halv fram (8 knop) till Full fram (19 knop) är stort. Halv fram kan höjas till 10–12 knop, eller så kan ett läge till läggas in.
+
+## Från provspelningen (november 2026)
+
+Rättat: pendlingen kring periskopdjupet efter en stigning (djupslingan och trimassistenten), nödblåsning och ytläge från djupet som tippade fören ned 40–60° (nu för först), eldledningens råd och bäringar som försvann efter tio minuter, upprepad "Grundstötning!", surfplattor på höjden och eldledningspanelen över genomskärningens rumsinformation. Kvar:
+
+| Fynd | Innehåll |
+|---|---|
+| **Grundstötning i fart** | Skyddsnätet begränsar bara djupmålet. I 8 knop mot en brant strand kom begränsningen 29 m över botten, ubåten steg för långsamt och gick på grund. Efteråt kör besättningen vidare in i land i flera minuter. Förslag: besättningen slår Stopp vid grundstötning, och skyddsnätet varnar för stigande botten i färdriktningen i tid efter farten. |
+| **Lätt efter dykning** | Från ytläge i 8 knop är ubåten ~9 t lätt på 15 m och ~3 t lätt på 50–80 m (luft kvar i huvudballasten). Assistenten tar 200 l var ~45:e s, så det tar många minuter. |
+| **Snorkling tar tid** | 25 → 30 % tar ~17 min i 4 knop. Rätt fysik, men långt för ett scenario: lägre mål (28 %) eller ett tips om tidskomprimering. |
+| **Konvojen är lätt** | Eskorten hörde avfyrningen men tappade ubåten som gick ned i 8 knop, och anföll aldrig. Klart på ~8 min. |
+| **Munk-momentet** | `hullDamping` räknar stampmomentet som M′w·U·w. Munk-momentet är ∝ u·w: det försvinner när ubåten stiger rakt upp utan fart och byter tecken akterut. Att byta U mot u ändrade lite vid nödblåsning (stegvis blåsning var det som hjälpte), men är riktigare. Kräver ny determinismreferens och kontroll av Back. |
+| **Sjökortet på mellanstora skärmar** | 1024×700: sjökortet täcker målrutan och loggen, och periskopets rubrikrad ligger under instrumentpanelen. På dator täcker sjökortet slutet av periskopets rubrikrad. |
+| **Liggande telefon, periskop** | Eldledningspanelen överlappar målrutan när den är utfälld (vid varje nytt mål). |
+| **Småsaker** | Skyddsnätet skriver "djupet begränsas till 1 m" i ytläge (Genom sundet). Första dykningen: målet säger 5 knop men tipset Sakta fram ger 4 (kontrollen är 3). Simuleringen fortsätter bakom resultatskärmen. |

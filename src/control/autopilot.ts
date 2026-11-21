@@ -13,8 +13,12 @@
  * around zero speed, and the loops are reset when it does.
  */
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-/** Depth rate [m/s] below which the depth counts as standing still (the depth integral works outside its zone). */
-const DEPTH_STEADY_RATE = 0.02;
+/**
+ * Depth rate [m/s] below which the depth counts as standing still (the depth
+ * integral works outside its zone). Small enough that a slow approach (a few
+ * cm/s) does not count: integrating through it overshot the target.
+ */
+const DEPTH_STEADY_RATE = 0.005;
 
 export class PID {
   private integral = 0;
@@ -64,9 +68,13 @@ export const AUTOPILOT_TUNING = {
    * Depth → pitch reference [rad per m], [rad per m·s], [rad per m/s]. The
    * integral works only within 1.5 m of the target: integrating through the
    * approach wound up a bow-up reference, and a climb to periscope depth at
-   * 4 knots overshot by ~6 m and broke the surface.
+   * 4 knots overshot by ~6 m and broke the surface. With kd = 0.45 and
+   * ki = 0.0004 the approach was slow (time constant ~80 s at 4 knots, the
+   * last 5 m in 2–3 minutes) and the integral, faster than the loop, swung
+   * the boat ±2–3 m about periscope depth for good after a climb. Now
+   * 40 → 13 m at 4 knots takes ~4.5 min with < 1 m overshoot.
    */
-  depth: { kp: 0.012, ki: 0.0004, kd: 0.45, maxPitch: 12 * DEG, integralZone: 1.5 },
+  depth: { kp: 0.02, ki: 0.0001, kd: 0.3, maxPitch: 12 * DEG, integralZone: 1.5 },
   /** Pitch → stern planes [rad/rad], [rad/(rad s)], [rad/(rad/s)]. */
   pitch: { kp: 1.6, ki: 0.06, kd: 5.0, maxPlanes: 25 * DEG, integralZone: 5 * DEG },
   /** Heading → rudder. */

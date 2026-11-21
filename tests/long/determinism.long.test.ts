@@ -88,7 +88,7 @@ function run(): string[] {
 /** Update deliberately (see the comment at the top), per platform: `linux-x64` is what CI runs. */
 const REFERENCE: Record<string, string[]> = {
   'darwin-arm64': ['37069895', '107cdda3', 'd4575163', '2beaea92'],
-  'linux-x64': ['37069895', '2de66bab', '8c4666d9', '5ebcb5f7'],
+  'linux-x64': ['520d1136', '0ba57469', '2fd1bfd5', '42d813b0'],
 };
 const PLATFORM = `${process.platform}-${process.arch}`;
 
