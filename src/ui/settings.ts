@@ -3,7 +3,10 @@
  * access is guarded: storage can be unavailable (private mode, blocked
  * site data), in which case defaults are used.
  */
-export type TimeScale = 1 | 2 | 4;
+export type TimeScale = 1 | 2 | 4 | 8 | 16;
+
+/** The time compressions to choose from. */
+export const TIME_SCALES: readonly TimeScale[] = [1, 2, 4, 8, 16];
 
 export interface Settings {
   timeScale: TimeScale;
@@ -45,7 +48,7 @@ export function loadSettings(): Settings {
     if (!raw) return { ...DEFAULT_SETTINGS };
     const s = JSON.parse(raw) as Partial<Settings>;
     return {
-      timeScale: s.timeScale === 2 || s.timeScale === 4 ? s.timeScale : 1,
+      timeScale: TIME_SCALES.includes(s.timeScale as TimeScale) ? (s.timeScale as TimeScale) : 1,
       particles: s.particles !== false,
       lightRays: s.lightRays !== false,
       crewIntroSeen: s.crewIntroSeen === true,

@@ -322,8 +322,17 @@ export const SUBMARINE = {
   pumps: {
     /** Trim pump rate between forward and aft trim tanks [m^3/s] (5 l/s). APPROX. */
     trimRate: 0.005,
-    /** Compensating pump/flood rate to/from sea [m^3/s] (6 l/s). APPROX. */
+    /** Compensating pump/flood rate to/from sea [m^3/s] (6 l/s) near the surface. APPROX. */
     compRate: 0.006,
+    /**
+     * The sea pressure works against pumping out and helps flooding in: out at
+     * depth d the rate is compRate·max(compOutMin, 1 − d/compDepthScale), in it
+     * is compRate·min(compInMax, 1 + d/compDepthScale) [m]. A centrifugal
+     * pump's flow falls as the head rises; at 200 m about half. APPROX.
+     */
+    compDepthScale: 400,
+    compOutMin: 0.25,
+    compInMax: 1.5,
   },
 
   /**

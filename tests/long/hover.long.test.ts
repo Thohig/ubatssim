@@ -24,12 +24,12 @@ describe('hovering: depth without speed', () => {
     ['down through the thermocline, 50 → 80 m', { depth: 50, speed: 0, neutral: true }, 80],
     ['up, 80 → 40 m', { depth: 80, speed: 0, neutral: true }, 40],
     ['deep water, where the hull compresses: 150 → 200 m', { area: 'atlantic', depth: 150, speed: 0, neutral: true }, 200],
-  ] as const)('%s: there within 14 minutes, little overshoot, held after', (_name, initial, target) => {
+  ] as const)('%s: there within 18 minutes (the pump is slower deep down), little overshoot, held after', (_name, initial, target) => {
     const { c, run } = hover(initial as InitialConditions, target);
     let maxSpeed = 0;
     let reachedAt: number | null = null;
     let wasHovering = false;
-    run(14 * 60, () => {
+    run(18 * 60, () => {
       const k = c.sim.kinematics();
       maxSpeed = Math.max(maxSpeed, Math.abs(k.u));
       if (reachedAt === null && Math.abs(k.depth - target) < 1) reachedAt = c.sim.t;

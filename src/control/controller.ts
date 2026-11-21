@@ -16,10 +16,12 @@ import { HOVER } from './hover';
 import { TrimAssist } from './trimAssist';
 import { Radar } from './radar';
 import { Lookouts } from './lookouts';
+import { Ascent } from './ascent';
 import { WireGuidance } from './wire';
 import { Sonar } from './sonar';
 import { FireControl } from './fireControl';
 import { Hunter } from './hunter';
+import { ACOUSTICS } from '../sim/config/acoustics';
 import { WEAPONS } from '../sim/config/weapons';
 import { World } from '../sim/world';
 
@@ -60,6 +62,8 @@ const SURFACE_HOLD_DEPTH = 6;
 const KNOT = 1852 / 3600;
 /** Stopp backs full until the speed through the water is below this [m/s] (~1 knot). */
 const CRASH_STOP_UNTIL = 0.5;
+/** A blow deeper than this [m] is heard by the corvettes (the high-pressure air roaring into the tanks). */
+const BLOW_HEARD_DEPTH = 20;
 /** Speed [knots] at which the planes can change the depth, and seconds stalled before the crew says so. */
 const PLANES_SPEED = 4;
 const STALL_TIME = 30;
@@ -124,6 +128,8 @@ export class Controller {
   readonly wire: WireGuidance = new WireGuidance(this);
   /** The radar and the radar warning receiver on the radar mast. */
   readonly radar: Radar = new Radar(this);
+  /** Coming up from the deep in steps: rise, level off and listen, go up (ascent.ts). */
+  readonly ascent: Ascent = new Ascent(this);
   /** Patrol aircraft and coastal radar stations looking for the boat (lookouts.ts). */
   readonly lookouts: Lookouts = new Lookouts(this);
   /** Logs what the plant does on its own (plantWatch.ts). */
@@ -280,6 +286,8 @@ export class Controller {
       if (source !== 'assist') this.applyEffects(order);
     }
     const sim = this.sim;
+    this.ascent.update();
+    this.watchBlowing();
     // On the surface with the bridge manned the low-pressure blower keeps the main ballast dry.
     sim.commands.lpBlower = this.bridgeManned;
     const tel = sim.kinematics();
@@ -302,9 +310,9 @@ export class Controller {
     sim.commands.sternPlanes = planesRest
       ? 0
       : this.ap.depth
-        ? this.autopilot.planes(this.setpoints.depth, input, DT)
+        ? this.autopilot.planes(this.depthGoal, input, DT, this.ascent.maxPitch() ?? undefined)
         : this.manual.planes * DEG;
-    sim.commands.rudder = this.ap.heading ? this.autopilot.rudder(this.setpoints.heading * DEG, input, DT) : this.manual.rudder * DEG;
+    sim.commands.rudder = this.ap.heading ? this.autopilot.rudder((this.ascent.headingGoal() ?? this.setpoints.heading) * DEG, input, DT) : this.manual.rudder * DEG;
 
     const { maxRps, maxRpsAstern, maxRpsBrake, brakeSpeed } = sim.cfg.propulsion;
     // Still going ahead the drive may brake harder astern than it may run stern first.
@@ -314,14 +322,19 @@ export class Controller {
     this.watchAwash(tel);
     this.watchAscent(tel);
     // Stopp, as a crew does it: full astern until the way is almost off, then the shaft to zero.
-    const crashStop = this.ap.speed && this.setpoints.speed === 0 && tel.u > CRASH_STOP_UNTIL;
+    // Not while the engine gives the planes speed (`depthBoost`): the two fought, and a boat stopped deep
+    // and told to surface swung between 0 and 2 knots and sank slowly instead of coming up.
+    const crashStop = this.ap.speed && this.setpoints.speed === 0 && !this.depthBoost && !this.ascent.active && tel.u > CRASH_STOP_UNTIL;
     if (this.crashStopping && !crashStop) this.autopilot.speedPid.reset();
     this.crashStopping = crashStop;
     if (crashStop) {
       target = -astern;
     } else if (this.ap.speed) {
       // While the crew lifts the boat with too little speed for the planes, the engine gives at least `PLANES_SPEED`.
-      const v = (this.depthBoost ? Math.max(this.setpoints.speed, PLANES_SPEED) : this.setpoints.speed) * KNOT;
+      // Coming up from the deep, the crew runs its own speeds (ascent.ts).
+      let kn = this.ascent.speedGoal(this.setpoints.speed) ?? this.setpoints.speed;
+      if (this.depthBoost) kn = Math.max(kn, PLANES_SPEED);
+      const v = kn * KNOT;
       target = this.autopilot.rps(v, sim.rpsForSpeed(v), input, DT, -astern, maxRps);
     } else {
       target = this.manual.rpm / 60;
@@ -427,7 +440,7 @@ export class Controller {
   private watchDepthStall(k: Kinematics): void {
     const sim = this.sim;
     const sp = this.setpoints;
-    const err = sp.depth - k.depth;
+    const err = this.depthGoal - k.depth;
     this.boostSettled = this.depthBoost && Math.abs(err) < DEPTH_REACHED ? this.boostSettled + DT : 0;
     if (this.depthBoost) {
       const changed = this.boostHeld && (sp.depth !== this.boostEndedAt?.depth || sp.speed !== this.boostEndedAt?.speed);
@@ -451,7 +464,7 @@ export class Controller {
     // On or near the bottom the planes are not what holds the boat: no engine boost into the ground.
     const nearBottom = sim.t - this.lastGroundedAt < GROUNDED_QUIET || sim.ground(sim.y[0]!, sim.y[1]!) - (k.depth + sim.cfg.hull.radius) < NEAR_BOTTOM;
     this.stalled = stuck && !nearBottom ? this.stalled + DT : 0;
-    if (this.stalled < STALL_TIME || this.depthBoost || this.hovering) return;
+    if (this.stalled < STALL_TIME || this.depthBoost || this.ascent.active || this.hovering) return;
     // Stopped on purpose (quiet): the crew hovers if it has the trim (returned above once it does); a player
     // handling the trim is told how. Where hovering is not possible (shallow, ballast not full) the engine helps.
     const stopped = this.ap.speed && sp.speed >= 0 && sp.speed <= HOVER.maxOrderedSpeed;
@@ -554,8 +567,26 @@ export class Controller {
   }
 
   /** True while the crew changes or holds the depth without speed, with the compensating tank (hover.ts). */
+  /** Main ballast blowing at the last step (a new blow from the deep is heard far). */
+  private wasBlowing = false;
+
+  /** A blow from the deep is heard by the corvettes; an emergency blow ends on the surface. */
+  private watchBlowing(): void {
+    const sim = this.sim;
+    const depth = sim.y[2]!;
+    const blowing = sim.tanks.some((t) => t.blowOpen);
+    if (blowing && !this.wasBlowing && depth > BLOW_HEARD_DEPTH) this.hunter.heard(ACOUSTICS.blowLevel, 0.5, 0.6, true);
+    this.wasBlowing = blowing;
+    if (this.blowCommitted && depth < SURFACE_HOLD_DEPTH) this.blowCommitted = false;
+  }
+
+  /** The depth the depth autopilot steers for now [m]: the setpoint, or the levelling depth of an ascent. */
+  get depthGoal(): number {
+    return this.ascent.depthGoal(this.setpoints.depth);
+  }
+
   get hovering(): boolean {
-    return this.assist.hover.active && this.options.crew.trim && this.ap.depth && this.ap.speed;
+    return this.assist.hover.active && this.options.crew.trim && this.ap.depth;
   }
 
   /**
@@ -580,9 +611,10 @@ export class Controller {
 
   /** The normal ascent: once the boat has come up to `SURFACE_BLOW_DEPTH` on the planes, the main ballast is blown. */
   private watchAscent(k: Kinematics): void {
-    if (!this.blowOnRise) return;
-    if (!this.ap.depth || this.setpoints.depth >= DIVE_TARGET_DEPTH) this.blowOnRise = false;
-    else if (k.depth <= SURFACE_BLOW_DEPTH) this.checkBallastForSurface();
+    if (this.blowOnRise) {
+      if (!this.ap.depth || this.setpoints.depth >= DIVE_TARGET_DEPTH) this.blowOnRise = false;
+      else if (k.depth <= SURFACE_BLOW_DEPTH) this.checkBallastForSurface();
+    }
   }
   /** Seconds the boat has hung awash although it should dive (see `AWASH_DEPTH`). */
   private awash = 0;
@@ -617,7 +649,10 @@ export class Controller {
       this.checkBallastForSurface();
       return;
     }
-    if (!this.mainBallastEmpty()) return;
+    if (!this.mainBallastEmpty()) {
+      this.ventForDepth();
+      return;
+    }
     if (this.options.crew.ballast) {
       if (this.bridgeManned) {
         this.bridgeManned = false;
@@ -631,6 +666,44 @@ export class Controller {
       this.lastBallastHint = sim.t;
       this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Tryck Dyk, eller Klart bryggan och Fyll i panelen Ballast.', 'error');
     }
+  }
+
+  /**
+   * A target under water while there is air in the main ballast from a
+   * shallow blow (Yta at 15 m, ytläge): the crew stops the blow and opens the
+   * vents, as for a dive. After an emergency blow from the deep the order is
+   * refused instead (`refuseUnderBlow`): that goes to the surface.
+   */
+  private ventForDepth(): void {
+    const sim = this.sim;
+    const air = sim.tankDefs.some((d, i) => {
+      const s = sim.tanks[i]!;
+      return d.kind === 'mainBallast' && (s.blowOpen || (s.water / d.volume < 0.98 && !s.ventOpen));
+    });
+    if (!air) return;
+    this.blowOnRise = false;
+    this.aftBlowAt = null;
+    if (this.options.crew.ballast) {
+      sim.setBlow(false);
+      sim.setVents(true);
+      this.shutVentsWhenFull = true;
+      this.afterAck.push('Blåsningen stoppas. Huvudballasten ventileras och fylls igen.');
+    } else if (sim.t - this.lastBallastHint > 10) {
+      this.lastBallastHint = sim.t;
+      this.addLog('Luft i huvudballasten: stoppa blåsningen och ventilera i panelen Ballast, annars stiger ubåten.', 'error');
+    }
+  }
+
+  /**
+   * An emergency blow (from deeper than `STAGED_BLOW_DEPTH`) is carried
+   * through to the surface: the reason for it is usually still there, and a
+   * boat rising fast with expanding air cannot be caught with the vents.
+   */
+  blowCommitted = false;
+
+  /** @internal For the order registry: a dive or depth order refused while an emergency blow goes to the surface. */
+  refuseUnderBlow(depth: number): string | null {
+    return this.blowCommitted && depth >= DIVE_TARGET_DEPTH ? 'Nödblåsning pågår, ubåten går till ytan. Dyk igen därifrån.' : null;
   }
 
   /**
@@ -683,6 +756,8 @@ export class Controller {
     if (sim.kinematics().depth > STAGED_BLOW_DEPTH) {
       sim.setBlow(true, this.mainBallastIds(true));
       this.aftBlowAt = sim.t + STAGED_BLOW_DELAY;
+      this.blowCommitted = true;
+      this.ascent.onSpeedOrder();
       return true;
     }
     sim.setBlow(true);

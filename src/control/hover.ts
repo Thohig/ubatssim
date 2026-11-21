@@ -50,6 +50,8 @@ export const HOVER = {
   /** "Neutral på X m" once the depth has been within `reached` [m] for `settle` [s]. */
   reached: 0.5,
   settle: 30,
+  /** Below this motor power [W] the boat cannot be driven (an empty battery): the crew hovers whatever the speed order. */
+  noDrivePower: 1000,
 } as const;
 
 export class Hover {
@@ -63,12 +65,22 @@ export class Hover {
 
   constructor(private readonly ctrl: Controller) {}
 
-  /** Whether the crew should hover now (the crew handles depth, speed and trim; no speed; submerged). */
+  /**
+   * Whether the crew should hover now: it handles depth and trim, the boat is
+   * submerged and has no speed, and either the crew holds the speed at (almost)
+   * nothing, or the player handles the speed and has stopped, or there is no
+   * power to drive the boat. A crew handling the speed comes up to the
+   * surface with speed instead (controller.ts); a stopped player's boat hovers
+   * up to `minDepth` and the crew says how to go on.
+   */
   wanted(): boolean {
     const c = this.ctrl;
-    if (!c.options.crew.trim || !c.ap.depth || !c.ap.speed || c.surfaceHold) return false;
-    if (c.setpoints.speed > HOVER.maxOrderedSpeed || c.setpoints.speed < 0) return false;
-    if (c.setpoints.depth < HOVER.minDepth) return false;
+    if (!c.options.crew.trim || !c.ap.depth || c.surfaceHold || c.ascent.active) return false;
+    const noDrive = c.sim.systems.electrics.powerLimit < HOVER.noDrivePower;
+    if (c.ap.speed && !noDrive) {
+      if (c.setpoints.speed > HOVER.maxOrderedSpeed || c.setpoints.speed < 0) return false;
+      if (c.setpoints.depth < HOVER.minDepth) return false;
+    }
     const t = c.sim.telemetry();
     if (t.grounded || t.submergedFraction < 0.999 || t.depth < HOVER.minDepth) return false;
     if (!t.tanks.every((x) => x.kind !== 'mainBallast' || (x.fill > 0.98 && !x.blowOpen))) return false;
@@ -90,15 +102,24 @@ export class Hover {
 
     const t = sim.telemetry();
     const k = sim.kinematics();
-    const err = c.setpoints.depth - k.depth; // positive: go down
+    // Hovering goes no higher than `minDepth`: the rest of the way needs speed or the main ballast.
+    const goal = Math.max(c.setpoints.depth, HOVER.minDepth);
+    const err = goal - k.depth; // positive: go down
     // A new target: said once, unless the boat is already there (stopped where it was).
-    if (c.setpoints.depth !== this.target) {
-      this.target = c.setpoints.depth;
+    if (goal !== this.target) {
+      this.target = goal;
       this.arrived = Math.abs(err) <= 1;
-      if (!this.arrived) c.addLog(`Ingen fart: besättningen svävar mot ${this.target} m med kompenseringen.`, 'info', 'assist');
+      if (!this.arrived) {
+        c.addLog(`Ingen fart: besättningen svävar mot ${this.target} m med kompenseringen.`, 'info', 'assist');
+        if (!c.ap.speed && err < -20) c.addLog('Ingen fart: djuprodren biter inte. Ge fart framåt för att stiga fortare, eller Nödblåsning.', 'info', 'assist');
+      }
     }
     const w = k.depthRate; // positive: sinking
-    const wWanted = Math.max(-HOVER.maxRate, Math.min(HOVER.maxRate, err / HOVER.rateTime));
+    // Deep down the pump empties the tank slower against the sea pressure (config pumps): the
+    // boat is stopped from sinking by pumping out, so it slows down earlier on the way down.
+    const P = sim.cfg.pumps;
+    const outFactor = Math.max(P.compOutMin, 1 - Math.max(0, k.depth) / P.compDepthScale);
+    const wWanted = Math.max(-HOVER.maxRate, Math.min(HOVER.maxRate, (err * outFactor) / HOVER.rateTime));
     const heavyWanted = Math.max(
       -HOVER.maxHeavy,
       Math.min(HOVER.maxHeavy, HOVER.drag * wWanted * Math.abs(wWanted) + HOVER.rateGain * (wWanted - w)),

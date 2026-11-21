@@ -91,4 +91,7 @@ export const ACOUSTICS = {
   dslHalf: 35,
   dslMask: 14,
   dslMinWater: 300,
+
+  /** High-pressure air blown into the main ballast at depth: a roar heard far [dB]. APPROX. */
+  blowLevel: 165,
 } as const;

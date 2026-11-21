@@ -164,9 +164,14 @@ describe('surfacing from depth (the crew blows forward first)', () => {
     c.submit({ kind: 'surface' }, 'keyboard');
     c.step();
     expect(c.aftBlowAt).not.toBeNull();
+    // Dyk is refused under an emergency blow from the deep; the player's own ballast order is not.
     c.submit({ kind: 'dive' }, 'keyboard');
+    c.step();
+    expect(c.log.some((e) => /Nödblåsning pågår/.test(e.text))).toBe(true);
+    c.submit({ kind: 'mainBallast', action: 'flood', group: 'all' }, 'keyboard');
     for (let i = 0; i < 20 * 100; i++) c.step();
     expect(c.aftBlowAt).toBeNull();
+    expect(c.blowCommitted).toBe(false);
     expect(c.log.some((e) => /akter blåses/.test(e.text))).toBe(false);
   });
 });

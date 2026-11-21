@@ -40,14 +40,19 @@ export interface OrderRule<O extends Order> {
  * TypeScript refuses to compile if an order kind is missing. The
  * acknowledgement texts are in orders.ts.
  */
+/** Any depth under water, for refusing a dive during an emergency blow. */
+const DIVE_REFUSE_DEPTH = 30;
+
 export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
   setDepth: {
     effects: () => ({ depth: true }),
+    refuse: (c, o) => c.refuseUnderBlow(o.depth),
     apply: (c, o) => {
       if (!c.ap.depth) c.resetDepthLoops();
       c.setpoints.depth = o.depth;
       c.ap.depth = true;
       c.checkBallastForDepth();
+      c.ascent.onDepthOrder();
     },
   },
   setHeading: {
@@ -56,6 +61,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       if (!c.ap.heading) c.autopilot.headingPid.reset();
       c.setpoints.heading = o.heading;
       c.ap.heading = true;
+      c.ascent.onHeadingOrder();
     },
   },
   setSpeed: {
@@ -63,6 +69,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
     apply: (c, o) => {
       c.setpoints.speed = o.knots;
       c.ap.speed = true;
+      c.ascent.onSpeedOrder();
     },
   },
   adjustSpeed: {
@@ -71,6 +78,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       const base = c.ap.speed ? c.setpoints.speed : Math.round(k.u / KNOT);
       c.setpoints.speed = Math.max(LIMITS.minSpeed, Math.min(LIMITS.maxSpeed, base + o.deltaKnots));
       c.ap.speed = true;
+      c.ascent.onSpeedOrder();
     },
   },
   setRpm: {
@@ -107,6 +115,8 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       const sim = c.sim;
       c.shutVentsWhenFull = false;
       c.aftBlowAt = null;
+      // The player handles the ballast now: an emergency blow is theirs to carry through or stop.
+      c.blowCommitted = false;
       const ids = groupIds(o.group);
       if (o.action === 'flood') sim.setVents(true, ids);
       else if (o.action === 'blow') sim.setBlow(true, ids);
@@ -192,7 +202,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
     },
   },
   dive: {
-    refuse: (c) => c.refuseDiveWithBridgeManned(),
+    refuse: (c) => c.refuseUnderBlow(DIVE_REFUSE_DEPTH) ?? c.refuseDiveWithBridgeManned(),
     apply: (c) => {
       c.sim.setVents(true);
       c.shutVentsWhenFull = true;

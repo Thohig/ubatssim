@@ -151,11 +151,12 @@ export class Autopilot {
   }
 
   /** Stern planes command [rad], positive = dive. */
-  planes(targetDepth: number, s: AutopilotInput, dt: number): number {
+  planes(targetDepth: number, s: AutopilotInput, dt: number, pitchLimit?: number): number {
     const dir = this.direction(s.speed);
     // Deeper target → positive error → negative pitch reference ahead (bow down),
     // positive astern (stern down, the end the boat is moving towards).
-    const maxPitch = dir === 1 ? this.tuning.depth.maxPitch : this.tuning.maxPitchAstern;
+    const own = dir === 1 ? this.tuning.depth.maxPitch : this.tuning.maxPitchAstern;
+    const maxPitch = pitchLimit === undefined ? own : Math.min(own, pitchLimit);
     // The depth integral works within its zone, and also outside it once the depth stands still (a boat
     // resting 2 m off the target is not a transient), but never while the planes are hard over (wind-up).
     const err = targetDepth - s.depth;

@@ -10,6 +10,7 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 - [Besättningen och du](#besättningen-och-du)
 - [Styrning](#styrning)
 - [Vyer](#vyer)
+- [Stigning, ballast och fart](#stigning-ballast-och-fart)
 - [Instrumentpanelen](#instrumentpanelen)
 - [Batteri, diesel och snorkling](#batteri-diesel-och-snorkling)
 - [Läckage och skador](#läckage-och-skador)
@@ -38,7 +39,7 @@ Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubå
 |---|---|
 | **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, skymning, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
-| **Inställningar** | Tidskomprimering ×1/×2/×4, ljud (volym, maskiner och larm, hav och vind, uppläsning av order, musik på startsidan och musikvolym), svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
+| **Inställningar** | Tidskomprimering ×1/×2/×4/×8/×16, ljud (volym, maskiner och larm, hav och vind, uppläsning av order, musik på startsidan och musikvolym), svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
 | **Hjälp** | Besättningen, kontrollerna, tangenterna, scenarierna, anfallet och tips. |
 
 På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
@@ -91,7 +92,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
 | **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. På mobil en knapp som visar Auto eller Hand (gul) och växlar vid tryck. |
 | **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv, Marsch och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram, och Marsch (marschfart) är 12 knop. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. Den beordrade farten står i instrumentpanelen. På mobil är telegrafen ett reglage: tryck eller dra längs det, och läget skickas när du släpper. |
-| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. Yta är en vanlig stigning: djupmålet blir ytan, ubåten stiger på djuprodren och huvudballasten blåses på 15 m. Är ubåten för tung för att stiga, tryck **Nödblåsning** i panelen Ballast (eller Shift + S). |
+| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. Yta är en vanlig stigning: djupmålet blir ytan, ubåten stiger på djuprodren och huvudballasten blåses på 15 m (se [Stigning, ballast och fart](#stigning-ballast-och-fart)). Är ubåten för tung för att stiga, tryck **Nödblåsning** i panelen Ballast (eller Shift + S). |
 | **Per.djup** | Mitten | Djupmålet 13 m, periskopdjup. I ytläge dyker ubåten dit. På mobil gör djupskalans **13 m** samma sak. |
 | **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
 | **System ▾** | Mitten | Öppnar panelen som visades senast. Flikarna Ballast, Trim, Fart och El byter panel. |
@@ -186,6 +187,19 @@ Ubåten backar med telegrafen (Halv back) eller med Shift + ↓ förbi noll. På
   - **Det som lever:** vatten i en läckande avdelning (med vågrät yta), batterierna som lyser grönt när de laddas och gult och rött när de tar slut, dieslarna som skakar när de går, torpedtubernas luckor (grönt laddad, gult under omladdning) och reservtorpederna på ställningarna.
   - **På små skärmar** döljs kontrollerna och instrumentpanelen medan snittet visas. Vy, C eller Esc går tillbaka.
 - **Periskopet** tar 8 s att hissa. Vyn öppnas när det är uppe. Huvudet når över vattnet ner till ungefär 14 m djup i stilla sjö. I grov sjö kan vågtopparna skölja över det. Över 6 knop vibrerar bilden, och den våta masten ger motstånd.
+
+## Stigning, ballast och fart
+
+Som på en riktig ubåt är huvudballasten full under vatten. Djupet ändras med fart och djuproder, och kompenseringen finjusterar. Huvudballasten blåses bara vid ytläge (på 15 m) och vid nödblåsning.
+
+- **Upp från djupet** (besättningen sköter djup och fart, målet grundare än 35 m och ubåten djupare än 40 m): besättningen går upp i minst 8 knop med högst 10° stampvinkel, planar ut på **35 m** (under de största fartygens köl) i 4 knop och **lyssnar runt**: en kursändring på 60° i en minut, så att sonaren hör akterut också. Hörs ett fartyg nära (stark kontakt) stannar den på 35 m och säger till; en ny djuporder tar ubåten upp ändå. Annars går den upp till målet i 4 knop och sedan tillbaka till din fart. Mot ytan blåses huvudballasten på 15 m. En ny fart, en ny kurs under lyssnandet eller att du tar över djup eller fart avbryter.
+- **Nödblåsning går alltid till ytan:** en blåsning från djupare än 20 m (Nödblåsning, Ytläge eller skyddsnätets) fullföljs. En djuporder eller Dyk under tiden vägras: "Nödblåsning pågår, ubåten går till ytan. Dyk igen därifrån." Tar du själv över ballasten i panelen Ballast är det ditt beslut.
+- **En grund blåsning kan ångras:** beordrar du ett djup under ytan medan huvudballasten blåses på 15 m stoppar besättningen blåsningen, ventilerar och dyker till målet.
+- **Utan fart** (du sköter farten och står still, eller batteriet är slut) svävar besättningen med kompenseringen, högst ~4 m i minuten och inte högre än 8 m, och säger "Ingen fart: djuprodren biter inte. Ge fart framåt, eller Nödblåsning." Den blåser aldrig själv.
+- **Kompenseringspumpen** orkar mindre mot havstrycket: ut går hälften så fort på 200 m som vid ytan, in fortare.
+- **Det hörs och syns:** en blåsning från djupet hörs långt, och korvetterna börjar söka. Luft som ventileras grundare än 30 m kokar upp på ytan och syns för korvetternas utkik.
+
+Besättningen ändrar farten bara när den sköter farten: Stopp (full back tills farten är borta), djuprodren orkar inte (minst 4 knop), stigning från djupet (8 knop, sedan 4 knop från 35 m), grunt förut (4 knop), grundstötning (Stopp), mer än 30 ton vatten inne (nödblåsning och 8 knop), fast i en trål (back 3 knop). Nödblåsning-knappen ger full fart fram.
 
 ## Instrumentpanelen
 

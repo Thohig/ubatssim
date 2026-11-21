@@ -68,6 +68,15 @@ describe('fixed-step loop', () => {
     expect(loop.advance(10, 1, true, () => n++)).toBe(25); // a 10 s gap counts as 0.25 s
     expect(loop.advance(0.005, 1, true, () => n++)).toBe(0); // the backlog was dropped
   });
+
+  it('×16 runs sixteen times real time at a normal frame rate, but at most 100 steps in one frame', () => {
+    const loop = new FixedStepLoop(25);
+    let n = 0;
+    for (let i = 0; i < 30; i++) loop.advance(1 / 30, 16, true, () => n++);
+    expect(n).toBeGreaterThanOrEqual(1599);
+    expect(n).toBeLessThanOrEqual(1601);
+    expect(loop.advance(0.25, 16, true, () => n++)).toBe(100);
+  });
 });
 
 describe('game flow', () => {

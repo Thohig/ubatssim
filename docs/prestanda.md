@@ -16,7 +16,7 @@ En bild får ta 16,7 ms vid 60 bilder per sekund. Fördelningen på en mellankla
 | Grafik (JavaScript) | ≤ 6 ms | 3–5 ms, längsta bild ≤ 8 ms |
 | Gränssnitt och ljud | ≤ 1 ms i snitt | ~1–2 ms var 100:e ms |
 
-`npm run bench` på en vanlig dator ska ge högst ~200 µs per tidssteg i alla lägen. Med tidskomprimering ×4 körs fyra gånger fler tidssteg. Blir det för mycket, begränsar `maxStepsPerFrame` i `FixedStepLoop` (`src/game/loop.ts`) antalet steg per bild: simuleringen går då långsammare än vald komprimering i stället för att hacka. Detsamma gäller när bildtakten är lägre än ~4 bilder per sekund: ett bildavstånd räknas som högst 0,25 s (`MAX_FRAME_GAP`), så speltiden går långsammare än verklig tid. Det händer i e2e-testerna på CI, där 3D-vyn ritas i mjukvara, och deras tidsgränser har marginal för det.
+`npm run bench` på en vanlig dator ska ge högst ~200 µs per tidssteg i alla lägen. Med tidskomprimering ×4 körs fyra gånger fler tidssteg, med ×16 sexton gånger (~1 600 steg per sekund, ~0,1 s räknetid per sekund på en dator). Blir det för mycket, begränsar `maxStepsPerFrame` i `FixedStepLoop` (`src/game/loop.ts`) antalet steg per bild, högst 25 × min(komprimering, 4) = 100: simuleringen går då långsammare än vald komprimering i stället för att hacka. Detsamma gäller när bildtakten är lägre än ~4 bilder per sekund: ett bildavstånd räknas som högst 0,25 s (`MAX_FRAME_GAP`), så speltiden går långsammare än verklig tid. Det händer i e2e-testerna på CI, där 3D-vyn ritas i mjukvara, och deras tidsgränser har marginal för det.
 
 ## Mätningar och åtgärder
 

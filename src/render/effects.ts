@@ -139,6 +139,13 @@ export function createEffects(scene: THREE.Scene): Effects {
             toWorld(inp, [tk.position[0], 0, tk.position[2] - tk.radius], world);
             const rate = 260 * (1 - tk.fill);
             if (under(world)) emit(`vent${k}`, bubbles, rate, d, world, 1.6, [0, 1.4, 0], 0.4, 12);
+            // Vented shallow, the air boils up on the surface above the boat (anyone looking sees it).
+            const surf = surfaceAt(world.x, world.z);
+            if (under(world) && surf - world.y < 30) {
+              const top = world.clone();
+              top.y = surf;
+              emit(`boil${k}`, spray, rate * 0.4, d, top, 6, [0, 2.5, 0], 1.5, 1.5);
+            }
             else emit(`ventspray${k}`, spray, rate * 0.5, d, world, 1.2, [0, 5, 0], 1.2, 1.2);
           }
           if (tk.blow && tk.fill < 0.08) {

@@ -1,4 +1,4 @@
-/** Trim pump (between the trim tanks) and compensating pump (to and from the sea). */
+/** Trim pump (between the trim tanks) and compensating pump (to and from the sea, slower out against the sea pressure). */
 import type { Simulation } from '../simulation';
 import type { Subsystem } from './types';
 
@@ -30,7 +30,11 @@ export class Pumps implements Subsystem {
     if (comp && this.compRemaining !== 0) {
       const dir = Math.sign(this.compRemaining);
       const limit = dir > 0 ? comp.def.volume - comp.s.water : comp.s.water;
-      const dv = Math.min(sim.cfg.pumps.compRate * dt, Math.abs(this.compRemaining), limit);
+      // Against the sea pressure out, with it in (config: compDepthScale).
+      const P = sim.cfg.pumps;
+      const d = Math.max(0, sim.y[2]!);
+      const factor = dir > 0 ? Math.min(P.compInMax, 1 + d / P.compDepthScale) : Math.max(P.compOutMin, 1 - d / P.compDepthScale);
+      const dv = Math.min(P.compRate * factor * dt, Math.abs(this.compRemaining), limit);
       comp.s.water += dir * dv;
       this.compRemaining -= dir * dv;
       if (dv <= 0 || Math.abs(this.compRemaining) < 1e-9) this.compRemaining = 0;

@@ -84,6 +84,7 @@ Tre partikelsystem (`THREE.Points`) med fasta pooler: bubblor (1 600), stänk (5
 
 - **Huvudballasten:** luft bubblar upp ur ventilerna ovanpå en tank som fylls, eller sprutar upp i ytläge. En tank som blåses torr läcker luft ur bottenluckorna.
 - **Kölvattnet:** bubblor blir kvar efter propellern, fler vid högt varvtal och nära ytan.
+- **Ventilering grunt:** luft som ventileras ur huvudballasten grundare än 30 m kokar upp på ytan ovanför tanken (stänk).
 - **Masterna:** ett periskop eller en snorkel som skär genom ytan i fart kastar upp en plym av stänk. Snorkeln ryker när dieslarna går.
 - **Bubblorna** försvinner vid ytan, stänket när det faller tillbaka och röken när den har levt ut.
 

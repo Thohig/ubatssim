@@ -53,7 +53,9 @@ const PATROL_SONAR_DEPTH = 5;
 const AWARE_RATE = 0.04;
 const AWARE_DECAY = 0.005;
 /** Awareness gained per second while a mast or the hull shows within sight. */
-const SIGHT_RATE = { periscope: 0.03, snorkel: 0.06, surfaced: 0.3 } as const;
+const SIGHT_RATE = { periscope: 0.03, snorkel: 0.06, surfaced: 0.3, bubble: 0.08 } as const;
+/** Air vented from the main ballast shallower than this [m] comes up as a big bubble on the surface. */
+export const BUBBLE_DEPTH = 30;
 
 export const CLASS_NAME: Record<VesselKind, string> = { freighter: 'lastfartyg', ferry: 'färja', fishing: 'fiskebåt', patrol: 'örlogsfartyg', sail: 'segelbåt' };
 
@@ -224,6 +226,7 @@ export class Sonar {
     if (t.periscope > 0.99 && t.periscopeHeadDepth < 0 && range < A.sightPeriscope) rate += SIGHT_RATE.periscope;
     if (t.snorkel > 0.99 && t.snorkelHeadDepth < 0 && range < A.sightSnorkel) rate += SIGHT_RATE.snorkel;
     if (t.bridgeDeckDepth < 0 && range < A.sightSurfaced) rate += SIGHT_RATE.surfaced;
+    if (this.venting(t) && range < A.sightPeriscope) rate += SIGHT_RATE.bubble;
     if (c.radar.heardAt(range)) rate += WEAPONS.radar.esmAware;
     this.noticed[id] = rate > 0;
     const before = this.awareness[id] ?? 0;
@@ -234,6 +237,11 @@ export class Sonar {
       c.addLog(`Varning: ${name} kan ha hört eller sett något. Gå djupare och saktare, och sänk masterna.`, 'error');
     } else if (now < 0.3) this.warned.delete(id);
     if (now >= 1) this.found(name);
+  }
+
+  /** Air coming out of open vents shallow enough to show as a bubble on the surface. */
+  venting(t: ReturnType<Controller['sim']['telemetry']>): boolean {
+    return t.depth > 0 && t.depth < BUBBLE_DEPTH && t.tanks.some((x) => x.kind === 'mainBallast' && x.ventOpen && x.fill < 0.98);
   }
 
   /** Seconds until the sonar may ping again (0 = now). */

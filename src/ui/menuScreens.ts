@@ -10,7 +10,7 @@ import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } fro
 import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
 import { html, type SafeHtml } from './dom';
-import type { Settings } from './settings';
+import { TIME_SCALES, type Settings } from './settings';
 
 export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'briefing' | 'graphics' | 'error' | 'logbook';
 
@@ -157,7 +157,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
     return html`
       <h2 class="menu-title small">Inställningar</h2>
       <fieldset><legend>Tidskomprimering</legend>
-        ${radio('timeScale', '1', '×1', s.timeScale === 1)}${radio('timeScale', '2', '×2', s.timeScale === 2)}${radio('timeScale', '4', '×4', s.timeScale === 4)}
+        ${TIME_SCALES.map((k) => radio('timeScale', String(k), `×${k}`, s.timeScale === k))}
       </fieldset>
       <fieldset><legend>Ljud</legend>
         <label class="opt">Volym <input type="range" name="volume" min="0" max="100" step="5" value="${Math.round(s.volume * 100)}"/></label><br/>
