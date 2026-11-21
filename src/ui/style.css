@@ -48,6 +48,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #02121c; col
 .bar .mark { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--warn); }
 .bar .zero { position: absolute; top: -2px; bottom: -2px; left: 50%; width: 1px; background: var(--muted); }
 .tank-name { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+/* The rest of the panel under "Mer ▾" (phones show all of it, see the compact layout). */
+#instruments:not(.expanded) .inst-more { display: none; }
+.inst-toggle {
+  display: block; width: 100%; margin-top: 4px; padding: 4px 0; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--panel-border); background: transparent; color: var(--accent); font: inherit; font-size: 12px;
+}
 .tank-name .flags { color: var(--warn); }
 
 /* Log */
@@ -433,6 +439,8 @@ body.cutaway #log { display: none; }
     width: min(320px, calc(100% - 16px)); font-size: 12px; padding: 6px 10px; z-index: 5;
     max-height: calc(100% - var(--helm-h, 200px) - 70px);
   }
+  #instruments .inst-more { display: block; }
+  .inst-toggle { display: none; }
   .inst-row { white-space: nowrap; gap: 4px; }
   .inst-value { font-size: 14px; }
   .inst-value.big { font-size: 17px; }

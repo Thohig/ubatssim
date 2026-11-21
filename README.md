@@ -224,6 +224,8 @@ Besättningen ändrar farten bara när den sköter farten: Stopp (full back till
 
 ## Instrumentpanelen
 
+Panelen uppe till vänster visar från början bara tid, djup, fart, kurs, vatten under kölen och batteri, och det du sköter själv. Resten ligger under knappen **Mer ▾** längst ned. På mobil visas hela panelen när du trycker på statusraden.
+
 - **Djup, fart och kurs:** med målet (→) när besättningen sköter dem. I ytläge visar djupet "→ yta": ubåten flyter och djuprodret ligger i noll. Farten är farten genom vattnet, som loggen mäter.
 - **Stampvinkel och krängning.**
 - **Under köl:** ekolodets djup under kölen. Rött under 5 m och vid grundstötning.
@@ -232,7 +234,7 @@ Besättningen ändrar farten bara när den sköter farten: Stopp (full back till
 - **Batteri:** laddningen i procent, "↑ laddas" när dieslarna laddar. Gul under 30 %, röd under 10 %.
 - **Vatten inne:** visas när ubåten läcker, med inflödet i l/s.
 - **Det du sköter själv** visas i huvudpanelen: djuproder och stampvinkel på Hand, roder på Hand, varvtal och effekt för farten, flytkraft och tankar för trimmet, tankar och HP-luft för ballasten, dieslar, snorkel och elförbrukning för laddningen.
-- **Under "Mer":** djupändring, fart och kurs över grund, strömmen, varvtal, axeleffekt, elförbrukning, dieslar, snorkel, vatten inne, nivån i varje tank, ventil- och blåsstatus, HP-luftens tryck och flytkraftsöverskott (+ = lätt, − = tung).
+- **Under "Mer ▾"** (knappen längst ned i panelen, hopfälld från start; på mobil visas allt): djupändring, fart och kurs över grund, strömmen, varvtal, axeleffekt, elförbrukning, dieslar, snorkel, vatten inne, nivån i varje tank, ventil- och blåsstatus, HP-luftens tryck och flytkraftsöverskott (+ = lätt, − = tung).
 
 ## Batteri, diesel och snorkling
 

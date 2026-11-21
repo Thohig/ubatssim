@@ -249,8 +249,16 @@ export function createInstruments(el: HTMLElement, ctrl: Controller, flooded = f
   const make = (id: string) => INSTRUMENTS[id]!(ctrl);
   const main = layout.main.map(make);
   const more = layout.more.map(make);
+  // The rest is folded under "Mer ▾" (the state survives a rebuild: it is a class on `el`).
   // Phones show the panel only when the status bar is tapped (statusBar.ts), and then all of it.
-  el.replaceChildren(...main.map((x) => x.el), h('div', { class: 'inst-more' }, ...more.map((x) => x.el)));
+  const label = () => (el.classList.contains('expanded') ? 'Mindre ▴' : 'Mer ▾');
+  const toggle = h('button', { type: 'button', class: 'inst-toggle', 'aria-expanded': String(el.classList.contains('expanded')) }, label());
+  toggle.addEventListener('click', () => {
+    const expanded = el.classList.toggle('expanded');
+    toggle.textContent = label();
+    toggle.setAttribute('aria-expanded', String(expanded));
+  });
+  el.replaceChildren(...main.map((x) => x.el), h('div', { class: 'inst-more' }, ...more.map((x) => x.el)), toggle);
   const all = [...main, ...more];
   return (t) => {
     for (const x of all) x.update(t);

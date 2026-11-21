@@ -238,6 +238,14 @@ describe('instrument panel', () => {
     const more = el.querySelector('.inst-more')!;
     expect(more.textContent).toMatch(/Tankar/);
     expect(el.querySelectorAll('.ap').length).toBe(0);
+    // "Mer ▾" folds the rest, and the state survives a rebuild.
+    const toggle = el.querySelector<HTMLButtonElement>('.inst-toggle')!;
+    expect(el.classList.contains('expanded')).toBe(false);
+    toggle.click();
+    expect(el.classList.contains('expanded')).toBe(true);
+    expect(toggle.textContent).toBe('Mindre ▴');
+    createInstruments(el, c);
+    expect(el.querySelector('.inst-toggle')!.textContent).toBe('Mindre ▴');
   });
 
   it('shows "→ yta" on the surface with the crew on the depth, and the trim', () => {
