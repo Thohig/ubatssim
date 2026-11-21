@@ -85,7 +85,7 @@ export class Hunter {
       c.sonar.alert(v.def.id, 0.5);
       const h = this.hunt(v.def.id);
       this.estimate(h, v, 0.6);
-      if (h.state === 'patrol' || h.state === 'suspicion') this.enter(v, h, 'search');
+      if (h.charges > 0 && (h.state === 'patrol' || h.state === 'suspicion')) this.enter(v, h, 'search');
     }
   }
 
@@ -105,6 +105,12 @@ export class Hunter {
       if (c.sonar.noticed[v.def.id]) {
         h.lastContact = now;
         this.estimate(h, v, aware);
+      }
+      // Spent: back on patrol for good. It used to turn on the boat again a second later and break off at once,
+      // four log lines every two seconds for as long as it could hear the boat.
+      if (h.charges <= 0 && h.state === 'patrol') {
+        this.steer(v, h, now);
+        continue;
       }
       // Transitions.
       if (h.state === 'patrol' && aware >= 0.5) this.enter(v, h, 'suspicion');

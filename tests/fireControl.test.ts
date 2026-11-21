@@ -198,6 +198,21 @@ describe('depth charges and the hunt', () => {
     expect(['search', 'attack']).toContain(c.hunter.state('k'));
   });
 
+  it('a corvette with its depth charges spent breaks off for good (no back and forth)', () => {
+    const c = game({ depth: 60, neutral: true, speed: 4 * KN, heading: 180 * DEG }, [corvette('k', 'K', [[1500, 0], [1500, 4000]])]);
+    c.sonar.alert('k', 0.9);
+    run(c, 2);
+    (c.hunter as unknown as { hunt(id: string): { charges: number } }).hunt('k').charges = 0;
+    run(c, 120);
+    expect(c.hunter.state('k')).toBe('patrol');
+    const breaks = c.log.filter((e) => /bryter anfallet/.test(e.text));
+    expect(breaks.length).toBeLessThanOrEqual(1);
+    const lines = c.log.length;
+    run(c, 60);
+    expect(c.hunter.state('k')).toBe('patrol');
+    expect(c.log.slice(lines).filter((e) => /Jägaren|korvetten K/.test(e.text))).toHaveLength(0);
+  });
+
   it('a quiet boat far away and deep is lost: the corvette gives up', () => {
     // The corvette 9 km away cannot reach the boat before it gives up.
     const c = game({ depth: 200, designTrim: true, speed: 4 * KN, heading: 180 * DEG }, [corvette('k', 'K', [[9000, -3000], [9000, 3000]])]);
