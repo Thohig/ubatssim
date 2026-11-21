@@ -11,8 +11,9 @@ for (const size of [
     await page.setViewportSize({ width: size.width, height: size.height });
     await open(page);
     await startFree(page, 'westCoast', 'periscope');
-    await page.keyboard.press('p'); // periscope up; the view opens when the mast is up (8 s)
-    await expect(page.locator('body')).toHaveClass(/onboard/, { timeout: 20_000 });
+    await page.keyboard.press('p'); // periscope up; the view opens when the mast is up (8 s of game time,
+    // which runs slower than real time when software rendering drops below ~4 frames per second)
+    await expect(page.locator('body')).toHaveClass(/onboard/, { timeout: 60_000 });
     const fire = page.locator('#fire');
     await expect(fire).toBeVisible();
     const b = (await fire.boundingBox())!;
