@@ -45,6 +45,8 @@ interface Hunt {
   /** Expanding square: the leg it is on and the point it is heading for. */
   leg: number;
   legGoal: [number, number] | null;
+  /** The search started close enough (`searchCommit`) that it does not give up on the way. */
+  committed: boolean;
 }
 
 /** A fixed pseudo-random value in −1…1 (deterministic errors). */
@@ -76,7 +78,7 @@ export class Hunter {
   }
 
   private hunt(id: string): Hunt {
-    return (this.hunts[id] ??= { state: 'patrol', lkp: null, lkpDepth: null, lastContact: -Infinity, lastPing: -Infinity, lastAttack: -Infinity, charges: W.charges, leg: 0, legGoal: null });
+    return (this.hunts[id] ??= { state: 'patrol', lkp: null, lkpDepth: null, lastContact: -Infinity, lastPing: -Infinity, lastAttack: -Infinity, charges: W.charges, leg: 0, legGoal: null, committed: false });
   }
 
   /** The boat launched a torpedo: every corvette within hearing knows roughly where it is. */
@@ -122,7 +124,9 @@ export class Hunter {
       if (h.state === 'suspicion' && aware >= 0.8) this.enter(v, h, 'search');
       if (h.state !== 'attack' && aware >= 1) this.enter(v, h, 'attack');
       if ((h.state === 'search' || h.state === 'attack') && now - h.lastPing >= W.pingInterval) this.ping(v, h);
-      if (h.state !== 'patrol' && now - h.lastContact > W.giveUp) this.enter(v, h, 'patrol');
+      // On its way to where it believes the boat is, a searching corvette does not give up (the clock starts there).
+      const enRoute = h.state === 'search' && h.leg === 0 && h.committed;
+      if (h.state !== 'patrol' && !enRoute && now - h.lastContact > W.giveUp) this.enter(v, h, 'patrol');
       if (h.state === 'attack' && h.charges <= 0 && now - h.lastAttack > W.attackInterval) {
         c.addLog(`Sonar: ${v.def.name} har inga sjunkbomber kvar och bryter anfallet.`, 'info');
         c.sonar.calm(v.def.id, 0.3);
@@ -150,6 +154,8 @@ export class Hunter {
     } else if (state === 'search') {
       h.leg = 0;
       h.legGoal = null;
+      // Close enough to go and look: then it does not give up on the way (see `update`).
+      h.committed = h.lkp !== null && Math.hypot(h.lkp[0] - v.state.north, h.lkp[1] - v.state.east) <= W.searchCommit;
       c.addLog(`Sonar: ${name} söker med aktiv sonar!`, 'error');
     } else {
       c.addLog(`Sonar: ${name} går in för anfall!`, 'error');
@@ -218,10 +224,14 @@ export class Hunter {
       }
       return;
     }
-    // Search: to the last known position, then an expanding square around it.
+    // Search: to the last known position, then an expanding square around it. (Running in at attack
+    // speed took the escort in "Konvojen" straight into the torpedo aimed at the freighter.)
     v.goalSpeed = W.search;
     if (!h.legGoal) h.legGoal = h.lkp;
     if (Math.hypot(h.legGoal[0] - v.state.north, h.legGoal[1] - v.state.east) < 80) {
+      // At the last known position the search starts, and so does the time to give up: an escort 5 km off
+      // used to give up on a heard launch just before it got there.
+      if (h.leg === 0) h.lastContact = now;
       h.leg++;
       const len = W.searchLeg * Math.ceil(h.leg / 2);
       const dir = ((h.leg - 1) % 4) * (Math.PI / 2);

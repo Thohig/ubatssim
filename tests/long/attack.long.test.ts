@@ -152,6 +152,18 @@ describe('"Konvojen"', () => {
     s.run(2500);
     expect(s.runner.status).toBe('completed');
   });
+
+  it('staying above the layer at 8 knots after the attack brings the escort and its depth charges', () => {
+    // The escort used to give up on its way to the heard launch (5–6 km off) before it got there.
+    const s = start('convoy', 'crew');
+    periscopeAttack(s, 'crew', 'lastaren');
+    s.send({ kind: 'periscope', up: false });
+    s.send({ kind: 'setDepth', depth: 60 });
+    s.send({ kind: 'setSpeed', knots: 8 });
+    s.run(700, () => s.c.log.some((e) => e.text.startsWith('Sjunkbomber i vattnet från korvetten Eskort')));
+    expect(s.c.hunter.state('eskorten')).toBe('attack');
+    expect(s.c.log.some((e) => e.text.startsWith('Sjunkbomber i vattnet från korvetten Eskort'))).toBe(true);
+  });
 });
 
 describe('bearings-only analysis over a long attack', () => {

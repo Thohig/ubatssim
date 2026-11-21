@@ -67,6 +67,11 @@ export const WEAPONS = {
     dropDistance: 150,
     /** Expanding-square search: first leg [m]. */
     searchLeg: 500,
+    /**
+     * A search for a position within this range [m] gives up only after the corvette has got there
+     * (`giveUp` counts from then); further off it gives up on the way. APPROX (game balance).
+     */
+    searchCommit: 6000,
     /** Seconds between attacks, and without contact before giving up. */
     attackInterval: 45,
     /** Depth charges carried. */

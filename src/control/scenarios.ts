@@ -117,10 +117,10 @@ const HUNTER = corvette('jagaren', 'korvetten Jägaren', [[1500, 0], [1500, 4000
 /** "Konvojen": a freighter with a corvette escorting on its seaward side, both west-bound. */
 const CONVOY_SHIP: VesselDef = { ...freighter('lastaren', 'M/S Lastaren', [[4000, 4000], [4000, -12000]]), speed: 8 * KN };
 const ESCORT = corvette('eskorten', 'korvetten Eskort', [[4800, 4000], [4800, -12000]], 8);
-/** A corvette is shaken off when it is back on patrol and has lost the boat, or has no depth charges left. */
+/** A corvette is shaken off when it is back on patrol and has lost the boat, or has no depth charges left, or is sunk. */
 const shaken = (c: Controller, id: string) =>
-  c.hunter.state(id) === 'patrol' && ((c.sonar.awareness[id] ?? 0) < 0.5 || c.hunter.spent(id));
-const sunk = (c: Controller, id: string) => c.world.vessels.find((v) => v.def.id === id)?.state.sinking === true;
+  sunk(c, id) || (c.hunter.state(id) === 'patrol' && ((c.sonar.awareness[id] ?? 0) < 0.5 || c.hunter.spent(id)));
+const sunk = (c: Controller, id: string): boolean => c.world.vessels.find((v) => v.def.id === id)?.state.sinking === true;
 const lookoutUp = (t: Telemetry) => t.periscope > 0.99 && t.periscopeHeadDepth < 0;
 
 /** "Smyg förbi": the corvette shuttles east–west across the way to the buoy. */

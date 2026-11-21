@@ -250,7 +250,7 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 - **Passivt hör den bäringen men inte avståndet**, så positionen den tror på har ett fel på 10–50 % av avståndet.
 - **Aktiv sonar** når 3 km, men skiktet dämpar ekot kraftigt (20 dB per väg), och den egna farten gör korvetten döv. Under skiktet hittar en sökande korvett dig inom några hundra meter. Akterut ser sonaren inget.
 - **Sjunkbomberna** ger ett stort hål inom 8 m och ett mindre ut till 40 m, i avdelningen närmast explosionen (se [Läckage och skador](#läckage-och-skador)). Korvetten har 24.
-- **Den ger upp** när den inte haft kontakt på fem minuter, eller när sjunkbomberna är slut.
+- **Den ger upp** när den inte haft kontakt på fem minuter, eller när sjunkbomberna är slut. Har den hört en avfyrning inom 6 km går den dit först och räknar de fem minuterna därifrån.
 - **Så kommer du undan:** gå djupt under skiktet, sakta (4 knop), byt kurs och byt djup när den går över dig.
 
 ## Scenarier
