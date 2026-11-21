@@ -148,17 +148,25 @@ describe('scenarios with the crew handling everything', () => {
     expect(c.log.some((e) => e.source === 'assist' && /Kompensera in/.test(e.text))).toBe(true);
   });
 
-  it('"Nödblåsning" has no automatic blow, but S and speed save the boat', () => {
+  it('"Nödblåsning" has no automatic blow, but blowing (as the hint says) and speed save the boat', () => {
     const idle = start('emergency-blow');
     idle.run(600);
     expect(idle.runner.status).toBe('failed');
     expect(idle.c.log.some((e) => /nödblåsning/.test(e.text))).toBe(false);
 
     const { c, runner, run } = start('emergency-blow');
-    c.submit({ kind: 'surface' }, 'keyboard');
-    c.submit({ kind: 'setSpeed', knots: 10 }, 'keyboard');
+    c.submit({ kind: 'mainBallast', action: 'blow', group: 'all' }, 'touch');
+    c.submit({ kind: 'setSpeed', knots: 19 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: 0 }, 'touch');
     run(600);
     expect(runner.status).toBe('completed');
+
+    // The order "ytläge" (an emergency blow from any depth) still saves it.
+    const ytl = start('emergency-blow');
+    ytl.c.submit({ kind: 'surface' }, 'keyboard');
+    ytl.c.submit({ kind: 'setSpeed', knots: 10 }, 'keyboard');
+    ytl.run(600);
+    expect(ytl.runner.status).toBe('completed');
   });
 
   it('"Genom sundet" can be completed with heading targets', () => {
@@ -245,6 +253,22 @@ describe('depth target near the surface with flooded main ballast', () => {
     run(240);
     const mbt = sim.telemetry().tanks.filter((t) => t.kind === 'mainBallast');
     expect(mbt.every((t) => t.fill < 0.4)).toBe(true);
+    expect(sim.y[2]!).toBeLessThan(3);
+    expect(c.surfaceHold).toBe(true);
+  });
+
+  it('Yta from depth is a normal ascent: up on the planes, the main ballast blown at 15 m', () => {
+    const { c, sim, run, send } = game({ depth: 60, speed: 6 * 0.5144, neutral: true }, 'crew');
+    send({ kind: 'setDepth', depth: 0 });
+    run(1);
+    expect(sim.tanks.some((t) => t.blowOpen)).toBe(false);
+    expect(c.log.some((e) => /Stigning till ytan/.test(e.text))).toBe(true);
+    let blownAt = Infinity;
+    run(600, () => {
+      if (blownAt === Infinity && sim.tanks.some((t) => t.blowOpen)) blownAt = sim.kinematics().depth;
+    });
+    expect(blownAt).toBeLessThanOrEqual(15);
+    expect(blownAt).toBeGreaterThan(8);
     expect(sim.y[2]!).toBeLessThan(3);
     expect(c.surfaceHold).toBe(true);
   });

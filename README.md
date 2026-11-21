@@ -29,7 +29,7 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 
 Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubåten**, och du tar över det du vill sköta själv (se [Besättningen och du](#besättningen-och-du)).
 
-**Startsidan** är utformad som en hemlig order, med ordernummer, stämpeln Hemligt och en fiktiv order som skrivs fram. Bakom menyn går ubåten i ytläge i skymning med en korvett vid sidan, och i fjärran faller sjunkbomber. Mörk, syntetiserad musik spelar (se [Ljud](#ljud)). Fyra val finns:
+**Startsidan** är utformad som en färdorder, med ordernummer, stämpeln Övning och en fiktiv order som skrivs fram. Bakom menyn glider ubåten förbi på nära håll under vattnet, i dagsljus nära ytan där solstrålarna syns. Lugn, syntetiserad musik spelar (se [Ljud](#ljud)). Fyra val finns:
 
 | Val | Innehåll |
 |---|---|
@@ -50,14 +50,14 @@ Det finns ett spel och en ubåt. För varje system väljer du om **besättningen
 |---|---|---|
 | **Djup** | **Auto:** djupstyraren håller djupmålet från djupskalan. | **Hand:** du styr djuprodret. |
 | **Kurs** | **Auto:** rorsmannen håller kursmålet från kompassen. | **Hand:** du styr rodret. |
-| **Fart** | Maskinen följer telegrafen. | Du styr propellervarvet (Fart ▾). |
-| **Ballast och brygga** | Dyk / Yta. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. Djupare än 20 m blåses huvudballasten för först och akter 15 s senare, så att fören kommer upp. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (Ballast ▾). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
-| **Trim** | Trimassistenten kompenserar och trimmar. | Du kompenserar och trimmar (Trim ▾). |
+| **Fart** | Maskinen följer telegrafen. | Du styr propellervarvet (panelen Fart). |
+| **Ballast och brygga** | Dyk / Yta och Per.djup. Besättningen utrymmer bryggan, ett djupmål på 5 m eller mer i ytläge startar dykningen och ett djupmål grundare än 5 m med fylld huvudballast blåser den. Från djupare än 15 m stiger ubåten först på djuprodren, och huvudballasten blåses på 15 m. Ordern `ytläge` (och skyddsnätet) blåser på vilket djup som helst. Djupare än 20 m blåses då huvudballasten för först och akter 15 s senare, så att fören kommer upp. | Du fyller, blåser och stänger huvudballasten och klarar bryggan (panelen Ballast). Ett djupmål som inte går att nå med ballasten som den är ger en påminnelse. |
+| **Trim** | Trimassistenten kompenserar och trimmar. | Du kompenserar och trimmar (panelen Trim). |
 | **Eldledning** | Eldledaren mäter avståndet till målet genom periskopet var 30:e sekund och föreslår kursbyten för målrörelseanalysen. | Du mäter avståndet själv (Avst eller R). Att skjuta är alltid din order. |
-| **Laddning** | Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge, och stoppar dem när batteriet är fullt. | Du startar och stoppar dieslarna (El ▾). Att hissa snorkeln är alltid ditt beslut. |
+| **Laddning** | Maskinisten startar dieslarna och laddar batteriet när snorkeln är uppe eller ubåten ligger i ytläge, och stoppar dem när batteriet är fullt. | Du startar och stoppar dieslarna (panelen El). Att hissa snorkeln är alltid ditt beslut. |
 | **Skyddsnät** | På: nödblåsning nära krossdjupet och när ubåten tagit in mycket vatten, djupgräns över botten och varning för grunt vatten. | Av. |
 
-- **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna **Ballast ▾**, **Trim ▾**, **Fart ▾** och **El ▾** (på mobil under **System ▾**). Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
+- **Ta över:** växla djup eller kurs till **Hand**, eller tryck på en knapp i panelerna Ballast, Trim, Fart och El under **System ▾**. Panelens övre knapp lämnar systemet till besättningen igen. ☰ → **Besättning** visar alla system på ett ställe, med skyddsnätet.
 - **Order tar över:** en manuell order tar över systemet den gäller. Roder åt sidan sätter kursen på Hand, Trimma i panelen Trim avlöser trimassistenten, Fyll i panelen Ballast ger dig ballasten och Start i panelen El laddningen. Ett djup- eller kursmål och telegrafen lämnar axeln till besättningen igen.
 - **Djuprodren behöver fart:** deras kraft växer med farten i kvadrat, så vid 3 knop orkar de knappt ändra djupet. Har djuprodret legat i fullt utslag i 30 s utan att djupet ändrats, mer än 1 m från målet, säger djupstyraren till. Sköter besättningen farten ökar maskinen till 4 knop tills djupet är nått och går sedan tillbaka till din fart. Orkar rodren inte heller då, till exempel på periskopdjup i 3 knop med periskopet uppe, håller maskinen 4 knop tills du ändrar djup eller fart. Sköter du farten själv får du ett besked att öka till minst 4 knop.
 - **Sväva utan fart:** är fartmålet högst 1 knop (Stopp eller tyst) ökar besättningen inte farten. I stället svävar den: gör ubåten några hundra kilo tung eller lätt med kompenseringen, så att den sjunker eller stiger 4–5 m i minuten, och gör den neutral i god tid före djupmålet, eftersom pumpen bara tar 6 liter i sekunden. 30 m tar ungefär 8–12 minuter. Djupvisningen visar "svävar". Det kräver att besättningen sköter djupet, farten och trimmet. Sköter du trimmet får du ett besked om att ändra djupet med In och Ut i panelen Trim. I språngskiktet blir ubåten lättare ju djupare den kommer, och på stort djup tyngre när skrovet trycks ihop: håll koll på Flytkraft.
@@ -86,18 +86,20 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 | **Kompass** (Auto) | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. ◀ / ▶ ändrar 10°. **Mot bojen** styr mot bojen i scenarier som har en. |
 | **Roder** (Hand) | Höger | Visar rodrets order och utslag. Tryck eller dra för en vinkel. **◀ BB** / **SB ▶** ändrar 5°, **Mitt** lägger det midskepps. |
 | **Auto / Hand** | Vid djupskalan och kompassen | Vem som styr djupet och kursen. På mobil en knapp som visar Auto eller Hand (gul) och växlar vid tryck. |
-| **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. På mobil är telegrafen ett reglage: tryck eller dra längs det, och läget skickas när du släpper. |
-| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. |
+| **Maskintelegraf** | Mitten | Full, Halv och Sakta back, Stopp, och Sakta, Halv och Full fram. Sakta och Halv är 2 och 4 knop back och 4 och 8 knop fram. Full back och Full fram är toppfarterna, 7 och 19 knop, så maskinen går för fullt (bakåt når ubåten ~6,8 knop, framåt 18,9, i Östersjöns bräckta vatten ~17). Läget som gäller lyser, och klockan slår vid varje ny order. Den beordrade farten står i instrumentpanelen. På mobil är telegrafen ett reglage: tryck eller dra längs det, och läget skickas när du släpper. |
+| **Dyk / Yta** | Mitten | En knapp som följer ballasten: Dyk när huvudballasten är tom, Yta när den fylls eller är full. Yta är en vanlig stigning: djupmålet blir ytan, ubåten stiger på djuprodren och huvudballasten blåses på 15 m. Är ubåten för tung för att stiga (Nödblåsning), blås i panelen Ballast. |
+| **Per.djup** | Mitten | Djupmålet 13 m, periskopdjup. I ytläge dyker ubåten dit. På mobil gör djupskalans **13 m** samma sak. |
 | **Håll** | Mitten | Behåller nuvarande kurs och djup på Auto. |
-| **Ballast ▾** | Mitten | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
-| **Trim ▾** | Mitten | Flytkraft, stampvinkel, pumparna, kompenserings- och trimtankarna. Kompensera in / ut och trimma för / akter, 100 eller 500 liter. |
-| **Fart ▾** | Mitten | Fart, varvtal och axeleffekt. Fartmålet ±1 knop, varvtalet ±10 rpm och Stopp. |
-| **El ▾** | Mitten | Batteriets laddning, elförbrukningen, snorkeln (Upp / Ned), dieslarna (Start / Stopp) och länspumpen, med vattnet i varje avdelning som läcker. |
-| **System ▾** | Mitten (bara mobil) | Öppnar panelen som visades senast. Flikarna Ballast, Trim, Fart och El byter panel. |
+| **System ▾** | Mitten | Öppnar panelen som visades senast. Flikarna Ballast, Trim, Fart och El byter panel. |
+| Panelen **Ballast** | | Huvudballasttankarna med fyllnadsgrad, Fyll / Blås / Stäng för, akter och båda, bryggan (Klart bryggan, Bemanna) och HP-luften. |
+| Panelen **Trim** | | Flytkraft, stampvinkel, pumparna, kompenserings- och trimtankarna. Kompensera in / ut och trimma för / akter, 100 eller 500 liter. |
+| Panelen **Fart** | | Fart, varvtal och axeleffekt. Fartmålet ±1 knop, varvtalet ±10 rpm och Stopp. |
+| Panelen **El** | | Batteriets laddning, elförbrukningen, snorkeln (Upp / Ned), dieslarna (Start / Stopp) och länspumpen, med vattnet i varje avdelning som läcker. |
+| **Vyknapparna** | Mellan telegrafen och kompassen (mobil: under Vyer ▾) | Ikoner: ögat byter vy, sjökortet och sonarbågarna öppnar sjökortet och sonaren, periskopet och snorkeln hissar och sänker masterna. |
 
-En panelknapp eller flik som du sköter själv är gul. Panelens flikar byter mellan de tre panelerna också på dator. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
+En flik eller System ▾ är gul när du sköter något av systemen själv. Håll in ▲ ▼ ◀ ▶ och rodrens knappar så upprepas de, och fortare ju längre du håller.
 
-Knapparna Vy, Per, Snork, Zoom och Brg uppe till höger gör samma sak som V, P, N, Z och B. **Vy** byter mellan yttre vy, brygga, periskop och genomskärning (C går direkt till snittet). Per och Snork visas när ubåten är grundare än 25 m eller en mast är uppe. Vy visas alltid: djupt byter den mellan yttre vy och snitt. **Karta** (K) och **Sonar** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)).
+Vyknapparna gör samma sak som V, P, N, K och H, och Zoom och Brg uppe till höger samma sak som Z och B. **Ögat** byter mellan yttre vy, brygga, periskop och genomskärning (C går direkt till snittet). Periskopet och snorkeln visas när ubåten är grundare än 25 m eller en mast är uppe. Ögat visas alltid: djupt byter det mellan yttre vy och snitt. **Sjökortet** (K) och **sonaren** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)).
 
 **Loggboken** visas alltid, överst i mitten under målrutan, och tar liten plats: högst två rader i ett halvgenomskinligt fönster. En ny rad syns en stund och tonas sedan ut: kvitton efter 2,5 s, information efter 4 s och varningar och fel (röda) efter 6 s, långa rader lite längre. Fönstret tonas ut med den sista raden, så när inget händer ligger ingenting över bilden. Tryck på loggen medan den syns för de senaste raderna, och tryck igen eller Esc för att stänga. Hela loggboken finns under ☰ → **Loggbok**.
 
@@ -107,8 +109,8 @@ På skärmar som är smalare än 840 px (också surfplattor på höjden) eller l
 
 - **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen (när det är under 300 m), trim, batteriet och, vid en läcka, vattnet som kommit in. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
 - **Loggboken** ligger under statusraden och målrutan (liggande: mellan statusraden och Vyer ▾). Varje rad kortas till två textrader, och hela texten finns i historiken.
-- **Vyer ▾** uppe till höger fäller ut Vy, Per, Snork, Zoom, Brg, Karta och Sonar. Ett val fäller ihop dem igen.
-- **Auto / Hand** är en knapp per axel, panelerna ligger under **System ▾** och telegrafen är ett reglage.
+- **Vyer ▾** uppe till höger fäller ut vyknapparna (ikonerna) och Zoom och Brg. Ett val fäller ihop dem igen.
+- **Auto / Hand** är en knapp per axel, och telegrafen är ett reglage. Mellan två lägen visar reglaget den beordrade farten. Per.djup finns inte, eftersom djupskalans 13 m gör samma sak.
 - **Stående telefon:** djupskalan till vänster, kompassen, Dyk / Håll / System till höger och telegrafen över hela bredden längst ner.
 - **Liggande telefon:** djupet och knapparna under vänster tumme, kompassen och telegrafen under höger, och mitten fri. En panel öppnas i mitten under statusraden.
 
@@ -193,7 +195,7 @@ Under vattnet går ubåten på batteriet. Det rymmer 6 MWh och är fulladdat nä
 
 - **Förbrukning:** elmotorn (axeleffekten / 92 %), hotellasten (60 kW: ljus, ventilation, elektronik) och länspumpen. Vid 4 knop räcker batteriet i ungefär två dygn, vid 8 knop i 16 timmar och vid full fart under två timmar.
 - **Tomt batteri:** motorn får bara det dieslarna ger. Utan dieslar stannar propellern.
-- **Laddning:** två dieselgeneratorer ger tillsammans 1,2 MW. De behöver luft: i ytläge, eller på periskopdjup med **snorkeln** uppe (Snork, N eller `snorkel upp`). Snorkelns huvud når över vattnet till ungefär 14 m djup. Sköljer en våg över huvudet stängs ventilen, och dieslarna går några sekunder på luften i båten innan de stannar. Över 80 % tar cellerna emot allt mindre laddning.
+- **Laddning:** två dieselgeneratorer ger tillsammans 1,2 MW. De behöver luft: i ytläge, eller på periskopdjup med **snorkeln** uppe (snorkelknappen, N eller `snorkel upp`). Snorkelns huvud når över vattnet till ungefär 14 m djup. Sköljer en våg över huvudet stängs ventilen, och dieslarna går några sekunder på luften i båten innan de stannar. Över 80 % tar cellerna emot allt mindre laddning.
 - **Varningar** i loggen vid 30, 15 och 5 % och när batteriet är tomt.
 - **Snorkling syns och hörs:** masten och avgaserna syns långt, och dieslarna är högljudda (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)).
 
@@ -205,7 +207,7 @@ Vatten kan tränga in i tryckskrovets avdelningar genom hål. Inflödet är Q = 
 - **Besättningen tätar** varje hål med en tidskonstant på 150 s, utom under krossdjupet. **Länspumpen** tar 20 l/s vid ytan och allt mindre ju djupare. På 250 m orkar den inte alls. Gå alltså grundare, så tätar besättningen fortare än vattnet kommer in.
 - **Vattnet väger:** det ligger i avdelningens botten och gör ubåten tyngre där. Över 15 ton varnar loggen, och skyddsnätet blåser huvudballasten.
 - **Följder:** ett maskinrum som är vattenfyllt till 30 % stoppar dieslarna, och ett elmotorrum till 30 % stoppar motorn.
-- **Visas** i statusraden (LÄCKA), i instrumentpanelen, i panelen El ▾ och i genomskärningen, och hörs som ett väsande och länspumpens surr.
+- **Visas** i statusraden (LÄCKA), i instrumentpanelen, i panelen El och i genomskärningen, och hörs som ett väsande och länspumpens surr.
 
 Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
 
@@ -312,7 +314,7 @@ Allt ljud syntetiseras i webbläsaren och följer simuleringen:
 - **Omgivningen:** vind och vågor efter sjögången, måsar på dagen nära land och mistlur i dimma. Under vattnet låter ljudet utifrån dovt.
 - **Röst:** spelarens order, larm och klara mål kan läsas upp med en svensk röst. Det slås på i inställningarna.
 
-- **Startsidan:** mörk och hotfull musik, syntetiserad och utan loopar: en bottenton, långsamma ackord i moll, avlägsna sonarpingar, en trumpuls som växer, hornsignaler, radio med morse och sjunkbomber i serier. Bakom menyn går ubåten i skymning med en korvett vid sidan, och sjunkbomberna slår upp vattenpelare. Musiken slås av och dess volym ändras under Inställningar.
+- **Startsidan:** lugn musik, syntetiserad och utan loopar: en bottenton, långsamma ackord i moll, avlägsna sonarpingar, en mjuk puls som ett hjärtslag, en lång hornsignal och radio med morse. Musiken slås av och dess volym ändras under Inställningar.
 
 Ljudet startar vid första tryck, eftersom webbläsare kräver det, och är tyst i paus. Musiken hörs på startsidan och under ett scenarios genomgång. Mer om ljudet finns i [docs/ljud.md](docs/ljud.md).
 
@@ -393,7 +395,7 @@ Testerna täcker bland annat:
 - att varje scenario går att klara och att det misslyckas när det ska
 - determinismen: "Jagad" körs i 4 minuter med fasta order två gånger och ska ge exakt samma tillstånd, och samma som en sparad referens per plattform
 - svävningen: djupbyten utan fart genom språngskiktet, uppåt och på djupt vatten, att djupet hålls efteråt, att svävningen slutar när farten kommer tillbaka och beskedet till en spelare som sköter trimmet
-- startsidans musik: partiturets delar, att alla toner ligger i D frygisk, att sjunkbomberna bara kommer i anfallet och att samma frö ger samma partitur; demons korvett och vattenpelare
+- startsidans musik: partiturets delar, att alla toner ligger i D aeolisk, att det inte finns några sjunkbomber, att pulsen är mjuk och att samma frö ger samma partitur; demon på 16 m i dagsljus utan korvett
 - frigörandet på grafikkortet (`disposeTree` och fartygen), felrutan och rutan för förlorad grafik
 - genomgången före ett scenario och målrutan (utfälld vid start, ihopfälld efter en stund, öppen vid tryck, nytt mål och nytt tips)
 - terrängen, grundstötning och navigering genom sundet
@@ -403,7 +405,7 @@ Testerna täcker bland annat:
 - genomskärningen: att all inredning ligger inom sin avdelning och tryckskrovet, att vattenytan i en lutande tank fyller rätt volym, att ett tryck hittar rätt utrymme och att informationsrutan har något att säga om varje utrymme
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
-- skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta, panelerna Ballast, Trim och Fart), att tangenterna följer Auto / Hand och att inget scenariotips nämner en panelknapp
+- skärmkontrollerna (djupskala, kompass, Auto / Hand med roder och djuproder, telegraf, Dyk/Yta som vanlig stigning, Per.djup, System ▾ med panelerna, vyknapparna som ikoner i skärmkontrollerna), att tangenterna följer Auto / Hand och att inget scenariotips nämner en panelknapp
 - mobilvyn: telegrafreglaget, Auto / Hand-knappen, System ▾ med flikarna, Vyer ▾ och statusraden
 - loggboken: radernas livslängd, högst två rader, uttoning av raderna och fönstret, historiken och ☰ → Loggbok
 - eldledningspanelen: att välja mellan mål och att skjuta från en viss tub

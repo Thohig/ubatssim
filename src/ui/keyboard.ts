@@ -14,6 +14,16 @@ export function submitDive(ctrl: Controller, source: OrderSource): void {
   if (ctrl.ap.depth && ctrl.setpoints.depth < PERISCOPE_DEPTH) ctrl.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, source);
 }
 
+/** "Yta": the surface as the depth target, a normal ascent (the crew blows the main ballast near the surface). */
+export function submitSurface(ctrl: Controller, source: OrderSource): void {
+  ctrl.submit({ kind: 'setDepth', depth: 0 }, source);
+}
+
+/** "Periskopdjup": the depth target at periscope depth (surfaced, the crew handling the ballast dives). */
+export function submitPeriscopeDepth(ctrl: Controller, source: OrderSource): void {
+  ctrl.submit({ kind: 'setDepth', depth: PERISCOPE_DEPTH }, source);
+}
+
 const KNOT = 1852 / 3600;
 
 /** The telegraph one position ahead (+1) or astern (−1) of the present speed order (hands the speed to the crew). */
@@ -125,7 +135,7 @@ export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState)
         ctrl.submit({ kind: 'diesel', on: !ctrl.sim.commands.diesel }, 'keyboard');
         break;
       case 's':
-        ctrl.submit({ kind: 'surface' }, 'keyboard');
+        submitSurface(ctrl, 'keyboard');
         break;
       default:
         return;

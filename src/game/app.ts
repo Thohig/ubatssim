@@ -32,7 +32,7 @@ import { createViewOverlay } from '../ui/viewOverlay';
 import { ViewState, availableViews, bindViewButtons, bindViewPointer } from '../ui/views';
 import { GameFlow, type GameState } from './flow';
 import { FixedStepLoop } from './loop';
-import { GameSession, demoCharge, demoSession, freePlaySpec, scenarioSpec } from './session';
+import { GameSession, demoSession, freePlaySpec, scenarioSpec } from './session';
 import { audioInput, effectsInput, overlayState } from './wiring';
 
 const el = <T extends HTMLElement>(id: string) => {
@@ -79,7 +79,7 @@ export function startApp(): void {
 
   /** The first log lines of a game: the crew handles everything, and where to take over. */
   const HELP_HINT =
-    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna panelerna Ballast, Trim, Fart och El (på mobil under System ▾) för att sköta något själv. ☰ → Hjälp förklarar.';
+    'Besättningen sköter ubåten. Styr med kontrollerna längst ner. Växla djup eller kurs till Hand, eller öppna panelerna Ballast, Trim, Fart och El under System ▾ för att sköta något själv. ☰ → Hjälp förklarar.';
 
   /** Shows a session: log, instruments, sound, camera, buoy, ships and the area. */
   const attach = (s: GameSession): GameSession => {
@@ -219,20 +219,12 @@ export function startApp(): void {
   flow.onChange((s: GameState) => {
     audio.setRunning(s === 'playing');
     hud.hidden = !flow.inGame;
-    view.setAutoRotate(s === 'menu');
     if (s === 'playing') menu.hide();
     if (s === 'menu') menu.show('main');
     if (s === 'paused') showPause();
     updateMusic();
   });
 
-  // The depth charges in the start page's music go off in the demo behind it too: water columns near the corvette.
-  audio.engine.music.onEvent((e, delay) => {
-    if (e.kind !== 'charge') return;
-    window.setTimeout(() => {
-      if (flow.state === 'menu') demoCharge(session, e.distance);
-    }, delay * 1000);
-  });
 
   const pause = () => {
     if (flow.state === 'playing') flow.go('paused');
@@ -336,9 +328,11 @@ export function startApp(): void {
   const nav = createNavPanel(el('nav'), (label) => activeCtrl()?.submit({ kind: 'markTarget', label }, 'touch'));
   const updateFire = createFirePanel(el('fire'), activeCtrl, views, () => nav.mode !== null);
   const navSwitch = { mode: () => nav.mode, toggle: (m: 'chart' | 'sonar') => nav.toggle(m) };
-  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, navSwitch);
+  // On computers Vy, Per, Snork, Karta and Sonar sit in the screen controls, between the telegraph and the course.
+  const viewDock = h('div', { class: 'helm-views' });
+  const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, navSwitch, viewDock);
   const helmEl = el('helm');
-  const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null));
+  const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), viewDock);
   // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
   new ResizeObserver(() => document.body.style.setProperty('--helm-h', `${helmEl.offsetHeight}px`)).observe(helmEl);
   const drawOverlay = createViewOverlay(el<HTMLCanvasElement>('view-overlay'));
@@ -427,7 +421,8 @@ export function startApp(): void {
       views.set('external');
     }
     views.update(dt);
-    view.setView(flow.inGame ? views.camera(sim.kinematics().u, sim.cfg.periscope.vibrationSpeed) : { mode: 'external' });
+    // Behind the start page the camera waits in the water and the boat glides past.
+    view.setView(flow.inGame ? views.camera(sim.kinematics().u, sim.cfg.periscope.vibrationSpeed) : { mode: 'flyby' });
   }
 
   function overlay() {

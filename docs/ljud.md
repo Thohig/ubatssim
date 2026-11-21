@@ -85,15 +85,16 @@ Rösten läser upp spelarens egna order ("Djup 32, ja"), larm och misslyckanden 
 
 ## Musiken på startsidan
 
-Mörk och hotfull, i D frygisk (D E♭ F G A B♭ C, där halvtonssteget D–E♭ är hotet). Allt syntetiseras, och inget upprepas som en loop. `score.ts` skriver partituret, `menuMusic.ts` spelar det.
+Lugn och djup, havet snarare än kriget, i D aeolisk (naturlig moll: D E F G A B♭ C). Allt syntetiseras, och inget upprepas som en loop. `score.ts` skriver partituret, `menuMusic.ts` spelar det.
 
-**Delar** (glider över i varandra, ungefär 2,5 minuter per varv):
+**Delar** (glider över i varandra, ungefär 2 minuter per varv):
 
 | Del | Längd | Innehåll |
 |---|---|---|
-| Lugn | 60–85 s | Bottenton, långsamma ackord (Dm, E♭, Dm, Gm), avlägsna sonarpingar, skrovet som stönar, radio med morse |
-| Hot | 45–65 s | En dämpad trumpuls (60 bpm) som växer, två hornsignaler, ackorden Dm, E♭, Cm, Dm |
-| Anfall | 35–50 s | Sjunkbomber i serier om 3–4, 3–6 s isär, med tystnad mellan; pulsen fullt; en virvel; en hornsignal |
+| Lugn | 60–85 s | Bottenton, långsamma ackord (Dm, B♭, F, C), avlägsna sonarpingar, skrovet som stönar, radio med morse |
+| Djup | 45–65 s | En mjuk puls som ett hjärtslag (50 bpm) som växer lite men aldrig blir stark, en lång hornsignal, ackorden Dm, Gm, B♭, C |
+
+Det finns inga sjunkbomber, ingen virvel och inget anfall.
 
 **Lagren:**
 
@@ -101,12 +102,11 @@ Mörk och hotfull, i D frygisk (D E♭ F G A B♭ C, där halvtonssteget D–E�
 - **Ackord:** tre röster (två förstämda sågtänder och en sinus en oktav ned) med 5 s in och 5 s ut, genom ett mjukt lågpass, med filtrerat brus som andning.
 - **Ping:** en sinus på A5 eller D6 med kort svävning och ett eko 1,7 s senare, nästan bara i efterklangen.
 - **Skrovet:** ett resonant brusband som sveper nedåt och ibland en dov knack.
-- **Sjunkbomber:** en sinus som faller från 55 till 24 Hz och ett långt lågpassat muller, starkare och ljusare när de är närmare. Nära ger de också en spricka.
-- **Puls och virvel:** en trumma med fallande tonhöjd och ett mjukt klick, accent var fjärde slag. Virveln är snabba högpassade bruslag som växer.
+- **Puls:** en trumma med fallande tonhöjd och ett mjukt klick, accent var fjärde slag.
 - **Horn:** mässingslika sågtänder genom ett lågpass som öppnar sig för varje ton. Motiven är egna, fallande och i skalan.
 - **Radio:** bandpassat brus kring 1,7 kHz och morsegrupper om 3–5 bokstäver.
 
-Allt går genom en efterklang från en genererad impulsrespons (4,5 s brus som klingar av och blir mörkare, som i vatten). Det som är långt bort (pingar, sjunkbomber, horn) går mest genom efterklangen.
+Allt går genom en efterklang från en genererad impulsrespons (4,5 s brus som klingar av och blir mörkare, som i vatten). Det som är långt bort (pingar, horn) går mest genom efterklangen.
 
-Partituret har en egen klocka och går så fort startsidan visas, också innan webbläsaren tillåter ljud. Sjunkbomberna rapporteras då ändå (`MenuMusic.onEvent`), och demon bakom menyn visar dem som vattenpelare akter om korvetten (`demoCharge` i `src/game/session.ts`). Musiken tonas in på 3 s efter första trycket och ut när ett spel startar. Inställningarna har **Musik på startsidan** och **Musikvolym**, och M stänger av allt ljud, också på startsidan.
+Partituret har en egen klocka och går så fort startsidan visas, också innan webbläsaren tillåter ljud. Musiken tonas in på 3 s efter första trycket och ut när ett spel startar. Inställningarna har **Musik på startsidan** och **Musikvolym**, och M stänger av allt ljud, också på startsidan.
 

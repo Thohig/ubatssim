@@ -19,13 +19,13 @@ describe('the start page score', () => {
   const within = (e: MusicEvent, s: Section) => e.t >= s.start && e.t < s.end;
   const sectionOf = (e: MusicEvent) => sections.find((s) => within(e, s))!;
 
-  it('calm, threat and attack follow each other, each within its length', () => {
+  it('calm and deep follow each other, each within its length', () => {
     expect(sections[0]!.kind).toBe('calm');
     sections.forEach((s, i) => {
-      expect(s.kind).toBe((['calm', 'threat', 'attack'] as const)[i % 3]);
+      expect(s.kind).toBe((['calm', 'deep'] as const)[i % 2]);
       const len = s.end - s.start;
-      expect(len).toBeGreaterThanOrEqual({ calm: 60, threat: 45, attack: 35 }[s.kind]);
-      expect(len).toBeLessThanOrEqual({ calm: 85, threat: 65, attack: 50 }[s.kind]);
+      expect(len).toBeGreaterThanOrEqual({ calm: 60, deep: 45 }[s.kind]);
+      expect(len).toBeLessThanOrEqual({ calm: 85, deep: 65 }[s.kind]);
       if (i > 0) expect(s.start).toBe(sections[i - 1]!.end);
     });
     expect(sections.length).toBeGreaterThan(8);
@@ -36,7 +36,7 @@ describe('the start page score', () => {
     expect(new Set(ev).size).toBe(ev.length);
   });
 
-  it('every note is in D Phrygian', () => {
+  it('every note is in D Aeolian (natural minor)', () => {
     for (const e of ev) {
       if (e.kind === 'chord') for (const f of e.notes) expect(inScale(f), `chord ${f}`).toBe(true);
       if (e.kind === 'horn') for (const [f] of e.notes) expect(inScale(f), `horn ${f}`).toBe(true);
@@ -44,26 +44,23 @@ describe('the start page score', () => {
     }
   });
 
-  it('depth charges and the snare roll only in the attack, in series with quiet between', () => {
-    const charges = ev.filter((e) => e.kind === 'charge');
-    expect(charges.length).toBeGreaterThan(10);
-    for (const e of [...charges, ...ev.filter((x) => x.kind === 'roll')]) expect(sectionOf(e).kind).toBe('attack');
-    // Gaps: a few seconds inside a series, longer between series.
-    const gaps = charges.slice(1).map((e, i) => e.t - charges[i]!.t);
-    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(3);
-    expect(gaps.some((g) => g >= 8)).toBe(true);
+  it('nothing warlike: no depth charges and no snare roll', () => {
+    const kinds = new Set(ev.map((e) => e.kind as string));
+    expect(kinds.has('charge')).toBe(false);
+    expect(kinds.has('roll')).toBe(false);
   });
 
-  it('the pulse only in threat and attack, growing through the threat; horn calls there too', () => {
+  it('the pulse only in the deep section, soft and growing a little; one horn call there', () => {
     for (const e of ev) {
       if (e.kind !== 'beat' && e.kind !== 'horn') continue;
-      expect(sectionOf(e).kind).not.toBe('calm');
+      expect(sectionOf(e).kind).toBe('deep');
     }
-    const threat = sections.find((s) => s.kind === 'threat')!;
-    const beats = ev.filter((e): e is Extract<MusicEvent, { kind: 'beat' }> => e.kind === 'beat' && within(e, threat));
-    expect(beats[0]!.level).toBeLessThan(0.4);
-    expect(beats.at(-1)!.level).toBeGreaterThan(0.9);
-    expect(ev.filter((e) => e.kind === 'horn').length).toBeGreaterThanOrEqual(3);
+    const deep = sections.filter((s) => s.kind === 'deep').slice(0, -1);
+    const beats = ev.filter((e): e is Extract<MusicEvent, { kind: 'beat' }> => e.kind === 'beat' && within(e, deep[0]!));
+    expect(beats[0]!.level).toBeLessThan(0.2);
+    expect(beats.at(-1)!.level).toBeGreaterThan(0.35);
+    expect(Math.max(...ev.flatMap((e) => (e.kind === 'beat' ? [e.level] : [])))).toBeLessThanOrEqual(0.45);
+    for (const s of deep) expect(ev.filter((e) => e.kind === 'horn' && within(e, s))).toHaveLength(1);
   });
 
   it('pings and creaks in every section', () => {

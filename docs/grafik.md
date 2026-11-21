@@ -93,7 +93,7 @@ Panelen har lösningsraden, en rad med målen (M1, M2 …, bara när det finns f
 
 ## Startsidan
 
-Bakom menyn går ubåten i ytläge norrut i skymning (ljusläget `dusk`: mörkröd himmel, svagt ljus, tända lanternor) med en korvett 140 m till styrbord och lite förut, där kameran på ubåtens babordssida ser den. Sjunkbomberna i startsidans musik (docs/ljud.md) slår upp vattenpelare akter om korvetten. Menyn är utformad som en order: ordernummer, stämpeln Hemligt, en stram rubrik med mörkröd linje och en fiktiv order som skrivs fram som på en skrivmaskin (utan rörelse med `prefers-reduced-motion`).
+Bakom menyn går ubåten neddykt på 16 m norrut i 4 knop i dagsljus (`demoSession()`, `DEMO_DEPTH`), så att ljusstrålarna från ytan syns runt den. Kameran (`flyby` i `scene.ts`) står still i vattnet 75 m förut och 30 m om babord, 5 m djupare än ubåten, och ubåten glider förbi. När den är 70 m förbi flyttas kameran fram igen. Området har bara sin fredliga trafik, ingen korvett. Menyn är utformad som en färdorder: ordernummer, stämpeln Övning, en stram rubrik med blå linje och en fiktiv, fredlig order som skrivs fram som på en skrivmaskin (utan rörelse med `prefers-reduced-motion`).
 
 ## Loggboken (`src/ui/log.ts`)
 
@@ -138,8 +138,8 @@ Smalare än 840 px (också surfplattor på höjden) eller lägre än 500 px gäl
 
 - **Statusraden** (`src/ui/statusBar.ts`, `#status`) ersätter instrumentpanelen. Den visar bara det som kontrollerna inte visar: tid, fart genom vattnet, vatten under kölen och trim (`statusFields()` är ren och testad). Ett tryck sätter `body.inst-open` och visar hela instrumentpanelen under raden.
 - **Loggboken** kortar varje rad till två textrader.
-- **Vyknapparna** fälls ihop bakom **Vyer ▾** (`#view-btns.open`). Lägesindikatorn döljs, eftersom vyn syns på bilden.
-- **Skärmkontrollerna** har båda varianterna i DOM:en och CSS väljer: en Auto / Hand-knapp (`.helm-chip`) i stället för omkopplaren, **System ▾** i stället för tre panelknappar, och telegrafen som ett reglage. Reglaget är raden `.helm-bells`. Klockorna tar inte emot pekaren där, utan raden läser läget med `bindDrag` och `telegraphIndex()` och skickar ordern när fingret släpper. På bred skärm är draget avstängt, så en knapp ger fortfarande en order.
+- **Vyknapparna** fälls ihop bakom **Vyer ▾** (`#view-btns.open`). På dator ligger Vy, Per, Snork, Karta och Sonar i stället som ikoner i skärmkontrollerna, mellan telegrafen och kompassen (`.helm-views`; `bindViewButtons` flyttar dem när mediefrågan ändras). Lägesindikatorn döljs, eftersom vyn syns på bilden.
+- **Skärmkontrollerna** har båda varianterna i DOM:en och CSS väljer: en Auto / Hand-knapp (`.helm-chip`) i stället för omkopplaren, och telegrafen som ett reglage. Per.djup döljs, eftersom djupskalans **13 m** gör samma sak. Telegrafens rad med den beordrade farten visas bara på mobil och bara mellan två lägen (på dator står farten i instrumentpanelen). Reglaget är raden `.helm-bells`. Klockorna tar inte emot pekaren där, utan raden läser läget med `bindDrag` och `telegraphIndex()` och skickar ordern när fingret släpper. På bred skärm är draget avstängt, så en knapp ger fortfarande en order.
 - **Stående:** djupskalan till vänster, kompassen och Dyk / Håll / System till höger, och telegrafen över hela bredden. **Liggande:** en grupp per tumme (djup och knappar till vänster, kompass och telegraf till höger), mitten fri, och en panel öppnas i mitten under statusraden.
 - Kompassbandet skriver bara väderstrecken när det är smalt (mindre än 40 px per 30°), så att siffrorna inte flyter ihop.
 - Tipsen i scenarierna nämner panelerna, inte knapparna ("i panelen Trim"), eftersom knapparna skiljer sig mellan mobil och dator (test i `tests/helm.test.ts`).

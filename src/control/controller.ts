@@ -32,6 +32,12 @@ const DIVE_TARGET_DEPTH = 5;
 const STAGED_BLOW_DEPTH = 20;
 const STAGED_BLOW_DELAY = 15;
 /**
+ * A normal ascent to the surface: deeper than this [m] the boat comes up on the
+ * planes with the main ballast flooded, and the crew blows it only here (a blow
+ * from depth is an emergency blow, the order "ytläge").
+ */
+export const SURFACE_BLOW_DEPTH = 15;
+/**
  * Awash: a boat that stays shallower than this [m] for `AWASH_TIME` s with way on and the planes
  * (or the depth target) for diving, the main ballast mostly flooded and its vents shut, has air left
  * in the tanks. The player handling the ballast is reminded (every `AWASH_HINT_EVERY` s).
@@ -291,6 +297,7 @@ export class Controller {
     let target: number;
     this.watchDepthStall(tel);
     this.watchAwash(tel);
+    this.watchAscent(tel);
     // Stopp, as a crew does it: full astern until the way is almost off, then the shaft to zero.
     const crashStop = this.ap.speed && this.setpoints.speed === 0 && tel.u > CRASH_STOP_UNTIL;
     if (this.crashStopping && !crashStop) this.autopilot.speedPid.reset();
@@ -532,6 +539,15 @@ export class Controller {
 
   /** Sim time of the last "the main ballast is empty" reminder (player handling the ballast). */
   private lastBallastHint = -Infinity;
+  /** A shallow target was set below `SURFACE_BLOW_DEPTH`: blow (or remind) once the boat is up there. */
+  private blowOnRise = false;
+
+  /** The normal ascent: once the boat has come up to `SURFACE_BLOW_DEPTH` on the planes, the main ballast is blown. */
+  private watchAscent(k: Kinematics): void {
+    if (!this.blowOnRise) return;
+    if (!this.ap.depth || this.setpoints.depth >= DIVE_TARGET_DEPTH) this.blowOnRise = false;
+    else if (k.depth <= SURFACE_BLOW_DEPTH) this.checkBallastForSurface();
+  }
   /** Seconds the boat has hung awash although it should dive (see `AWASH_DEPTH`). */
   private awash = 0;
   private lastAwashHint = -Infinity;
@@ -585,7 +601,8 @@ export class Controller {
    * The mirror image: a target near the surface with flooded main ballast.
    * The boat is then neutral and the planes can only bring it up awash.
    * The crew blows the tanks (as "ytläge" does); a player handling the
-   * ballast is reminded.
+   * ballast is reminded. From deeper than `SURFACE_BLOW_DEPTH` the boat first
+   * comes up on the planes (`watchAscent`).
    */
   private checkBallastForSurface(): void {
     const sim = this.sim;
@@ -593,12 +610,23 @@ export class Controller {
       const s = sim.tanks[i]!;
       return d.kind === 'mainBallast' && s.water / d.volume > 0.5 && !s.blowOpen;
     });
-    if (!flooded || sim.tanks.some((t) => t.blowOpen)) return;
+    if (!flooded || sim.tanks.some((t) => t.blowOpen)) {
+      this.blowOnRise = false;
+      return;
+    }
+    if (sim.kinematics().depth > SURFACE_BLOW_DEPTH) {
+      if (!this.blowOnRise && this.options.crew.ballast) {
+        this.afterAck.push(`Stigning till ytan på djuprodren. Huvudballasten blåses på ${SURFACE_BLOW_DEPTH} m.`);
+      }
+      this.blowOnRise = true;
+      return;
+    }
+    this.blowOnRise = false;
     if (this.options.crew.ballast) {
       this.addLog(this.blowMainBallast() ? 'Huvudballasten blåses för ytläge, för först.' : 'Huvudballasten blåses för ytläge.', 'info');
     } else if (sim.t - this.lastBallastHint > 10) {
       this.lastBallastHint = sim.t;
-      this.addLog('Huvudballasten är full, så ubåten kommer inte upp i ytläge. Tryck Yta, eller Blås i panelen Ballast.', 'error');
+      this.addLog('Huvudballasten är full, så ubåten kommer inte upp i ytläge. Tryck Blås i panelen Ballast.', 'error');
     }
   }
 

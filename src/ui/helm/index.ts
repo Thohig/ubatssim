@@ -14,16 +14,20 @@
  *    and "Mot bojen" steers for the scenario's buoy.
  *    Hand: a rudder gauge, BB/SB 5°, Mitt.
  *  - Speed (centre): an engine-order telegraph, full astern to full ahead.
- *    On phones it is a lever: tap or drag along it, sent on release.
- *  - Dyk/Yta (follows the main ballast), Håll, and the panels Ballast ▾,
- *    Trim ▾, Fart ▾ and El ▾ (battery, snorkel, diesels, leaks) with each
- *    system's state and controls. A button in a
- *    panel takes that system over (as the order does); the panel's header
- *    hands it back to the crew. The panel's tabs switch between the three.
+ *    On phones it is a lever: tap or drag along it, sent on release. The
+ *    ordered speed shows on the instruments (on phones over the lever when
+ *    it lies between two bells).
+ *  - Dyk/Yta (follows the main ballast; Yta is a normal ascent, the surface
+ *    as the depth target), Per.djup, Håll, and "System ▾", which opens the
+ *    panels Ballast, Trim, Fart and El (battery, snorkel, diesels, leaks)
+ *    with each system's state and controls. A button in a panel takes that
+ *    system over (as the order does); the panel's header hands it back to
+ *    the crew. The panel's tabs switch between them.
+ *  - The view buttons (views.ts) between the telegraph and the course, in
+ *    `viewDock`, on computers.
  *
  * Phones (compact layout, compact.ts) show fewer controls: one Auto/Hand
- * chip per axis instead of the switch, and one "System ▾" button for the
- * three panels. Both are in the DOM everywhere; style.css picks.
+ * chip per axis instead of the switch. Both are in the DOM everywhere; style.css picks.
  *
  * The parts: mappings.ts (screen position ↔ depth, bearing, angle; pure,
  * exported for the tests), canvas.ts (drawing on 2D canvases), drag.ts
@@ -35,7 +39,7 @@ import { CREW_NAME, CREW_ROLE, HELM_MAX_DEPTH, LOCK_TEXT, PERISCOPE_DEPTH, TELEG
 import { LIMITS } from '../../control/parser';
 import type { Telemetry } from '../../sim/simulation';
 import { h } from '../dom';
-import { submitDive } from '../keyboard';
+import { submitDive, submitPeriscopeDepth, submitSurface } from '../keyboard';
 import { haptic, makeButton, type ScreenButton } from '../button';
 import { isCompact } from '../compact';
 import { colors, drawCompassBand, drawDepthScale, drawGauge, observer, type Colors } from './canvas';
@@ -44,6 +48,9 @@ import { DEG, angleText, bandBearing, bearing3, bearingTo, fmt, fractionToDepth,
 import { PANELS, PANEL_SYSTEM, PANEL_TITLE, createPanels, type Panel } from './panels';
 
 export { BAND_HALF_WIDTH, bandBearing, bandFraction, depthToFraction, fractionToDepth, gaugeAngle, telegraphIndex } from './mappings';
+
+const DIVE_TITLE = 'Dyk: fyll huvudballasten';
+const SURFACE_TITLE = 'Yta: stig till ytan, huvudballasten blåses nära ytan';
 
 export interface HelmContext {
   ctrl: Controller;
@@ -56,7 +63,11 @@ export interface HelmContext {
  * is running (presses are then ignored). Returns the update function, to
  * call with fresh telemetry ~10 times a second.
  */
-export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null): (t: Telemetry, ctx: HelmContext) => void {
+export function createHelm(
+  root: HTMLElement,
+  getCtx: () => HelmContext | null,
+  viewDock: HTMLElement = h('div', { class: 'helm-views' }),
+): (t: Telemetry, ctx: HelmContext) => void {
   const submit = (fn: (c: Controller) => void) => {
     const ctx = getCtx();
     if (ctx) fn(ctx.ctrl);
@@ -244,36 +255,33 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null):
   const telegraph = h(
     'div',
     { class: 'helm-group helm-telegraph' },
-    h('div', { class: 'helm-telegraph-head' }, h('span', { class: 'astern' }, '◀ Back'), speedReadout, h('span', null, 'Fram ▶')),
+    // The ordered speed, only on phones between two bells (style.css): the instruments show it otherwise.
+    h('div', { class: 'helm-telegraph-head' }, speedReadout),
     bellRow,
   );
 
-  // ---- Dyk/Yta, Håll and the panel buttons.
+  // ---- Dyk/Yta, Per.djup, Håll and System ▾.
   let ballastAction: 'dive' | 'surface' = 'dive';
   const ballastBtn = button({
     label: 'Dyk',
-    title: 'Dyk: fyll huvudballasten',
+    title: DIVE_TITLE,
     className: 'helm-ballast',
-    run: (c) => (ballastAction === 'dive' ? submitDive(c, 'touch') : c.submit({ kind: 'surface' }, 'touch')),
+    run: (c) => (ballastAction === 'dive' ? submitDive(c, 'touch') : submitSurface(c, 'touch')),
+  });
+  const periscopeDepthBtn = button({
+    label: 'Per.djup',
+    title: `Periskopdjup: djupmålet ${PERISCOPE_DEPTH} m`,
+    className: 'helm-perdepth',
+    run: (c) => submitPeriscopeDepth(c, 'touch'),
   });
   const holdBtn = button({ label: 'Håll', title: 'Håll nuvarande kurs och djup', order: { kind: 'holdCourse' } });
   let open: Panel | null = null;
   /** The panel "System ▾" opens: the one last shown. */
   let lastPanel: Panel = 'ballast';
-  const panelBtns = PANELS.map((p) => {
-    const el = tapButton(`${PANEL_TITLE[p]} ▾`, `${PANEL_TITLE[p]}: visa läget och reglagen`, () => toggle(p), 'helm-panel-btn');
-    el.setAttribute('aria-expanded', 'false');
-    return { p, el };
-  });
-  // Phones: one button for the three panels (the tabs switch between them).
+  // One button for the panels (the tabs switch between them).
   const systemBtn = tapButton('System ▾', 'Ballast, trim, fart och el: visa läget och reglagen', () => toggle(open ? null : lastPanel), 'helm-system');
   systemBtn.setAttribute('aria-expanded', 'false');
-  const actions = h(
-    'div',
-    { class: 'helm-actions' },
-    h('div', { class: 'touch-row helm-context' }, ballastBtn, holdBtn, systemBtn),
-    h('div', { class: 'touch-row helm-panel-btns' }, ...panelBtns.map((b) => b.el)),
-  );
+  const actions = h('div', { class: 'helm-actions' }, h('div', { class: 'touch-row helm-context' }, ballastBtn, periscopeDepthBtn, holdBtn, systemBtn));
 
   // ---- Panels.
   const tabs = PANELS.map((p) => {
@@ -304,10 +312,6 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null):
     open = open === p ? null : p;
     if (open) lastPanel = open;
     panelEl.hidden = open === null;
-    for (const b of panelBtns) {
-      b.el.classList.toggle('open', b.p === open);
-      b.el.setAttribute('aria-expanded', String(b.p === open));
-    }
     for (const x of tabs) {
       x.el.classList.toggle('on', x.p === open);
       x.el.setAttribute('aria-selected', String(x.p === open));
@@ -319,7 +323,8 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null):
   }
 
   const centre = h('div', { class: 'helm-centre' }, actions, telegraph);
-  root.replaceChildren(depthGroup, centre, courseGroup, panelEl);
+  viewDock.classList.add('helm-views');
+  root.replaceChildren(depthGroup, centre, viewDock, courseGroup, panelEl);
   for (const c of [depthCanvas, band, planesGauge, rudderGauge]) observer?.observe(c);
 
   function update(t: Telemetry, ctx: HelmContext): void {
@@ -386,12 +391,11 @@ export function createHelm(root: HTMLElement, getCtx: () => HelmContext | null):
     const flooding = mbt.some((x) => x.ventOpen);
     ballastAction = blowing ? 'dive' : flooding || fill >= 0.5 ? 'surface' : 'dive';
     setText(ballastBtn, ballastAction === 'dive' ? 'Dyk' : 'Yta');
-    setTitle(ballastBtn, ballastAction === 'dive' ? 'Dyk: fyll huvudballasten' : 'Ytläge: blås huvudballasten');
+    setTitle(ballastBtn, ballastAction === 'dive' ? DIVE_TITLE : SURFACE_TITLE);
 
     // Panel buttons are marked while the player handles that system.
-    for (const b of panelBtns) b.el.classList.toggle('self', !c.duty(PANEL_SYSTEM[b.p]));
     for (const x of tabs) x.el.classList.toggle('self', !c.duty(PANEL_SYSTEM[x.p]));
-    systemBtn.classList.toggle('self', panelBtns.some((b) => !c.duty(PANEL_SYSTEM[b.p])));
+    systemBtn.classList.toggle('self', PANELS.some((p) => !c.duty(PANEL_SYSTEM[p])));
     if (open) {
       const sys = PANEL_SYSTEM[open];
       const crew = c.duty(sys);

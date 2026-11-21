@@ -46,6 +46,14 @@ const press = (el: Element) => {
   el.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
 };
 const byTitle = (root: Element, title: string) => root.querySelector<HTMLButtonElement>(`button[title="${title}"]`)!;
+const tabOf = (root: Element, name: string) => [...root.querySelectorAll<HTMLButtonElement>('.helm-tab')].find((t) => t.textContent === name)!;
+/** Opens a panel as the player does: System ▾, then its tab. Returns the tab. */
+const openPanel = (root: Element, name: string) => {
+  if (root.querySelector<HTMLElement>('.helm-panel')!.hidden) press(root.querySelector('.helm-system')!);
+  const tab = tabOf(root, name);
+  if (!tab.classList.contains('on')) tab.click();
+  return tab;
+};
 
 describe('telegraph', () => {
   it('runs from full astern to full ahead, within the speed limits', () => {
@@ -174,7 +182,10 @@ describe('screen controls with the crew', () => {
     expect(b.textContent).toBe('Yta');
     press(b);
     dived.step();
-    expect(dived.log.some((e) => /^Ytläge/.test(e.text))).toBe(true);
+    // A normal ascent: the surface as the target, the main ballast blown only near the surface.
+    expect(dived.setpoints.depth).toBe(0);
+    expect(dived.sim.tanks.some((t) => t.blowOpen)).toBe(false);
+    expect(dived.log.some((e) => /Stigning till ytan/.test(e.text))).toBe(true);
   });
 
   it('Håll keeps the present course and depth; ▲ makes the depth target 5 m shallower', () => {
@@ -248,14 +259,12 @@ describe('Auto / Hand', () => {
 });
 
 describe('panels', () => {
-  const panelBtn = (root: Element, name: string) => [...root.querySelectorAll<HTMLButtonElement>('.helm-panel-btn')].find((b) => b.textContent?.startsWith(name))!;
-
   it('a button in a panel takes the system over; the header hands it back', () => {
     const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
     const { root, refresh } = helm(c);
     const panel = root.querySelector<HTMLElement>('.helm-panel')!;
     expect(panel.hidden).toBe(true);
-    press(panelBtn(root, 'Trim'));
+    openPanel(root, 'Trim');
     refresh();
     expect(panel.hidden).toBe(false);
     expect(panel.textContent).toMatch(/Trimassistenten kompenserar och trimmar/);
@@ -264,7 +273,7 @@ describe('panels', () => {
     refresh();
     expect(c.options.crew.trim).toBe(false);
     expect(c.sim.compRemaining).toBeLessThan(0);
-    expect(panelBtn(root, 'Trim').classList.contains('self')).toBe(true);
+    expect(tabOf(root, 'Trim').classList.contains('self')).toBe(true);
     expect(panel.textContent).toMatch(/Du kompenserar och trimmar/);
     const handBack = [...panel.querySelectorAll('button')].find((b) => b.textContent === 'Lämna till besättningen')!;
     press(handBack);
@@ -275,7 +284,7 @@ describe('panels', () => {
   it('the ballast panel floods per tank and clears the bridge', () => {
     const c = crewGame({});
     const { root, refresh } = helm(c);
-    press(panelBtn(root, 'Ballast'));
+    openPanel(root, 'Ballast');
     refresh();
     expect(root.querySelector('.helm-panel')!.textContent).toMatch(/Bryggan: bemannad/);
     press(byTitle(root, 'Klart bryggan: utrym den före dykning'));
@@ -293,7 +302,7 @@ describe('panels', () => {
   it('the speed panel steps the shaft speed and takes the speed over; the telegraph hands it back', () => {
     const c = crewGame({ depth: 40, designTrim: true, speed: 4 * KN });
     const { root, refresh } = helm(c);
-    press(panelBtn(root, 'Fart'));
+    openPanel(root, 'Fart');
     refresh();
     const before = Math.round(c.sim.telemetry().rpsCmd * 60);
     press(byTitle(root, 'Propellervarv +10 rpm'));
@@ -487,10 +496,35 @@ describe('the phone layout', () => {
 });
 
 describe('the panels', () => {
-  it('the panels keep their rows of controls: only the row of panel buttons is phone-hidden', () => {
+  it('one button opens the panels, on phones and computers alike', () => {
     const { root } = helm(crewGame());
-    expect(root.querySelectorAll('.helm-panel-btns').length).toBe(1);
-    expect(root.querySelector('.helm-panel .helm-panel-btns')).toBeNull();
+    expect(root.querySelectorAll('.helm-system').length).toBe(1);
+    expect(root.querySelector('.helm-panel-btn, .helm-panel-btns')).toBeNull();
+  });
+
+  it('Per.djup sets periscope depth; surfaced, the crew dives for it', () => {
+    const dived = crewGame({ depth: 40, designTrim: true });
+    press(helm(dived).root.querySelector('.helm-perdepth')!);
+    dived.step();
+    expect(dived.setpoints.depth).toBe(PERISCOPE_DEPTH);
+    const surfaced = crewGame({});
+    press(helm(surfaced).root.querySelector('.helm-perdepth')!);
+    surfaced.step();
+    expect(surfaced.setpoints.depth).toBe(PERISCOPE_DEPTH);
+    expect(surfaced.sim.tanks.some((t) => t.ventOpen)).toBe(true);
+  });
+
+  it('on computers the view buttons go to the dock in the screen controls, as icons', () => {
+    const root = document.createElement('div');
+    const dock = document.createElement('div');
+    const c = crewGame({ depth: PERISCOPE_DEPTH, designTrim: true });
+    bindViewButtons(root, () => c, new ViewState(), { mode: () => null, toggle: () => {} }, dock)(c);
+    expect([...dock.querySelectorAll<HTMLButtonElement>('button')].map((b) => b.dataset.v)).toEqual(['view', 'chart', 'periscope', 'sonar', 'snorkel']);
+    for (const b of dock.querySelectorAll('button')) {
+      expect(b.querySelector('svg')).not.toBeNull();
+      expect(b.getAttribute('aria-label')).toBeTruthy();
+    }
+    expect(root.querySelector('[data-v="zoom"]')).not.toBeNull();
   });
 });
 
@@ -527,8 +561,7 @@ describe('chart, sonar and the El panel', () => {
   it('the El panel: snorkel and diesel orders; a diesel order takes the charging over', () => {
     const c = crewGame({ depth: 13, neutral: true, battery: 0.5 });
     const { root, refresh } = helm(c);
-    const panelBtn = [...root.querySelectorAll<HTMLButtonElement>('.helm-panel-btn')].find((b) => b.textContent?.startsWith('El'))!;
-    press(panelBtn);
+    const panelBtn = openPanel(root, 'El');
     refresh();
     const panel = root.querySelector<HTMLElement>('.helm-panel')!;
     expect(panel.textContent).toMatch(/Maskinisten startar dieslarna/);
@@ -548,7 +581,7 @@ describe('chart, sonar and the El panel', () => {
     const c = crewGame({ depth: 60, designTrim: true, leaks: { engine: 1e-3 } });
     for (let i = 0; i < 300; i++) c.step();
     const { root, refresh } = helm(c);
-    press([...root.querySelectorAll<HTMLButtonElement>('.helm-panel-btn')].find((b) => b.textContent?.startsWith('El'))!);
+    openPanel(root, 'El');
     refresh();
     const text = root.querySelector('.helm-panel')!.textContent!;
     expect(text).toMatch(/Maskinrum/);

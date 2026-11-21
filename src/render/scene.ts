@@ -47,11 +47,22 @@ export type CameraView =
   | { mode: 'external' }
   | { mode: 'bridge'; yaw: number; pitch: number }
   | { mode: 'periscope'; bearing: number; fov: number; shake: number }
-  | { mode: 'cutaway'; plan: CutPlan; yaw: number; pitch: number; zoom: number; pan: number };
+  | { mode: 'cutaway'; plan: CutPlan; yaw: number; pitch: number; zoom: number; pan: number }
+  /** Behind the start page: a camera standing still in the water while the boat glides past. */
+  | { mode: 'flyby' };
 
 const CUTAWAY_FOV = 40;
 
 const EXTERNAL_FOV = 55;
+/**
+ * The fly-by behind the start page [m]: the camera waits `FLYBY_AHEAD` ahead
+ * of the boat and `FLYBY_SIDE` off its port side, `FLYBY_BELOW` deeper, and
+ * moves ahead again once the boat is `FLYBY_PAST` beyond it.
+ */
+const FLYBY_AHEAD = 75;
+const FLYBY_SIDE = 30;
+const FLYBY_BELOW = 5;
+const FLYBY_PAST = 70;
 const BRIDGE_FOV = 70;
 
 export interface SceneView {
@@ -143,6 +154,10 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
   const qPitch = new THREE.Quaternion();
   const AX_Y = new THREE.Vector3(0, 1, 0);
   const AX_X = new THREE.Vector3(1, 0, 0);
+  const flybyPos = new THREE.Vector3();
+  let flybyPlaced = false;
+  const fwd = new THREE.Vector3();
+  const port = new THREE.Vector3();
 
   const setFov = (fov: number) => {
     if (camera.fov !== fov) {
@@ -321,7 +336,21 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       } else {
         controls.enabled = false;
         wasExternal = false;
-        if (view.mode === 'cutaway') {
+        if (view.mode !== 'flyby') flybyPlaced = false;
+        if (view.mode === 'flyby') {
+          setFov(EXTERNAL_FOV);
+          // Body forward is model −z and starboard model +x (see coords.ts); level both.
+          fwd.set(0, 0, -1).applyQuaternion(model.root.quaternion).setY(0).normalize();
+          port.set(-1, 0, 0).applyQuaternion(model.root.quaternion).setY(0).normalize();
+          const along = eye.copy(flybyPos).sub(subPos).dot(fwd);
+          if (!flybyPlaced || along < -FLYBY_PAST || along > FLYBY_AHEAD + 20) {
+            flybyPos.copy(subPos).addScaledVector(fwd, FLYBY_AHEAD).addScaledVector(port, FLYBY_SIDE);
+            flybyPos.y -= FLYBY_BELOW;
+            flybyPlaced = true;
+          }
+          camera.position.copy(flybyPos);
+          camera.lookAt(subPos);
+        } else if (view.mode === 'cutaway') {
           setFov(CUTAWAY_FOV);
           placeCutawayCamera(view);
           if (state.cutaway) cutaway.update(state.cutaway);

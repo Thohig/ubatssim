@@ -180,7 +180,7 @@ export const SCENARIOS: Scenario[] = [
         text: 'Gå till ytläge',
         system: 'ballast',
         hint: 'Tryck Blås vid Båda i panelen Ballast och sätt djupet till 0 m. Lite vatten blir kvar i tankarna när luften trycks ihop i ytläget.',
-        hintCrew: 'Tryck Yta (eller S). Huvudballasten blåses och djupmålet sätts till 0 m.',
+        hintCrew: 'Tryck Yta (eller S). Djupmålet blir ytan, ubåten stiger på djuprodren och huvudballasten blåses på 15 m.',
         // Air blown at depth expands and partly escapes on the way up, so some water remains when surfaced.
         check: (t) => t.depth < 3 && mbt(t).every((x) => x.fill < 0.4),
         holdSeconds: 5,
@@ -325,7 +325,7 @@ export const SCENARIOS: Scenario[] = [
         text: 'Nå ytan',
         system: 'ballast',
         hint: 'Tryck Blås vid Båda i panelen Ballast, tryck Full fram och styr uppåt.',
-        hintCrew: 'Tryck Yta (eller S) och Full fram. Här finns inget skyddsnät.',
+        hintCrew: 'Ubåten är för tung för att stiga på djuprodren. Tryck Blås vid Båda i panelen Ballast och Full fram, och sätt djupet till ytan. Här finns inget skyddsnät.',
         check: (t) => t.depth < 10,
       },
     ],
@@ -341,7 +341,7 @@ export const SCENARIOS: Scenario[] = [
     objectives: [
       {
         text: 'Hissa periskopet',
-        hint: 'Tryck Per (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
+        hint: 'Tryck periskopknappen (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
         check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
       },
       {
@@ -354,7 +354,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Sänk periskopet',
-        hint: 'Tryck Per (eller P) igen.',
+        hint: 'Tryck periskopknappen (eller P) igen.',
         check: (t) => t.periscope < 0.01,
       },
     ],
@@ -376,7 +376,7 @@ export const SCENARIOS: Scenario[] = [
     objectives: [
       {
         text: 'Hissa periskopet',
-        hint: 'Tryck Per (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
+        hint: 'Tryck periskopknappen (eller P). Håll farten under 6 knop, annars vibrerar bilden.',
         check: (t) => t.periscope > 0.99 && t.periscopeHeadDepth < 0,
       },
       {
@@ -390,7 +390,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Sänk periskopet',
-        hint: 'Tryck Per (eller P) igen.',
+        hint: 'Tryck periskopknappen (eller P) igen.',
         check: (t) => t.periscope < 0.01,
       },
     ],
@@ -489,7 +489,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Hissa snorkeln',
-        hint: 'Tryck Snork (eller N). Dieslarna behöver luft genom snorkelns huvud.',
+        hint: 'Tryck snorkelknappen (eller N). Dieslarna behöver luft genom snorkelns huvud.',
         check: (t) => t.snorkel > 0.99 && t.inductionAir,
       },
       {
@@ -501,7 +501,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Sänk snorkeln',
-        hint: 'Tryck Snork (eller N) igen.',
+        hint: 'Tryck snorkelknappen (eller N) igen.',
         check: (t) => t.snorkel < 0.01,
       },
     ],
@@ -520,7 +520,7 @@ export const SCENARIOS: Scenario[] = [
     objectives: [
       {
         text: 'Hör korvetten på sonaren',
-        hint: 'Öppna Sonar (eller H) och vänta tills operatören har klassat kontakten som ett örlogsfartyg.',
+        hint: 'Öppna sonaren (sonarknappen eller H) och vänta tills operatören har klassat kontakten som ett örlogsfartyg.',
         check: (_t, c) => c.sonar.contacts.some((x) => x.vesselId === STEALTH_CORVETTE.id && x.classified !== null),
       },
       {
@@ -551,7 +551,7 @@ export const SCENARIOS: Scenario[] = [
     objectives: [
       {
         text: 'Hissa periskopet',
-        hint: 'Tryck Per (eller P).',
+        hint: 'Tryck periskopknappen (eller P).',
         check: (t) => lookoutUp(t),
       },
       {
@@ -568,7 +568,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Skjut och träffa',
-        hint: 'Tryck Fyr (eller F). Torpeden går 40 knop: följ den på sjökortet (Karta eller K).',
+        hint: 'Tryck Fyr (eller F). Torpeden går 40 knop: följ den på sjökortet (sjökortsknappen eller K).',
         check: (_t, c) => sunk(c, PRACTICE_TARGET.id),
       },
     ],
@@ -585,7 +585,7 @@ export const SCENARIOS: Scenario[] = [
     objectives: [
       {
         text: 'Gör sonarkontakten till mål',
-        hint: 'Öppna Sonar (eller H) och tryck på S1 i listan under vattenfallet.',
+        hint: 'Öppna sonaren (sonarknappen eller H) och tryck på S1 i listan under vattenfallet.',
         check: (_t, c) => c.fire.target?.vesselId === NIGHT_TARGET.id,
       },
       {

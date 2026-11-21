@@ -48,7 +48,7 @@ export class AudioEngine {
   private master!: GainNode;
   /** The game's own sound (silent on the start page). */
   private game!: GainNode;
-  /** The start page's music; runs its score (and reports the depth charges) even before sound is allowed. */
+  /** The start page's music; runs its score even before sound is allowed. */
   readonly music = new MenuMusic();
   private menu = false;
   private inside!: GainNode;

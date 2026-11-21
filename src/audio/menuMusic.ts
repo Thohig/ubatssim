@@ -5,13 +5,12 @@
  *   drone ──────────┐
  *   chords → pad ───┤
  *   swells, creaks, ├→ mix ─┬──────────────→ out → master
- *   pulse, roll     │       └→ reverb → wet ─┘
+ *   pulse           │       └→ reverb → wet ─┘
  *   radio + morse ──┘
- *   pings, charges, horn → far ─→ reverb (mostly) and a little dry
+ *   pings, horn → far ─→ reverb (mostly) and a little dry
  *
  * The score runs on its own clock whenever the start page shows, also
- * before the browser lets sound start: `onEvent` then still reports the
- * depth charges, which the demo behind the menu shows as water columns.
+ * before the browser lets sound start (`onEvent` reports every event).
  * Sound may use Math.random(): it does not touch the simulation.
  */
 import { ROOT, Score, note, type Levels, type MusicEvent } from './score';
@@ -47,7 +46,7 @@ export class MenuMusic {
   /** The layer levels of the section playing (set again on attach). */
   private levels: Levels = { drone: 0, pad: 0, pulse: 0, radio: 0 };
 
-  /** Called for every event as it is scheduled, `delay` seconds ahead (the depth charges are shown). */
+  /** Called for every event as it is scheduled, `delay` seconds ahead. */
   onEvent(fn: (e: MusicEvent, delay: number) => void): void {
     this.listeners.push(fn);
   }
@@ -214,9 +213,6 @@ export class MenuMusic {
       case 'creak':
         this.creak(at);
         break;
-      case 'charge':
-        this.charge(at, e.distance);
-        break;
       case 'beat':
         this.beat(at, e.accent, e.level);
         break;
@@ -225,9 +221,6 @@ export class MenuMusic {
         break;
       case 'morse':
         this.morse(at, e.pattern);
-        break;
-      case 'roll':
-        this.roll(at, e.dur);
         break;
     }
   }
@@ -323,17 +316,6 @@ export class MenuMusic {
     if (Math.random() < 0.6) this.perc(this.voice('sine', 40 + Math.random() * 12, this.mix), at + 0.2, 0.6, 0.2);
   }
 
-  /** A depth charge far away: a deep falling boom and a long rumble; a crack when it is nearer. */
-  private charge(at: number, distance: number): void {
-    const near = 1 - distance;
-    const boom = this.voice('sine', 55, this.far);
-    boom.oscs![0]!.frequency.setValueAtTime(55, at);
-    boom.oscs![0]!.frequency.exponentialRampToValueAtTime(24, at + 2.5);
-    this.perc(boom, at, 3, 0.35 + 0.45 * near);
-    this.noiseBurst(at + 0.05, 4, this.far, 'lowpass', 160 + 180 * near, 0.7, 0.25 + 0.35 * near);
-    if (near > 0.6) this.noiseBurst(at, 0.12, this.mix, 'lowpass', 2200, 0.7, 0.15 * near);
-  }
-
   /** One beat of the pulse: a muffled drum (falling pitch) and a soft click. */
   private beat(at: number, accent: boolean, level: number): void {
     const g = this.voice('sine', 75, this.mix);
@@ -385,15 +367,6 @@ export class MenuMusic {
     const o = g.oscs![0]!;
     o.start(at);
     o.stop(t + 0.1);
-  }
-
-  /** A snare roll far away: quick noise strokes, growing. */
-  private roll(at: number, dur: number): void {
-    const n = Math.round(dur * 14);
-    for (let i = 0; i < n; i++) {
-      const level = 0.015 + 0.08 * (i / n) ** 2;
-      this.noiseBurst(at + i / 14, 0.07, this.far, 'highpass', 1800, 0.7, level);
-    }
   }
 
   private loopNoise(to: AudioNode): void {

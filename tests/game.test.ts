@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SCENARIOS } from '../src/control/scenarios';
 import { GameFlow } from '../src/game/flow';
 import { FixedStepLoop } from '../src/game/loop';
-import { GameSession, demoCharge, demoSession, freePlaySpec, scenarioSpec } from '../src/game/session';
+import { DEMO_DEPTH, GameSession, demoSession, freePlaySpec, scenarioSpec } from '../src/game/session';
 import { audioInput, overlayState } from '../src/game/wiring';
 import { AREA_INFO } from '../src/control/areas';
 
@@ -131,32 +131,16 @@ describe('effects input', () => {
 });
 
 describe('the demo behind the start page', () => {
-  it('has a corvette that patrols without hunting, at dusk', () => {
+  it('the demo behind the menu: dived at 16 m in daylight, gliding slowly north, no corvette and no charges', () => {
     const d = demoSession();
-    expect(d.conditions).toBe('dusk');
-    const v = d.ctrl.world.vessels.find((x) => x.def.kind === 'patrol')!;
-    expect(v).toBeDefined();
+    expect(d.conditions).toBe('day');
+    expect(d.ctrl.world.vessels.some((x) => x.def.kind === 'patrol')).toBe(false);
     for (let i = 0; i < 6000; i++) d.step();
-    expect(d.ctrl.hunter.state(v.def.id)).toBe('patrol');
+    const k = d.sim.kinematics();
+    expect(Math.abs(k.depth - DEMO_DEPTH)).toBeLessThan(2);
+    expect(k.u / (1852 / 3600)).toBeGreaterThan(3);
+    expect(k.u / (1852 / 3600)).toBeLessThan(5);
     expect(d.ctrl.world.charges).toHaveLength(0);
-  });
-
-  it("the music's depth charges are water columns astern of the corvette, further off when more distant", () => {
-    const d = demoSession();
-    const v = d.ctrl.world.vessels.find((x) => x.def.kind === 'patrol')!;
-    const dist = () => {
-      const b = d.ctrl.blasts.at(-1)!;
-      return Math.hypot(b.at[0] - v.state.north, b.at[1] - v.state.east);
-    };
-    demoCharge(d, 0);
-    const near = dist();
-    demoCharge(d, 1);
-    const far = dist();
-    expect(d.ctrl.blasts).toHaveLength(2);
-    expect(near).toBeLessThan(110);
-    expect(far).toBeGreaterThan(190);
-    // Astern: south of a corvette going north.
-    expect(d.ctrl.blasts.at(-1)!.at[0]).toBeLessThan(v.state.north);
-    expect(d.ctrl.blasts.at(-1)!.kind).toBe('charge');
+    expect(d.ctrl.blasts).toHaveLength(0);
   });
 });

@@ -9,7 +9,7 @@ test("the start page's music plays every kind of event without an error, and sto
   // A gesture lets the sound start (the background, not a button).
   await page.mouse.click(20, 20);
   await expect(page.locator('html')).toHaveAttribute('data-audio', 'running');
-  // Through calm, threat and attack and into calm again (each tick plays the next second of the score).
+  // Through calm and deep and into calm again (each tick plays the next second of the score).
   for (let s = 0; s < 330; s += 6) await page.clock.fastForward(6000);
   await expect(page.locator('#menu')).toHaveAttribute('data-screen', 'main');
   await expect(page.locator('html')).toHaveAttribute('data-audio', 'running');

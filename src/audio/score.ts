@@ -3,17 +3,17 @@
  * events, without sound. Pure (a random function is passed in), so it can
  * be tested in Node; menuMusic.ts plays it with Web Audio.
  *
- * Dark and threatening, in D Phrygian (D E♭ F G A B♭ C: the half step D–E♭
- * is the threat). Three sections follow each other, without a loop:
- *   calm    the drone, slow chords, distant sonar pings, the hull creaking,
- *           a radio far away;
- *   threat  a muffled drum pulse comes in and grows, a horn call;
- *   attack  depth charges in series, the pulse at full strength, a snare roll.
+ * Calm and deep, the sea rather than the war, in D Aeolian (natural minor:
+ * D E F G A B♭ C). Two sections follow each other, without a loop:
+ *   calm  the drone, slow chords (Dm B♭ F C), distant sonar pings, the hull
+ *         creaking, a radio far away;
+ *   deep  a soft, slow pulse like a heartbeat comes in and grows a little,
+ *         a long horn call, the chords lower.
  * Then calm again. Each section has its own levels for the continuous layers
  * (drone, chords, pulse, radio), which the player glides between.
  */
 
-export type SectionKind = 'calm' | 'threat' | 'attack';
+export type SectionKind = 'calm' | 'deep';
 
 /** Levels 0…1 of the continuous layers in a section. */
 export interface Levels {
@@ -39,53 +39,52 @@ export type MusicEvent =
   /** A distant sonar ping (in the key) and its echo. */
   | { t: number; kind: 'ping'; freq: number }
   | { t: number; kind: 'creak' }
-  /** A depth charge far away: `distance` 0 (near) … 1 (far). */
-  | { t: number; kind: 'charge'; distance: number }
   /** One beat of the drum pulse; `level` 0…1. */
   | { t: number; kind: 'beat'; accent: boolean; level: number }
   /** A horn call: [frequency Hz, duration s] in turn. */
   | { t: number; kind: 'horn'; notes: [number, number][] }
   /** Morse from the radio: on/off durations [s], starting with a tone. */
-  | { t: number; kind: 'morse'; pattern: number[] }
-  | { t: number; kind: 'roll'; dur: number };
+  | { t: number; kind: 'morse'; pattern: number[] };
 
 /** D1 [Hz]; every note is D1 · 2^(n/12). */
 export const ROOT = 36.708;
-/** Semitones above D of the D Phrygian scale. */
-export const SCALE = [0, 1, 3, 5, 7, 8, 10] as const;
+/** Semitones above D of the D Aeolian scale (natural minor). */
+export const SCALE = [0, 2, 3, 5, 7, 8, 10] as const;
 export const note = (semitones: number): number => ROOT * 2 ** (semitones / 12);
 
 /** Chords as semitones above D3 (24 above D1); all in the scale. */
 const DM = [0, 3, 7];
-const EB = [1, 5, 8];
-const CM = [-2, 1, 5];
+const BB = [-4, 0, 3];
+const FM = [3, 7, 10];
+const CM = [-2, 2, 5];
 const GM = [-7, -4, 0];
 const PROGRESSIONS: Record<SectionKind, number[][]> = {
-  calm: [DM, EB, DM, GM],
-  threat: [DM, EB, CM, DM],
-  attack: [DM, EB, DM, EB],
+  calm: [DM, BB, FM, CM],
+  deep: [DM, GM, BB, CM],
 };
 
-/** Original horn calls, semitones above D2 (12 above D1): falling, in the scale. */
+/** Original horn calls, semitones above D2 (12 above D1): long and falling, in the scale. */
 const HORN_CALLS: [number, number][][] = [
-  [[7, 1.6], [3, 1.1], [0, 3.2]],
-  [[0, 1.2], [1, 2.4], [0, 3]],
-  [[10, 1.4], [8, 1], [7, 1], [0, 3.4]],
+  [[7, 1.8], [5, 1.2], [3, 1.2], [0, 3.6]],
+  [[0, 1.4], [2, 1.4], [3, 2.6], [2, 3.2]],
+  [[10, 1.6], [7, 1.2], [5, 1.2], [0, 3.6]],
 ];
 
 const LEVELS: Record<SectionKind, Levels> = {
-  calm: { drone: 0.9, pad: 0.7, pulse: 0, radio: 0.35 },
-  threat: { drone: 1, pad: 0.8, pulse: 0.6, radio: 0.5 },
-  attack: { drone: 1, pad: 0.55, pulse: 1, radio: 0.6 },
+  calm: { drone: 0.8, pad: 0.75, pulse: 0, radio: 0.3 },
+  deep: { drone: 0.95, pad: 0.65, pulse: 0.35, radio: 0.25 },
 };
 /** Section length [s]: base + up to `spread` more. */
-const LENGTH: Record<SectionKind, [number, number]> = { calm: [60, 25], threat: [45, 20], attack: [35, 15] };
-const NEXT: Record<SectionKind, SectionKind> = { calm: 'threat', threat: 'attack', attack: 'calm' };
+const LENGTH: Record<SectionKind, [number, number]> = { calm: [60, 25], deep: [45, 20] };
+const NEXT: Record<SectionKind, SectionKind> = { calm: 'deep', deep: 'calm' };
+/** The pulse in the deep section: from this level to `PULSE_TOP`, never loud. */
+const PULSE_START = 0.15;
+const PULSE_TOP = 0.45;
 
 /** Seconds per chord (they overlap by the release). */
 const CHORD_EVERY = 13;
-/** Seconds per drum beat (60 bpm). */
-const BEAT = 1;
+/** Seconds per beat of the pulse (50 bpm, a resting heartbeat). */
+const BEAT = 1.2;
 
 const MORSE: Record<string, string> = {
   A: '.-', D: '-..', E: '.', K: '-.-', N: '-.', O: '---', R: '.-.', S: '...', T: '-', U: '..-', V: '...-',
@@ -119,7 +118,7 @@ export function seeded(seed: number): () => number {
 export class Score {
   private queue: MusicEvent[] = [];
   private sectionEnd = 0;
-  private kind: SectionKind = 'attack'; // the first section is calm
+  private kind: SectionKind = 'deep'; // the first section is calm
 
   constructor(private readonly rand: () => number) {}
 
@@ -158,7 +157,7 @@ export class Score {
     // Sub-bass swells.
     for (let t = start + this.between(2, 6); t < end; t += this.between(8, 12)) ev.push({ t, kind: 'swell' });
     // Sonar pings: A5 or D6, now and then.
-    for (let t = start + this.between(4, 12); t < end; t += this.between(kind === 'attack' ? 14 : 20, kind === 'attack' ? 24 : 40)) {
+    for (let t = start + this.between(4, 12); t < end; t += this.between(20, 40)) {
       ev.push({ t, kind: 'ping', freq: note(this.pick([67, 72])) });
     }
     for (let t = start + this.between(6, 15); t < end; t += this.between(15, 30)) ev.push({ t, kind: 'creak' });
@@ -167,31 +166,15 @@ export class Score {
       const word = Array.from({ length: 3 + Math.floor(this.rand() * 3) }, () => this.pick(LETTERS)).join('');
       ev.push({ t, kind: 'morse', pattern: morse(word) });
     }
-    if (kind === 'threat' || kind === 'attack') {
-      // The pulse: grows through the threat, full in the attack, an accent every fourth beat.
+    if (kind === 'deep') {
+      // The pulse: soft, growing a little through the section, an accent every fourth beat.
       for (let t = start, i = 0; t < end; t += BEAT, i++) {
-        const level = kind === 'threat' ? 0.25 + 0.75 * ((t - start) / (end - start)) : 1;
+        const level = PULSE_START + (PULSE_TOP - PULSE_START) * ((t - start) / (end - start));
         ev.push({ t, kind: 'beat', accent: i % 4 === 0, level });
       }
-      // Horn calls: two in the threat, one in the attack.
-      const calls = kind === 'threat' ? [0.25, 0.7] : [0.15];
-      for (const f of calls) {
-        const call = this.pick(HORN_CALLS);
-        ev.push({ t: start + f * (end - start), kind: 'horn', notes: call.map(([n, d]) => [note(n + 12), d] as [number, number]) });
-      }
-    }
-    if (kind === 'attack') {
-      // Depth charges in series of 3–4, a few seconds apart, with quiet between the series.
-      for (let t = start + this.between(3, 8); t < end - 3; ) {
-        const n = 3 + Math.floor(this.rand() * 2);
-        const distance = this.rand();
-        for (let k = 0; k < n && t < end; k++) {
-          ev.push({ t, kind: 'charge', distance: Math.min(1, distance + this.between(-0.1, 0.1)) });
-          t += this.between(3, 6);
-        }
-        t += this.between(8, 14);
-      }
-      ev.push({ t: start + this.between(0.3, 0.6) * (end - start), kind: 'roll', dur: this.between(2, 3.5) });
+      // One long horn call, in the middle.
+      const call = this.pick(HORN_CALLS);
+      ev.push({ t: start + this.between(0.35, 0.55) * (end - start), kind: 'horn', notes: call.map(([n, d]) => [note(n + 12), d] as [number, number]) });
     }
     ev.sort((a, b) => a.t - b.t);
     // Keep the queue in time order (the last section's chords may still be after this start).

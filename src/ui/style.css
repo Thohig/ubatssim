@@ -8,7 +8,7 @@
   --warn: #ffb347;
   --error: #ff6b6b;
   /* The start page's war-time red. */
-  --war: #b8322a;
+  --stamp: #4a9cc4;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 13px;
 }
@@ -133,10 +133,10 @@ body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px
 #menu[data-screen="main"] .menu-card { border-color: rgba(184, 50, 42, 0.55); box-shadow: 0 0 60px rgba(120, 20, 15, 0.35); }
 .dispatch-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
 .stamp {
-  color: var(--war); border: 2px solid var(--war); border-radius: 3px; padding: 1px 8px; font-weight: 700;
+  color: var(--stamp); border: 2px solid var(--stamp); border-radius: 3px; padding: 1px 8px; font-weight: 700;
   letter-spacing: 0.2em; transform: rotate(-6deg); opacity: 0.85;
 }
-.menu-title.war { color: var(--text); text-transform: uppercase; letter-spacing: 0.22em; font-size: 30px; border-bottom: 2px solid var(--war); padding-bottom: 6px; }
+.menu-title.main-title { color: var(--text); text-transform: uppercase; letter-spacing: 0.22em; font-size: 30px; border-bottom: 2px solid var(--stamp); padding-bottom: 6px; }
 .dispatch-order { margin: 0 0 14px; color: var(--warn); font-size: 13px; min-height: 1.4em; }
 .dispatch-order::before { content: 'Order: '; color: var(--muted); }
 .typed {
@@ -231,7 +231,7 @@ legend { color: var(--muted); padding: 0 4px; }
 /* ---------------------------------------------------------- screen controls */
 .helm {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "depth centre course";
+  display: grid; grid-template-columns: auto 1fr auto auto; grid-template-areas: "depth centre views course";
   align-items: end; gap: 12px;
   padding: 8px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   pointer-events: none;
@@ -259,12 +259,7 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-band-row { align-items: center; }
 .helm-telegraph { width: min(100%, 460px); }
 .helm-telegraph .touch-row { width: 100%; }
-.helm-telegraph-head {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;
-  font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
-}
-.helm-telegraph-head .astern { color: var(--error); }
-.helm-telegraph-head .helm-readout { text-transform: none; letter-spacing: 0; }
+.helm-telegraph-head { display: none; justify-content: center; align-items: center; width: 100%; }
 .helm .touch-btn.helm-bell { flex: 1 1 0; min-width: 0; padding: 0 2px; font-size: 13px; }
 .helm-bell.astern { color: #ff9e9e; }
 .helm-bell.stop { color: var(--warn); }
@@ -287,9 +282,24 @@ legend { color: var(--muted); padding: 0 4px; }
 .helm-depth-scale { height: 178px; }
 .helm-course-btns { justify-content: center; }
 .helm-actions { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.helm .touch-btn.helm-panel-btn { min-width: 64px; }
-.helm .touch-btn.helm-panel-btn.self { border-color: var(--warn); color: var(--warn); }
-.helm .touch-btn.helm-panel-btn.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
+.helm .touch-btn.helm-system { min-width: 88px; }
+.helm .touch-btn.helm-system.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
+.helm .touch-btn.helm-system.self { border-color: var(--warn); color: var(--warn); }
+.helm .touch-btn.helm-perdepth { min-width: 72px; }
+
+/* The view buttons between the telegraph and the course (computers; on phones they are under Vyer ▾). */
+.helm-views {
+  grid-area: views; align-self: end; pointer-events: auto;
+  display: grid; grid-template-columns: repeat(2, 44px); grid-auto-rows: 44px; gap: 4px;
+}
+.helm-views:empty { display: none; }
+.helm-views button, #view-btns button.icon {
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  border-radius: 8px; background: var(--panel-bg); border: 1px solid var(--panel-border); color: var(--text); cursor: pointer;
+}
+.helm-views button[hidden] { display: none; }
+.helm-views button.on { border-color: var(--accent); color: var(--accent); }
+.helm-views svg, #view-btns svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 
 /* A panel opens above the controls. */
 .helm-panel {
@@ -317,7 +327,7 @@ legend { color: var(--muted); padding: 0 4px; }
 #instruments { max-height: calc(100% - var(--helm-h, 200px) - 24px); overflow-y: auto; }
 
 /* Phone-only controls, shown by the compact layout below. */
-#status, .helm .touch-btn.helm-chip, .helm .touch-btn.helm-system, #view-btns .views-menu { display: none; }
+#status, .helm .touch-btn.helm-chip, #view-btns .views-menu { display: none; }
 .helm-tabs { display: flex; gap: 4px; }
 .helm-tab {
   font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer;
@@ -412,19 +422,18 @@ body.cutaway #log { display: none; }
   .helm-band-row { width: 100%; }
   .helm-band { flex: 1 1 auto; width: auto; min-width: 0; height: 40px; }
   .helm-course-btns:not([hidden]) { display: flex; }
-  .helm-panel-btns { display: none; }
-  .helm .touch-btn.helm-system { display: block; flex: 1 1 auto; }
-  .helm .touch-btn.helm-system.open { background: rgba(95, 211, 255, 0.15); border-color: var(--accent); }
-  .helm .touch-btn.helm-system.self { border-color: var(--warn); color: var(--warn); }
+  .helm .touch-btn.helm-system { flex: 1 1 auto; }
+  .helm-views { display: none; }
+  /* The depth scale's "13 m" does the same on phones, and four buttons do not fit. */
+  .helm .touch-btn.helm-perdepth { display: none; }
   .helm-context { width: 100%; }
   .helm .helm-context .touch-btn { flex: 1 1 0; min-width: 0 !important; height: 40px; padding: 0 4px; font-size: 14px; white-space: nowrap; }
   .helm .helm-context .touch-btn.helm-system { font-size: 13px; }
 
   /* The telegraph as a lever: a track with seven detents; the ordered one is the handle. */
   .helm-telegraph { width: 100%; gap: 2px; }
-  .helm-telegraph.exact .helm-telegraph-head { display: none; }
-  .helm-telegraph-head { justify-content: center; }
-  .helm-telegraph-head > span:not(.helm-readout) { display: none; }
+  /* Between two bells the lever shows the ordered speed (there is no instrument panel). */
+  .helm-telegraph:not(.exact) .helm-telegraph-head { display: flex; }
   .helm-bells {
     position: relative; gap: 0; width: 100%; height: 40px; border-radius: 20px; border: 1px solid var(--panel-border);
     background: linear-gradient(90deg, rgba(255, 107, 107, 0.18) 0%, rgba(255, 107, 107, 0.18) 42.86%, rgba(255, 179, 71, 0.16) 42.86%, rgba(255, 179, 71, 0.16) 57.14%, rgba(95, 211, 255, 0.14) 57.14%), var(--panel-bg);

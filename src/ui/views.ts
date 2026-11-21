@@ -14,6 +14,7 @@ import type { Controller } from '../control/controller';
 import type { OrderSource } from '../control/orders';
 import type { CameraView } from '../render/scene';
 import type { CutPlan } from '../render/cutaway';
+import { COMPACT_QUERY, isCompact } from './compact';
 
 export type ViewMode = 'external' | 'bridge' | 'periscope' | 'cutaway';
 
@@ -269,27 +270,46 @@ export interface NavSwitch {
 }
 
 /**
+ * Icons for the view buttons (24 × 24, drawn with the text colour): an eye for
+ * Vy, a periscope, a snorkel drawing air, a folded chart and sonar arcs.
+ */
+const ICONS = {
+  view: '<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  periscope: '<path d="M10 21V6a2 2 0 0 1 2-2h6v4h-4v13"/><path d="M3 16c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 3-1.2 4.5 0 3 1.2 4.5 0"/>',
+  snorkel: '<path d="M11 21V9a4 4 0 0 1 8 0v1"/><path d="M5 3v5m-2-2 2 2 2-2"/><path d="M3 16c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 3-1.2 4.5 0 3 1.2 4.5 0"/>',
+  chart: '<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
+  sonar: '<circle cx="5" cy="19" r="1.5"/><path d="M5 13a6 6 0 0 1 6 6M5 8a11 11 0 0 1 11 11M5 3a16 16 0 0 1 16 16"/>',
+} as const;
+const icon = (k: keyof typeof ICONS) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
+/** The buttons that move to the screen controls on computers (`dock`), in their order there. */
+const DOCKED = ['view', 'chart', 'periscope', 'sonar', 'snorkel'] as const;
+
+/**
  * Buttons for the views next to the menu button (mouse and touch), and Karta
  * and Sonar. On phones (style.css) only "Vyer ▾" shows; it folds the others
- * out, and a choice folds them in.
+ * out, and a choice folds them in. On computers Vy, Per, Snork, Karta and
+ * Sonar (icons) go to `dock`, between the telegraph and the course; Zoom,
+ * Brg, Ovan and Hela stay at the top right, where they follow the view.
  */
 export function bindViewButtons(
   root: HTMLElement,
   getCtrl: () => Controller | null,
   views: ViewState,
   nav?: NavSwitch,
+  dock?: HTMLElement,
 ): (ctrl: Controller) => void {
   root.innerHTML = `
     <button type="button" data-v="menu" class="views-menu" title="Vyer, sjökort och sonar" aria-label="Vyer, sjökort och sonar" aria-expanded="false">Vyer ▾</button>
-    <button type="button" data-v="view" title="Byt vy (V)" aria-label="Byt vy">Vy</button>
-    <button type="button" data-v="periscope" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">Per</button>
-    <button type="button" data-v="snorkel" title="Snorkel upp/ned (N)" aria-label="Snorkel upp eller ned">Snork</button>
+    <button type="button" data-v="view" class="icon" title="Byt vy (V)" aria-label="Byt vy">${icon('view')}</button>
+    <button type="button" data-v="periscope" class="icon" title="Periskop upp/ned (P)" aria-label="Periskop upp eller ned">${icon('periscope')}</button>
+    <button type="button" data-v="snorkel" class="icon" title="Snorkel upp/ned (N)" aria-label="Snorkel upp eller ned">${icon('snorkel')}</button>
     <button type="button" data-v="zoom" title="Förstoring (Z)" aria-label="Förstoring">Zoom</button>
     <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>
     <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
     <button type="button" data-v="whole" title="Hela ubåten" aria-label="Visa hela ubåten">Hela</button>
-    <button type="button" data-v="chart" title="Sjökortet (K)" aria-label="Sjökortet">Karta</button>
-    <button type="button" data-v="sonar" title="Sonaren (H)" aria-label="Sonaren">Sonar</button>`;
+    <button type="button" data-v="chart" class="icon" title="Sjökortet (K)" aria-label="Sjökortet">${icon('chart')}</button>
+    <button type="button" data-v="sonar" class="icon" title="Sonaren (H)" aria-label="Sonaren">${icon('sonar')}</button>`;
+  const all = [...root.querySelectorAll<HTMLButtonElement>('button')];
   const view = root.querySelector<HTMLButtonElement>('[data-v="view"]')!;
   const per = root.querySelector<HTMLButtonElement>('[data-v="periscope"]')!;
   const zoom = root.querySelector<HTMLButtonElement>('[data-v="zoom"]')!;
@@ -323,7 +343,19 @@ export function bindViewButtons(
     menu.setAttribute('aria-expanded', String(open));
     menu.textContent = open ? 'Vyer ▴' : 'Vyer ▾';
   };
-  root.addEventListener('click', (e) => {
+  // Computers: the view buttons in the screen controls; phones: all under Vyer ▾, in their order.
+  const place = () => {
+    if (!dock) return;
+    if (isCompact()) root.append(...all);
+    else for (const v of DOCKED) dock.append(all.find((b) => b.dataset.v === v)!);
+  };
+  place();
+  try {
+    window.matchMedia?.(COMPACT_QUERY).addEventListener?.('change', place);
+  } catch {
+    // No media queries (tests): the first placement stays.
+  }
+  const onClick = (e: Event) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-v]');
     if (b?.dataset.v === 'menu') {
       fold(!root.classList.contains('open'));
@@ -344,7 +376,9 @@ export function bindViewButtons(
     else if (b.dataset.v === 'snorkel') ctrl.submit({ kind: 'snorkel', up: !ctrl.sim.commands.snorkelUp }, 'touch');
     else if (b.dataset.v === 'bearing') reportViewBearing(ctrl, views, 'touch');
     else views.toggleZoom();
-  });
+  };
+  root.addEventListener('click', onClick);
+  dock?.addEventListener('click', onClick);
   /**
    * Call ~10 times a second. The buttons follow the situation: Per and Snork
    * are hidden below PERISCOPE_BUTTON_DEPTH with the masts housed. Vy always
