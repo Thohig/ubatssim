@@ -1,3 +1,4 @@
+import { html, mount } from './dom';
 import type { ViewState } from './views';
 
 /** The line at the top left saying what the keys (or fingers) do in the present view. */
@@ -9,6 +10,16 @@ export function bindModeIndicator(el: HTMLElement, touch = false, views?: ViewSt
       el.innerHTML = touch
         ? 'PERISKOP<small>dra för att vrida · Vy = byt</small>'
         : 'PERISKOP<small>←/→ vrider · Z förstoring · Shift+←/→ styr · Esc = yttre vy</small>';
+      return;
+    }
+    if (view === 'control') {
+      const where = views?.stationName() ?? '';
+      mount(
+        el,
+        touch
+          ? html`MANÖVERRUM · ${where}<small>dra för att titta · Plats = nästa · tryck på en skärm</small>`
+          : html`MANÖVERRUM · ${where}<small>←/→ byter plats · dra för att titta · klicka på en skärm · Shift+←/→ styr · Esc = yttre vy</small>`,
+      );
       return;
     }
     if (view === 'cutaway') {

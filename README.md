@@ -125,7 +125,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 
 En flik eller planraden är gul när du sköter något av systemen själv. Håll in rodrens knappar så upprepas de, och fortare ju längre du håller.
 
-Vyknapparna gör samma sak som V, P, N, K och H, och Zoom och Brg uppe till höger samma sak som Z och B. **Ögat** byter mellan yttre vy, brygga, periskop och genomskärning (C går direkt till snittet). Periskopet och snorkeln visas när ubåten är grundare än 25 m eller en mast är uppe. Ögat visas alltid: djupt byter det mellan yttre vy och snitt. **Sjökortet** (K) och **sonaren** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)).
+Vyknapparna gör samma sak som V, P, N, K och H, och Zoom och Brg uppe till höger samma sak som Z och B. **Ögat** byter mellan yttre vy, brygga, periskop, manöverrum och genomskärning (C går direkt till snittet). Periskopet och snorkeln visas när ubåten är grundare än 25 m eller en mast är uppe. Ögat visas alltid: djupt byter det mellan yttre vy, manöverrum och snitt. **Sjökortet** (K) och **sonaren** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)).
 
 **Loggboken** visas alltid, överst i mitten under målrutan, och tar liten plats: högst två rader i ett halvgenomskinligt fönster. En ny rad syns en stund och tonas sedan ut: kvitton efter 2,5 s, information efter 4 s och varningar och fel (röda) efter 6 s, långa rader lite längre. Fönstret tonas ut med den sista raden, så när inget händer ligger ingenting över bilden. Tryck på loggen medan den syns för de senaste raderna, och tryck igen eller Esc för att stänga. Hela loggboken finns under ☰ → **Loggbok**.
 
@@ -153,7 +153,8 @@ Piltangenterna följer Auto / Hand (Hand bara i expertläge).
 | Shift + ↑ / ↓ | Telegrafen ett läge fram / back | Varv ±10 rpm |
 | D / S | Dyk (djupmål periskopdjup, 13 m, om inget djupare mål finns) / Yta (stigning, huvudballasten blåses på 15 m) | Samma |
 | Shift + S | Nödblåsning: båda huvudballasttankarna blåses på vilket djup som helst, full fart och djupmålet ytan | Samma |
-| V | Byt vy (yttre, bryggan, periskopet). Besättningen bemannar bryggan i ytläge. | Byt vy (bryggan måste vara bemannad) |
+| V | Byt vy (yttre, bryggan, periskopet, manöverrummet, genomskärningen). Besättningen bemannar bryggan i ytläge. | Byt vy (bryggan måste vara bemannad) |
+| ← / → i manöverrummet | Nästa eller föregående plats (Shift + ←/→ styr) | Samma |
 | P | Periskop upp / ned | Samma |
 | Z | Periskopets förstoring, 1,5× / 6× (i genomskärningen: ovanifrån / från sidan) | Samma |
 | C | Genomskärning på / av | Samma |
@@ -195,6 +196,7 @@ Ubåten backar med telegrafen (Halv back) eller med Shift + ↓ förbi noll. På
 | **Yttre** | Bakom och ovanför ubåten. Dra för att vrida, nyp eller scrolla för att zooma. | Alltid |
 | **Bryggan** | Överst i tornet. Dra för att titta runt. Kompassband med bäring och bojens riktning. | När bryggan är bemannad, i ytläge |
 | **Periskopet** | I periskophuvudet: hårkors, bäringsskala och förstoring 1,5× eller 6×. Vrid med ←/→ eller genom att dra. | När periskopet är uppe |
+| **Manöverrummet** | Inne i manöverrummet, vid en av fem platser: periskopet, pulpeten, ballastpanelen, plottbordet och sonarhytten. Dra för att titta runt. | Alltid (Vy) |
 | **Genomskärning** | Utanför ubåten, som är uppskuren längs mittlinjen (från styrbord) eller genom övre däck (ovanifrån). | Alltid (Vy eller C) |
 
 - **Bryggan** är bemannad i ytläge. Den måste utrymmas innan ubåten dyker:
@@ -207,6 +209,11 @@ Ubåten backar med telegrafen (Halv back) eller med Shift + ↓ förbi noll. På
   - **Så används den:** dra för att vrida, och scrolla, nyp eller tryck + / − för att zooma. **Ovan** (Z) byter till snittet ovanifrån och **Hela** visar hela ubåten igen. Tryck på ett rum, en tank eller tornet, så markeras det, vyn zoomar dit och en ruta visar vad som finns där och läget just nu, till exempel tanknivå, pumpar, tryck på skrovet, HP-luft och motorvarv.
   - **Det som lever:** vatten i en läckande avdelning (med vågrät yta), batterierna som lyser grönt när de laddas och gult och rött när de tar slut, dieslarna som skakar när de går, torpedtubernas luckor (grönt laddad, gult under omladdning) och reservtorpederna på ställningarna.
   - **På små skärmar** döljs kontrollerna och instrumentpanelen medan snittet visas. Vy, C eller Esc går tillbaka.
+- **Manöverrummet** är vyn inifrån, den som djupt nere visar hur ubåten mår utan att se ut. Inga människor, samma inredning som i genomskärningen.
+  - **Platserna:** ←/→ eller **Plats** (uppe till höger, på mobil under Vyer ▾) går mellan **Periskopet**, **Pulpeten**, **Ballastpanelen**, **Plottbordet** och **Sonarhytten**. Dra för att titta runt. Shift + ←/→ styr som vanligt.
+  - **Skärmarna** visar simuleringen: pulpeten djup, fart och kurs med målen, roder och djuproder (beordrat och verkligt) och en krängningsmätare med stampvinkeln; ballastpanelen tankarnas nivåer, lampor för ventiler och blåsning, HP-luften, batteriet och dörrarna; plottbordet sjökortet med kölvattnet, bäringslinjerna och bojen; sonarhytten ett vattenfall med bäringarna. **Tryck på en skärm** så öppnas panelen Manöver eller Ballast, sjökortet eller sonaren.
+  - **Ljuset** är vitt, och rött på natten och i skymningen, under tyst gång och med periskopet uppe. **Larmlampan** snurrar vid läcka, grundstötning, nödblåsning och nära krossdjupet. Sjunkbomber och grundstötningar skakar rummet, och läcker manöverrummet syns vattnet på durken. Dörrarna i skotten står öppna eller stängda som i simuleringen, och en lampa hänger alltid rakt ned när ubåten stampar och krängar.
+  - Hissas periskopet går vyn till periskopet när det är uppe.
 - **Periskopet** tar 8 s att hissa. Vyn öppnas när det är uppe. Huvudet når över vattnet ner till ungefär 14 m djup i stilla sjö. I grov sjö kan vågtopparna skölja över det. Över 6 knop vibrerar bilden, och den våta masten ger motstånd.
 
 ## Stigning, ballast och fart
@@ -541,7 +548,8 @@ Testerna täcker bland annat:
 - eldledningspanelen: att välja mellan mål och att skjuta från en viss tub
 - panelen El, sjökortet och sonarvyn, knapparna Karta och Sonar, eldledningspanelen i periskopvyn
 - spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom)
-- i en riktig webbläsare (Playwright, `tests/e2e/`): genomgången och målrutan, paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, förlorad och återställd grafik, felrutan och hela startsidans musik med ljudet igång.
+- i en riktig webbläsare (Playwright, `tests/e2e/`): genomgången och målrutan, paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, manöverrummet (platserna och ett klick på en skärm som öppnar panelen), förlorad och återställd grafik, felrutan och hela startsidans musik med ljudet igång.
+- manöverrummet (`tests/controlRoom.test.ts`): att varje plats står fritt i rummet och tittar på sin skärm, att ett tryck träffar rätt skärm, ljuset, larmet, skakningarna och vattnet
 
 ## Projektstruktur
 

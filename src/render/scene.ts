@@ -15,6 +15,8 @@ import { VesselView } from './vessels';
 import { buildSubmarineModel, updateSubmarineModel, type SubmarineModel } from './submarineModel';
 import { createEffects, type EffectsInput } from './effects';
 import { createCutaway, type CutawayState, type CutPlan } from './cutaway';
+import { createControlRoom, type ControlRoomFrame } from './controlRoom';
+import type { StationPanel } from './controlRoom.data';
 
 export interface RenderState {
   t: number;
@@ -40,6 +42,8 @@ export interface RenderState {
   aircraft?: readonly AircraftState[];
   /** What the cutaway view shows (only in that view). */
   cutaway?: CutawayState;
+  /** What the control room shows (only in that view). */
+  control?: ControlRoomFrame;
 }
 
 /**
@@ -56,6 +60,8 @@ export type CameraView =
   | { mode: 'bridge'; yaw: number; pitch: number }
   | { mode: 'periscope'; bearing: number; fov: number; shake: number }
   | { mode: 'cutaway'; plan: CutPlan; yaw: number; pitch: number; zoom: number; pan: number }
+  /** Inside the control room at a station (controlRoom.data.ts), the look turned by yaw and pitch from its own. */
+  | { mode: 'control'; station: number; yaw: number; pitch: number }
   /** Behind the start page: a camera standing still in the water while the boat glides past. */
   | { mode: 'flyby' };
 
@@ -72,6 +78,16 @@ const FLYBY_SIDE = 30;
 const FLYBY_BELOW = 5;
 const FLYBY_PAST = 70;
 const BRIDGE_FOV = 70;
+const CONTROL_FOV = 68;
+/**
+ * The control room's vertical field of view [deg] for a view's aspect: 68°, wider on a
+ * phone held upright, so that at least ~60° shows across (at most 100° up and down).
+ */
+export function controlFov(aspect: number): number {
+  const across = (75 * Math.PI) / 180;
+  const v = (2 * Math.atan(Math.tan(across / 2) / Math.max(0.1, aspect)) * 180) / Math.PI;
+  return Math.min(100, Math.max(CONTROL_FOV, v));
+}
 
 export interface SceneView {
   scene: THREE.Scene;
@@ -99,6 +115,8 @@ export interface SceneView {
   cameraDepth(): number;
   /** Cutaway view: the body-frame point [m] under a screen point on the cut, or null. */
   pickCut(clientX: number, clientY: number): Vec3 | null;
+  /** Control room: the screen under a screen point (what a tap on it opens), or null. */
+  pickControl(clientX: number, clientY: number): StationPanel | null;
   /**
    * The part of the view not covered by panels, in pixels from the canvas's
    * edges: the cutaway frames the boat there. Null = the whole view.
@@ -134,6 +152,9 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
   scene.add(model.root);
   const cutaway = createCutaway(model, cfg);
   let cutawayOn = false;
+  // The control room is a scene of its own in the model's local frame: rendered instead of the world.
+  const controlRoom = createControlRoom(cfg);
+  let boatDepth = 0;
   let insets = { left: 0, top: 0, right: 0, bottom: 0 };
   const env = createEnvironment(scene, hemi, sun);
   const vesselView = new VesselView(scene);
@@ -263,6 +284,25 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
     });
   };
 
+  /** Inside the control room: the camera at the station's eye, shaken by depth charges; the room instead of the world. */
+  const R0 = new THREE.Quaternion();
+  const controlFrame: ControlRoomFrame = { lighting: 'white', alarm: false, shake: 0, water: 0, doors: [], screens: null };
+  const renderControlRoom = (v: Extract<CameraView, { mode: 'control' }>, state: RenderState) => {
+    const f = state.control ?? controlFrame;
+    const st = controlRoom.stations[v.station] ?? controlRoom.stations[0]!;
+    const k = f.shake;
+    setFov(controlFov(camera.aspect));
+    bodyToLocal(st.eye, eye);
+    if (k > 0) eye.add(new THREE.Vector3(0.03 * k * Math.sin(state.t * 47), 0.03 * k * Math.sin(state.t * 59 + 2), 0.02 * k * Math.sin(state.t * 41 + 1)));
+    camera.position.copy(eye);
+    qYaw.setFromAxisAngle(AX_Y, -(st.yaw + v.yaw + 0.02 * k * Math.sin(state.t * 37)));
+    qPitch.setFromAxisAngle(AX_X, st.pitch + v.pitch + 0.015 * k * Math.sin(state.t * 43 + 1));
+    camera.quaternion.copy(R0).multiply(qYaw).multiply(qPitch);
+    const Rm = state.rotation;
+    controlRoom.update(f, [-Rm[6]!, -Rm[7]!, -Rm[8]!], state.t);
+    renderer.render(controlRoom.scene, camera);
+  };
+
   return {
     scene,
     camera,
@@ -303,10 +343,20 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       lifeView.set(creatures, aircraft, vesselDefs, coast);
     },
     cameraDepth() {
+      // Inside the boat: below the water as the boat is (no wind, the sea heard through the hull).
+      if (view.mode === 'control') return Math.max(1, boatDepth);
       return env.surfaceAt(camera.position.x, camera.position.z) - camera.position.y;
     },
     setSafeArea(i) {
       insets = i ?? { left: 0, top: 0, right: 0, bottom: 0 };
+    },
+    pickControl(clientX, clientY) {
+      if (view.mode !== 'control') return null;
+      const r = renderer.domElement.getBoundingClientRect();
+      const ndc = new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(ndc, camera);
+      return controlRoom.pick(ray);
     },
     pickCut(clientX, clientY) {
       if (!cutawayOn) return null;
@@ -324,6 +374,21 @@ export function createScene(container: HTMLElement, cfg: SubmarineConfig): Scene
       model.root.position.copy(subPos);
       rotationToThree(state.rotation, model.root.quaternion);
       updateSubmarineModel(model, state.rudder, state.sternPlanes, state.propellerAngle, state.periscope, cfg.periscope.extension, state.snorkel ?? 0, cfg.snorkel.extension, state.radar ?? 0, cfg.radar.extension);
+      boatDepth = state.position[2];
+      if (view.mode === 'control') {
+        if (cutawayOn) {
+          cutawayOn = false;
+          cutaway.setActive(false);
+          camera.clearViewOffset();
+        }
+        controls.enabled = false;
+        wasExternal = false;
+        flybyPlaced = false;
+        renderControlRoom(view, state);
+        // Effects run on simulation time: none pile up while the room is shown.
+        lastEffectsT = state.t;
+        return;
+      }
       const wantCutaway = view.mode === 'cutaway';
       if (wantCutaway !== cutawayOn) {
         cutawayOn = wantCutaway;

@@ -126,6 +126,7 @@ Målrutan och loggboken ligger i `#top-center`, överst i mitten (på mobil unde
 | **Yttre** | `OrbitControls` följer ubåten. Du vrider och zoomar med mus eller finger. Avståndet sparas när du byter vy. |
 | **Bryggan** | Fast vid bryggans ögonpunkt och följer ubåtens stamp och krängning. Du drar för att titta runt (±160° åt sidorna, ±40° upp och ner). Synfält 70°. |
 | **Periskopet** | I periskophuvudet. Vrids med ←/→ eller genom att dra. Förstoring 1,5× (synfält 32°) eller 6× (8°). Över 6 knop skakar bilden. |
+| **Manöverrum** | Inne i manöverrummet vid en av fem platser (`controlStations`), i ögonhöjd 1,62 m över övre däck. Dra för att titta runt (±150° åt sidorna, ±57° upp och ner). Synfält 68°, bredare på en stående telefon (`controlFov`: minst ~60° i sidled, högst 100°). Skakar efter sjunkbomber. |
 | **Genomskärning** | Utanför ubåten, från styrbord eller ovanifrån, på ett avstånd som får plats med hela ubåten (synfält 40°). Dra för att vrida (±60° åt sidorna, ±45° upp och ner), zooma 1–6×. Ett tryck centrerar på det valda utrymmet. |
 
 - **Vyval:** vyn är spelarens tillstånd, inte simuleringens. `ViewState` håller vy, blickriktning, periskopets riktning och förstoring.
@@ -143,6 +144,15 @@ Etapp 4 (vad som lever i snittet): vattnet i läckande avdelningar ritas som avd
 - **Vattnet i tankarna:** tankens form med ett andra klippningsplan vid vattenytan. Höjden räknas av `waterLevel` (`tankLevel.ts`): tanken provtas med punkter, och ytan läggs där andelen punkter under den är lika med fyllnadsgraden, längs den sanna lodlinjen. Ytan blir därmed vågrät och volymen rätt vid alla lutningar (testat). Den räknas om bara när fyllnaden ändrats med 1 % eller lutningen märkbart.
 - **Rörliga delar:** bubblor (punkter) i huvudballasten när den ventileras eller blåses, pilar för trim- och kompenseringspumparna, HP-flaskornas sken efter trycket och axeln som snurrar med propellern. Telemetrin för snittet läses 10 gånger per sekund.
 - **Kameran** står utanför ubåten och ramar in den i den fria delen av skärmen mellan panelerna (`setSafeArea`, `setViewOffset`). Ett tryck pekas mot snittplanet och översätts till kroppskoordinater, och `spaceAt` säger vilket utrymme punkten ligger i. Informationsrutan (`src/ui/cutawayInfo.ts`) är en ren funktion av utrymmet och telemetrin.
+
+## Manöverrummet (`controlRoom.ts`, `controlRoom.data.ts`, `controlScreens.ts`)
+
+- **En egen scen:** rummet byggs i modellens lokala koordinater och ritas i stället för världen. Varken havsytan, dimman, partiklarna eller ljusstrålarna kommer in, och ingenting utanför skrovet ritas, så vyn är billig. Kameran sitter fast i rummet, och ubåtens lutning syns på instrumenten och på lampan som hänger mot den sanna lodlinjen.
+- **Inredningen** är manöverrummets övre däck ur `interior.ts` (samma data som snittet, och vapenpulpeten och radiostället på styrbordssidan, som också syns ovanifrån), med tryckskrovets insida, skotten med dörrarna (öppna eller stängda efter `Telemetry.doors`; bakom en öppen dörr är det mörkt), rör, kabelstegar och lampor i taket. Byggs första gången vyn öppnas och slås ihop till ett nät per material.
+- **Inga ljus:** materialen är obelysta (`MeshBasicMaterial`), och skuggningen är bakad i hörnfärgerna från en lampa i taket (ovansidor ljusa, undersidor mörka, ljusare högt upp). Ljusets färg är materialens färg: vitt, eller rött på natten och i skymningen, under tyst gång och med periskopet uppe. Larmlampan snurrar och färgar ljuset rött i takt.
+- **Skärmarna** (`controlScreens.ts`) ritas på canvasar som blir texturer, fem gånger per sekund ur telemetrin (`src/game/controlRoomFeed.ts`): pulpeten, ballastpanelen, sonarns vattenfall (en rad per sekund, 80 s, för i mitten) och plottbordet (norr upp, 4 km, kölvattnet var tionde sekund). Var de sitter står i `screenFaces`, och testerna kräver att varje plats tittar på sin skärm och att den vänder sig mot ögat. Ett tryck pekas mot skärmarna (`pickControl`).
+- **Vattnet** på durken är ett stort plan vinkelrätt mot den sanna lodlinjen, på höjden ur `waterLevel` för rummet. Väggarna, skotten och durken skymmer det där det inte ska synas.
+- **Händelserna** kommer från loggraderna (`shakeFor`, `alarmFor`): en sjunkbomb skakar efter avståndet och dör ut (`SHAKE_DECAY`), en grundstötning hårt, och larmraderna tänder larmlampan i 8 s. Lampan snurrar också så länge skrovet läcker eller ubåten är nära krossdjupet.
 
 ## Gränssnittet
 

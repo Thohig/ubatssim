@@ -66,11 +66,14 @@ export interface HelmContext {
  * is running (presses are then ignored). Returns the update function, to
  * call with fresh telemetry ~10 times a second.
  */
+/** Updates the screen controls (~10 times a second); `open` shows a panel (a tap on a screen in the control room). */
+export type HelmUpdate = ((t: Telemetry, ctx: HelmContext) => void) & { open(p: Panel): void };
+
 export function createHelm(
   root: HTMLElement,
   getCtx: () => HelmContext | null,
   viewDock: HTMLElement = h('div', { class: 'helm-views' }),
-): (t: Telemetry, ctx: HelmContext) => void {
+): HelmUpdate {
   const submit = (fn: (c: Controller) => void) => {
     const ctx = getCtx();
     if (ctx) fn(ctx.ctrl);
@@ -444,5 +447,9 @@ export function createHelm(
     else drawGauge(rudderGauge, false, rudderCmd, t.rudder * DEG, LIMITS.maxRudder, rudderPreview !== null, col);
   }
 
-  return update;
+  return Object.assign(update, {
+    open(p: Panel) {
+      if (open !== p) toggle(p);
+    },
+  });
 }

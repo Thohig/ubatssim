@@ -6,6 +6,9 @@
  * Availability:
  *   bridge    – the bridge is manned (surfaced)
  *   periscope – the mast is fully raised
+ *   control   – always: inside the control room at one of its stations
+ *               (controlRoom.data.ts); drag to look round, ←/→ or Plats to
+ *               go to the next station, tap a screen to open its panel
  *   cutaway   – always: the boat cut along the centre line (side) or through
  *               the upper deck (top); drag to turn, wheel or pinch to zoom,
  *               tap a space to select it and centre the view on it
@@ -14,9 +17,10 @@ import type { Controller } from '../control/controller';
 import type { OrderSource } from '../control/orders';
 import type { CameraView } from '../render/scene';
 import type { CutPlan } from '../render/cutaway';
+import { LOOK_PITCH, LOOK_YAW, STATION_NAME, STATION_ORDER, type StationId } from '../render/controlRoom.data';
 import { COMPACT_QUERY, isCompact } from './compact';
 
-export type ViewMode = 'external' | 'bridge' | 'periscope' | 'cutaway';
+export type ViewMode = 'external' | 'bridge' | 'periscope' | 'control' | 'cutaway';
 
 const DEG = Math.PI / 180;
 
@@ -31,7 +35,7 @@ const TRAIN_RATE = 40 * DEG;
 const BRIDGE_YAW_LIMIT = 160 * DEG;
 const BRIDGE_PITCH_LIMIT = 40 * DEG;
 
-export const VIEW_NAME: Record<ViewMode, string> = { external: 'Yttre vy', bridge: 'Bryggan', periscope: 'Periskop', cutaway: 'Genomskärning' };
+export const VIEW_NAME: Record<ViewMode, string> = { external: 'Yttre vy', bridge: 'Bryggan', periscope: 'Periskop', control: 'Manöverrum', cutaway: 'Genomskärning' };
 
 const CUT_YAW_LIMIT = 60 * DEG;
 const CUT_PITCH_LIMIT = 45 * DEG;
@@ -55,6 +59,10 @@ export class ViewState {
   cutPan = 0;
   /** Cutaway: the tapped space (interior.ts), or null. */
   selected: string | null = null;
+  /** Control room: the station (index in `STATION_ORDER`) and the look turned from its own direction [rad]. */
+  station = 0;
+  controlYaw = 0;
+  controlPitch = 0;
   private listeners: ((m: ViewMode) => void)[] = [];
 
   onChange(fn: (m: ViewMode) => void): void {
@@ -69,18 +77,41 @@ export class ViewState {
       this.bridgeYaw = 0;
       this.bridgePitch = 0;
     }
+    if (mode === 'control') {
+      this.controlYaw = 0;
+      this.controlPitch = 0;
+    }
     for (const fn of this.listeners) fn(mode);
   }
 
   /** Next available view after the present one. */
   cycle(available: Record<ViewMode, boolean>): void {
-    const order: ViewMode[] = ['external', 'bridge', 'periscope', 'cutaway'];
+    const order: ViewMode[] = ['external', 'bridge', 'periscope', 'control', 'cutaway'];
     let i = order.indexOf(this.mode);
     for (let k = 0; k < order.length; k++) {
       i = (i + 1) % order.length;
       if (available[order[i]!]) break;
     }
     this.set(order[i]!);
+  }
+
+  /** Control room: the next (or previous) station, looking its own way. */
+  nextStation(dir: 1 | -1 = 1): void {
+    const n = STATION_ORDER.length;
+    this.goToStation(STATION_ORDER[(((this.station + dir) % n) + n) % n]!);
+  }
+
+  /** Control room: a station by its id, looking its own way. */
+  goToStation(id: StationId): void {
+    this.station = Math.max(0, STATION_ORDER.indexOf(id));
+    this.controlYaw = 0;
+    this.controlPitch = 0;
+    this.notify();
+  }
+
+  /** The control room station's name. */
+  stationName(): string {
+    return STATION_NAME[STATION_ORDER[this.station] ?? 'periscope'];
   }
 
   toggleZoom(): void {
@@ -132,6 +163,9 @@ export class ViewState {
     } else if (this.mode === 'bridge') {
       this.bridgeYaw = clamp(this.bridgeYaw - dx * 0.005, -BRIDGE_YAW_LIMIT, BRIDGE_YAW_LIMIT);
       this.bridgePitch = clamp(this.bridgePitch + dy * 0.005, -BRIDGE_PITCH_LIMIT, BRIDGE_PITCH_LIMIT);
+    } else if (this.mode === 'control') {
+      this.controlYaw = clamp(this.controlYaw - dx * 0.005, -LOOK_YAW, LOOK_YAW);
+      this.controlPitch = clamp(this.controlPitch + dy * 0.005, -LOOK_PITCH, LOOK_PITCH);
     } else if (this.mode === 'cutaway') {
       this.cutYaw = clamp(this.cutYaw - dx * 0.005, -CUT_YAW_LIMIT, CUT_YAW_LIMIT);
       this.cutPitch = clamp(this.cutPitch + dy * 0.005, -CUT_PITCH_LIMIT, CUT_PITCH_LIMIT);
@@ -152,6 +186,7 @@ export class ViewState {
       const shake = Math.max(0, Math.abs(speed) - vibrationSpeed) * 2;
       return { mode: 'periscope', bearing: this.periscopeBearing, fov: PERISCOPE_ZOOM[this.zoom]!.fov, shake };
     }
+    if (this.mode === 'control') return { mode: 'control', station: this.station, yaw: this.controlYaw, pitch: this.controlPitch };
     if (this.mode === 'cutaway') return { mode: 'cutaway', plan: this.cutPlan, yaw: this.cutYaw, pitch: this.cutPitch, zoom: this.cutZoom, pan: this.cutPan };
     return { mode: 'external' };
   }
@@ -159,14 +194,15 @@ export class ViewState {
 
 /** Which views can be shown now. */
 export function availableViews(ctrl: Controller): Record<ViewMode, boolean> {
-  return { external: true, bridge: ctrl.bridgeManned, periscope: ctrl.sim.actuators.periscope >= 0.99, cutaway: true };
+  return { external: true, bridge: ctrl.bridgeManned, periscope: ctrl.sim.actuators.periscope >= 0.99, control: true, cutaway: true };
 }
 
 /**
  * Pointer input on the 3D view: drags turn the bridge look, train the
- * periscope or turn the cutaway (the orbit controls are off in those views).
- * In the cutaway a wheel or a two-finger pinch zooms, and a tap (a press
- * that hardly moves) calls `onTap` with the screen point.
+ * periscope, look round the control room or turn the cutaway (the orbit
+ * controls are off in those views). In the cutaway a wheel or a two-finger
+ * pinch zooms. In the cutaway and the control room a tap (a press that
+ * hardly moves) calls `onTap` with the screen point.
  */
 export function bindViewPointer(canvas: HTMLElement, views: ViewState, onTap?: (x: number, y: number) => void): void {
   const pointers = new Map<number, { x: number; y: number; x0: number; y0: number }>();
@@ -201,7 +237,7 @@ export function bindViewPointer(canvas: HTMLElement, views: ViewState, onTap?: (
     const p = pointers.get(e.pointerId);
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
-    if (p && e.type === 'pointerup' && views.mode === 'cutaway' && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < 6) onTap?.(e.clientX, e.clientY);
+    if (p && e.type === 'pointerup' && (views.mode === 'cutaway' || views.mode === 'control') && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < 6) onTap?.(e.clientX, e.clientY);
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
@@ -309,6 +345,7 @@ export function bindViewButtons(
     <button type="button" data-v="bearing" title="Rapportera bäringen (B)" aria-label="Rapportera bäringen">Brg</button>
     <button type="button" data-v="plan" title="Snittet från sidan eller ovanifrån (Z)" aria-label="Snittet från sidan eller ovanifrån">Ovan</button>
     <button type="button" data-v="whole" title="Hela ubåten" aria-label="Visa hela ubåten">Hela</button>
+    <button type="button" data-v="station" title="Nästa plats i manöverrummet (←/→)" aria-label="Nästa plats i manöverrummet">Plats</button>
     <button type="button" data-v="chart" class="icon" title="Sjökortet (K)" aria-label="Sjökortet">${icon('chart')}</button>
     <button type="button" data-v="sonar" class="icon" title="Sonaren (H)" aria-label="Sonaren">${icon('sonar')}</button>`;
   const all = [...root.querySelectorAll<HTMLButtonElement>('button')];
@@ -320,6 +357,7 @@ export function bindViewButtons(
   const brg = root.querySelector<HTMLButtonElement>('[data-v="bearing"]')!;
   const plan = root.querySelector<HTMLButtonElement>('[data-v="plan"]')!;
   const whole = root.querySelector<HTMLButtonElement>('[data-v="whole"]')!;
+  const station = root.querySelector<HTMLButtonElement>('[data-v="station"]')!;
   const chartBtn = root.querySelector<HTMLButtonElement>('[data-v="chart"]')!;
   const sonarBtn = root.querySelector<HTMLButtonElement>('[data-v="sonar"]')!;
   chartBtn.hidden = sonarBtn.hidden = !nav;
@@ -332,6 +370,7 @@ export function bindViewButtons(
     view.classList.toggle('on', views.mode !== 'external');
     plan.hidden = !inCut;
     whole.hidden = !inCut;
+    station.hidden = views.mode !== 'control';
     plan.textContent = views.cutPlan === 'side' ? 'Ovan' : 'Sida';
     per.hidden = deep;
     snork.hidden = deep;
@@ -380,6 +419,7 @@ export function bindViewButtons(
     else if (b.dataset.v === 'snorkel') ctrl.submit({ kind: 'snorkel', up: !ctrl.sim.commands.snorkelUp }, 'touch');
     else if (b.dataset.v === 'radar') ctrl.submit({ kind: 'radarMast', up: !ctrl.sim.commands.radarUp }, 'touch');
     else if (b.dataset.v === 'bearing') reportViewBearing(ctrl, views, 'touch');
+    else if (b.dataset.v === 'station') views.nextStation(1);
     else views.toggleZoom();
   };
   root.addEventListener('click', onClick);

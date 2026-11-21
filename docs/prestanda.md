@@ -57,6 +57,10 @@ Skillnaderna ligger inom mätbruset. Partikeleffekterna (`render/effects.ts`) fl
 - **Terrängen i en bakgrundstråd:** höjder, normaler och färger för terrängens rutnät byggs i en Web Worker (`terrainWorker.ts`, med samma kod i `terrainBuild.ts` som reserv). Det första rutnätet i ett område byggs direkt.
 - **Three.js i en egen fil:** webbläsaren kan behålla den mellan uppdateringar av spelet.
 
+## Manöverrummet
+
+Manöverrummet är en egen liten scen som ritas i stället för världen, med obelysta material och bakad skuggning. Med `?perf` i webbläsarpanelen (SwiftShader, mjukvara): grafik ~0,6 ms per bild i manöverrummet mot ~2,0 ms i den yttre vyn på samma plats. Skärmarnas fyra canvasar ritas om fem gånger per sekund och bara medan vyn visas.
+
 ## Genomskärningen
 
 Snittvyns JavaScript är litet: en profil med 4× strypt processor visar vattenytans beräkning på 0,1 % och resten som i den yttre vyn. I testmiljön (SwiftShader, grafik i mjukvara) blir "grafik" i `?perf` ändå ~11 ms mot ~5 ms i den yttre vyn, men nästan allt är rastrering av de genomskinliga och dubbelsidiga ytorna, som ett riktigt grafikkort gör. Mät med `?perf` på en telefon innan inredningen byggs ut. Om det behövs: färre genomskinliga ytor (tankarnas skal) och enklare cylindrar.

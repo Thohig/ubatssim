@@ -73,7 +73,8 @@ export function submitRpmStep(ctrl: Controller, delta: number, source: OrderSour
  *   N  snorkel up/down   G  diesels start/stop
  *   L  launch a decoy astern   A  one ping with the active sonar   Y  radar mast up/down   X  radar transmit/silent (raises the mast)
  *   T  mark the vessel in the cross hair   R  range it   F  fire (periscope or bridge)
- * In the periscope view ←/→ train the periscope and Shift+←/→ steer.
+ * In the periscope view ←/→ train the periscope and Shift+←/→ steer; in the
+ * control room ←/→ go to the previous or next station and Shift+←/→ steer.
  */
 export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState): void {
   window.addEventListener('keyup', (e) => {
@@ -86,6 +87,11 @@ export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState)
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (views.mode === 'periscope' && !e.shiftKey && (key === 'ArrowLeft' || key === 'ArrowRight')) {
       views.trainDir = key === 'ArrowLeft' ? -1 : 1;
+      e.preventDefault();
+      return;
+    }
+    if (views.mode === 'control' && !e.shiftKey && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+      views.nextStation(key === 'ArrowLeft' ? -1 : 1);
       e.preventDefault();
       return;
     }

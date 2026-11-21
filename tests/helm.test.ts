@@ -615,8 +615,8 @@ describe('the phone layout', () => {
     menu.click();
     expect(root.classList.contains('open')).toBe(true);
     expect(menu.getAttribute('aria-expanded')).toBe('true');
-    root.querySelector<HTMLButtonElement>('[data-v="view"]')!.click(); // external → (no bridge, no periscope) → cutaway
-    expect(views.mode).toBe('cutaway');
+    root.querySelector<HTMLButtonElement>('[data-v="view"]')!.click(); // external → (no bridge, no periscope) → the control room
+    expect(views.mode).toBe('control');
     expect(root.classList.contains('open')).toBe(false);
   });
 

@@ -35,6 +35,8 @@ import { GameFlow, type GameState } from './flow';
 import { FixedStepLoop } from './loop';
 import { GameSession, demoSession, freePlaySpec, scenarioSpec } from './session';
 import { audioInput, effectsInput, overlayState } from './wiring';
+import { ControlRoomFeed } from './controlRoomFeed';
+import { STATION_ORDER, controlStations } from '../render/controlRoom.data';
 
 const el = <T extends HTMLElement>(id: string) => {
   const n = document.getElementById(id);
@@ -71,7 +73,13 @@ export function startApp(): void {
   views.onChange((m) => {
     document.body.classList.toggle('onboard', m === 'bridge' || m === 'periscope');
     document.body.classList.toggle('cutaway', m === 'cutaway');
+    document.body.classList.toggle('control', m === 'control');
+    // Into the control room: its screens at once, not at the next tenth of a second.
+    if (m === 'control' && session) controlFeed.sample(session, true);
   });
+  /** The control room's light, alarm, shaking, water and screens (render/controlRoom.ts). */
+  const controlFeed = new ControlRoomFeed();
+  let controlTick = 0;
   let lastPeriscope = 0;
   let session: GameSession;
   let updateInstruments: ReturnType<typeof createInstruments>;
@@ -91,6 +99,8 @@ export function startApp(): void {
     updateInstruments = createInstruments(instrumentsEl, ctrl);
     instrumentsKey = layoutKey(ctrl.duties());
     ctrl.onLog((e) => audio.onLog(e.text, e.kind, e.source));
+    controlFeed.reset();
+    ctrl.onLog((e) => controlFeed.onLog(e.text, sim.t));
     runner?.onChange((p) => {
       if (p.status === 'running') return;
       audio.onScenarioEnd(p.status === 'completed');
@@ -300,7 +310,19 @@ export function startApp(): void {
   bindLogToggle(logEl);
   bindKeyboard(activeCtrl, views);
   // Cutaway: a tap selects the space under it (interior.ts) and centres the view on it.
+  // Control room: a tap on a screen opens its panel (the helm's, or the chart or the sonar) and goes to its station.
+  const STATIONS = controlStations(SUBMARINE);
   bindViewPointer(view.renderer.domElement, views, (x, y) => {
+    if (views.mode === 'control') {
+      const panel = view.pickControl(x, y);
+      if (!panel || flow.state !== 'playing') return;
+      const st = STATIONS.find((s) => s.panel === panel);
+      if (st && STATION_ORDER[views.station] !== st.id) views.goToStation(st.id);
+      if (panel === 'chart' || panel === 'sonar') {
+        if (nav.mode !== panel) nav.toggle(panel);
+      } else updateHelm.open(panel);
+      return;
+    }
     const p = view.pickCut(x, y);
     const id = p ? spaceAt(SUBMARINE, p) : null;
     views.select(id, id ? spaceCentre(SUBMARINE, id) : undefined);
@@ -536,12 +558,13 @@ export function startApp(): void {
       periscope: sim.actuators.periscope,
       snorkel: sim.actuators.snorkel,
       radar: sim.actuators.radar,
-      effects: views.mode === 'cutaway' ? null : effectsInput(s),
+      effects: views.mode === 'cutaway' || views.mode === 'control' ? null : effectsInput(s),
       torpedoes: s.ctrl.world.torpedoes.map((t) => t.state),
       vessels: s.ctrl.world.vessels.map((v) => v.state),
       creatures: s.ctrl.world.creatures.map((c) => c.state),
       aircraft: s.ctrl.world.aircraft.map((a) => a.state),
       cutaway: views.mode === 'cutaway' ? cutawayState(s) : undefined,
+      control: views.mode === 'control' ? controlFeed.frame(sim.t) : undefined,
     });
     drawOverlay(overlay());
     perf.mark('render');
@@ -572,6 +595,8 @@ export function startApp(): void {
       }
       nav.update({ ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
       if (views.mode === 'cutaway') sampleCutaway(s);
+      // The control room ten times a second, its screens five.
+      if (views.mode === 'control') controlFeed.sample(s, controlTick++ % 2 === 0);
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
       // On a phone on its side the opened objective would cover the fire panel in the top right corner.
       const quietObjective = isLandscapePhone() && document.body.classList.contains('fire-open');

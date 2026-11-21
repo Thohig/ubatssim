@@ -65,7 +65,7 @@ export const OUTSIDE = {
 
 const COMPARTMENT_TEXT: Record<string, string> = {
   torpedo: 'Fyra torpedtuber i två rader, åtta reservtorpeder på ställningar, laddräls och lastlucka. Trimtanken för ligger under durken.',
-  control: 'Övre däck: periskopbrunn, roder- och djuproderpulpet, ballastpanel, plottbord, sonar- och radiohytt. Nedre däck: pumprummet och HP-luftflaskorna.',
+  control: 'Övre däck: periskopbrunn, roder- och djuproderpulpet, ballastpanel, plottbord, vapenpulpet, sonar- och radiohytt. Nedre däck: pumprummet och HP-luftflaskorna.',
   living: 'Övre däck: mäss, kabyss och kojer. Nedre däck: batterirummet med cellerna som driver huvudmotorn. Kompenseringstanken ligger under.',
   engine: 'Två dieselmotorer med generatorer som laddar batteriet vid snorkling.',
   motor: 'Huvudmotorn (elmotor), ställverket och axeln akterut. Trimtanken akter ligger under durken.',
@@ -181,6 +181,10 @@ export function interiorItems(cfg: SubmarineConfig): Item[] {
     box('control', [x0 + 0.9, -1.85, on(up, 1.1)], [1.2, 0.5, 1.1], 'console'); // sonar console
     box('control', [x0 + 0.9, -1.6, up - 1.4], [1.0, 0.06, 0.45], 'screen');
     box('control', [x0 + 0.9, -0.9, on(up, 0.45)], [0.45, 0.45, 0.45], 'fabric');
+    // Starboard: the weapons console and the radio rack (seen in the control room view and from above).
+    box('control', [x1 - 3.6, 1.75, on(up, 1.3)], [1.2, 0.5, 1.3], 'console');
+    box('control', [x1 - 3.6, 1.48, up - 1.05], [1.0, 0.05, 0.4], 'screen');
+    box('control', [x0 + 1.6, 1.85, on(up, 1.5)], [1.0, 0.4, 1.5], 'electric');
     // Lower deck: pumps, pipes and the HP air bottles.
     for (const x of [x1 - 2.5, x1 - 1.4]) cyl('control', [x, -1.0, on(low, 0.8)], 0.28, 0.8, 'z', 'engine');
     box('control', [x1 - 2.0, -1.6, low - 1.1], [3.0, 0.1, 0.1], 'pipe');

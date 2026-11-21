@@ -6,21 +6,23 @@ import { ViewState, availableViews, cycleView } from '../src/ui/views';
 describe('views', () => {
   it('cycles only through available views', () => {
     const v = new ViewState();
-    v.cycle({ external: true, bridge: false, periscope: false, cutaway: false });
+    v.cycle({ external: true, bridge: false, periscope: false, control: false, cutaway: false });
     expect(v.mode).toBe('external');
-    v.cycle({ external: true, bridge: true, periscope: false, cutaway: false });
+    v.cycle({ external: true, bridge: true, periscope: false, control: false, cutaway: false });
     expect(v.mode).toBe('bridge');
-    v.cycle({ external: true, bridge: true, periscope: true, cutaway: false });
+    v.cycle({ external: true, bridge: true, periscope: true, control: false, cutaway: false });
     expect(v.mode).toBe('periscope');
-    v.cycle({ external: true, bridge: true, periscope: true, cutaway: true });
+    v.cycle({ external: true, bridge: true, periscope: true, control: true, cutaway: true });
+    expect(v.mode).toBe('control');
+    v.cycle({ external: true, bridge: true, periscope: true, control: true, cutaway: true });
     expect(v.mode).toBe('cutaway');
-    v.cycle({ external: true, bridge: true, periscope: true, cutaway: true });
+    v.cycle({ external: true, bridge: true, periscope: true, control: true, cutaway: true });
     expect(v.mode).toBe('external');
   });
 
   it('the bridge view needs a manned bridge, the periscope view a raised mast', () => {
     const surfaced = new Controller(new Simulation());
-    expect(availableViews(surfaced)).toEqual({ external: true, bridge: true, periscope: false, cutaway: true });
+    expect(availableViews(surfaced)).toEqual({ external: true, bridge: true, periscope: false, control: true, cutaway: true });
     const dived = new Controller(new Simulation({ depth: 13, designTrim: true }));
     expect(availableViews(dived).bridge).toBe(false);
     dived.sim.actuators.periscope = 1;
