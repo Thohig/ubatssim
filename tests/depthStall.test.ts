@@ -59,4 +59,14 @@ describe('the planes need speed', () => {
     expect(c.conn.crashStopping).toBe(true);
     expect(c.crewSpeed()).toBeNull();
   });
+
+  it('diving from the surface at full ahead, the depth helmsman does not ask for more speed', () => {
+    const c = new Controller(new Simulation({ area: 'atlantic', designTrim: true }));
+    c.crewTakesAll();
+    c.submit({ kind: 'setSpeed', knots: 19 }, 'keyboard');
+    c.submit({ kind: 'setDepth', depth: 50 }, 'keyboard');
+    run(c, 70);
+    expect(c.log.some((e) => /Djuprodren orkar inte/.test(e.text))).toBe(false);
+    expect(c.sim.y[2]!).toBeGreaterThan(15);
+  });
 });

@@ -335,7 +335,9 @@ export class Conn {
     // Nearly hard over counts too: a boat stuck at 24° of 25° is just as stuck. The depth integral stops at 90 %
     // (autopilot.ts), so a stuck boat rests right there: the watch starts a little below.
     const hardOver = Math.abs(sim.commands.sternPlanes) >= CONN.stallPlanes * c.autopilot.tuning.pitch.maxPlanes;
-    const stuck = c.ap.depth && !this.surfaceHold && Math.abs(err) > CONN.stallMinError && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
+    // Filling the main ballast (diving from the surface) the boat is held up by air, not short of speed.
+    const filling = sim.tanks.some((t) => t.ventOpen);
+    const stuck = c.ap.depth && !this.surfaceHold && !filling && Math.abs(err) > CONN.stallMinError && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
     // On or near the bottom the planes are not what holds the boat: no engine boost into the ground.
     const nearBottom = sim.t - lastGroundedAt < CONN.groundedQuiet || sim.ground(sim.y[0]!, sim.y[1]!) - (k.depth + sim.cfg.hull.radius) < CONN.nearBottom;
     this.stalled = stuck && !nearBottom ? this.stalled + DT : 0;
