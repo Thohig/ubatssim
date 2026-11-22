@@ -59,6 +59,46 @@ describe('coming up from the deep with speed (the crew handles depth and speed)'
     expect(c.sim.y[7]!).toBeLessThan(0.6);
   });
 
+  it('a new speed ahead keeps the steps: a floor while rising, 4 knots listening, the new speed once up', () => {
+    const { c, send, run } = start({ depth: 200, speed: 0, neutral: true, heading: 0 });
+    run(20);
+    send({ kind: 'setDepth', depth: 13 });
+    run(30);
+    send({ kind: 'setSpeed', knots: 12 });
+    run(1);
+    expect(c.ascent.phase).toBe('rise');
+    expect(logged(c, /Stigningen fortsätter i 12 knop\. Maskinen går till 12 knop på målet/)).toBe(true);
+    let fastest = 0;
+    run(600, () => {
+      fastest = Math.max(fastest, c.sim.kinematics().u / KN);
+      return c.ascent.phase === 'listen';
+    });
+    expect(fastest).toBeGreaterThan(11);
+    expect(c.ascent.phase).toBe('listen');
+    run(5);
+    send({ kind: 'setSpeed', knots: 8 });
+    run(1);
+    expect(c.ascent.phase).toBe('listen');
+    expect(logged(c, /Stigningen fortsätter i 4 knop\. Maskinen går till 8 knop på målet/)).toBe(true);
+    run(600, () => !c.ascent.active);
+    expect(c.ascent.active).toBe(false);
+    expect(c.log.some((e) => e.text === CANCELLED)).toBe(false);
+    expect(logged(c, /Maskinen går tillbaka till 8 knop/)).toBe(true);
+  });
+
+  it('Stopp, astern or full ahead cut the ascent short', () => {
+    for (const knots of [0, -4, 19]) {
+      const { c, send, run } = start({ depth: 200, speed: 0, neutral: true });
+      send({ kind: 'setDepth', depth: 13 });
+      run(5);
+      expect(c.ascent.phase).toBe('rise');
+      send({ kind: 'setSpeed', knots });
+      run(1);
+      expect(c.ascent.active).toBe(false);
+      expect(c.log.some((e) => e.text === CANCELLED)).toBe(true);
+    }
+  });
+
   it('a ship close by: the crew stays at 35 m and says so; a new depth order takes it up', () => {
     const { c, send, run } = start({ depth: 120, speed: 0, neutral: true, heading: 0 });
     const ship: VesselDef = {

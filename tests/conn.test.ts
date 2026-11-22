@@ -78,6 +78,53 @@ describe('the conn: course', () => {
   });
 });
 
+describe('the conn: bow-down limit', () => {
+  const limit = (c: Controller) => c.conn.diveLimit(c.sim.kinematics());
+
+  it('dives at most ~1 m/s: 12° slow, less fast, none at full ahead', () => {
+    const slow = game({ depth: 60, speed: 6 * KN });
+    expect(limit(slow) / DEG).toBeGreaterThanOrEqual(12);
+    const fast = game({ depth: 60, speed: 12 * KN });
+    fast.submit({ kind: 'setSpeed', knots: 12 }, 'touch');
+    run(fast, 1);
+    expect(Math.sin(limit(fast)) * fast.sim.kinematics().u).toBeCloseTo(CONN.diveRate, 1);
+    fast.submit({ kind: 'setSpeed', knots: 19 }, 'touch');
+    run(fast, 1);
+    expect(limit(fast)).toBe(Infinity);
+  });
+
+  it('close to the bottom and deep down at most 5°, full ahead too', () => {
+    const deep = game({ depth: 260, speed: 19 * KN });
+    deep.submit({ kind: 'setSpeed', knots: 19 }, 'touch');
+    run(deep, 1);
+    expect(limit(deep)).toBe(CONN.minDivePitch);
+    const shoal = game({ depth: 60, speed: 19 * KN });
+    shoal.submit({ kind: 'setSpeed', knots: 19 }, 'touch');
+    run(shoal, 1);
+    // 25 m under the keel (hull radius 3.1 m).
+    Object.defineProperty(shoal.sim, 'ground', { value: () => 60 + 3.1 + 25 });
+    expect(limit(shoal)).toBe(CONN.minDivePitch);
+  });
+
+  it('12 knots from 13 to 100 m: sinks at about 1 m/s and arrives without overshoot', () => {
+    const c = game({ depth: 13, speed: 12 * KN });
+    c.submit({ kind: 'setSpeed', knots: 12 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: 13 }, 'touch');
+    run(c, 20);
+    c.submit({ kind: 'setDepth', depth: 100 }, 'touch');
+    let sink = 0;
+    let deepest = 0;
+    run(c, 240, () => {
+      const k = c.sim.kinematics();
+      sink = Math.max(sink, k.depthRate);
+      deepest = Math.max(deepest, k.depth);
+    });
+    expect(sink).toBeLessThan(1.1);
+    expect(deepest).toBeLessThan(102);
+    expect(Math.abs(c.sim.y[2]! - 100)).toBeLessThan(1);
+  });
+});
+
 describe('the conn: quiet', () => {
   const hunted = () => {
     const c = game({ depth: 30, speed: 4 * KN });

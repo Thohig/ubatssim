@@ -14,16 +14,23 @@
  *  - final:  the last part at `LISTEN_SPEED`, then the player's speed again.
  *            For the surface the main ballast is blown at 15 m as before.
  *
- * Main ballast is not used to rise: speed and planes are. A new speed order,
- * the player taking over depth or speed, or a deeper target ends it; a new
- * depth order during the listening goes straight up without it.
+ * Main ballast is not used to rise: speed and planes are. A new speed ahead
+ * (above hovering, below full ahead) keeps the steps: it is a floor while
+ * rising and the player's speed once up. Stopp, astern, full ahead, the
+ * player taking over depth or speed, or a deeper target end it; a new depth
+ * order during the listening goes straight up without it.
  * Deterministic: simulation time and telemetry only.
  */
 import { DT } from '../sim/simulation';
 import type { Controller } from './controller';
+import { TELEGRAPH } from './crew';
+import { HOVER } from './hover';
 
 const DEG = Math.PI / 180;
 const KNOT = 1852 / 3600;
+const FULL_AHEAD = TELEGRAPH[TELEGRAPH.length - 1]!.knots;
+const kn = (v: number) => v.toString().replace('.', ',');
+
 export const ASCENT = {
   levelDepth: 35,
   /** Starts only from deeper than this (else the boat simply goes up). */
@@ -119,9 +126,26 @@ export class Ascent {
     c.afterAck.push(`Stigning i ${this.speedGoal(c.setpoints.speed)!} knop${c.conn.quiet ? ' (tyst gång)' : ''}. Besättningen planar ut på ${ASCENT.levelDepth} m och lyssnar innan den går upp.`);
   }
 
-  /** A speed order from the player (cuts the ascent short, said in the log), or the main ballast blown (`quiet`). */
-  onSpeedOrder(quiet = false): void {
-    if (this.phase) this.end(false, quiet);
+  /**
+   * A speed order from the player. Ahead, faster than hovering and slower than full ahead, the ascent goes
+   * on (`speedGoal` takes the new speed as the floor while rising, and it is the engine's once up), said in
+   * the log. Stopp, astern or full ahead (an order to go now) cut it short.
+   */
+  onSpeedOrder(): void {
+    if (!this.phase) return;
+    const c = this.ctrl;
+    const v = c.setpoints.speed;
+    if (v <= HOVER.maxOrderedSpeed || v >= FULL_AHEAD) {
+      this.end(false);
+      return;
+    }
+    const where = this.target < 5 ? 'uppe' : 'på målet';
+    c.afterAck.push(`Stigningen fortsätter i ${kn(this.speedGoal(v)!)} knop. Maskinen går till ${kn(v)} knop ${where}.`);
+  }
+
+  /** Cuts the ascent short without a word (the main ballast blown: the blow says so). */
+  cancel(): void {
+    this.end(false, true);
   }
 
   onHeadingOrder(): void {
@@ -185,7 +209,7 @@ export class Ascent {
     this.phase = null;
     if (!done && !quiet) c.addLog(CANCELLED, 'info');
     if (done && c.ap.speed && c.setpoints.speed !== ASCENT.listenSpeed) {
-      c.addLog(`Maskinen går tillbaka till ${c.setpoints.speed.toString().replace('.', ',')} knop.`, 'info');
+      c.addLog(`Maskinen går tillbaka till ${kn(c.setpoints.speed)} knop.`, 'info');
     }
   }
 }

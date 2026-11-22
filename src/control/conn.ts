@@ -71,6 +71,17 @@ export const CONN = {
   approachBand: 25,
   /** Periscope depth counts as the target up to this much below `PERISCOPE_DEPTH` [m]. */
   periscopeBand: 3,
+  /**
+   * Bow-down limit going ahead: the crew dives at most `diveRate` [m/s] (pitch asin(diveRate / u),
+   * between `minDivePitch` and the autopilot's 12°), full ahead excepted. Close to the bottom (less than
+   * `bottomClearance` m under the keel, or less than `bottomTime` s of sinking) or deeper than `deepDive` m
+   * (the hull collapses at 360 m) at most `minDivePitch`, full ahead too.
+   */
+  diveRate: 1.0,
+  minDivePitch: 5 * DEG,
+  bottomClearance: 30,
+  bottomTime: 30,
+  deepDive: 250,
   /** Largest rudder near the surface [rad], shallower than `gentleDepth` [m]: a hard turn rolls the sail out. */
   gentleRudder: 15 * DEG,
   gentleDepth: 20,
@@ -262,13 +273,25 @@ export class Conn {
     sim.commands.sternPlanes = planesRest
       ? 0
       : c.ap.depth
-        ? c.autopilot.planes(this.depthGoal, input, DT, c.ascent.maxPitch() ?? undefined)
+        ? c.autopilot.planes(this.depthGoal, input, DT, c.ascent.maxPitch() ?? undefined, this.diveLimit(tel))
         : c.manual.planes * DEG;
     // Near the surface, submerged, the rudder is gentler: a hard turn heels the boat and the sail breaks the surface.
     const gentle = !this.surfaceHold && tel.depth > CONN.diveTargetDepth && tel.depth < CONN.gentleDepth;
     sim.commands.rudder = c.ap.heading
       ? c.autopilot.rudder((c.ascent.headingGoal() ?? c.setpoints.heading) * DEG, input, DT, gentle ? CONN.gentleRudder : undefined)
       : c.manual.rudder * DEG;
+  }
+
+  /** The largest bow-down pitch for the depth autopilot going ahead [rad] (see `CONN.diveRate`). */
+  diveLimit(tel: Kinematics): number {
+    const sim = this.ctrl.sim;
+    const underKeel = sim.ground(sim.y[0]!, sim.y[1]!) - (tel.depth + sim.cfg.hull.radius);
+    const near = Math.max(CONN.bottomClearance, CONN.bottomTime * Math.max(0, tel.depthRate));
+    if (tel.depth > CONN.deepDive || underKeel < near) return CONN.minDivePitch;
+    const c = this.ctrl;
+    if (c.ap.speed && c.setpoints.speed >= FULL_AHEAD) return Infinity;
+    if (tel.u <= CONN.diveRate) return Infinity;
+    return Math.max(CONN.minDivePitch, Math.asin(CONN.diveRate / tel.u));
   }
 
   /** The shaft speed command [rev/s] (call once per step, after the watches). */

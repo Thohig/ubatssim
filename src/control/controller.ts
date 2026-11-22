@@ -672,7 +672,7 @@ export class Controller {
       sim.setBlow(true, this.mainBallastIds(true));
       this.aftBlowAt = sim.t + STAGED_BLOW_DELAY;
       this.blowCommitted = true;
-      this.ascent.onSpeedOrder(true);
+      this.ascent.cancel();
       return true;
     }
     sim.setBlow(true);

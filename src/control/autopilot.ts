@@ -150,8 +150,11 @@ export class Autopilot {
     return this.dir;
   }
 
-  /** Stern planes command [rad], positive = dive. */
-  planes(targetDepth: number, s: AutopilotInput, dt: number, pitchLimit?: number): number {
+  /**
+   * Stern planes command [rad], positive = dive. `pitchLimit` caps the pitch reference both ways,
+   * `diveLimit` only bow down going ahead [rad].
+   */
+  planes(targetDepth: number, s: AutopilotInput, dt: number, pitchLimit?: number, diveLimit?: number): number {
     const dir = this.direction(s.speed);
     // Deeper target → positive error → negative pitch reference ahead (bow down),
     // positive astern (stern down, the end the boat is moving towards).
@@ -162,7 +165,8 @@ export class Autopilot {
     const err = targetDepth - s.depth;
     const zone = this.tuning.depth.integralZone;
     const integrate = !this.planesHardOver && (Math.abs(err) < zone || Math.abs(s.depthRate) < DEPTH_STEADY_RATE);
-    const pitchRef = clamp(-dir * this.depthPid.update(err, s.depthRate, dt, 0, 1, integrate), -maxPitch, maxPitch);
+    const maxDive = dir === 1 && diveLimit !== undefined ? Math.min(maxPitch, diveLimit) : maxPitch;
+    const pitchRef = clamp(-dir * this.depthPid.update(err, s.depthRate, dt, 0, 1, integrate), -maxDive, maxPitch);
     // Pitch above reference → bow down: planes dive (positive) ahead, rise astern.
     const planes = dir * this.pitchPid.update(s.pitch - pitchRef, -s.pitchRate, dt, 0, this.gainScale(s.speed));
     this.planesHardOver = Math.abs(planes) >= 0.9 * this.tuning.pitch.maxPlanes;

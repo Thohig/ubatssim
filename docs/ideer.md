@@ -82,6 +82,18 @@ Knäppande räkor, som i förslaget skulle ge biologiskt brus på grunt vatten, 
 - **Publiceringen:** testdelarna och e2e-delarna tar 1,5–3 min var på CI och varierar mycket mellan körningar. Fyra testdelar eller tre e2e-delar sparar troligen bara någon halv minut; större maskiner (betalda) mer.
 - **Fysiken i en Web Worker:** frigör huvudtråden, men lönar sig först när fler fartyg och torpeder spräcker fysikbudgeten i `docs/prestanda.md`. Gränssnittet läser i dag `sim` direkt på många ställen och skulle i stället få en tunn kopia av tillståndet per bild.
 
+## Stigning och dykning
+
+Gjort: en ny fart framåt behåller den stegvisa stigningen, och stampvinkeln nedåt begränsas efter fart, botten och djup (README, `docs/fysikmodell.md`). Kvar:
+
+- **Yta via periskopdjup:** från djupare än 15 m planar besättningen ut på periskopdjup, hissar periskopet och tittar runt ~30 s innan den blåser; ett fartyg nära håller den där, Yta igen hoppar över. Ersätter specialfallet `surfaceHeld`. Ändrar troligen determinismens referens.
+- **`hold` släpper av sig själv:** lyssna igen var 60:e s på 35 m och gå upp när ingen kontakt är starkare än 25 dB.
+- **En tröskel:** stigningen startar i dag först djupare än 40 m men planar ut på 35 m, så från 36–40 m lyssnar ingen. `startBelow` 37 m.
+- **Planraden:** säg hur länge besättningens fart gäller ("6 kn tills 16 m") och vilket mål knappen Djup går till.
+- **`STILL_HINT` på alla djup:** i dag bara djupare än 40 m; på 20 m med varvtal 0 och Yta säger ingen något förrän stoppvakten efter 30 s.
+- **Nödblåsningen från stort djup:** ett mål på 320 m får skyddsnätet att nödblåsa på ~260 m, och på väg upp tippar fören till −15° (8 knop) eller −30° (Full fram) och farten faller nästan till noll.
+- **Långsam dykning i Sakta:** 4 knop sjunker bara ~0,18 m/s trots −11°, så 13 → 100 m tar över 8 minuter. Besättningen kunde öka till 8 knop för stora djupbyten, som fartökningen för djuprodren.
+
 ## Från provspelningen (november 2026)
 
 Allt som provspelningen hittade är rättat:
