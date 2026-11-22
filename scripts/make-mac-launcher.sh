@@ -2,7 +2,7 @@
 # Builds "Ubåtssim.app": a tiny macOS app that opens the game's GitHub Pages
 # site in the default browser, with the game's icon.
 #
-# Usage: scripts/make-mac-launcher.sh [target-folder]   (default: ~/Projekt/Github Pages)
+# Usage: scripts/make-mac-launcher.sh [target-folder]   (default: ~/Applications)
 #
 # Uses only tools that ship with macOS: qlmanage (renders the SVG icon),
 # iconutil (builds the .icns), osacompile (builds the AppleScript app) and
@@ -13,10 +13,11 @@ URL="https://thohig.github.io/ubatssim/"
 APP_NAME="Ubåtssim"
 REPO_DIR="${0:A:h:h}"
 SOURCE_SVG="$REPO_DIR/assets/icon-square.svg"
-TARGET_DIR="${1:-$HOME/Projekt/Github Pages}"
+TARGET_DIR="${1:-$HOME/Applications}"
 APP="$TARGET_DIR/$APP_NAME.app"
 
 [[ -f "$SOURCE_SVG" ]] || { echo "Hittar inte $SOURCE_SVG" >&2; exit 1; }
+(( $# > 0 )) || mkdir -p "$TARGET_DIR"
 [[ -d "$TARGET_DIR" ]] || { echo "Mappen $TARGET_DIR finns inte" >&2; exit 1; }
 
 WORK="$(mktemp -d)"

@@ -592,10 +592,10 @@ assets/       Källfil för ikonen utan rundade hörn (används för att rendera
 scripts/make-mac-launcher.sh
 ```
 
-Utan argument hamnar appen i `~/Projekt/Github Pages`. Ange en annan mapp som argument om du vill ha den någon annanstans:
+Utan argument hamnar appen i `~/Applications` (mappen skapas om den saknas). Ange en annan mapp som argument om du vill ha den någon annanstans:
 
 ```bash
-scripts/make-mac-launcher.sh ~/Applications
+scripts/make-mac-launcher.sh ~/Desktop
 ```
 
 Skriptet använder bara verktyg som följer med macOS:
