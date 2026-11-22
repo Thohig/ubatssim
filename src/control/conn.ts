@@ -141,6 +141,8 @@ export class Conn {
   surfaceHeld = false;
 
   private boostSettled = 0;
+  /** The ordered speed a boost started at: a new speed order ends it (full ahead, then Stopp, is a full stop). */
+  private boostSpeed = 0;
   /** Depth target and speed a boost last ended at; a second stall there keeps the boost (`boostHeld`). */
   private boostEndedAt: { depth: number; speed: number } | null = null;
   /** The boost stays until the depth target or the speed is changed (the planes stalled twice at them). */
@@ -316,14 +318,16 @@ export class Conn {
     if (this.depthBoost) {
       const changed = this.boostHeld && (sp.depth !== this.boostEndedAt?.depth || sp.speed !== this.boostEndedAt?.speed);
       const reached = !this.boostHeld && this.boostSettled >= CONN.depthSettle;
-      if (!c.ap.depth || !c.ap.speed || changed || reached) {
+      // A new speed order is the player's: the boost was for the old one. Should the planes stall again, it comes back.
+      const newSpeed = sp.speed !== this.boostSpeed;
+      if (!c.ap.depth || !c.ap.speed || changed || reached || newSpeed) {
         this.depthBoost = false;
         this.boostSettled = 0;
         this.boostHeld = false;
         this.boostEndedAt = reached ? { depth: sp.depth, speed: sp.speed } : null;
         // The depth and pitch integrals hold a bow angle for the old speed.
         c.resetDepthLoops();
-        if (c.ap.speed && sp.speed < CONN.planesSpeed) {
+        if (c.ap.speed && sp.speed < CONN.planesSpeed && !newSpeed) {
           c.addLog(`${reached ? 'Djupet nått. ' : ''}Maskinen går tillbaka till ${kn(sp.speed)} knop.`, 'info');
         }
       }
@@ -346,6 +350,7 @@ export class Conn {
       }
     } else if (c.ap.speed && sp.speed >= 0 && sp.speed < CONN.planesSpeed) {
       this.depthBoost = true;
+      this.boostSpeed = sp.speed;
       this.boostHeld = this.boostEndedAt !== null && this.boostEndedAt.depth === sp.depth && this.boostEndedAt.speed === sp.speed;
       this.boostEndedAt = this.boostHeld ? { depth: sp.depth, speed: sp.speed } : null;
       c.resetDepthLoops();
