@@ -396,6 +396,10 @@ export class Conn {
     // Stopped on purpose (quiet): the crew hovers if it has the trim (returned above once it does); a player
     // handling the trim is told how. Where hovering is not possible (shallow, ballast not full) the engine helps.
     const stopped = c.ap.speed && sp.speed >= 0 && sp.speed <= HOVER.maxOrderedSpeed;
+    // The player has the shaft stopped and the crew the trim: it sinks slowly on the compensation to where
+    // it hovers (trimAssist.ts, `watchDive`), so the planes are not what is wrong.
+    const shaftStopped = !c.ap.speed && Math.abs(c.manual.rpm) < 1 && Math.abs(k.u) < HOVER.startSpeed;
+    if (shaftStopped && c.options.crew.trim && this.depthGoal >= HOVER.minDepth) return;
     if (stopped && !c.options.crew.trim) {
       if (sim.t - this.lastStallHint > CONN.stallHintEvery) {
         this.lastStallHint = sim.t;
@@ -417,6 +421,25 @@ export class Conn {
       this.lastStallHint = sim.t;
       c.addLog(`Djuprodren orkar inte vid den här farten. Öka till minst ${CONN.planesSpeed} knop.`, 'error');
     }
+  }
+
+  /**
+   * A dive from the surface with the crew handling the speed, ordered below `planesSpeed`: the crew runs
+   * the engine at `planesSpeed` until the target is reached, as for planes that stall (`watchDepthStall`),
+   * then goes back to the ordered speed (and hovers there if stopped). Stopped, the boat sank on the
+   * compensating tank alone and could not be caught before it was far past periscope depth.
+   */
+  onDive(): void {
+    const c = this.ctrl;
+    const sp = c.setpoints;
+    if (!c.ap.speed || !c.ap.depth || this.depthBoost || sp.speed < 0 || sp.speed >= CONN.planesSpeed) return;
+    this.depthBoost = true;
+    this.boostSpeed = sp.speed;
+    this.boostHeld = false;
+    this.boostEndedAt = null;
+    this.boostSettled = 0;
+    c.resetDepthLoops();
+    c.addLog(`Maskinen går ${CONN.planesSpeed} knop under dykningen, så att djuprodren biter.`, 'info');
   }
 
   /** Once per step: a held surface goes on up once nobody hunts the boat. */

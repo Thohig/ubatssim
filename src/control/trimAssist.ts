@@ -114,6 +114,14 @@ export const ASSIST = {
   /** Keel warning below this [m], re-armed above `keelRearm` [m]. */
   keelWarn: 10,
   keelRearm: 15,
+  /**
+   * A dive from the surface to a stop (hovering at the target): the boat is trimmed heavy for a dive with
+   * way on (`initialFill`), and stopped the planes cannot catch it. While the main ballast floods, the crew
+   * pumps out what would be too heavy at the target, less `diveHeavy` [kg] so that the boat still sinks to
+   * where the hovering takes over (`HOVER.minDepth`). Smaller amounts than `diveMinKg` are left to it.
+   */
+  diveHeavy: 250,
+  diveMinKg: 100,
 } as const;
 
 /** Shallower depth limits [m] are not logged: the boat is on the surface there anyway. */
@@ -136,6 +144,8 @@ export class TrimAssist {
   private limiting = false;
   private lastBoost = false;
   private boostChangedAt = -Infinity;
+  /** The compensation for this dive from the surface has been ordered (`watchDive`). */
+  private divePrepared = false;
 
   /** Depth without speed: the compensating tank instead of the planes. */
   readonly hover: Hover;
@@ -172,6 +182,7 @@ export class TrimAssist {
     if (this.tick++ % STEPS_PER_EVAL !== 0) return;
     if (ctrl.options.crew.safetyNet) this.safetyNet(k.depth, k.depthRate);
     if (ctrl.options.crew.trim) {
+      this.watchDive(k.depth);
       if (this.hover.update(ASSIST.interval)) this.netFiltered = null;
       else this.compensate();
       this.trim(k.u);
@@ -301,6 +312,43 @@ export class TrimAssist {
     const portion = Math.max(-most, Math.min(most, litres));
     if (portion === 0) return;
     ctrl.addLog(`Trimmet förbereds för ${Math.round(to)} m: ${heavier > 0 ? 'tyngre' : 'lättare'} där.`, 'info', 'assist');
+    ctrl.submit({ kind: 'compensate', litres: portion }, 'assist');
+    this.compIdleSince = sim.t;
+    this.netFiltered = null;
+  }
+
+  /**
+   * A dive from the surface that ends stopped (the crew holds the speed at no more than
+   * `HOVER.maxOrderedSpeed`, or the player has the shaft stopped): once the main ballast floods, the
+   * crew pumps out what the boat would be too heavy at the target (`Simulation.heavinessAt`), less
+   * `ASSIST.diveHeavy`. Without it the boat came down 600 kg heavy, the hovering began at 8 m with the
+   * boat already sinking, and the 6 l/s pump could not stop it before 25 m (periscope depth in the Baltic).
+   * Once per dive; armed again on the surface with the main ballast empty.
+   */
+  private watchDive(depth: number): void {
+    const ctrl = this.ctrl;
+    const sim = ctrl.sim;
+    if (ctrl.mainBallastEmpty()) {
+      this.divePrepared = false;
+      return;
+    }
+    if (this.divePrepared || depth >= ASSIST.minDepth || !ctrl.ap.depth) return;
+    const flooding = sim.tanks.some((t) => t.ventOpen);
+    const goal = ctrl.setpoints.depth;
+    if (!flooding || goal < HOVER.minDepth) return;
+    const stopped = ctrl.ap.speed
+      ? ctrl.setpoints.speed >= 0 && ctrl.setpoints.speed <= HOVER.maxOrderedSpeed
+      : Math.abs(ctrl.manual.rpm) < 1 && Math.abs(sim.kinematics().u) < HOVER.startSpeed;
+    if (!stopped) return;
+    this.divePrepared = true;
+    const heavy = sim.heavinessAt(goal) - ASSIST.diveHeavy;
+    if (Math.abs(heavy) < ASSIST.diveMinKg) return;
+    // Heavy → pump out. Compensating water has surface density.
+    const litres = Math.round((-heavy / (sim.water.rhoSurface / 1000) + sim.compRemaining * 1000) / 10) * 10;
+    const most = ASSIST.anticipateMaxLitres;
+    const portion = Math.max(-most, Math.min(most, litres));
+    if (portion === 0) return;
+    ctrl.addLog(`Trimmet förbereds för att stå still på ${Math.round(goal)} m.`, 'info', 'assist');
     ctrl.submit({ kind: 'compensate', litres: portion }, 'assist');
     this.compIdleSince = sim.t;
     this.netFiltered = null;

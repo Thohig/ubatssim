@@ -32,6 +32,7 @@
   "tests/long/current.long.test.ts": 11.3,
   "tests/long/depthStall.long.test.ts": 15.2,
   "tests/long/determinism.long.test.ts": 2.3,
+  "tests/long/diveStopped.long.test.ts": 23.7,
   "tests/long/hover.long.test.ts": 40.6,
   "tests/long/hunted.long.test.ts": 51.2,
   "tests/long/newScenarios.long.test.ts": 57,

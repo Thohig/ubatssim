@@ -611,6 +611,7 @@ export class Controller {
       this.shutVentsWhenFull = true;
       this.aftBlowAt = null;
       this.addLog('Huvudballasten fylls för dykning.', 'info');
+      this.conn.onDive();
     } else if (sim.t - this.lastBallastHint > 10) {
       this.lastBallastHint = sim.t;
       this.addLog('Huvudballasten är tom, så ubåten kan inte dyka. Tryck Dyk, eller Klart bryggan och Fyll i panelen Ballast.', 'error');

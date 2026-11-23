@@ -479,6 +479,23 @@ export class Simulation {
     return heaviness(to) - heaviness(from);
   }
 
+  /**
+   * How heavy [kg] the boat would be at depth `z` [m], level, fully submerged with the main ballast
+   * flooded and everything else as now (the other tanks, flooding, payload). Positive = heavy. Pure:
+   * does not touch the state. The crew uses it to compensate during a dive from the surface, before the
+   * boat is down where the net buoyancy can be measured (trimAssist.ts).
+   */
+  heavinessAt(z: number): number {
+    const hs = restoringForces(this.hull, [0, 0, z], mat3Diag(1, 1, 1), 0, [0, 0, 0], this.cfg.hull.compressibility, this.water);
+    let mass = this.massProps.mass;
+    this.tankDefs.forEach((d, i) => {
+      if (d.kind !== 'mainBallast') return;
+      const now = waterDensity(Math.max(0, this.tankWorldDepths(d).centre), this.water);
+      mass += d.volume * waterDensity(z, this.water) - this.tanks[i]!.water * now;
+    });
+    return mass - hs.buoyancy / E.g;
+  }
+
   get compRemaining(): number {
     return this.systems.pumps.compRemaining;
   }
