@@ -27,6 +27,7 @@ import type { AutopilotInput } from './autopilot';
 import type { Controller } from './controller';
 import { PERISCOPE_DEPTH, TELEGRAPH } from './crew';
 import { HOVER } from './hover';
+import { ASSIST } from './trimAssist';
 import { HUNT_NAME, type HuntState } from './hunter';
 import type { Kinematics } from './orderRegistry';
 
@@ -41,6 +42,14 @@ export const CONN = {
   surfaceHoldDepth: 6,
   /** Stopp backs full until the speed through the water is below this [m/s] (~1 knot). */
   crashStopUntil: 0.5,
+  /**
+   * An emergency blow rising faster than this [m/s]: the crew stops the shaft until the boat is up
+   * (`blowStopped`); the air lifts it. With way on, the fast rise turned the bow down against full rise on
+   * the planes (24° down from 250 m at 12 knots: the Munk moment, and the cross flow on the blunt bow),
+   * and the propeller then drove the boat down and astern while the air lifted it (7 knots astern at the
+   * surface). Stopped: 11° and 2.6 knots.
+   */
+  blowRiseRate: 1,
   /** Speed [knots] at which the planes can change the depth. */
   planesSpeed: 4,
   /** Seconds stalled before the crew says so (or runs the engine up). */
@@ -151,6 +160,9 @@ export class Conn {
    */
   surfaceHeld = false;
 
+  /** The shaft stopped during an emergency blow rising fast (`CONN.blowRiseRate`). */
+  blowStopped = false;
+
   private boostSettled = 0;
   /** The ordered speed a boost started at: a new speed order ends it (full ahead, then Stopp, is a full stop). */
   private boostSpeed = 0;
@@ -202,8 +214,21 @@ export class Conn {
     return cap !== null && v > cap ? cap : v;
   }
 
-  /** The crew's speed limit near periscope depth [knots], or null. */
+  /** The crew's speed limit [knots]: ground ahead (`TrimAssist.shoalAhead`), or near periscope depth; or null. */
   private speedCap(): number | null {
+    // Ground ahead (the safety net): whatever speed is ordered, full ahead too.
+    if (this.shoalCapped()) return ASSIST.shoalSpeed;
+    return this.periscopeCap();
+  }
+
+  /** True while the safety net's limit for ground ahead holds the speed down. */
+  private shoalCapped(): boolean {
+    const c = this.ctrl;
+    return c.ap.speed && c.options.crew.safetyNet && c.assist.shoalAhead && c.setpoints.speed > ASSIST.shoalSpeed;
+  }
+
+  /** The crew's speed limit near periscope depth [knots], or null. */
+  private periscopeCap(): number | null {
     const c = this.ctrl;
     // Full ahead is an order to go now, whatever is seen: no limit then.
     if (!c.ap.depth || !c.ap.speed || c.setpoints.speed <= 0 || c.setpoints.speed >= FULL_AHEAD) return null;
@@ -229,7 +254,7 @@ export class Conn {
     if (v === c.setpoints.speed) return null;
     const phase = c.ascent.phase;
     const reason =
-      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= CONN.planesSpeed ? 'för djuprodren' : 'periskopdjup';
+      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= CONN.planesSpeed ? 'för djuprodren' : this.shoalCapped() ? 'grunt förut' : 'periskopdjup';
     return { knots: v, reason };
   }
 
@@ -308,6 +333,9 @@ export class Conn {
     this.crashStopping = crashStop;
     let target: number;
     this.coasting = false;
+    if (!c.blowCommitted || !c.ap.speed) this.blowStopped = false;
+    else if (input.depthRate < -CONN.blowRiseRate) this.blowStopped = true;
+    if (this.blowStopped) return 0;
     if (crashStop) {
       target = -astern;
     } else if (c.ap.speed) {
@@ -434,7 +462,8 @@ export class Conn {
       text = 'Du styr roder, djuproder och varvtal själv.';
     } else if (c.blowCommitted) {
       mode = 'emergency';
-      text = 'Nödblåsning: upp till ytan.';
+      text = this.blowStopped ? 'Nödblåsning: upp till ytan, maskinen stoppad.' : 'Nödblåsning: upp till ytan.';
+      if (this.blowStopped) details.push('Luften lyfter ubåten. Med fart i den snabba stigningen går fören ned, så maskinen står still tills ubåten är uppe.');
     } else if (this.surfaceHeld) {
       mode = 'waiting';
       text = `Väntar på periskopdjup: ${h ? `${h.name} ${HUNT_NAME[h.state]}` : 'korvetten'}.`;
@@ -492,6 +521,7 @@ export class Conn {
       text = `${text.replace(/\.$/, '')}, girar till ${deg3(c.ascent.headingGoal() ?? sp.heading)}°.`;
     }
     if (cs && mode !== 'boost' && mode !== 'ascent') details.push(`Maskinen går ${kn(cs.knots)} knop i stället för ${kn(sp.speed)} (${cs.reason}).`);
+    if (cs?.reason === 'grunt förut') details.push(`Grunt förut: besättningen håller farten under ${ASSIST.shoalSpeed} knop tills botten inte stiger längre, också på Full fram.`);
     if (cs?.reason === 'periskopdjup') details.push(`Nära periskopdjup hålls farten under ${CONN.periscopeSpeed} knop: en snabb ubåt skjuter över, och periskopet syns.`);
     if (k.depth > CONN.diveTargetDepth && k.depth < CONN.gentleDepth && !this.surfaceHold && turning) details.push('Nära ytan girar ubåten med högst 15° roder, så att tornet inte bryter ytan.');
     if (quiet && h) details.push(`Tyst gång: ${h.name} ${HUNT_NAME[h.state]}. Besättningen blåser inte och stiger långsamt.`);

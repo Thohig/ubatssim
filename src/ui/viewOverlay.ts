@@ -21,6 +21,8 @@ export interface OverlayState {
   fov: number;
   /** Top of the panels at the bottom of the screen [CSS px]: the periscope's bearing band stays above it. */
   clearBottom?: number;
+  /** Left edge of a panel beside the eyepiece at the horizon's height [CSS px] (the fire panel): the circle stays left of it. */
+  clearRight?: number;
 }
 
 /** Room the bearing band needs above and below its line [px] (the bearing label above, the buoy mark below). */
@@ -28,18 +30,25 @@ const BAND_ABOVE = 44;
 const BAND_BELOW = 30;
 /** Kept free at the top for the objective and the log [px]. */
 const TOP_CLEAR = 96;
+/** Gap between the eyepiece and a panel beside it [px]. */
+const SIDE_GAP = 6;
+/** The eyepiece is never smaller than this part of the screen's smaller side, panel or not. */
+const LEAST_BESIDE = 0.15;
 
 /**
  * The eyepiece (centred on the screen, where the camera looks) and the
  * bearing band outside it: below the circle if a circle of at least 30 % of
  * the screen still fits above the screen controls, else above it (under the
- * objective and the log, or on a low screen at the very top). Pure.
+ * objective and the log, or on a low screen at the very top). A panel beside
+ * it at the horizon's height (`clearRight`, its left edge) makes the circle
+ * smaller, so that the horizon in it stays clear. Pure.
  */
-export function periscopeLayout(w: number, h: number, clearBottom: number): { r: number; bandY: number } {
+export function periscopeLayout(w: number, h: number, clearBottom: number, clearRight = w): { r: number; bandY: number } {
   const cy = h / 2;
-  const max = Math.min(w, h) * 0.44;
+  // A panel beside the eyepiece (the fire panel in a small window) must not cover the horizon in it.
+  const max = Math.min(Math.min(w, h) * 0.44, Math.max(Math.min(w, h) * LEAST_BESIDE, clearRight - w / 2 - SIDE_GAP));
   const below = Math.min(max, clearBottom - BAND_BELOW - BAND_ABOVE - cy);
-  const least = Math.min(w, h) * 0.3;
+  const least = Math.min(Math.min(w, h) * 0.3, max);
   if (below >= least) return { r: below, bandY: cy + below + BAND_ABOVE };
   // Above, under the objective and the log; on a low screen (a phone on its side) right at the top.
   const top = cy - TOP_CLEAR - BAND_ABOVE - BAND_BELOW >= least ? TOP_CLEAR : 8;
@@ -130,7 +139,7 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     }
 
     // Periscope: everything outside the eyepiece circle is black.
-    const { r, bandY } = periscopeLayout(w, h, s.clearBottom ?? h);
+    const { r, bandY } = periscopeLayout(w, h, s.clearBottom ?? h, s.clearRight ?? w);
     const cx = w / 2;
     const cy = h / 2;
     ctx.save();

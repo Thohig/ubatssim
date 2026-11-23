@@ -1,7 +1,7 @@
 /**
  * Batteries, diesel generators and the electrical load.
  *
- *   load = shaft power / η + hotel load + drain pump
+ *   load = shaft power / η + hotel load + drain pump (+ the air compressors while they run)
  *   the generators (when the diesels run) cover the load and charge the battery,
  *   limited by the cells' charge acceptance; the battery covers the rest.
  *
@@ -67,6 +67,7 @@ export class Electrics implements Subsystem {
     const shaft = Math.max(0, 2 * Math.PI * n * motor);
     const drain = sim.systems.flooding.drainRunning ? e.drainPumpPower : 0;
     this.load = shaft / e.motorEfficiency + e.hotelLoad + drain;
+    if (sim.systems.compressor.running) this.load += sim.cfg.air.compressorPower;
 
     const accept = this.soc < e.taperFrom ? 1 : 1 - ((1 - e.acceptAtFull) * (this.soc - e.taperFrom)) / (1 - e.taperFrom);
     const genUsed = Math.min(this.generator, this.load + e.generatorPower * accept);

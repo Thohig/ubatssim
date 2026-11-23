@@ -187,7 +187,7 @@ function ballastPanel(tapButton: TapButton): PanelView {
         const x = tank(id);
         if (x) lv.set(`${Math.round(x.fill * 100)} %`, x.fill, x.blowOpen ? 'BLÅS' : x.ventOpen ? 'VENT' : '');
       }
-      air.set(`${Math.round(t.airPressure / 1e5)} bar`, t.airPressure / c.sim.cfg.air.bottlePressure);
+      air.set(`${Math.round(t.airPressure / 1e5)} bar`, t.airPressure / c.sim.cfg.air.bottlePressure, t.compressor ? 'KOMPR' : '');
       manned = c.bridgeManned;
       setText(bridgeState, manned ? 'Bryggan: bemannad' : 'Bryggan: utrymd');
       setText(bridgeBtn, manned ? 'Klart bryggan' : 'Bemanna');

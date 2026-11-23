@@ -16,7 +16,8 @@ import { ORDERS, SCREENS, type MenuState, type PauseInfo, type ResultInfo, type 
 export type { PauseInfo, ResultInfo } from './menuScreens';
 
 export interface MenuHandlers {
-  startFree(area: AreaId, start: string, conditions: ConditionsId, sea: SeaStateId): void;
+  /** `patrols`: the area's corvettes patrol (false: free play without them). */
+  startFree(area: AreaId, start: string, conditions: ConditionsId, sea: SeaStateId, patrols: boolean): void;
   startScenario(id: string): void;
   resume(): void;
   restart(): void;
@@ -51,6 +52,7 @@ export class Menu {
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
   private sea: SeaStateId = 'calm';
+  private patrols = true;
   /** The scenario list's tab, kept while the page is open. */
   private scenarioGroup: ScenarioGroup = 'basics';
   /** The start page's order, picked once per visit (fictional). */
@@ -69,6 +71,7 @@ export class Menu {
       const input = e.target as HTMLInputElement;
       if (input.name === 'conditions') this.conditions = input.value as ConditionsId;
       else if (input.name === 'sea') this.sea = input.value as SeaStateId;
+      else if (input.name === 'patrols') this.patrols = input.value === 'on';
       else if (input.name) this.onSetting(input.name, input.type === 'checkbox' ? String(input.checked) : input.value);
     });
   }
@@ -98,6 +101,7 @@ export class Menu {
       area: this.area,
       conditions: this.conditions,
       sea: this.sea,
+      patrols: this.patrols,
       scenarioGroup: this.scenarioGroup,
     };
     mount(this.root, html`<div class="menu-card">${SCREENS[screen](state)}</div>`);
@@ -168,7 +172,7 @@ export class Menu {
         this.show('free-area');
         break;
       case 'free':
-        this.h.startFree(this.area, arg!, this.conditions, this.sea);
+        this.h.startFree(this.area, arg!, this.conditions, this.sea, this.patrols);
         break;
       case 'scenario':
         this.h.startScenario(arg!);

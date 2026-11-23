@@ -22,6 +22,8 @@ export interface SessionSpec {
   conditions: ConditionsId;
   /** Log line on where the controls are. */
   helpHint: string;
+  /** Free play without the area's corvettes (peaceful). */
+  noPatrols?: boolean;
 }
 
 export class GameSession {
@@ -46,7 +48,7 @@ export class GameSession {
     // Free play and the demo behind the menu have the area's traffic; scenarios bring their own.
     if (!scenario) {
       const area = AREA_INFO[this.sim.areaId];
-      this.ctrl.world.add(area.traffic);
+      this.ctrl.world.add(spec.noPatrols ? area.traffic.filter((v) => v.kind !== 'patrol') : area.traffic);
       this.ctrl.world.addLife(area.life ?? []);
       this.ctrl.world.addAircraft(area.aircraft ?? []);
       this.ctrl.lookouts.stations = area.stations ?? [];
@@ -91,17 +93,18 @@ export class GameSession {
   }
 }
 
-/** Free play: an area's start position with light, visibility and sea state. */
+/** Free play: an area's start position with light, visibility and sea state, with or without the area's corvettes. */
 export function freePlaySpec(
   area: AreaId,
   startId: string,
   conditions: ConditionsId,
   sea: SeaStateId,
   helpHint: string,
+  patrols = true,
 ): SessionSpec | null {
   const f = AREA_INFO[area].starts.find((s) => s.id === startId);
   if (!f) return null;
-  return { initial: { ...f.initial, sea }, scenario: null, intro: f.text, conditions, helpHint };
+  return { initial: { ...f.initial, sea }, scenario: null, intro: f.text, conditions, helpHint, ...(patrols ? {} : { noPatrols: true }) };
 }
 
 /** A scenario. */

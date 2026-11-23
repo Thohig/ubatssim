@@ -6,7 +6,7 @@
 import type { Simulation } from '../sim/simulation';
 import { WEAPONS } from '../sim/config/weapons';
 import type { Controller } from './controller';
-import { AXES, CREW_SYSTEMS, type CrewDuties } from './crew';
+import { AXES, CREW_SYSTEMS, MAX_DIVE_DEPTH, type CrewDuties } from './crew';
 import type { Target } from './fireControl';
 import { isReady, tubeState } from './torpedoRoom';
 import type { Order, OrderKind, OrderOf, TankGroup } from './orders';
@@ -42,6 +42,8 @@ export interface OrderRule<O extends Order> {
  */
 /** Any depth under water, for refusing a dive during an emergency blow. */
 const DIVE_REFUSE_DEPTH = 30;
+/** Said when the safety net holds a depth target to `MAX_DIVE_DEPTH`. */
+export const MAX_DIVE_TEXT = `Största dykdjup är ${MAX_DIVE_DEPTH} m med skyddsnätet på: besättningen går dit.`;
 
 export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
   setDepth: {
@@ -50,6 +52,10 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
     apply: (c, o) => {
       if (!c.ap.depth) c.resetDepthLoops();
       c.setpoints.depth = o.depth;
+      if (c.options.crew.safetyNet && o.depth > MAX_DIVE_DEPTH) {
+        c.setpoints.depth = MAX_DIVE_DEPTH;
+        c.afterAck.push(MAX_DIVE_TEXT);
+      }
       c.ap.depth = true;
       c.conn.onDepthOrder();
       c.checkBallastForDepth();

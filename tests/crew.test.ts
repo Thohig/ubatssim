@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../src/control/controller';
-import { LOCK_TEXT, PERISCOPE_DEPTH } from '../src/control/crew';
+import { LOCK_TEXT, MAX_DIVE_DEPTH, PERISCOPE_DEPTH } from '../src/control/crew';
+import { MAX_DIVE_TEXT } from '../src/control/orderRegistry';
 import { acknowledgement, type Order } from '../src/control/orders';
 import { parseCommand } from '../src/control/parser';
 import { Simulation, type InitialConditions } from '../src/sim/simulation';
@@ -209,5 +210,25 @@ describe('the crew and the player', () => {
     expect(bad.ok).toBe(false);
     expect(!bad.ok && bad.error).toMatch(/Menade du "trim"/);
     expect(acknowledgement({ kind: 'crew', system: 'trim', crew: false })).toBe('Trimassistenten avlöst, ja');
+  });
+});
+
+describe('the deepest depth target', () => {
+  it('with the safety net the crew goes no deeper than 250 m, and says so; without it the order stands', () => {
+    // Played: a 300 m target was taken, and the safety net blew to the surface at 255 m.
+    const crew = game({ area: 'atlantic', depth: 100, neutral: true }, true);
+    crew.send({ kind: 'setDepth', depth: 300 });
+    crew.run(0.01);
+    expect(crew.c.setpoints.depth).toBe(MAX_DIVE_DEPTH);
+    expect(crew.c.log.some((e) => e.text === MAX_DIVE_TEXT)).toBe(true);
+    // The depth scale's dashed line and ↓ stop there too.
+    expect(crew.c.assist.depthLimit()).toBe(MAX_DIVE_DEPTH);
+    crew.send({ kind: 'adjustDepth', deltaMetres: 50 });
+    crew.run(0.01);
+    expect(crew.c.setpoints.depth).toBe(MAX_DIVE_DEPTH);
+    const player = game({ area: 'atlantic', depth: 100, neutral: true }, false);
+    player.send({ kind: 'setDepth', depth: 300 });
+    player.run(0.01);
+    expect(player.c.setpoints.depth).toBe(300);
   });
 });

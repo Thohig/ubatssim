@@ -44,6 +44,7 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   area: 'westCoast',
   conditions: 'day',
   sea: 'calm',
+  patrols: true,
   scenarioGroup: 'basics',
   ...over,
 });
@@ -164,7 +165,7 @@ describe('menu screens', () => {
     const menu = new Menu(
       root,
       {
-        startFree: (area, start, cond, sea) => calls.push(`free ${area} ${start} ${cond} ${sea}`),
+        startFree: (area, start, cond, sea, patrols) => calls.push(`free ${area} ${start} ${cond} ${sea}${patrols ? '' : ' fredligt'}`),
         startScenario: (id) => calls.push(`scenario ${id}`),
         resume: () => calls.push('resume'),
         restart: () => calls.push('restart'),
@@ -185,12 +186,21 @@ describe('menu screens', () => {
     const fog = root.querySelector('input[name=conditions][value=fog]') as HTMLInputElement;
     fog.checked = true;
     fog.dispatchEvent(new Event('change', { bubbles: true }));
+    // Fjorden has no corvettes in free play: no choice there.
+    expect(root.querySelector('input[name=patrols]')).toBeNull();
+    (root.querySelector('[data-action="free"]') as HTMLElement).click();
+    // Östersjön has one: free play without it.
+    menu.show('free');
+    (root.querySelector('[data-arg="baltic"]') as HTMLElement).click();
+    const none = root.querySelector('input[name=patrols][value=off]') as HTMLInputElement;
+    none.checked = true;
+    none.dispatchEvent(new Event('change', { bubbles: true }));
     (root.querySelector('[data-action="free"]') as HTMLElement).click();
     menu.setPauseInfo({ duties: allCrew(), locks: {}, expert: true, expertForced: false });
     menu.show('crew');
     (root.querySelector('[data-arg="trim:0"]') as HTMLElement).click();
     (root.querySelector('[data-action="expert"][data-arg="0"]') as HTMLElement).click();
-    expect(calls).toEqual(['free fjord sea fog calm', 'crew trim false', 'expert false']);
+    expect(calls).toEqual(['free fjord sea fog calm', 'free baltic surface fog calm fredligt', 'crew trim false', 'expert false']);
   });
 
   it('the briefing lists every objective; Besättning comes back to it, Till sjöss starts', () => {
@@ -413,5 +423,15 @@ describe('the periscope eyepiece and its bearing band', () => {
       expect(bandY - 44).toBeGreaterThanOrEqual(0);
       if (bandY > cy) expect(bandY + 30).toBeLessThanOrEqual(clear);
     }
+  });
+
+  it('a panel beside it at the horizon (the fire panel in a small window) does not cover the horizon in the circle', async () => {
+    const { periscopeLayout } = await import('../src/ui/viewOverlay');
+    // 800 × 600: the fire panel's left edge at 536 px.
+    const { r } = periscopeLayout(800, 600, 450, 536);
+    expect(400 + r).toBeLessThanOrEqual(536);
+    expect(r).toBeGreaterThan(600 * 0.15);
+    // A large window: the panel is far to the right and changes nothing.
+    expect(periscopeLayout(1280, 800, 700, 986).r).toBe(periscopeLayout(1280, 800, 700).r);
   });
 });

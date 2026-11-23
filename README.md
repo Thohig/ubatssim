@@ -37,7 +37,7 @@ Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubå
 
 | Val | Innehåll |
 |---|---|
-| **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, skymning, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. |
+| **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, skymning, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. Där en korvett patrullerar (Östersjön) kan du välja **Korvetter: Inga** för ett fredligt spel med bara civil trafik. |
 | **Scenarier** | Uppdrag med mål och ledtrådar. |
 | **Inställningar** | Tidskomprimering ×1/×2/×4/×8/×16, ljud (volym, maskiner och larm, hav och vind, uppläsning av order, musik på startsidan och musikvolym), svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
 | **Hjälp** | Besättningen, kontrollerna, tangenterna, scenarierna, anfallet och tips. |
@@ -94,7 +94,9 @@ Under ☰ → **Besättning** kan du slå på **Expertläge**. Då väljer du f�
   - **Trim:** behöver djuprodret hela tiden ligga i samma riktning för att hålla djupet, flyttas vatten mellan trimtankarna.
 - **Skyddsnätet:**
   - Nödblåsning under 255 m (85 % av krossdjupet 300 m), eller om ubåten sjunker fortare än 2 m/s under 250 m.
-  - Djupmålet begränsas så att det är minst 10 m under kölen, under ubåten och upp till 150 m i färdriktningen.
+  - **Största dykdjup 250 m:** ett djupare mål blir 250 m ("Största dykdjup är 250 m med skyddsnätet på: besättningen går dit."), och djupskalans streckade linje står där. Förut tog besättningen målet och nödblåste sedan själv på 255 m, vilket hörs långt. Utan skyddsnät (expertläge) gäller ditt djup.
+  - Djupmålet begränsas så att det är minst 10 m under kölen, under ubåten och så långt fram som ubåten går på en minut (minst 150 m).
+  - **Grunt förut:** stiger botten fortare än ubåten hinner upp, eller har ubåten i ytläge mindre än 3 m under kölen förut, varnar besättningen och saktar in till 4 knop. Så länge botten stiger (och 30 s efter) håller den farten under 4 knop vad du än beordrar, också Full fram; telegrafen visar din fart och skälet "grunt förut". I ytläge står det "Gir undan.": besättningen bromsar men styr inte runt grundet.
   - Varning i loggen när det är mindre än 10 m under kölen.
 - **Scenarier** kan låsa ett system: i Trimövning sköter du djupet (Hand) och trimmet själv, och i Nödblåsning finns inget skyddsnät. Resultatskärmen visar vad du skötte själv, till exempel "Du skötte själv trimmet och ballasten".
 
@@ -222,12 +224,14 @@ Som på en riktig ubåt är huvudballasten full under vatten. Djupet ändras med
 
 - **Upp från djupet** (besättningen sköter djup och fart, målet grundare än 35 m och ubåten djupare än 40 m): besättningen går upp i minst 8 knop med högst 10° stampvinkel, planar ut på **35 m** (under de största fartygens köl) i 4 knop och **lyssnar runt**: en kursändring på 60° i en minut, så att sonaren hör akterut också. Hörs ett fartyg nära (stark kontakt) stannar den på 35 m och säger till; en ny djuporder tar ubåten upp ändå. Annars går den upp till målet i 4 knop och sedan tillbaka till din fart. Mot ytan blåses huvudballasten på 15 m. En ny fart framåt ändrar inte stegen: besättningen stiger i den farten om den är högre än 8 knop, lyssnar ändå i 4 knop och går över till din fart när ubåten är uppe. En ny kurs under lyssnandet tar ubåten upp direkt. Stopp, back, Full fram eller att du tar över djup eller fart avbryter, och loggen säger "Stigningen avbruten." Är den nya farten Stopp svävar besättningen upp i stället, mycket tystare men långsammare: från 150 m till periskopdjup ~18 min mot ~9 min.
 - **Nödblåsning går alltid till ytan:** en blåsning från djupare än 20 m (Nödblåsning, Ytläge eller skyddsnätets) fullföljs. En djuporder eller Dyk under tiden vägras: "Nödblåsning pågår, ubåten går till ytan. Dyk igen därifrån." Tar du själv över ballasten i panelen Ballast är det ditt beslut.
+- **Maskinen stoppas under nödblåsningen** när ubåten stiger fortare än 1 m/s: luften lyfter den. Med fart i en snabb stigning gick fören ned mot fullt djuproder (24° från 250 m i 12 knop) och propellern drev ubåten nedåt och akterut. Planraden säger "Nödblåsning: upp till ytan, maskinen stoppad."
+- **Tryckluften räcker till ungefär en nödblåsning från djupet:** från 255 m sjunker flaskorna från 250 till ~15 bar. **Kompressorerna** fyller på dem i ytläge och med snorkeln uppe (från tomt till 250 bar på ~25 min, 60 kW från elen; KOMPR i panelen Ballast), och loggen säger "Luftflaskorna är fulla" när de är klara. Under 100 bar varnar besättningen. Räcker luften inte för att blåsa på det djup ubåten är på (flasktrycket under 1,15 gånger havstrycket, och ubåten stiger inte av sig själv), avbryts nödblåsningen: "Tryckluften räcker inte för att blåsa på 200 m (14 bar). Besättningen går upp på djuprodren." Besättningen stiger då med minst 8 knop som vid en vanlig stigning, och djuporder fungerar igen. Förut låg ubåten kvar på djupet i en kvart med djuporder vägrade.
 - **En grund blåsning kan ångras:** beordrar du ett djup under ytan medan huvudballasten blåses på 15 m stoppar besättningen blåsningen, ventilerar och dyker till målet.
 - **Utan fart** (du sköter farten och står still, eller batteriet är slut) svävar besättningen med kompenseringen, högst ~7 m i minuten och inte högre än 8 m, och säger "Ingen fart: djuprodren biter inte. Ge fart framåt, eller Nödblåsning." Den blåser aldrig själv.
 - **Kompenseringspumpen** orkar mindre mot havstrycket: ut går hälften så fort på 200 m som vid ytan, in fortare.
 - **Det hörs och syns:** en blåsning från djupet hörs långt, och korvetterna börjar söka. Luft som ventileras grundare än 30 m kokar upp på ytan och syns för korvetternas utkik.
 
-Besättningen ändrar farten bara när den sköter farten: Stopp (full back tills farten är borta), djuprodren orkar inte (minst 4 knop), stigning från djupet (8 knop, sedan 4 knop från 35 m), grunt förut (4 knop), grundstötning (Stopp), mer än 30 ton vatten inne (nödblåsning och 8 knop), fast i en trål (back 3 knop). Nödblåsning-knappen ger full fart fram.
+Besättningen ändrar farten bara när den sköter farten: Stopp (full back tills farten är borta), djuprodren orkar inte (minst 4 knop), stigning från djupet (8 knop, sedan 4 knop från 35 m), grunt förut (under 4 knop så länge botten stiger), grundstötning (Stopp), nödblåsning som stiger fort (maskinen stoppad), luften räcker inte för nödblåsningen (minst 8 knop), mer än 30 ton vatten inne (nödblåsning och 8 knop), fast i en trål (back 3 knop). Nödblåsning-knappen ger full fart fram.
 
 ## Instrumentpanelen
 
@@ -483,7 +487,7 @@ npm install
 npm run dev
 ```
 
-Öppna http://localhost:5173/ubatssim/ (sökvägen följer `base` i `vite.config.ts`).
+Öppna http://localhost:5173/ubatssim/ (sökvägen följer `base` i `vite.config.ts`; http://localhost:5173/ skickas dit).
 
 ```bash
 npm test
@@ -557,7 +561,7 @@ Testerna täcker bland annat:
 src/
   sim/        Fysiken. Ren TypeScript utan Three.js eller DOM, deterministisk.
     config/   Parametrar för ubåt, vatten, havsområden, sjögång och terräng (SI-enheter, källa per värde).
-    systems/  Ubåtens delsystem: ställdon, huvudballast och tryckluft, pumpar, master (periskop, snorkel och radar),
+    systems/  Ubåtens delsystem: ställdon, huvudballast och tryckluft, kompressorer, pumpar, master (periskop, snorkel och radar),
               el (batteri och dieslar), läckage och trålen (snag).
               world/vessel: världen med ubåten, andra farkoster, torpeder och sjunkbomber. acoustics: sonarekvationen.
               life: valar och sillstim. aircraft: spaningsplan. seabed: bottentyp, bottenekot och terrängens skugga.

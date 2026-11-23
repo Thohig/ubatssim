@@ -20,6 +20,7 @@
 import { ENVIRONMENT } from '../sim/config/environment';
 import { DT } from '../sim/simulation';
 import type { Controller } from './controller';
+import { MAX_DIVE_DEPTH } from './crew';
 import { HOVER, Hover } from './hover';
 
 const DEG = Math.PI / 180;
@@ -106,8 +107,10 @@ export const ASSIST = {
    */
   climbRate: 0.12,
   shoalSpeed: 4,
-  /** Seconds without danger before the shoal warning re-arms. */
+  /** Seconds without danger before the shoal warning re-arms (and the crew's speed limit for it ends). */
   shoalRearm: 30,
+  /** On the surface: ground ahead with less than this under the keel [m] is dangerous. */
+  surfaceKeel: 3,
   /** Keel warning below this [m], re-armed above `keelRearm` [m]. */
   keelWarn: 10,
   keelRearm: 15,
@@ -179,40 +182,45 @@ export class TrimAssist {
 
   /**
    * Deepest depth setpoint that keeps `keelMargin` under the keel here and
-   * ahead [m]. "Ahead" is where the boat is going: astern when it backs.
+   * ahead [m], and never deeper than `MAX_DIVE_DEPTH`. "Ahead" is where the boat is going: astern when it backs.
    */
   depthLimit(): number {
-    return this.limitsAhead().reduce((m, x) => Math.min(m, x.limit), Infinity);
+    return this.limitsAhead().reduce((m, x) => Math.min(m, x.limit), MAX_DIVE_DEPTH);
   }
 
   /** The depth limit (see `depthLimit`) at each distance [m] ahead, from here to the look-ahead. */
-  private limitsAhead(): { distance: number; limit: number }[] {
+  private limitsAhead(): { distance: number; limit: number; seabed: number }[] {
     const sim = this.ctrl.sim;
     const k = sim.kinematics();
     const n = sim.y[0]!;
     const e = sim.y[1]!;
     const dir = k.u < -0.2 ? -1 : 1;
     const range = Math.max(ASSIST.lookAhead, Math.abs(k.u) * ASSIST.lookAheadTime);
-    const out: { distance: number; limit: number }[] = [];
+    const out: { distance: number; limit: number; seabed: number }[] = [];
     for (let d = 0; d <= range + 1e-9; d += ASSIST.lookAheadStep) {
       const seabed = sim.ground(n + dir * d * Math.cos(k.heading), e + dir * d * Math.sin(k.heading));
-      out.push({ distance: d, limit: Math.max(0, Math.floor(seabed - sim.cfg.hull.radius - ASSIST.keelMargin)) });
+      out.push({ distance: d, limit: Math.max(0, Math.floor(seabed - sim.cfg.hull.radius - ASSIST.keelMargin)), seabed });
     }
     return out;
   }
 
   /**
-   * Ground rising ahead faster than the boat can climb (`climbRate`) at this speed: warns, and the
-   * crew slows to `shoalSpeed` if it handles the speed. Not on the surface (the keel warning is there).
+   * Ground rising ahead faster than the boat can climb (`climbRate`) at this speed, or on the surface
+   * ground ahead with less than `surfaceKeel` under the keel: warns, and the crew slows to `shoalSpeed`
+   * if it handles the speed. While the danger lasts (and `shoalRearm` s after) the crew keeps under
+   * `shoalSpeed` whatever speed is ordered (`shoalAhead`, conn.ts), full ahead too: a new order used to
+   * drive on into the ground.
    */
-  private watchShoal(limits: { distance: number; limit: number }[], depth: number): void {
+  private watchShoal(limits: { distance: number; limit: number; seabed: number }[], depth: number): void {
     const ctrl = this.ctrl;
     const sim = ctrl.sim;
     const u = Math.abs(sim.kinematics().u);
+    const keel = depth + sim.cfg.hull.radius;
     const danger =
-      depth >= ASSIST.minDepth &&
       u > 1 &&
-      limits.some((x) => x.distance > 0 && depth - x.limit > ASSIST.climbRate * (x.distance / u));
+      (depth >= ASSIST.minDepth
+        ? limits.some((x) => x.distance > 0 && depth - x.limit > ASSIST.climbRate * (x.distance / u))
+        : limits.some((x) => x.distance > 0 && x.seabed - keel < ASSIST.surfaceKeel));
     this.shoalDanger = danger;
     if (!danger) {
       if (sim.t - this.shoalSince > ASSIST.shoalRearm) this.shoalArmed = true;
@@ -222,8 +230,15 @@ export class TrimAssist {
     if (!this.shoalArmed) return;
     this.shoalArmed = false;
     const slow = ctrl.ap.speed && ctrl.setpoints.speed > ASSIST.shoalSpeed;
-    ctrl.addLog(`Varning: grunt förut!${slow ? ` Besättningen saktar in till ${ASSIST.shoalSpeed} knop.` : ' Sakta in eller gå upp.'}`, 'error', 'assist');
+    const surface = depth < ASSIST.minDepth;
+    const what = slow ? `Besättningen saktar in till ${ASSIST.shoalSpeed} knop.${surface ? ' Gir undan.' : ''}` : surface ? 'Sakta in och gir undan.' : 'Sakta in eller gå upp.';
+    ctrl.addLog(`Varning: grunt förut! ${what}`, 'error', 'assist');
     if (slow) ctrl.submit({ kind: 'setSpeed', knots: ASSIST.shoalSpeed }, 'assist');
+  }
+
+  /** Ground ahead now or less than `shoalRearm` s ago: the crew keeps under `shoalSpeed` (conn.ts). */
+  get shoalAhead(): boolean {
+    return this.ctrl.sim.t - this.shoalSince <= ASSIST.shoalRearm;
   }
 
   private safetyNet(depth: number, depthRate: number): void {

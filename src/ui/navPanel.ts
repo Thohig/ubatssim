@@ -460,9 +460,16 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
       // Labels at the newest bearing of each contact.
       const heading = c.sim.kinematics().heading / DEG;
       g.fillStyle = '#ffd08a';
-      for (const k of s.contacts) {
-        const rel = ((((k.bearing - heading + 180) % 360) + 360) % 360) - 180;
-        g.fillText(k.label, x(rel), top + 12);
+      // Contacts close in bearing get their labels on rows below each other, not on top of each other.
+      const placed: { x: number; row: number; half: number }[] = [];
+      const labels = s.contacts
+        .map((k) => ({ label: k.label, x: x(((((k.bearing - heading + 180) % 360) + 360) % 360) - 180), half: g.measureText(k.label).width / 2 + 2 }))
+        .sort((a, b) => a.x - b.x);
+      for (const l of labels) {
+        let row = 0;
+        while (placed.some((p) => p.row === row && Math.abs(p.x - l.x) < p.half + l.half)) row++;
+        placed.push({ x: l.x, row, half: l.half });
+        g.fillText(l.label, l.x, top + 12 + row * 12);
       }
       g.textAlign = 'left';
     }

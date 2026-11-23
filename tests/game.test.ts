@@ -18,6 +18,16 @@ describe('game session', () => {
     expect(new GameSession(scenarioSpec(dive, '')).ctrl.world.vessels).toHaveLength(0);
   });
 
+  it('free play without corvettes has only the civil traffic', () => {
+    const baltic = (patrols: boolean) => new GameSession(freePlaySpec('baltic', 'periscope', 'day', 'calm', '', patrols)!);
+    expect(baltic(true).ctrl.world.vessels.some((v) => v.def.kind === 'patrol')).toBe(true);
+    const peaceful = baltic(false).ctrl.world.vessels;
+    expect(peaceful.some((v) => v.def.kind === 'patrol')).toBe(false);
+    expect(peaceful.length).toBe(AREA_INFO.baltic.traffic.length - 1);
+    // "Starta om" keeps the choice.
+    expect(baltic(false).restart().ctrl.world.vessels.some((v) => v.def.kind === 'patrol')).toBe(false);
+  });
+
   it('logs the start and where the controls are, in that order', () => {
     const texts = free().ctrl.log.map((e) => e.text);
     expect(texts[0]).toMatch(/periskopdjup/);

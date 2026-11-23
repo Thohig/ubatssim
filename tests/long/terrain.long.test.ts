@@ -40,6 +40,55 @@ describe('grounding', () => {
     expect(c.setpoints.speed).toBe(0);
   });
 
+  it('full ahead after the shoal warning does not drive on: the crew keeps under 4 knots while the ground rises', () => {
+    // Played: the warning came once, full ahead was then taken, and the boat grounded at 16.5 knots.
+    const c = new Controller(new Simulation({}));
+    c.crewTakesAll();
+    c.submit({ kind: 'setHeading', heading: 90 }, 'keyboard');
+    c.submit({ kind: 'setSpeed', knots: 8 }, 'keyboard');
+    c.submit({ kind: 'setDepth', depth: 80 }, 'keyboard');
+    let ordered = false;
+    let fastest = 0;
+    for (let i = 0; i < 900 * 100; i++) {
+      c.step();
+      if (!ordered && c.log.some((e) => /grunt förut/.test(e.text))) {
+        ordered = true;
+        c.submit({ kind: 'setSpeed', knots: 19 }, 'keyboard');
+      }
+      if (ordered && i % 100 === 0) fastest = Math.max(fastest, c.sim.kinematics().u / (1852 / 3600));
+      if (c.sim.groundContacts > 0) break;
+    }
+    expect(ordered).toBe(true);
+    expect(c.crewSpeed()?.reason ?? 'grunt förut').toBe('grunt förut');
+    // The ordered speed stands (the telegraph shows it), but the boat never got going.
+    expect(c.setpoints.speed).toBeLessThanOrEqual(19);
+    expect(fastest).toBeLessThan(8.5);
+  });
+
+  it('on the surface the crew also looks ahead and slows down before the rocks', () => {
+    const c = new Controller(new Simulation({}));
+    c.crewTakesAll();
+    c.submit({ kind: 'setHeading', heading: 90 }, 'keyboard');
+    c.submit({ kind: 'setSpeed', knots: 12 }, 'keyboard');
+    let warnedAt = -1;
+    let speedAtGrounding: number | null = null;
+    for (let i = 0; i < 900 * 100; i++) {
+      c.step();
+      if (warnedAt < 0 && c.log.some((e) => /grunt förut/.test(e.text))) warnedAt = c.sim.t;
+      if (c.sim.groundContacts > 0) {
+        speedAtGrounding = c.sim.kinematics().u / (1852 / 3600);
+        break;
+      }
+    }
+    expect(warnedAt).toBeGreaterThan(0);
+    // Played: on the surface the keel warning came the same second as the grounding at 16.5 knots.
+    if (speedAtGrounding !== null) {
+      expect(c.sim.t - warnedAt).toBeGreaterThan(60);
+      expect(speedAtGrounding).toBeLessThan(6.5);
+    }
+    expect(c.log.some((e) => /grunt förut! Besättningen saktar in till 4 knop. Gir undan./.test(e.text))).toBe(true);
+  });
+
   it('driving into the archipelago ends on the rocks, and the log says so', () => {
     const c = new Controller(new Simulation({ depth: 25, east: 1800, heading: Math.PI / 2, speed: 4, designTrim: true }));
     c.submit({ kind: 'setDepth', depth: 25 }, 'console');

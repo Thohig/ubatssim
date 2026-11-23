@@ -317,6 +317,15 @@ export const SUBMARINE = {
      */
     lpBlowerFlow: 1.5,
     lpBlowerOverpressure: 0.7e5,
+    /**
+     * HP air compressors, running while air reaches the induction (surfaced or
+     * snorkelling) and the bottles are below `bottlePressure`. Bottle content
+     * added [Pa·m^3/s]: 0.1e6 refills the 6 m^3 from empty to 250 bar in 25 min. APPROX
+     * (two compressors of ~200 l/min free air at 250 bar are typical of the class).
+     */
+    compressorRate: 0.1e6,
+    /** Electrical power of the compressors while they run [W]. APPROX. */
+    compressorPower: 60e3,
   },
 
   pumps: {

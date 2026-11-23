@@ -128,8 +128,8 @@ export function startApp(): void {
   const menu = new Menu(
     el('menu'),
     {
-      startFree(area, start, conditions, sea) {
-        const spec = freePlaySpec(area, start, conditions, sea, HELP_HINT);
+      startFree(area, start, conditions, sea, patrols) {
+        const spec = freePlaySpec(area, start, conditions, sea, HELP_HINT, patrols);
         if (spec) startGame(new GameSession(spec));
       },
       startScenario(id) {
@@ -485,7 +485,10 @@ export function startApp(): void {
     const mid = window.innerWidth / 2;
     const fireTop = fire.height > 0 && fire.left < mid && fire.right > mid ? fire.top : Infinity;
     const clearBottom = Math.min(helmEl.getBoundingClientRect().top, fireTop);
-    return { ...state, clearBottom };
+    // Beside the eyepiece (right of the middle, at the horizon's height): the circle stays left of it.
+    const cy = window.innerHeight / 2;
+    const clearRight = fire.height > 0 && fire.left > mid && fire.top < cy && fire.bottom > cy ? fire.left : window.innerWidth;
+    return { ...state, clearBottom, clearRight };
   }
 
   /**

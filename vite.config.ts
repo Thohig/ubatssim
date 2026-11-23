@@ -1,9 +1,31 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { DurationSequencer } from './tests/sequencer.ts';
+
+const BASE = '/ubatssim/';
+
+/** The server's root (where a preview opens) goes to the game under `base`, in `dev` and `preview`. */
+const rootToBase: Plugin = {
+  name: 'root-to-base',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      if (req.url !== '/') return next();
+      res.writeHead(302, { Location: BASE });
+      res.end();
+    });
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use((req, res, next) => {
+      if (req.url !== '/') return next();
+      res.writeHead(302, { Location: BASE });
+      res.end();
+    });
+  },
+};
 
 // `base` must match the GitHub repository name for GitHub Pages.
 export default defineConfig({
-  base: '/ubatssim/',
+  base: BASE,
+  plugins: [rootToBase],
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {

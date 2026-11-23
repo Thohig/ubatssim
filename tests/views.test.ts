@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../src/control/controller';
 import { Simulation } from '../src/sim/simulation';
-import { ViewState, availableViews, cycleView } from '../src/ui/views';
+import { PERISCOPE_RISING, ViewState, availableViews, cycleView } from '../src/ui/views';
 
 describe('views', () => {
   it('cycles only through available views', () => {
@@ -73,5 +73,18 @@ describe('the bridge during a dive', () => {
     expect(c.bridgeManned).toBe(false);
     expect(v.mode).not.toBe('bridge');
     expect(c.log.some((e) => e.kind === 'error' && /ventilerna/.test(e.text))).toBe(true);
+  });
+});
+
+describe('Vy while the periscope is raised', () => {
+  it('passing the periscope on its way up says that its view opens by itself', () => {
+    const c = new Controller(new Simulation({ depth: 13, neutral: true }));
+    c.crewTakesAll();
+    c.submit({ kind: 'periscope', up: true }, 'keyboard');
+    for (let i = 0; i < 200; i++) c.step(); // 2 s: on its way up (8 s)
+    const v = new ViewState();
+    cycleView(c, v, 'keyboard');
+    expect(v.mode).toBe('control');
+    expect(c.log.some((e) => e.text === PERISCOPE_RISING)).toBe(true);
   });
 });

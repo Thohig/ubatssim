@@ -6,6 +6,7 @@
  */
 import type { Simulation } from '../sim/simulation';
 import { DT } from '../sim/simulation';
+import { pressureAt } from '../sim/environment';
 import { Autopilot, type AutopilotInput } from './autopilot';
 import { CREW_SYSTEMS, EXPERT_TEXT, LOCK_TEXT, MANOEUVRE_SYSTEMS, isAxis, type CrewDuties, type CrewLocks, type CrewSystem } from './crew';
 import { OrderQueue } from './orderQueue';
@@ -59,6 +60,15 @@ const KNOT = 1852 / 3600;
 /** Stopp backs full until the speed through the water is below this [m/s] (~1 knot). */
 /** A blow deeper than this [m] is heard by the corvettes (the high-pressure air roaring into the tanks). */
 const BLOW_HEARD_DEPTH = 20;
+/**
+ * An emergency blow is spent when the bottles hold less than this times the sea pressure at the boat
+ * (the air hardly flows into the tanks any longer) and the boat rises slower than `BLOW_SPENT_RISE` [m/s]:
+ * a boat the expanding air already lifts goes on up. The crew then goes up on the planes instead.
+ */
+const BLOW_SPENT_RATIO = 1.15;
+const BLOW_SPENT_RISE = 0.3;
+/** Speed [knots] the crew runs for the planes when the air does not suffice for an emergency blow. */
+const BLOW_SPENT_SPEED = 8;
 /** The crew starts the diesels below this state of charge (and stops them at `CHARGE_STOP`, plantWatch.ts). */
 const CHARGE_START = 0.95;
 
@@ -473,6 +483,35 @@ export class Controller {
     if (blowing && !this.wasBlowing && depth > BLOW_HEARD_DEPTH) this.hunter.heard(ACOUSTICS.blowLevel, 0.5, 0.6, true);
     this.wasBlowing = blowing;
     if (this.blowCommitted && depth < SURFACE_HOLD_DEPTH) this.blowCommitted = false;
+    if (
+      this.blowCommitted &&
+      sim.air.bottlePV / sim.cfg.air.bottleVolume < BLOW_SPENT_RATIO * pressureAt(depth, sim.water) &&
+      sim.kinematics().depthRate > -BLOW_SPENT_RISE
+    ) {
+      this.blowSpent(depth);
+    }
+  }
+
+  /**
+   * The air does not suffice to blow at this depth (an earlier blow emptied the bottles): the emergency
+   * blow is called off, so that depth orders work again, and the crew goes up on the planes with way on
+   * (the ascent, which blows at 15 m with the air that is left). Without the depth on the crew, the
+   * player is told.
+   */
+  private blowSpent(depth: number): void {
+    const sim = this.sim;
+    this.blowCommitted = false;
+    this.aftBlowAt = null;
+    sim.setBlow(false);
+    const bar = Math.round(sim.air.bottlePV / sim.cfg.air.bottleVolume / 1e5);
+    const head = `Tryckluften räcker inte för att blåsa på ${Math.round(depth)} m (${bar} bar).`;
+    if (!this.ap.depth) {
+      this.addLog(`${head} Gå upp på djuprodren med fart.`, 'error');
+      return;
+    }
+    this.addLog(`${head} Besättningen går upp på djuprodren.`, 'error', 'assist');
+    if (this.ap.speed && this.setpoints.speed < BLOW_SPENT_SPEED) this.submit({ kind: 'setSpeed', knots: BLOW_SPENT_SPEED }, 'assist');
+    this.submit({ kind: 'setDepth', depth: 0 }, 'assist');
   }
 
   /** The speed the crew runs for a while instead of the ordered one, and why (conn.ts), or null. */

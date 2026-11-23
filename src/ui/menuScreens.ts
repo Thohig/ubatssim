@@ -61,6 +61,8 @@ export interface MenuState {
   area: AreaId;
   conditions: ConditionsId;
   sea: SeaStateId;
+  /** Free play: the area's corvettes patrol (a choice only where there are any). */
+  patrols: boolean;
   /** The scenario list's tab. */
   scenarioGroup: ScenarioGroup;
 }
@@ -125,6 +127,12 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <fieldset><legend>Sjögång</legend>
         ${SEA_CHOICES.map((c) => html`<label class="opt" title="${c.description}"><input type="radio" name="sea" value="${c.id}" ${m.sea === c.id ? 'checked' : ''}/> ${c.title}</label>`)}
       </fieldset>
+      ${a.traffic.some((v) => v.kind === 'patrol')
+        ? html`<fieldset><legend>Korvetter</legend>
+        <label class="opt" title="Korvetterna lyssnar och jagar en ubåt de upptäcker."><input type="radio" name="patrols" value="on" ${m.patrols ? 'checked' : ''}/> Patrullerar</label>
+        <label class="opt" title="Fredligt: bara civil trafik."><input type="radio" name="patrols" value="off" ${m.patrols ? '' : 'checked'}/> Inga</label>
+      </fieldset>`
+        : ''}
       <p class="menu-sub">Välj var du vill börja.</p>
       <div class="menu-list">
         ${a.starts.map((st) => html`<button class="menu-btn choice" data-action="free" data-arg="${st.id}"><b>${st.title}</b><span>${st.description}</span></button>`)}

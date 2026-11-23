@@ -82,6 +82,7 @@ import { MainBallast } from './systems/mainBallast';
 import { Mast } from './systems/masts';
 import { Pumps } from './systems/pumps';
 import { Electrics } from './systems/electrics';
+import { Compressor } from './systems/compressor';
 import { Flooding, type CompartmentFlood } from './systems/flooding';
 import { Snag } from './systems/snag';
 import type { ForceContext, Subsystem } from './systems/types';
@@ -256,6 +257,8 @@ export interface Telemetry {
   tanks: { id: string; name: string; kind: TankDef['kind']; fill: number; water: number; volume: number; ventOpen: boolean; blowOpen: boolean }[];
   /** HP air bottle pressure [Pa]. */
   airPressure: number;
+  /** The HP air compressors run (refilling the bottles). */
+  compressor: boolean;
   mass: number;
   buoyancy: number;
   /** Buoyancy minus weight [N]; positive = light. */
@@ -310,6 +313,8 @@ export class Simulation {
     pumps: Pumps;
     flooding: Flooding;
     electrics: Electrics;
+    /** The HP air compressors (systems/compressor.ts). */
+    compressor: Compressor;
     periscopeMast: Mast;
     snorkelMast: Mast;
     radarMast: Mast;
@@ -352,13 +357,14 @@ export class Simulation {
       pumps: new Pumps(this),
       flooding: new Flooding(this),
       electrics: new Electrics(this, init.battery),
+      compressor: new Compressor(this),
       periscopeMast: new Mast(this, 'periscope'),
       snorkelMast: new Mast(this, 'snorkel'),
       radarMast: new Mast(this, 'radar'),
       snag: new Snag(this),
     };
-    // Flooding before the electrics: the drain pump is part of the load.
-    this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps, this.systems.flooding, this.systems.electrics, this.systems.snag];
+    // Flooding and the compressors before the electrics: the drain pump and the compressors are part of the load.
+    this.updateOrder = [this.systems.actuators, this.systems.mainBallast, this.systems.pumps, this.systems.flooding, this.systems.compressor, this.systems.electrics, this.systems.snag];
     this.forceOrder = [this.systems.periscopeMast, this.systems.snorkelMast, this.systems.radarMast, this.systems.snag];
     for (const [id, area] of Object.entries(init.leaks ?? {})) this.systems.flooding.damage(id, area, undefined);
     this.areaId = init.area ?? 'westCoast';
@@ -789,6 +795,7 @@ export class Simulation {
         return { id: def.id, name: def.name, kind: def.kind, fill: s.water / def.volume, water: s.water, volume: def.volume, ventOpen: s.ventOpen, blowOpen: s.blowOpen };
       }),
       airPressure: this.air.bottlePV / this.cfg.air.bottleVolume,
+      compressor: this.systems.compressor.running,
       mass: this.massProps.mass,
       buoyancy: ext.hydrostatics.buoyancy,
       netBuoyancy: ext.hydrostatics.buoyancy - W,

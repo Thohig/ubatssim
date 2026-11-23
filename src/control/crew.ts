@@ -119,6 +119,13 @@ export const PERISCOPE_DEPTH = 13;
 /** The screen controls' depth scale goes this deep [m] (crush depth). */
 export const HELM_MAX_DEPTH = 300;
 
+/**
+ * Deepest target the crew takes with the safety net on [m]: just above where the safety net blows
+ * (85 % of the 300 m crush depth, 255 m in trimAssist.ts). A deeper target used to be taken, and the
+ * safety net then blew to the surface, heard far off.
+ */
+export const MAX_DIVE_DEPTH = 250;
+
 /** One position of the engine-order telegraph. */
 export interface TelegraphBell {
   /** Speed through the water [knots]; negative = astern. */

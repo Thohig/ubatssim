@@ -12,6 +12,9 @@ export const CHARGE_STOP = 0.99;
 const BATTERY_WARNINGS = [0.3, 0.15, 0.05, 0.005] as const;
 /** Water inside the hull [m^3, ~tonnes] that calls for blowing (and the safety net blows). */
 const FLOOD_WARNING = 15;
+/** Air warning below this bottle pressure [Pa], re-armed above `AIR_REARM`. */
+const AIR_LOW = 100e5;
+const AIR_REARM = 150e5;
 const LEAK_CAUSE = { grounding: 'grundstötning', collision: 'kollision', depth: 'under krossdjupet', charge: 'sjunkbomb' } as const;
 
 export class PlantWatch {
@@ -21,6 +24,10 @@ export class PlantWatch {
   private batteryWarned = new Set<number>();
   private dieselWasRunning = false;
   private floodWarned = false;
+  private airWarned = false;
+  /** The compressors ran at the last step, and since when (a full bottle after a short top-up is not news). */
+  private compressorWas = false;
+  private compressorSince = 0;
   /** Log a hint after the next acknowledgement: the diesels were ordered on without air (set by the diesel order). */
   dieselNeedsAir = false;
 
@@ -59,6 +66,8 @@ export class PlantWatch {
       } else if (el.soc > level + 0.05) this.batteryWarned.delete(level);
     }
 
+    this.watchAir();
+
     const fl = sim.systems.flooding;
     for (const ev of fl.drainEvents()) {
       const name = fl.compartments.find((x) => x.id === ev.compartment)?.name.toLowerCase() ?? ev.compartment;
@@ -92,5 +101,22 @@ export class PlantWatch {
         if (c.ap.speed && c.setpoints.speed < 8) c.submit({ kind: 'setSpeed', knots: 8 }, 'assist');
       }
     } else if (water < FLOOD_WARNING / 2) this.floodWarned = false;
+  }
+
+  /** The HP air running low, and the compressors refilling it (systems/compressor.ts). */
+  private watchAir(): void {
+    const c = this.c;
+    const sim = c.sim;
+    const p = sim.air.bottlePV / sim.cfg.air.bottleVolume;
+    if (!this.airWarned && p < AIR_LOW) {
+      this.airWarned = true;
+      c.addLog(`Tryckluften är nere i ${Math.round(p / 1e5)} bar. Kompressorerna fyller på i ytläge eller med snorkeln uppe.`, 'error');
+    } else if (this.airWarned && p > AIR_REARM) this.airWarned = false;
+    const running = sim.systems.compressor.running;
+    if (running && !this.compressorWas) this.compressorSince = sim.t;
+    if (!running && this.compressorWas && p >= sim.cfg.air.bottlePressure && sim.t - this.compressorSince > 60) {
+      c.addLog(`Luftflaskorna är fulla (${Math.round(p / 1e5)} bar).`, 'info');
+    }
+    this.compressorWas = running;
   }
 }

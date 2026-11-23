@@ -24,7 +24,7 @@ Det här dokumentet beskriver hur simuleringen i `src/sim/` fungerar: ekvationer
   - quaternion q = (w, x, y, z), kropp → värld
   - kroppshastigheter ν = (u, v, w, p, q, r)
   - propelleraxelns varvtal n [varv/s].
-- **Övrigt tillstånd** uppdateras explicit en gång per tidssteg: rodrens och djuprodrens utslag, masternas läge, tankarnas vatten- och luftinnehåll, HP-luften, kvarvarande pumpmängder, vattnet och hålen i avdelningarna, batteriets laddning och generatorernas effekt. Ordningen är fast: ställdon, huvudballast, pumpar, läckage, el.
+- **Övrigt tillstånd** uppdateras explicit en gång per tidssteg: rodrens och djuprodrens utslag, masternas läge, tankarnas vatten- och luftinnehåll, HP-luften, kvarvarande pumpmängder, vattnet och hålen i avdelningarna, batteriets laddning och generatorernas effekt. Ordningen är fast: ställdon, huvudballast, pumpar, läckage, kompressorer, el.
 
 ## Rörelseekvationer
 
@@ -112,7 +112,8 @@ q̇  = ½ q ⊗ (0, ν₂)
 
   Fyllnadsgraden f löses ur en andragradsekvation. Luften trycks ihop när ubåten dyker och expanderar när den stiger. Luft som inte får plats bubblar ut genom bottenöppningarna.
 - **Ventilering:** när ventilen är öppen strömmar luft ut genom en öppning med C_d A √(2Δp/ρ_luft), högst ljudhastigheten. Det ger en fyllningstid på ~50 s från ytläge.
-- **Blåsning:** PV-flödet är k·√(p_flaska² − p_tank²). Flaskorna rymmer 6 m³ vid 250 bar, och flasktrycket sjunker enligt Boyle. En nivåvakt stänger blåsningen när tanken är tom.
+- **Blåsning:** PV-flödet är k·√(p_flaska² − p_tank²). Flaskorna rymmer 6 m³ vid 250 bar, och flasktrycket sjunker enligt Boyle. En nivåvakt stänger blåsningen när tanken är tom. En nödblåsning från 255 m tömmer flaskorna till ~15 bar.
+- **Kompressorer** (`systems/compressor.ts`): när luft når intaget (ytläge, eller snorkelns huvud över vattnet) och flaskorna har under 250 bar, ökar p·V i flaskorna med 0,1 MPa·m³/s (tomt till fullt på 25 min), och elen belastas med 60 kW. Med fulla flaskor står de still, så en ubåt som aldrig blåser räknas exakt som förut.
 - **Trim- och kompenseringstank:** pumpas med 5 respektive 6 l/s. Trimtankarna pumpas mellan för och akter, kompenseringstanken mot havet.
 
 ## Hydrodynamik

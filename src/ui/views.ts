@@ -273,8 +273,16 @@ export function cycleView(ctrl: Controller, views: ViewState, source: OrderSourc
     views.set('bridge');
     return;
   }
+  const before = views.mode;
   views.cycle(available);
+  // The periscope on its way up was passed over: say that its view opens by itself once it is up.
+  const order: ViewMode[] = ['external', 'bridge', 'periscope', 'control', 'cutaway'];
+  const passed = order.indexOf(before) < order.indexOf('periscope') && order.indexOf(views.mode) > order.indexOf('periscope');
+  if (passed && sim.commands.periscopeUp && !available.periscope) ctrl.addLog(PERISCOPE_RISING, 'info');
 }
+
+/** Said when the view cycle passes the periscope while it is being raised. */
+export const PERISCOPE_RISING = 'Periskopet hissas. Vyn öppnas när det är uppe.';
 
 /** True bearing [deg] the bridge look or the periscope points at. */
 export function viewBearing(ctrl: Controller, views: ViewState): number {
