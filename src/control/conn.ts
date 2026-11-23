@@ -52,6 +52,13 @@ export const CONN = {
   blowRiseRate: 1,
   /** Speed [knots] at which the planes can change the depth. */
   planesSpeed: 4,
+  /**
+   * Speed [knots] for a dive from the surface ordered slower (`onDive`). At 4 knots the planes took the boat
+   * from 9 to 13 m in two minutes in a calm sea and four in a rough one (the waves lift a boat near the
+   * surface); at 6 knots the dive to periscope depth is a minute shorter. Over periscope depth it is
+   * the crew's limit anyway (`periscopeSpeed`).
+   */
+  diveSpeed: 6,
   /** Seconds stalled before the crew says so (or runs the engine up). */
   stallTime: 30,
   /** Fraction of full stern planes that counts as hard over for the stall watch. */
@@ -148,8 +155,10 @@ const deg3 = (d: number): string => String(Math.round(((d % 360) + 360) % 360) %
 export class Conn {
   /** True while the depth autopilot holds the boat on the surface: planes at zero, the boat floats. */
   surfaceHold = false;
-  /** The engine runs at least `planesSpeed` until the depth target is reached (the crew handles the speed). */
+  /** The engine runs at least `boostKnots` until the depth target is reached (the crew handles the speed). */
   depthBoost = false;
+  /** The speed of the boost [knots]: `planesSpeed` for stalled planes, `diveSpeed` for a dive from the surface. */
+  private boostKnots: number = CONN.planesSpeed;
   /** True while Stopp runs the shaft full astern to take the way off. */
   crashStopping = false;
   /** True while a lower speed is reached by letting the way run off. */
@@ -209,7 +218,7 @@ export class Conn {
   runSpeed(): number {
     const c = this.ctrl;
     let v = c.ascent.speedGoal(c.setpoints.speed) ?? c.setpoints.speed;
-    if (this.depthBoost) v = Math.max(v, CONN.planesSpeed);
+    if (this.depthBoost) v = Math.max(v, this.boostKnots);
     const cap = this.speedCap();
     return cap !== null && v > cap ? cap : v;
   }
@@ -254,7 +263,7 @@ export class Conn {
     if (v === c.setpoints.speed) return null;
     const phase = c.ascent.phase;
     const reason =
-      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= CONN.planesSpeed ? 'för djuprodren' : this.shoalCapped() ? 'grunt förut' : 'periskopdjup';
+      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= this.boostKnots ? 'för djuprodren' : this.shoalCapped() ? 'grunt förut' : 'periskopdjup';
     return { knots: v, reason };
   }
 
@@ -378,7 +387,7 @@ export class Conn {
         this.boostEndedAt = reached ? { depth: sp.depth, speed: sp.speed } : null;
         // The depth and pitch integrals hold a bow angle for the old speed.
         c.resetDepthLoops();
-        if (c.ap.speed && sp.speed < CONN.planesSpeed && !newSpeed) {
+        if (c.ap.speed && sp.speed < this.boostKnots && !newSpeed) {
           c.addLog(`${reached ? 'Djupet nått. ' : ''}Maskinen går tillbaka till ${kn(sp.speed)} knop.`, 'info');
         }
       }
@@ -407,6 +416,7 @@ export class Conn {
       }
     } else if (c.ap.speed && sp.speed >= 0 && sp.speed < CONN.planesSpeed) {
       this.depthBoost = true;
+      this.boostKnots = CONN.planesSpeed;
       this.boostSpeed = sp.speed;
       this.boostHeld = this.boostEndedAt !== null && this.boostEndedAt.depth === sp.depth && this.boostEndedAt.speed === sp.speed;
       this.boostEndedAt = this.boostHeld ? { depth: sp.depth, speed: sp.speed } : null;
@@ -424,22 +434,23 @@ export class Conn {
   }
 
   /**
-   * A dive from the surface with the crew handling the speed, ordered below `planesSpeed`: the crew runs
-   * the engine at `planesSpeed` until the target is reached, as for planes that stall (`watchDepthStall`),
+   * A dive from the surface with the crew handling the speed, ordered below `diveSpeed`: the crew runs
+   * the engine at `diveSpeed` until the target is reached, as for planes that stall (`watchDepthStall`),
    * then goes back to the ordered speed (and hovers there if stopped). Stopped, the boat sank on the
    * compensating tank alone and could not be caught before it was far past periscope depth.
    */
   onDive(): void {
     const c = this.ctrl;
     const sp = c.setpoints;
-    if (!c.ap.speed || !c.ap.depth || this.depthBoost || sp.speed < 0 || sp.speed >= CONN.planesSpeed) return;
+    if (!c.ap.speed || !c.ap.depth || this.depthBoost || sp.speed < 0 || sp.speed >= CONN.diveSpeed) return;
     this.depthBoost = true;
+    this.boostKnots = CONN.diveSpeed;
     this.boostSpeed = sp.speed;
     this.boostHeld = false;
     this.boostEndedAt = null;
     this.boostSettled = 0;
     c.resetDepthLoops();
-    c.addLog(`Maskinen går ${CONN.planesSpeed} knop under dykningen, så att djuprodren biter.`, 'info');
+    c.addLog(`Maskinen går ${CONN.diveSpeed} knop under dykningen, så att djuprodren biter.`, 'info');
   }
 
   /** Once per step: a held surface goes on up once nobody hunts the boat. */
@@ -529,7 +540,7 @@ export class Conn {
       details.push('Akterut verkar rodren omvänt, och djupbyten görs med liten vinkel.');
     } else if (this.depthBoost) {
       mode = 'boost';
-      text = `Ökar till ${CONN.planesSpeed} knop så att djuprodren biter, mot ${target}.`;
+      text = `Ökar till ${kn(this.boostKnots)} knop så att djuprodren biter, mot ${target}.`;
     } else if (Math.abs(goal - k.depth) > 1.5 && c.ap.depth) {
       mode = 'changeDepth';
       text = `${goal > k.depth ? 'Går ned' : 'Går upp'} till ${target}.`;

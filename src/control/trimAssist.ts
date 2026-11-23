@@ -122,6 +122,11 @@ export const ASSIST = {
    */
   diveHeavy: 250,
   diveMinKg: 100,
+  /**
+   * From this significant wave height [m] the boat keeps that heaviness until it hovers (`divingToStop`):
+   * the waves lift a boat near the surface. In a calm sea it sank 2 m past the target with it.
+   */
+  diveHeavySea: 2,
 } as const;
 
 /** Shallower depth limits [m] are not logged: the boat is on the surface there anyway. */
@@ -146,6 +151,8 @@ export class TrimAssist {
   private boostChangedAt = -Infinity;
   /** The compensation for this dive from the surface has been ordered (`watchDive`). */
   private divePrepared = false;
+  /** That dive is on its way to the hovering (`divingToStop`). */
+  private diveToStop = false;
 
   /** Depth without speed: the compensating tank instead of the planes. */
   readonly hover: Hover;
@@ -184,6 +191,10 @@ export class TrimAssist {
     if (ctrl.options.crew.trim) {
       this.watchDive(k.depth);
       if (this.hover.update(ASSIST.interval)) this.netFiltered = null;
+      // On the way down to a stop in a heavy sea the boat keeps the heaviness `watchDive` left until the hovering
+      // takes over (the planes carry it while there is way on): trimmed neutral, it rose 2 m when the way came
+      // off, faster than the pump could make it heavy again.
+      else if (this.divingToStop()) this.netFiltered = null;
       else this.compensate();
       this.trim(k.u);
     } else if (this.hover.active) {
@@ -318,6 +329,18 @@ export class TrimAssist {
   }
 
   /**
+   * A dive prepared by `watchDive` is still on its way to the hovering: ends once the crew hovers, or when
+   * a speed is ordered (the crew's) or the shaft turns (the player's).
+   */
+  private divingToStop(): boolean {
+    if (!this.diveToStop) return false;
+    const ctrl = this.ctrl;
+    const stopped = ctrl.ap.speed ? ctrl.setpoints.speed >= 0 && ctrl.setpoints.speed <= HOVER.maxOrderedSpeed : Math.abs(ctrl.manual.rpm) < 1;
+    if (this.hover.active || !stopped || ctrl.mainBallastEmpty()) this.diveToStop = false;
+    return this.diveToStop;
+  }
+
+  /**
    * A dive from the surface that ends stopped (the crew holds the speed at no more than
    * `HOVER.maxOrderedSpeed`, or the player has the shaft stopped): once the main ballast floods, the
    * crew pumps out what the boat would be too heavy at the target (`Simulation.heavinessAt`), less
@@ -341,6 +364,7 @@ export class TrimAssist {
       : Math.abs(ctrl.manual.rpm) < 1 && Math.abs(sim.kinematics().u) < HOVER.startSpeed;
     if (!stopped) return;
     this.divePrepared = true;
+    this.diveToStop = sim.sea.hs >= ASSIST.diveHeavySea;
     const heavy = sim.heavinessAt(goal) - ASSIST.diveHeavy;
     if (Math.abs(heavy) < ASSIST.diveMinKg) return;
     // Heavy → pump out. Compensating water has surface density.

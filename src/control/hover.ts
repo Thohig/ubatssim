@@ -8,8 +8,11 @@
  *  - outer: the depth error gives a wanted vertical speed, at most
  *    `maxRate` and smaller over the last metres;
  *  - inner: the wanted speed gives the wanted heaviness (drag ∝ w·|w|, plus a
- *    correction for the speed error), and the difference from the present
- *    net buoyancy is pumped in or out.
+ *    correction for the speed error, plus its integral), and the difference
+ *    from the present net buoyancy is pumped in or out. The integral is the
+ *    force the net buoyancy does not show: in a rough sea the waves lift a
+ *    boat near the surface (~65 kg at 13 m, Hs 3 m), and without it the boat
+ *    hung 1,5 m above the target, as heavy as the speed term asked for.
  * The pump moves only 6 l/s, so the boat must be made neutral well before
  * the target: the outer loop asks for less speed in time and the inner loop
  * pumps out while the boat still sinks. The water's layers (denser below
@@ -41,6 +44,16 @@ export const HOVER = {
   drag: 3.3e4,
   /** Extra heaviness [kg] per m/s of vertical speed short of the wanted one. */
   rateGain: 6000,
+  /** …and its integral [kg per m/s, per s]: 0,015 m/s short adds 100 kg in a minute… */
+  rateIntegral: 110,
+  /**
+   * …within this of the target [m], and while the boat hangs (the vertical speed, averaged over
+   * `steadyTau` [s] against the heave, below `steadyRate` [m/s]): on the way the pump is the limit,
+   * and an integral that ran then overshot the target by 2–13 m.
+   */
+  integralZone: 3,
+  steadyTau: 20,
+  steadyRate: 0.02,
   /** Most heaviness or lightness the crew pumps for [kg]. */
   maxHeavy: 700,
   /** A new order only when the wanted amount differs by more than this [l] from the one under way… */
@@ -58,6 +71,10 @@ export class Hover {
   /** True while the crew hovers (the depth autopilot then holds the planes at zero). */
   active = false;
   private lastOrder = -Infinity;
+  /** Heaviness [kg] for a vertical force the net buoyancy does not show (the integral of the speed error). */
+  private bias = 0;
+  /** Vertical speed averaged over `steadyTau` [m/s]. */
+  private wMean = 0;
   private settledFor = 0;
   /** The depth target the crew last said it hovers for, and whether it has said it is there. */
   private target: number | null = null;
@@ -97,6 +114,8 @@ export class Hover {
       this.settledFor = 0;
       this.lastOrder = -Infinity;
       this.target = null;
+      this.bias = 0;
+      this.wMean = 0;
     }
     if (!this.active) return false;
 
@@ -120,9 +139,13 @@ export class Hover {
     const P = sim.cfg.pumps;
     const outFactor = Math.max(P.compOutMin, 1 - Math.max(0, k.depth) / P.compDepthScale);
     const wWanted = Math.max(-HOVER.maxRate, Math.min(HOVER.maxRate, (err * outFactor) / HOVER.rateTime));
+    this.wMean += (w - this.wMean) * Math.min(1, dt / HOVER.steadyTau);
+    if (Math.abs(err) < HOVER.integralZone && Math.abs(this.wMean) < HOVER.steadyRate) {
+      this.bias = Math.max(-HOVER.maxHeavy, Math.min(HOVER.maxHeavy, this.bias + HOVER.rateIntegral * (wWanted - this.wMean) * dt));
+    }
     const heavyWanted = Math.max(
       -HOVER.maxHeavy,
-      Math.min(HOVER.maxHeavy, HOVER.drag * wWanted * Math.abs(wWanted) + HOVER.rateGain * (wWanted - w)),
+      Math.min(HOVER.maxHeavy, HOVER.drag * wWanted * Math.abs(wWanted) + HOVER.rateGain * (wWanted - w) + this.bias),
     );
     const heavy = -t.netBuoyancy / ENVIRONMENT.g;
     // Compensating water has surface density: kg → litres.
