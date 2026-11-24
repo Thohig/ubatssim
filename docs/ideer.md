@@ -94,8 +94,8 @@ Gjort: en ny fart framåt behåller den stegvisa stigningen, och stampvinkeln ne
 
 Från ett provspel av djupbyten från alla startlägen (djupmål 0–250 m, standardfart, Stopp och Marsch, lugn till grov sjö), rättat: Stopp med nytt djupmål gick först åt fel håll, svävningen sköt över korta djupbyten, skyddsnätets djupgräns gav aldrig tillbaka djupmålet, `hold` på 35 m utlöstes av fartyg 6–12 km bort och spärrade för alltid, "… är länsat." upprepades varje tidssteg efter en grundstötning, land förut ledde till yta i stället för stopp, en ubåt utan fart sjönk med en läcka till botten, nödblåsning från 50 m gav 31–36° fören upp, stora djupbyten i Sakta tog över 20 minuter, Full fram före djupordern gav ändå lyssnandet och trimmet förbereddes bara efter start och mål. Kvar:
 
-- **Gir vid land förut:** besättningen slår full back men girar inte själv; att välja sida (det djupare vattnet) kräver en blick åt sidorna som skyddsnätet inte har.
-- **Svävning uppåt på djupet:** pumpen tar 6 l/s och går långsammare ut mot havstrycket, så 200 → 100 m med Stopp tar ~15 minuter. Planraden säger tiden och att Sakta fram går fortare; en större pump eller att blåsa lite huvudballast vore nästa steg.
+- **Drivning i trånga sund:** drivvakten går rakt fram eller back, utan att gira (en gir mot strömmen svepte ubåten mot andra stranden). Med strömmen tvärs kursen hjälper det inte; då återstår varningen.
+- **Svävning på djupet:** uppåt går nu fortare (200 → 100 m ~13 min), men nedåt begränsar pumpen mot havstrycket fortfarande till 0,12 m/s; en bromssträcka efter pumpens fart åt bromshållet provades, men underskattade hur länge ubåten glider när den väl är neutral (7–17 m översläng). Planraden säger tiden och att Sakta fram går fortare.
 - **Saltsprångskiktet i Östersjön:** 13 → 90 m blir ~2,5 ton lätt under skiktet, mer än pumpen hinner med på vägen; ubåten hänger 1,5 m ovanför målet i några minuter.
 
 ## Från provspelningen (november 2026)

@@ -58,6 +58,14 @@ export const HOVER = {
   steadyRate: 0.02,
   /** Most heaviness or lightness the crew pumps for [kg]. */
   maxHeavy: 500,
+  /**
+   * …and lightness [kg], and the rate up [m/s]: going up the boat is stopped by pumping in, which the sea
+   * pressure helps, so it may rise faster than it sinks. 200 → 100 m stopped took ~17 minutes at 0,12 m/s;
+   * the same rates down overshot 60 m by 15 m.
+   */
+  maxLight: 1000,
+  maxRateUp: 0.2,
+  rateTimeUp: 150,
   /** A new order only when the wanted amount differs by more than this [l] from the one under way… */
   orderDeadband: 90,
   /** …and at least this long [s] after the last one. */
@@ -128,6 +136,19 @@ export class Hover {
     return sim.tankDefs.every((d, i) => d.kind !== 'mainBallast' || (sim.tanks[i]!.water / d.volume > 0.98 && !sim.tanks[i]!.blowOpen));
   }
 
+  /**
+   * The vertical speed wanted [m/s, positive down] for a depth error `err` [m] at `depth` [m]: the error
+   * over `rateTime`, at most `maxRate`. Going down the boat is stopped by pumping out, against the sea
+   * pressure: slower deep, so it slows down earlier there (the pump's factor). Going up it is stopped by
+   * pumping in, which the sea pressure helps: the same factor there halved the rate from 200 m for nothing
+   * (200 → 100 m stopped took ~15 minutes).
+   */
+  private wantedRate(err: number, depth: number): number {
+    const P = this.ctrl.sim.cfg.pumps;
+    const factor = err > 0 ? Math.max(P.compOutMin, 1 - Math.max(0, depth) / P.compDepthScale) : 1;
+    return Math.max(-HOVER.maxRateUp, Math.min(HOVER.maxRate, (err * factor) / (err > 0 ? HOVER.rateTime : HOVER.rateTimeUp)));
+  }
+
   /** Call once a second while the crew handles the trim; returns whether it hovers (and so compensates itself). */
   update(dt: number): boolean {
     const c = this.ctrl;
@@ -165,15 +186,13 @@ export class Hover {
     const w = k.depthRate; // positive: sinking
     // Deep down the pump empties the tank slower against the sea pressure (config pumps): the
     // boat is stopped from sinking by pumping out, so it slows down earlier on the way down.
-    const P = sim.cfg.pumps;
-    const outFactor = Math.max(P.compOutMin, 1 - Math.max(0, k.depth) / P.compDepthScale);
-    const wWanted = Math.max(-HOVER.maxRate, Math.min(HOVER.maxRate, (err * outFactor) / HOVER.rateTime));
+    const wWanted = this.wantedRate(err, k.depth);
     this.wMean += (w - this.wMean) * Math.min(1, dt / HOVER.steadyTau);
     if (Math.abs(err) < HOVER.integralZone && Math.abs(this.wMean) < HOVER.steadyRate) {
       this.bias = Math.max(-HOVER.maxHeavy, Math.min(HOVER.maxHeavy, this.bias + HOVER.rateIntegral * (wWanted - this.wMean) * dt));
     }
     const heavyWanted = Math.max(
-      -HOVER.maxHeavy,
+      -HOVER.maxLight,
       Math.min(HOVER.maxHeavy, HOVER.drag * wWanted * Math.abs(wWanted) + HOVER.rateGain * (wWanted - w) + this.bias),
     );
     const heavy = -t.netBuoyancy / ENVIRONMENT.g;

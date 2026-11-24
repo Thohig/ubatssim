@@ -78,6 +78,8 @@ export const CONN = {
    */
   bigChange: 30,
   changeSpeed: 8,
+  /** With ground ahead the crew backs full until the speed is within this of `ASSIST.shoalSpeed` [knots]. */
+  shoalBrakeMargin: 1,
   /** Seconds stalled before the crew says so (or runs the engine up). */
   stallTime: 30,
   /** Fraction of full stern planes that counts as hard over for the stall watch. */
@@ -182,6 +184,8 @@ export class Conn {
   crashStopping = false;
   /** True while a lower speed is reached by letting the way run off. */
   coasting = false;
+  /** True while ground ahead has the shaft full astern down to the shoal speed (`CONN.shoalBrakeMargin`). */
+  shoalBraking = false;
   /**
    * The surface was asked for while a corvette is on to the boat: the crew waits at periscope depth
    * instead of blowing (heard far) and goes on up once nobody hunts, or when the surface is asked for again.
@@ -411,14 +415,20 @@ export class Conn {
     // Stopp, as a crew does it: full astern until the way is almost off, then the shaft to zero.
     // Not while the engine gives the planes speed (`depthBoost`) or the boat rises: the two fought.
     const crashStop = c.ap.speed && c.setpoints.speed === 0 && !this.depthBoost && !c.ascent.active && tel.u > CONN.crashStopUntil;
-    if (this.crashStopping && !crashStop) c.autopilot.speedPid.reset();
+    // Ground ahead and much faster than the shoal speed: full astern down to it, then the speed autopilot.
+    // The autopilot backed less the nearer it came to 4 knots: from 12 knots on the surface in a sound the
+    // boat still made 5 knots when it grounded.
+    const shoalBrake =
+      !crashStop && c.ap.speed && c.options.crew.safetyNet && c.assist.shoalDanger && tel.u > (ASSIST.shoalSpeed + CONN.shoalBrakeMargin) * KNOT;
+    if ((this.crashStopping && !crashStop) || (this.shoalBraking && !shoalBrake)) c.autopilot.speedPid.reset();
     this.crashStopping = crashStop;
+    this.shoalBraking = shoalBrake;
     let target: number;
     this.coasting = false;
     if (!c.blowCommitted || !c.ap.speed) this.blowStopped = false;
     else if (input.depthRate < -CONN.blowRiseRate) this.blowStopped = true;
     if (this.blowStopped) return 0;
-    if (crashStop) {
+    if (crashStop || shoalBrake) {
       target = -astern;
     } else if (c.ap.speed) {
       const v = this.runSpeed() * KNOT;
@@ -655,6 +665,9 @@ export class Conn {
     } else if (this.crashStopping) {
       mode = 'stopping';
       text = `Stopp: full back tills farten är av (${speedNow}).`;
+    } else if (this.shoalBraking) {
+      mode = 'stopping';
+      text = `Grunt förut: full back ned till ${kn(ASSIST.shoalSpeed)} knop (${speedNow}).`;
     } else if (this.coasting) {
       mode = 'coasting';
       text = `Låter farten avta mot ${kn(this.runSpeed())} knop.`;

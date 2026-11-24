@@ -127,6 +127,21 @@ export const ASSIST = {
    */
   wallTime: 50,
   wallMargin: 80,
+  /** Measured stopping distance ≈ `wallTime`·(u − `stopOffset`) [m]; with `bowAhead` [m] for the bow. */
+  stopOffset: 1,
+  bowAhead: 60,
+  /**
+   * A boat with (almost) no way through the water drifting with the current: the ground along its drift
+   * over the ground, `driftTime` s of it (at least `driftLook` m), is checked for less than `keelMargin`
+   * under the keel. Stopped in a sound the boat drifted onto the rocks at 0.2 knots and nobody said a word.
+   */
+  driftSpeed: 1,
+  driftTime: 120,
+  driftLook: 50,
+  /** The crew goes ahead or astern away from the drift at this speed [knots] if it handles the speed and has it stopped. */
+  driftStem: 2,
+  /** …for this long [s], then stops again (re-armed at once: it drifts back, it goes again). */
+  driftAway: 60,
   /** The crew turns away from it this much [deg], to the side with the deeper water (`turnAway`). */
   wallTurn: 60,
   /** Seconds without danger before the shoal warning re-arms (and the crew's speed limit for it ends). */
@@ -173,6 +188,10 @@ export class TrimAssist {
   private keelArmed = true;
   private shoalArmed = true;
   private wallArmed = true;
+  private driftArmed = true;
+  private driftSince = -Infinity;
+  /** The speed the drift watch ordered and when, to stop again after `ASSIST.driftAway` s. */
+  private driftOrder: { knots: number; at: number } | null = null;
   private wallSince = -Infinity;
   private shoalSince = -Infinity;
   private limiting = false;
@@ -358,11 +377,15 @@ export class TrimAssist {
    */
   private wallWithin(limits: { distance: number; limit: number; wall: boolean }[], u: number, reach: number): boolean {
     const depth = this.ctrl.sim.y[2]!;
-    if (depth < ASSIST.minDepth) return false;
+    // On the surface only faster than the shoal speed, and only the stopping distance itself, without the
+    // margin for the look-ahead's step: 12 knots on the surface into the archipelago slowed to 4 and ran
+    // aground at 4, but piloting through a sound at 4 knots the shore is often ahead before a turn.
+    const close = Math.max(0, ASSIST.wallTime * u - ASSIST.wallTime * ASSIST.stopOffset) + ASSIST.bowAhead;
     const fast = u > (ASSIST.shoalSpeed + 1) * KNOT;
+    if (depth < ASSIST.minDepth) return fast && limits.some((x) => x.distance > 0 && x.distance <= Math.min(reach, close) && x.wall);
     const shoal = ASSIST.shoalSpeed * KNOT;
     const unclimbable = (x: { distance: number; limit: number }) => depth - x.limit > ASSIST.climbRate * (x.distance / shoal) + ASSIST.keelMargin;
-    return limits.some((x) => x.distance > 0 && x.distance <= reach && ((fast && x.wall) || unclimbable(x)));
+    return limits.some((x) => x.distance > 0 && x.distance <= reach && (x.wall ? fast : unclimbable(x)));
   }
 
   /**
@@ -401,6 +424,58 @@ export class TrimAssist {
     return { side: right ? 'styrbord' : 'babord', heading: ((deg % 360) + 360) % 360 };
   }
 
+  /** See `ASSIST.driftSpeed`. Once per drift (re-armed `shoalRearm` s after the danger is gone). */
+  private watchDrift(depth: number): void {
+    const ctrl = this.ctrl;
+    const sim = ctrl.sim;
+    const k = sim.kinematics();
+    const o = this.driftOrder;
+    if (o && (!ctrl.ap.speed || ctrl.setpoints.speed !== o.knots)) this.driftOrder = null; // a new speed order
+    else if (o && sim.t - o.at >= ASSIST.driftAway) {
+      this.driftOrder = null;
+      this.driftArmed = true;
+      ctrl.addLog('Ubåten är fri från grundet. Stopp i maskin.', 'info', 'assist');
+      ctrl.submit({ kind: 'setSpeed', knots: 0 }, 'assist');
+      return;
+    }
+    if (Math.abs(k.u) > ASSIST.driftSpeed) {
+      if (sim.t - this.driftSince > ASSIST.shoalRearm) this.driftArmed = true;
+      return;
+    }
+    const t = sim.telemetry();
+    const sog = t.speedOverGround;
+    let danger = false;
+    if (sog > 0.05 && !t.grounded) {
+      const range = Math.max(ASSIST.driftLook, sog * ASSIST.driftTime);
+      const keel = depth + sim.cfg.hull.radius;
+      for (let d = ASSIST.lookAheadStep / 2; d <= range + 1e-9 && !danger; d += ASSIST.lookAheadStep / 2) {
+        const seabed = sim.ground(sim.y[0]! + d * Math.cos(t.courseOverGround), sim.y[1]! + d * Math.sin(t.courseOverGround));
+        // Under water: less than the keel margin under the keel there; on the surface: the shore.
+        danger = depth >= ASSIST.minDepth ? seabed - keel < ASSIST.keelMargin / 2 : seabed < this.shoreDepth();
+      }
+    }
+    if (!danger) {
+      if (sim.t - this.driftSince > ASSIST.shoalRearm) this.driftArmed = true;
+      return;
+    }
+    this.driftSince = sim.t;
+    if (!this.driftArmed) return;
+    this.driftArmed = false;
+    const drift = String(Math.round(t.courseOverGround / (Math.PI / 180)) % 360).padStart(3, '0');
+    const stopped = ctrl.ap.speed && ctrl.setpoints.speed >= 0 && ctrl.setpoints.speed <= HOVER.maxOrderedSpeed;
+    if (stopped) {
+      // Ahead or astern, away from the ground it drifts onto, without turning: turned into the current in a
+      // narrow sound the boat swept onto the other shore.
+      const rel = Math.cos(t.courseOverGround - k.heading);
+      const knots = rel > 0 ? -ASSIST.driftStem : ASSIST.driftStem;
+      ctrl.addLog(`Varning: ubåten driver mot grundet i ${drift}°. Besättningen går ${knots < 0 ? 'back' : 'fram'} ${ASSIST.driftStem} knop.`, 'error', 'assist');
+      ctrl.submit({ kind: 'setSpeed', knots }, 'assist');
+      this.driftOrder = { knots, at: sim.t };
+    } else {
+      ctrl.addLog(`Varning: ubåten driver mot grundet i ${drift}°. Ge fart bort från det.`, 'error', 'assist');
+    }
+  }
+
   /** Ground ahead now or less than `shoalRearm` s ago: the crew keeps under `shoalSpeed` (conn.ts). */
   get shoalAhead(): boolean {
     return this.ctrl.sim.t - this.shoalSince <= ASSIST.shoalRearm;
@@ -424,6 +499,7 @@ export class TrimAssist {
     const all = this.limitsAhead();
     this.watchWall(all);
     this.watchShoal(all, depth);
+    this.watchDrift(depth);
     const limit = this.passable(all).reduce((m, x) => Math.min(m, x.limit), Infinity);
     if (this.limitedFrom !== null && (!ctrl.ap.depth || ctrl.setpoints.depth !== this.limitedTo)) this.limitedFrom = null;
     if (ctrl.ap.depth && ctrl.setpoints.depth > limit) {

@@ -54,7 +54,7 @@ describe('sinking without way', () => {
     c.submit({ kind: 'setSpeed', knots: 0 }, 'touch');
     c.submit({ kind: 'setDepth', depth: 30 }, 'touch');
     let deepest = 0;
-    for (let i = 0; i < 1000 * 100; i++) {
+    for (let i = 0; i < 1200 * 100; i++) {
       c.step();
       deepest = Math.max(deepest, c.sim.y[2]!);
     }
