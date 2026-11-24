@@ -23,6 +23,7 @@
  */
 import { DT } from '../sim/simulation';
 import type { Controller } from './controller';
+import type { SonarContact } from './sonar';
 import { TELEGRAPH } from './crew';
 import { HOVER } from './hover';
 
@@ -42,8 +43,16 @@ export const ASCENT = {
   listenTime: 60,
   /** Within this of the levelling depth [m] the listening starts. */
   levelled: 2,
-  /** A contact this strong [dB of signal excess] is close: the crew holds at the levelling depth. */
+  /** A contact this strong [dB of signal excess]… */
   closeExcess: 25,
+  /**
+   * …and nearer than this [m] is close: the crew holds at the levelling depth. The excess alone said
+   * nothing of the range (a freighter 12 km off gave 35 dB), and every ascent in free play waited at
+   * 35 m for good. The range stands for the sonar operator's estimate from the signal and the class.
+   */
+  closeRange: 3000,
+  /** While holding, the crew listens again this often [s] and goes on up once nothing is close. */
+  holdRecheck: 30,
   /** The final part is done when the depth has been within 1 m of the target this long [s]. */
   settle: 20,
 } as const;
@@ -62,6 +71,7 @@ export class Ascent {
   private target = 0;
   private listenUntil = 0;
   private listenHeading = 0;
+  private nextCheck = 0;
   private settled = 0;
 
   constructor(private readonly ctrl: Controller) {}
@@ -170,12 +180,22 @@ export class Ascent {
       c.addLog(`Planar ut på ${ASCENT.levelDepth} m i ${ASCENT.listenSpeed} knop och lyssnar runt.`, 'info');
       return;
     }
+    if (this.phase === 'hold' && sim.t >= this.nextCheck) {
+      this.nextCheck = sim.t + ASCENT.holdRecheck;
+      if (!this.near().length) {
+        this.phase = 'final';
+        this.settled = 0;
+        c.addLog(`Sonar: ingen kontakt nära längre. Går upp ${this.target < 5 ? 'till ytan' : `till ${this.target} m`} i ${ASCENT.listenSpeed} knop.`, 'info');
+      }
+      return;
+    }
     if (this.phase === 'listen' && sim.t >= this.listenUntil) {
-      const near = c.sonar.contacts.filter((x) => !x.bio && x.excess > ASCENT.closeExcess);
+      const near = this.near();
       if (near.length) {
         this.phase = 'hold';
+        this.nextCheck = sim.t + ASCENT.holdRecheck;
         const b = near.map((x) => `${x.label} i ${String(Math.round(x.bearing) % 360).padStart(3, '0')}°`).join(', ');
-        c.addLog(`Sonar: stark kontakt ${b}. Besättningen stannar på ${ASCENT.levelDepth} m. Ge en djuporder för att gå upp ändå.`, 'error');
+        c.addLog(`Sonar: stark kontakt ${b}. Besättningen stannar på ${ASCENT.levelDepth} m tills den har passerat. Ge en djuporder för att gå upp ändå.`, 'error');
         return;
       }
       this.go(true);
@@ -189,6 +209,17 @@ export class Ascent {
       this.settled = there ? this.settled + DT : 0;
       if (this.settled >= (surface ? 5 : ASCENT.settle)) this.end(true);
     }
+  }
+
+  /** The ships heard close by (not whales or fish). */
+  private near(): SonarContact[] {
+    const c = this.ctrl;
+    const [n, e] = [c.sim.y[0]!, c.sim.y[1]!];
+    return c.sonar.contacts.filter((x) => {
+      if (x.bio || x.excess <= ASCENT.closeExcess) return false;
+      const v = c.world.vessels.find((w) => w.def.id === x.vesselId);
+      return v !== undefined && !v.state.sinking && Math.hypot(v.state.north - n, v.state.east - e) < ASCENT.closeRange;
+    });
   }
 
   /** On up to the target. */

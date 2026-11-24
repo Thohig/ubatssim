@@ -172,6 +172,14 @@ export class Conn {
   /** The shaft stopped during an emergency blow rising fast (`CONN.blowRiseRate`). */
   blowStopped = false;
 
+  /**
+   * The depth where the crew began to stop for hovering (`Hover.coming`): the planes hold it while the way
+   * comes off, and the compensation changes the depth afterwards. Chasing a far target with hard-over planes
+   * as the speed fell, the boat went the wrong way first (below the planes' reversal speed their lift moves
+   * the whole boat: 7 m up for a target 10 m down) and came to the hovering 7° bow down.
+   */
+  private stopDepth: number | null = null;
+
   private boostSettled = 0;
   /** The ordered speed a boost started at: a new speed order ends it (full ahead, then Stopp, is a full stop). */
   private boostSpeed = 0;
@@ -304,10 +312,11 @@ export class Conn {
     // Hovering (hover.ts): without speed the planes do nothing, so they rest at zero and the loops do not wind up.
     const planesRest = this.surfaceHold || this.hovering;
     if (planesRest) c.resetDepthLoops();
+    this.stopDepth = !planesRest && c.assist.hover.coming() ? (this.stopDepth ?? tel.depth) : null;
     sim.commands.sternPlanes = planesRest
       ? 0
       : c.ap.depth
-        ? c.autopilot.planes(this.depthGoal, input, DT, c.ascent.maxPitch() ?? undefined, this.diveLimit(tel))
+        ? c.autopilot.planes(this.stopDepth ?? this.depthGoal, input, DT, c.ascent.maxPitch() ?? undefined, this.diveLimit(tel))
         : c.manual.planes * DEG;
     // Near the surface, submerged, the rudder is gentler: a hard turn heels the boat and the sail breaks the surface.
     const gentle = !this.surfaceHold && tel.depth > CONN.diveTargetDepth && tel.depth < CONN.gentleDepth;

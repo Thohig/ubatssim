@@ -84,15 +84,24 @@ Knäppande räkor, som i förslaget skulle ge biologiskt brus på grunt vatten, 
 
 ## Stigning och dykning
 
-Gjort: en ny fart framåt behåller den stegvisa stigningen, och stampvinkeln nedåt begränsas efter fart, botten och djup (README, `docs/fysikmodell.md`). Kvar:
+Gjort: en ny fart framåt behåller den stegvisa stigningen, och stampvinkeln nedåt begränsas efter fart, botten och djup (README, `docs/fysikmodell.md`). `hold` släpper av sig själv när fartyget passerat (stark kontakt räknas bara inom 3 km). Kvar:
 
 - **Yta via periskopdjup:** från djupare än 15 m planar besättningen ut på periskopdjup, hissar periskopet och tittar runt ~30 s innan den blåser; ett fartyg nära håller den där, Yta igen hoppar över. Ersätter specialfallet `surfaceHeld`. Ändrar troligen determinismens referens.
-- **`hold` släpper av sig själv:** lyssna igen var 60:e s på 35 m och gå upp när ingen kontakt är starkare än 25 dB.
 - **En tröskel:** stigningen startar i dag först djupare än 40 m men planar ut på 35 m, så från 36–40 m lyssnar ingen. `startBelow` 37 m.
 - **Planraden:** säg hur länge besättningens fart gäller ("6 kn tills 16 m") och vilket mål knappen Djup går till.
 - **`STILL_HINT` på alla djup:** i dag bara djupare än 40 m; på 20 m med varvtal 0 och Yta säger ingen något förrän stoppvakten efter 30 s.
 - **Nödblåsningen från stort djup:** ett mål på 320 m får skyddsnätet att nödblåsa på ~260 m, och på väg upp tippar fören till −15° (8 knop) eller −30° (Full fram) och farten faller nästan till noll.
 - **Långsam dykning i Sakta:** 4 knop sjunker bara ~0,18 m/s trots −11°, så 13 → 100 m tar över 8 minuter. Besättningen kunde öka till 8 knop för stora djupbyten, som fartökningen för djuprodren.
+
+Från ett provspel av djupbyten från alla startlägen (djupmål 0–250 m, standardfart, Stopp och Marsch, lugn till grov sjö). Rättat: Stopp med nytt djupmål gick först åt fel håll, svävningen sköt över korta djupbyten, skyddsnätets djupgräns gav aldrig tillbaka djupmålet, `hold` på 35 m utlöstes av fartyg 6–12 km bort och spärrade för alltid, och "… är länsat." upprepades varje tidssteg efter en grundstötning. Kvar:
+
+- **Brant vägg förut:** vid en fjordvägg går gränsen från 66 m till 0 på 8 s. Skyddsnätet sätter då djupmålet 0 (huvudballasten blåses på 15 m, tornet bröt ytan) och saktar in till 4 knop, men från 12 knop gick ubåten fortfarande 5,5 knop när den stötte 74 s senare: fartautopiloten backar allt mindre ju närmare 4 knop den kommer. Land förut borde ge Stopp (full back) och en gir, inte yta.
+- **Sjunker med läckan:** efter en grundstötning slår besättningen Stopp. Med läckan och den sjunkande ubåten (tung, 0,3 m/s) gör sedan ingen något förrän skyddsnätet på 255 m, och ubåten la sig på botten 120 m under djupmålet. Djupstoppvakten väntar bara på stillastående. Att sjunka mer än ~10 m förbi målet utan fart borde ge fart framåt (eller blåsning), som vid en läcka.
+- **Nödblåsning grunt:** från 50 m i Östersjön reser sig fören 31° (36° med besättningens fart), från 100 m på Västkusten 17–19°. Att blåsa aktern tidigare (vid 10–15° i stället för efter 15 s) gav bara 26–35°: vinkeln kommer från den snabba stigningen. Pröva djuprodren fullt dyk under blåsningen, eller blås bara fören till halva.
+- **Svävning på djupet:** att stiga med Stopp från 200 m går ~0,13 m/s och pumpen går långsamt ut mot havstrycket: 200 → 180 m hann inte på 10 minuter, 200 → 100 m tar ~15 minuter. Planraden kunde säga hur lång tid det tar, och fråga om besättningen får ta fart.
+- **Full fram före djupordern:** Full fram avbryter en stigning, men Full fram först och sedan djupmålet 30 m från 200 m gör ändå stigningen med lyssnandet i 4 knop.
+- **Sista biten i 4 knop:** stigningens `final` från 35 till 13 m tar ~4 minuter (0,09 m/s). `CONN.periscopeSpeed`, 6 knop, räcker ändå under periskopdjupet.
+- **Förberedd trim vid stora djupbyten:** `anticipate` jämför bara start och mål (13 → 250 m på Atlanten: +64 kg, under gränsen), så ubåten är 260 kg lätt i språngskiktet på vägen ned och rodren bär det.
 
 ## Från provspelningen (november 2026)
 

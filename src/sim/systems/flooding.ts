@@ -51,6 +51,9 @@ export interface DamageEvent {
   cause?: 'grounding' | 'collision' | 'depth' | 'charge';
 }
 
+/** Water [m^3] a compartment must have held before it is reported pumped out (`DamageEvent` 'pumpedOut'). */
+const REPORT_WET = 0.05;
+
 export class Flooding implements Subsystem {
   readonly name = 'flooding';
   readonly compartments: CompartmentFlood[];
@@ -67,6 +70,12 @@ export class Flooding implements Subsystem {
   private readonly defs: readonly CompartmentDef[];
   private wasGrounded = false;
   private events: DamageEvent[] = [];
+  /**
+   * Per compartment: it has had a hole, or held `REPORT_WET` of water, since it was last reported dry. A
+   * trickle through a door into a dry neighbour, pumped out in the same step, is not news: reported every
+   * step it filled the log.
+   */
+  private wet: boolean[];
 
   constructor(private readonly sim: Simulation) {
     const cfg = sim.cfg;
@@ -81,6 +90,7 @@ export class Flooding implements Subsystem {
       inflow: 0,
     }));
     this.doors = cfg.compartments.slice(1).map(() => 0);
+    this.wet = cfg.compartments.map(() => false);
     this.doorFlow = this.doors.map(() => 0);
   }
 
@@ -228,6 +238,7 @@ export class Flooding implements Subsystem {
 
     // The drain pump: the compartment it is told to take, else the wettest, first.
     const capacity = dmg.drainRate * Math.max(0, 1 - Math.max(0, depth) / dmg.drainMaxDepth) * dt;
+    for (let k = 0; k < this.compartments.length; k++) if (this.compartments[k]!.water >= REPORT_WET || this.compartments[k]!.holeArea > 0) this.wet[k] = true;
     const wet = this.compartments
       .filter((c) => c.water > 0)
       .sort((a, b) => (a.id === this.drainTarget ? -1 : b.id === this.drainTarget ? 1 : b.water - a.water));
@@ -240,7 +251,11 @@ export class Flooding implements Subsystem {
         left -= dv;
         if (c.water <= 1e-6) {
           c.water = 0;
-          if (c.holeArea === 0) this.events.push({ kind: 'pumpedOut', compartment: c.id });
+          const k = this.compartments.indexOf(c);
+          if (c.holeArea === 0 && this.wet[k]) {
+            this.wet[k] = false;
+            this.events.push({ kind: 'pumpedOut', compartment: c.id });
+          }
         }
         if (left <= 0) break;
       }

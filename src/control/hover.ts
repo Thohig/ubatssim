@@ -38,7 +38,9 @@ export const HOVER = {
   /** Only fully submerged, below this depth [m], with the target below it too. */
   minDepth: 8,
   /** Wanted vertical speed: depth error / `rateTime` [s], at most `maxRate` [m/s]. */
-  rateTime: 100,
+  // 100 s and 700 kg overshot a short change by 7 m (13 → 30 m): the pump could not take the heaviness
+  // back before the target. Measured over 13 → 20, 30, 60 m and 50 → 60 m (the halocline): within 1 m.
+  rateTime: 120,
   maxRate: 0.12,
   /** Heaviness [kg] for a steady vertical speed w [m/s]: `drag`·w·|w| (measured: 500 kg ≈ 0,13 m/s, 700 kg ≈ 0,17 m/s). */
   drag: 3.3e4,
@@ -55,7 +57,7 @@ export const HOVER = {
   steadyTau: 20,
   steadyRate: 0.02,
   /** Most heaviness or lightness the crew pumps for [kg]. */
-  maxHeavy: 700,
+  maxHeavy: 500,
   /** A new order only when the wanted amount differs by more than this [l] from the one under way… */
   orderDeadband: 90,
   /** …and at least this long [s] after the last one. */
@@ -102,6 +104,22 @@ export class Hover {
     if (t.grounded || t.submergedFraction < 0.999 || t.depth < HOVER.minDepth) return false;
     if (!t.tanks.every((x) => x.kind !== 'mainBallast' || (x.fill > 0.98 && !x.blowOpen))) return false;
     return Math.abs(t.u) < (this.active ? HOVER.endSpeed : HOVER.startSpeed);
+  }
+
+  /**
+   * The crew is stopping to hover: it would hover once the way is off (`wanted` but for the speed through
+   * the water). Cheap, for every step (conn.ts): no telemetry.
+   */
+  coming(): boolean {
+    const c = this.ctrl;
+    if (this.active || !c.options.crew.trim || !c.ap.depth || c.surfaceHold || c.ascent.active || c.depthBoost) return false;
+    const stopped = c.ap.speed
+      ? c.setpoints.speed >= 0 && c.setpoints.speed <= HOVER.maxOrderedSpeed && c.setpoints.depth >= HOVER.minDepth
+      : Math.abs(c.manual.rpm) < 1;
+    if (!stopped) return false;
+    const sim = c.sim;
+    if (sim.y[2]! < HOVER.minDepth) return false;
+    return sim.tankDefs.every((d, i) => d.kind !== 'mainBallast' || (sim.tanks[i]!.water / d.volume > 0.98 && !sim.tanks[i]!.blowOpen));
   }
 
   /** Call once a second while the crew handles the trim; returns whether it hovers (and so compensates itself). */

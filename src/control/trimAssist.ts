@@ -107,6 +107,8 @@ export const ASSIST = {
    */
   climbRate: 0.12,
   shoalSpeed: 4,
+  /** The safety net gives a limited depth target back once the limit is this much deeper [m]. */
+  restoreMargin: 5,
   /** Seconds without danger before the shoal warning re-arms (and the crew's speed limit for it ends). */
   shoalRearm: 30,
   /** On the surface: ground ahead with less than this under the keel [m] is dangerous. */
@@ -147,6 +149,13 @@ export class TrimAssist {
   private shoalArmed = true;
   private shoalSince = -Infinity;
   private limiting = false;
+  /**
+   * The depth target the safety net limited (the player's), and the setpoint it last wrote: once the
+   * water is deeper again the boat goes back to it. Before, the limited setpoint stayed: 150 m ordered
+   * over the shelf edge was 133 m for good, over 1 000 m of water. A new depth order forgets it.
+   */
+  private limitedFrom: number | null = null;
+  private limitedTo = 0;
   private lastBoost = false;
   private boostChangedAt = -Infinity;
   /** The compensation for this dive from the surface has been ordered (`watchDive`). */
@@ -281,13 +290,31 @@ export class TrimAssist {
     const limits = this.limitsAhead();
     const limit = limits.reduce((m, x) => Math.min(m, x.limit), Infinity);
     this.watchShoal(limits, depth);
+    if (this.limitedFrom !== null && (!ctrl.ap.depth || ctrl.setpoints.depth !== this.limitedTo)) this.limitedFrom = null;
     if (ctrl.ap.depth && ctrl.setpoints.depth > limit) {
+      this.limitedFrom ??= ctrl.setpoints.depth;
+      this.limitedTo = limit;
       ctrl.setpoints.depth = limit;
       // Surfaced (or aiming for the surface) the limit changes nothing worth a line.
       if (!this.limiting && limit >= DIVE_LIMIT_NOTICE) ctrl.addLog(`Assistent: grunt vatten, djupet begränsas till ${limit} m.`, 'info', 'assist');
       this.limiting = true;
     } else if (!ctrl.ap.depth || ctrl.setpoints.depth < limit - 5) {
       this.limiting = false;
+    }
+    // Deeper water again: back towards the ordered depth, as deep as the limit allows. Not once the limit
+    // brought the target up to the surface (the main ballast is blown then: a new order dives again).
+    if (this.limitedFrom !== null && ctrl.setpoints.depth < limit - ASSIST.restoreMargin) {
+      if (this.limitedTo < DIVE_LIMIT_NOTICE || ctrl.mainBallastEmpty() || sim.tanks.some((t) => t.blowOpen)) {
+        this.limitedFrom = null;
+      } else {
+        const back = Math.min(this.limitedFrom, limit);
+        ctrl.setpoints.depth = back;
+        this.limitedTo = back;
+        if (back === this.limitedFrom) {
+          this.limitedFrom = null;
+          ctrl.addLog(`Assistent: djupare vatten, tillbaka till ${back} m.`, 'info', 'assist');
+        }
+      }
     }
 
     // Keel warning.
