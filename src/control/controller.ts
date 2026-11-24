@@ -39,6 +39,14 @@ const DIVE_TARGET_DEPTH = CONN.diveTargetDepth;
 const STAGED_BLOW_DEPTH = 20;
 const STAGED_BLOW_DELAY = 15;
 /**
+ * The delay is shorter nearer the surface [s per m of depth, at least `STAGED_BLOW_DELAY_MIN`]: there
+ * the air expands fast, and 15 s from 50 m in the Baltic emptied the forward tanks while the after ones
+ * were still 84 % full (the bow came up 31–36°; now 11°). Shutting the forward blow when the bow was high
+ * did not help: the air already in the tank expands on.
+ */
+const STAGED_BLOW_DELAY_PER_M = 0.075;
+const STAGED_BLOW_DELAY_MIN = 3;
+/**
  * A normal ascent to the surface: deeper than this [m] the boat comes up on the
  * planes with the main ballast flooded, and the crew blows it only here (a blow
  * from depth is an emergency blow, the order "ytläge").
@@ -320,6 +328,7 @@ export class Controller {
 
     this.conn.steer(tel, input);
     this.conn.watchDepthStall(tel, this.lastGroundedAt);
+    this.conn.watchSinking(tel);
     this.watchAwash(tel);
     this.watchAscent(tel);
     this.conn.watchHeld();
@@ -553,6 +562,12 @@ export class Controller {
     });
   }
 
+  /** @internal Main ballast flooded (over 98 %), not blowing: the boat dives on its planes and compensation. */
+  mainBallastFull(): boolean {
+    const sim = this.sim;
+    return sim.tankDefs.every((d, i) => d.kind !== 'mainBallast' || (sim.tanks[i]!.water / d.volume > 0.98 && !sim.tanks[i]!.blowOpen));
+  }
+
   /** Sim time of the last "the main ballast is empty" reminder (player handling the ballast). */
   private lastBallastHint = -Infinity;
   /** A shallow target was set below `SURFACE_BLOW_DEPTH`: blow (or remind) once the boat is up there. */
@@ -705,12 +720,17 @@ export class Controller {
    * `STAGED_BLOW_DELAY` s later (see `STAGED_BLOW_DEPTH`). Returns true for a
    * staged blow.
    */
+  /** Seconds between the forward and the after blow from this depth [m]. */
+  stagedBlowDelay(depth: number): number {
+    return Math.max(STAGED_BLOW_DELAY_MIN, Math.min(STAGED_BLOW_DELAY, STAGED_BLOW_DELAY_PER_M * depth));
+  }
+
   blowMainBallast(): boolean {
     const sim = this.sim;
     this.shutVentsWhenFull = false;
     if (sim.kinematics().depth > STAGED_BLOW_DEPTH) {
       sim.setBlow(true, this.mainBallastIds(true));
-      this.aftBlowAt = sim.t + STAGED_BLOW_DELAY;
+      this.aftBlowAt = sim.t + this.stagedBlowDelay(sim.y[2]!);
       this.blowCommitted = true;
       this.ascent.cancel();
       return true;

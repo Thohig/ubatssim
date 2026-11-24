@@ -70,6 +70,8 @@ describe('a leak after a grounding', () => {
   // time was logged: hundreds of "… är länsat." a second, which pushed the grounding out of the log.
   it('each compartment is reported pumped out once', () => {
     const { c, send, run } = play('fjord', 'sea');
+    // Without the safety net, which now stops short of the fjord's side (vertical.long.test.ts).
+    send({ kind: 'crew', system: 'safetyNet', crew: false });
     send({ kind: 'setSpeed', knots: 12 });
     send({ kind: 'setDepth', depth: 13 });
     run(700);

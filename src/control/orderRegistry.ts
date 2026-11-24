@@ -77,6 +77,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       c.setpoints.speed = o.knots;
       c.ap.speed = true;
       c.ascent.onSpeedOrder();
+      c.conn.onSpeedOrder();
     },
   },
   adjustSpeed: {
@@ -86,6 +87,7 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       c.setpoints.speed = Math.max(LIMITS.minSpeed, Math.min(LIMITS.maxSpeed, base + o.deltaKnots));
       c.ap.speed = true;
       c.ascent.onSpeedOrder();
+      c.conn.onSpeedOrder();
     },
   },
   setRpm: {
@@ -219,7 +221,8 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
   },
   surface: {
     apply: (c) => {
-      if (c.blowMainBallast()) c.afterAck.push('Huvudballasten för blåses först, så att fören kommer upp. Akter om 15 s.');
+      const delay = Math.round(c.stagedBlowDelay(c.sim.y[2]!));
+      if (c.blowMainBallast()) c.afterAck.push(`Huvudballasten för blåses först, så att fören kommer upp. Akter om ${delay} s.`);
       if (c.ap.depth) c.setpoints.depth = 0;
     },
   },

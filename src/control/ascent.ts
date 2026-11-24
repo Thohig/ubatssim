@@ -11,7 +11,8 @@
  *            (clearing the baffles);
  *  - hold:   a strong contact (a ship close by): stay at `LEVEL_DEPTH` and
  *            say so; a new depth order goes on up;
- *  - final:  the last part at `LISTEN_SPEED`, then the player's speed again.
+ *  - final:  the last part at `finalSpeed` (6 knots, 4 when a corvette hunts),
+ *            then the player's speed again.
  *            For the surface the main ballast is blown at 15 m as before.
  *
  * Main ballast is not used to rise: speed and planes are. A new speed ahead
@@ -38,6 +39,11 @@ export const ASCENT = {
   startBelow: 40,
   riseSpeed: 8,
   listenSpeed: 4,
+  /**
+   * The last part up [knots], quiet: `listenSpeed`. At 4 knots 35 → 13 m took four minutes (0,09 m/s);
+   * 6 is the crew's limit near periscope depth anyway (`CONN.periscopeSpeed`).
+   */
+  finalSpeed: 6,
   risePitch: 10 * DEG,
   listenTurn: 60,
   listenTime: 60,
@@ -94,8 +100,14 @@ export class Ascent {
   speedGoal(setpoint: number): number | null {
     // A corvette on to the boat: the crew rises slowly and quietly (conn.ts).
     if (this.phase === 'rise') return Math.max(setpoint, this.ctrl.conn.quiet ? ASCENT.listenSpeed : ASCENT.riseSpeed);
+    if (this.phase === 'final') return this.finalKnots();
     if (this.phase) return ASCENT.listenSpeed;
     return null;
+  }
+
+  /** The speed of the last part up [knots]: slower with a corvette on to the boat. */
+  private finalKnots(): number {
+    return this.ctrl.conn.quiet ? ASCENT.listenSpeed : ASCENT.finalSpeed;
   }
 
   /** Largest bow-up angle for the depth autopilot [rad], or null for its own. */
@@ -129,6 +141,8 @@ export class Ascent {
     }
     // An emergency blow from the deep is already on its way up: no levelling off or listening on top of it.
     if (c.blowCommitted) return;
+    // Full ahead is an order to go now (it cuts an ascent short too): straight up, without the steps.
+    if (c.setpoints.speed >= FULL_AHEAD) return;
     const depth = c.sim.kinematics().depth;
     if (depth <= ASCENT.startBelow) return;
     this.target = target;
@@ -185,7 +199,7 @@ export class Ascent {
       if (!this.near().length) {
         this.phase = 'final';
         this.settled = 0;
-        c.addLog(`Sonar: ingen kontakt nära längre. Går upp ${this.target < 5 ? 'till ytan' : `till ${this.target} m`} i ${ASCENT.listenSpeed} knop.`, 'info');
+        c.addLog(`Sonar: ingen kontakt nära längre. Går upp ${this.target < 5 ? 'till ytan' : `till ${this.target} m`} i ${this.finalKnots()} knop.`, 'info');
       }
       return;
     }
@@ -227,7 +241,7 @@ export class Ascent {
     this.phase = 'final';
     this.settled = 0;
     const where = this.target < 5 ? 'till ytan' : `till ${this.target} m`;
-    this.ctrl.addLog(listened ? `Inga kontakter nära. Går upp ${where} i ${ASCENT.listenSpeed} knop.` : `Går upp ${where} i ${ASCENT.listenSpeed} knop.`, 'info');
+    this.ctrl.addLog(listened ? `Inga kontakter nära. Går upp ${where} i ${this.finalKnots()} knop.` : `Går upp ${where} i ${this.finalKnots()} knop.`, 'info');
   }
 
   /**
@@ -239,7 +253,7 @@ export class Ascent {
     const c = this.ctrl;
     this.phase = null;
     if (!done && !quiet) c.addLog(CANCELLED, 'info');
-    if (done && c.ap.speed && c.setpoints.speed !== ASCENT.listenSpeed) {
+    if (done && c.ap.speed && c.setpoints.speed !== this.finalKnots()) {
       c.addLog(`Maskinen går tillbaka till ${kn(c.setpoints.speed)} knop.`, 'info');
     }
   }

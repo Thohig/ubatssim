@@ -194,13 +194,36 @@ describe('the conn: trim ahead of a depth change', () => {
 });
 
 describe('the conn: plan line', () => {
+  it('a large depth change at a slow speed goes at 8 knots, then back to the ordered speed', () => {
+    const c = game({ depth: 60, speed: 4 * KN, heading: 0 });
+    c.submit({ kind: 'setSpeed', knots: 4 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: 120 }, 'touch');
+    run(c, 3);
+    expect(c.log.some((e) => e.text === 'Djupbyte på 60 m: maskinen går 8 knop tills djupet är nått.')).toBe(true);
+    expect(c.conn.plan().mode).toBe('changeDepth');
+    expect(c.conn.plan().text).toBe('Går ned till 120 m i 8 knop.');
+    expect(c.crewSpeed()).toEqual({ knots: 8, reason: 'djupbyte' });
+    run(c, 300);
+    expect(c.depthBoost).toBe(false);
+    expect(Math.abs(c.sim.y[2]! - 120)).toBeLessThan(1);
+    expect(c.log.some((e) => e.text === 'Djupet nått. Maskinen går tillbaka till 4 knop.')).toBe(true);
+  });
+
+  it('not quietly, nor for a short change', () => {
+    const c = game({ depth: 60, speed: 4 * KN, heading: 0 });
+    c.submit({ kind: 'setSpeed', knots: 4 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: 85 }, 'touch');
+    run(c, 1);
+    expect(c.depthBoost).toBe(false);
+  });
+
   it('names the manoeuvre', () => {
     const c = game({ depth: 60, speed: 6 * KN, heading: 0 });
     c.submit({ kind: 'setSpeed', knots: 6 }, 'touch');
-    c.submit({ kind: 'setDepth', depth: 100 }, 'touch');
+    c.submit({ kind: 'setDepth', depth: 85 }, 'touch');
     run(c, 3);
     expect(c.conn.plan().mode).toBe('changeDepth');
-    expect(c.conn.plan().text).toMatch(/^Går ned till 100 m/);
+    expect(c.conn.plan().text).toMatch(/^Går ned till 85 m/);
     c.submit({ kind: 'setSpeed', knots: 0 }, 'touch');
     run(c, 1);
     expect(c.conn.plan().mode).toBe('stopping');

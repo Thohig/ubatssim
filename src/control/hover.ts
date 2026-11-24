@@ -65,6 +65,9 @@ export const HOVER = {
   /** "Neutral på X m" once the depth has been within `reached` [m] for `settle` [s]. */
   reached: 0.5,
   settle: 30,
+  /** A new target is said when it differs this much [m] from the last one said, or that long ago [s]. */
+  sayChange: 5,
+  sayEvery: 60,
   /** Below this motor power [W] the boat cannot be driven (an empty battery): the crew hovers whatever the speed order. */
   noDrivePower: 1000,
 } as const;
@@ -81,6 +84,9 @@ export class Hover {
   /** The depth target the crew last said it hovers for, and whether it has said it is there. */
   private target: number | null = null;
   private arrived = false;
+  /** The target last said in the log, and when. */
+  private said: number | null = null;
+  private saidAt = -Infinity;
 
   constructor(private readonly ctrl: Controller) {}
 
@@ -132,6 +138,7 @@ export class Hover {
       this.settledFor = 0;
       this.lastOrder = -Infinity;
       this.target = null;
+      this.said = null;
       this.bias = 0;
       this.wMean = 0;
     }
@@ -146,7 +153,11 @@ export class Hover {
     if (goal !== this.target) {
       this.target = goal;
       this.arrived = Math.abs(err) <= 1;
-      if (!this.arrived) {
+      // A target the safety net moves a metre at a time (drifting towards a shore) is said once, not each metre.
+      const news = this.said === null || Math.abs(goal - this.said) >= HOVER.sayChange || sim.t - this.saidAt >= HOVER.sayEvery;
+      if (!this.arrived && news) {
+        this.said = goal;
+        this.saidAt = sim.t;
         c.addLog(`Ingen fart: besättningen svävar mot ${this.target} m med kompenseringen.`, 'info', 'assist');
         if (!c.ap.speed && err < -20) c.addLog('Ingen fart: djuprodren biter inte. Ge fart framåt för att stiga fortare, eller Nödblåsning.', 'info', 'assist');
       }

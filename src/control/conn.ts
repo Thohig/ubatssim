@@ -23,6 +23,7 @@
  * Auto/Hand switches. Deterministic: simulation time and telemetry only.
  */
 import { DT } from '../sim/simulation';
+import { ASCENT } from './ascent';
 import type { AutopilotInput } from './autopilot';
 import type { Controller } from './controller';
 import { PERISCOPE_DEPTH, TELEGRAPH } from './crew';
@@ -59,6 +60,24 @@ export const CONN = {
    * the crew's limit anyway (`periscopeSpeed`).
    */
   diveSpeed: 6,
+  /**
+   * A boat without way sinking more than `sinkPast` m below its depth target, faster than `sinkRate`
+   * [m/s] for `sinkTime` s (a leak, or heavier than the hovering can pump out): the crew runs the engine
+   * at `diveSpeed` so that the planes carry it, until the depth or the speed is changed. Stopped after a
+   * grounding with a leak the boat sank from 13 m to the bottom at 165 m and nobody did anything.
+   */
+  sinkPast: 10,
+  sinkRate: 0.1,
+  sinkTime: 10,
+  /** The boost for a boat that sank ends once it is within this of neutral [kg] (and dry, at the target). */
+  sinkNeutral: 200,
+  /**
+   * A depth change of more than `bigChange` m ordered submerged with the crew's speed between hovering and
+   * `changeSpeed` knots: the crew runs `changeSpeed` until the depth is reached (not when a corvette is on to
+   * the boat). At 4 knots the boat went down only 0,18 m/s at 11° bow down: 13 → 250 m took over 20 minutes.
+   */
+  bigChange: 30,
+  changeSpeed: 8,
   /** Seconds stalled before the crew says so (or runs the engine up). */
   stallTime: 30,
   /** Fraction of full stern planes that counts as hard over for the stall watch. */
@@ -189,6 +208,13 @@ export class Conn {
   private boostHeld = false;
   /** Seconds the depth autopilot has had the planes hard over without the depth changing. */
   private stalled = 0;
+  /** Seconds the boat has sunk past its depth target without way (`CONN.sinkPast`). */
+  private sinking = 0;
+  private lastSinkHint = -Infinity;
+  /** The boost is for a boat that sank (`watchSinking`): it ends at the target once no water is inside. */
+  sinkBoost = false;
+  /** The boost is for a large depth change (`CONN.bigChange`). */
+  changeBoost = false;
   private lastStallHint = -Infinity;
 
   constructor(private readonly ctrl: Controller) {}
@@ -271,7 +297,7 @@ export class Conn {
     if (v === c.setpoints.speed) return null;
     const phase = c.ascent.phase;
     const reason =
-      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= this.boostKnots ? 'för djuprodren' : this.shoalCapped() ? 'grunt förut' : 'periskopdjup';
+      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= this.boostKnots ? (this.changeBoost ? 'djupbyte' : 'för djuprodren') : this.shoalCapped() ? 'grunt förut' : 'periskopdjup';
     return { knots: v, reason };
   }
 
@@ -298,6 +324,36 @@ export class Conn {
       }
     }
     if (target >= CONN.diveTargetDepth && depth > 8) c.assist.anticipate(depth, target);
+    this.boostForChange(depth, target);
+  }
+
+  /** A speed order from the player: from hovering far off the target, a speed ahead goes there faster. */
+  onSpeedOrder(): void {
+    const c = this.ctrl;
+    // The boost in hand (if any) was for the old speed and ends at the next step (`watchDepthStall`).
+    if (this.depthBoost) return;
+    this.boostForChange(c.sim.y[2]!, c.setpoints.depth);
+  }
+
+  /** See `CONN.bigChange`. */
+  private boostForChange(depth: number, target: number): void {
+    const c = this.ctrl;
+    const sp = c.setpoints;
+    if (!c.ap.depth || !c.ap.speed || this.depthBoost || this.quiet) return;
+    if (sp.speed <= HOVER.maxOrderedSpeed || sp.speed >= CONN.changeSpeed) return;
+    if (depth < CONN.surfaceHoldDepth || target < CONN.diveTargetDepth || Math.abs(target - depth) <= CONN.bigChange) return;
+    // From the deep to near the surface the ascent has its own steps (ascent.ts).
+    if (target < ASCENT.levelDepth && depth > ASCENT.startBelow) return;
+    if (c.mainBallastEmpty()) return;
+    this.depthBoost = true;
+    this.changeBoost = true;
+    this.boostKnots = CONN.changeSpeed;
+    this.boostSpeed = sp.speed;
+    this.boostHeld = false;
+    this.boostEndedAt = null;
+    this.boostSettled = 0;
+    c.resetDepthLoops();
+    c.afterAck.push(`Djupbyte på ${Math.round(Math.abs(target - depth))} m: maskinen går ${CONN.changeSpeed} knop tills djupet är nått.`);
   }
 
   // ------------------------------------------------------------- each step
@@ -383,17 +439,26 @@ export class Conn {
     const sim = c.sim;
     const sp = c.setpoints;
     const err = this.depthGoal - k.depth;
-    this.boostSettled = this.depthBoost && Math.abs(err) < CONN.depthReached ? this.boostSettled + DT : 0;
+    const near = this.sinkBoost ? CONN.stallMinError : CONN.depthReached;
+    this.boostSettled = this.depthBoost && Math.abs(err) < near ? this.boostSettled + DT : 0;
     if (this.depthBoost) {
       const changed = this.boostHeld && (sp.depth !== this.boostEndedAt?.depth || sp.speed !== this.boostEndedAt?.speed);
-      const reached = !this.boostHeld && this.boostSettled >= CONN.depthSettle;
+      const fl = sim.systems.flooding;
+      // …and the compensation has made the boat nearly neutral again (the hovering pumped out for the water).
+      const dry =
+        !this.sinkBoost ||
+        (fl.water < 0.05 && fl.compartments.every((x) => x.holeArea === 0) && Math.abs(sim.telemetry().netBuoyancy) < CONN.sinkNeutral * 9.81);
+      const reached = !this.boostHeld && this.boostSettled >= CONN.depthSettle && dry;
       // A new speed order is the player's: the boost was for the old one. Should the planes stall again, it comes back.
       const newSpeed = sp.speed !== this.boostSpeed;
-      if (!c.ap.depth || !c.ap.speed || changed || reached || newSpeed) {
+      // Land ahead: the crew stops (trimAssist.ts, `watchWall`), the boost would drive on into it.
+      if (!c.ap.depth || !c.ap.speed || changed || reached || newSpeed || c.assist.wallAhead) {
         this.depthBoost = false;
         this.boostSettled = 0;
         this.boostHeld = false;
-        this.boostEndedAt = reached ? { depth: sp.depth, speed: sp.speed } : null;
+        this.boostEndedAt = reached && !this.sinkBoost ? { depth: sp.depth, speed: sp.speed } : null;
+        this.sinkBoost = false;
+        this.changeBoost = false;
         // The depth and pitch integrals hold a bow angle for the old speed.
         c.resetDepthLoops();
         if (c.ap.speed && sp.speed < this.boostKnots && !newSpeed) {
@@ -439,6 +504,36 @@ export class Conn {
     } else if (sim.t - this.lastStallHint > CONN.stallHintEvery) {
       this.lastStallHint = sim.t;
       c.addLog(`Djuprodren orkar inte vid den här farten. Öka till minst ${CONN.planesSpeed} knop.`, 'error');
+    }
+  }
+
+  /** See `CONN.sinkPast`. Call once per step, after `watchDepthStall`. */
+  watchSinking(k: Kinematics): void {
+    const c = this.ctrl;
+    const sim = c.sim;
+    const sp = c.setpoints;
+    const slow = c.ap.speed ? sp.speed >= 0 && sp.speed < CONN.planesSpeed : Math.abs(k.u) < CONN.planesSpeed * KNOT;
+    // A protection like the emergency blow: part of the safety net ("Nödblåsning" locks it off).
+    const sinking =
+      c.options.crew.safetyNet && c.ap.depth && slow && !this.depthBoost && !c.ascent.active && !c.blowCommitted && !c.assist.wallAhead &&
+      k.depth > this.depthGoal + CONN.sinkPast && k.depthRate > CONN.sinkRate && !sim.tanks.some((t) => t.blowOpen);
+    this.sinking = sinking ? this.sinking + DT : 0;
+    if (this.sinking < CONN.sinkTime) return;
+    this.sinking = 0;
+    if (c.ap.speed) {
+      this.depthBoost = true;
+      this.boostKnots = CONN.diveSpeed;
+      this.boostSpeed = sp.speed;
+      // Not over at the target: the water inside must be pumped out first (`sinkBoost`).
+      this.boostHeld = false;
+      this.boostEndedAt = null;
+      this.boostSettled = 0;
+      this.sinkBoost = true;
+      c.resetDepthLoops();
+      c.addLog(`Ubåten sjunker förbi ${Math.round(this.depthGoal)} m utan fart. Maskinen går ${CONN.diveSpeed} knop så att djuprodren bär den.`, 'error');
+    } else if (sim.t - this.lastSinkHint > CONN.stallHintEvery) {
+      this.lastSinkHint = sim.t;
+      c.addLog(`Ubåten sjunker förbi ${Math.round(this.depthGoal)} m utan fart. Ge fart framåt, minst ${CONN.planesSpeed} knop, eller blås huvudballasten.`, 'error');
     }
   }
 
@@ -534,8 +629,15 @@ export class Conn {
       text = c.ap.speed && sp.speed !== 0 ? `I ytläge, ${sp.speed < 0 ? 'back ' : ''}${kn(Math.abs(sp.speed))} knop.` : 'I ytläge.';
     } else if (this.hovering) {
       mode = 'hovering';
-      text = Math.abs(goal - k.depth) > 1 ? `Svävar mot ${Math.round(Math.max(goal, HOVER.minDepth))} m med kompenseringen.` : `Svävar på ${Math.round(k.depth)} m.`;
+      const left = Math.abs(Math.max(goal, HOVER.minDepth) - k.depth);
+      // About 6 m a minute on the way (at most 0,12 m/s, slower at the start and the end).
+      const minutes = Math.round(left / 6);
+      text =
+        left > 1
+          ? `Svävar mot ${Math.round(Math.max(goal, HOVER.minDepth))} m med kompenseringen${minutes >= 2 ? `, ungefär ${minutes} min` : ''}.`
+          : `Svävar på ${Math.round(k.depth)} m.`;
       details.push('Utan fart verkar inte djuprodren: djupet ändras med vatten i kompenseringstanken.');
+      if (left > CONN.bigChange) details.push(`Med fart går det fortare: med Sakta fram går besättningen ${CONN.changeSpeed} knop till djupet.`);
     } else if (this.crashStopping) {
       mode = 'stopping';
       text = `Stopp: full back tills farten är av (${speedNow}).`;
@@ -547,6 +649,10 @@ export class Conn {
       mode = 'astern';
       text = `Back ${kn(-sp.speed)} knop.`;
       details.push('Akterut verkar rodren omvänt, och djupbyten görs med liten vinkel.');
+    } else if (this.depthBoost && this.changeBoost) {
+      mode = 'changeDepth';
+      text = `${goal > k.depth ? 'Går ned' : 'Går upp'} till ${target} i ${kn(this.boostKnots)} knop.`;
+      details.push(`Ett stort djupbyte går fortare med fart: besättningen går ${kn(this.boostKnots)} knop tills djupet är nått och sedan ${kn(sp.speed)} knop igen.`);
     } else if (this.depthBoost) {
       mode = 'boost';
       text = `Ökar till ${kn(this.boostKnots)} knop så att djuprodren biter, mot ${target}.`;
@@ -563,7 +669,7 @@ export class Conn {
     if (turning && mode !== 'hand' && !(mode === 'ascent' && c.ascent.phase === 'listen')) {
       text = `${text.replace(/\.$/, '')}, girar till ${deg3(c.ascent.headingGoal() ?? sp.heading)}°.`;
     }
-    if (cs && mode !== 'boost' && mode !== 'ascent') details.push(`Maskinen går ${kn(cs.knots)} knop i stället för ${kn(sp.speed)} (${cs.reason}).`);
+    if (cs && mode !== 'boost' && mode !== 'ascent' && !this.changeBoost) details.push(`Maskinen går ${kn(cs.knots)} knop i stället för ${kn(sp.speed)} (${cs.reason}).`);
     if (cs?.reason === 'grunt förut') details.push(`Grunt förut: besättningen håller farten under ${ASSIST.shoalSpeed} knop tills botten inte stiger längre, också på Full fram.`);
     if (cs?.reason === 'periskopdjup') details.push(`Nära periskopdjup hålls farten under ${CONN.periscopeSpeed} knop: en snabb ubåt skjuter över, och periskopet syns.`);
     if (k.depth > CONN.diveTargetDepth && k.depth < CONN.gentleDepth && !this.surfaceHold && turning) details.push('Nära ytan girar ubåten med högst 15° roder, så att tornet inte bryter ytan.');
