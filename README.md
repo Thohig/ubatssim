@@ -546,7 +546,8 @@ Testerna täcker bland annat:
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
 - skärmkontrollerna (djupskala, Yta / Periskop / Djup, kompass, telegraf, planraden och detaljerna med panelen Manöver, expertläget med Auto / Hand, roder och djuproder, vyknapparna som ikoner), att tangenterna följer Auto / Hand och att inget scenariotips nämner en panelknapp
-- besättningens val (`tests/conn.test.ts`): att farten glider ned utan back och bromsar med grunt förut, fartgränsen och det mjukare rodret nära periskopdjup, att besättningen väntar på periskopdjup när en korvett jagar, trimmet före ett djupbyte och planraden
+- besättningens val (`tests/conn.test.ts`): att farten glider ned utan back och bromsar med grunt förut, fartgränsen och det mjukare rodret nära periskopdjup, att besättningen väntar på periskopdjup när en korvett jagar, trimmet före ett djupbyte och planraden, och att ett stort djupbyte i Sakta går i 8 knop
+- djupbyten från provspelet (`tests/long/vertical*.long.test.ts`): Stopp med nytt djupmål går inte åt fel håll och skjuter inte över, skyddsnätet ger tillbaka djupmålet på djupare vatten, stigningen väntar på 35 m bara för fartyg inom 3 km och går upp när de passerat, "länsat" sägs en gång per avdelning, land förut (full back och gir mot djupare vatten, också i ytläge över 5 knop och vid kanjonens slut), en läcka utan fart (6 knop tills ubåten är torr), nödblåsning från 50 m (under 15° fören upp), Full fram från djupet utan lyssnande, trimmet på vägen, drivning mot grund och svävning uppåt från 200 m
 - mobilvyn: telegrafreglaget, Auto / Hand-knappen, planraden med flikarna, Vyer ▾ och statusraden
 - loggboken: radernas livslängd, högst två rader, uttoning av raderna och fönstret, historiken och ☰ → Loggbok
 - eldledningspanelen: att välja mellan mål och att skjuta från en viss tub
