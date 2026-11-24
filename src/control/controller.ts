@@ -328,7 +328,7 @@ export class Controller {
 
     this.conn.steer(tel, input);
     this.conn.watchDepthStall(tel, this.lastGroundedAt);
-    this.conn.watchSinking(tel);
+    this.conn.watchSinking(tel, this.lastGroundedAt);
     this.watchAwash(tel);
     this.watchAscent(tel);
     this.conn.watchHeld();

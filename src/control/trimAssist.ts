@@ -253,13 +253,13 @@ export class TrimAssist {
   }
 
   /** The depth limit (see `depthLimit`) at each distance [m] ahead, from here to the look-ahead. */
-  private limitsAhead(): { distance: number; limit: number; seabed: number; wall: boolean }[] {
+  private limitsAhead(atLeast = 0): { distance: number; limit: number; seabed: number; wall: boolean }[] {
     const sim = this.ctrl.sim;
     const k = sim.kinematics();
     const n = sim.y[0]!;
     const e = sim.y[1]!;
     const dir = k.u < -0.2 ? -1 : 1;
-    const range = Math.max(ASSIST.lookAhead, Math.abs(k.u) * ASSIST.lookAheadTime);
+    const range = Math.max(ASSIST.lookAhead, Math.abs(k.u) * ASSIST.lookAheadTime, atLeast);
     const out: { distance: number; limit: number; seabed: number; wall: boolean }[] = [];
     const shore = this.shoreDepth();
     for (let d = 0; d <= range + 1e-9; d += ASSIST.lookAheadStep) {
@@ -324,7 +324,7 @@ export class TrimAssist {
    * A shore ahead within the stopping distance (see `ASSIST.wallTime`): warns, and the crew stops with
    * full astern if it handles the speed. Once per approach (re-armed `shoalRearm` s after it is gone).
    */
-  private watchWall(limits: { distance: number; wall: boolean }[]): void {
+  private watchWall(limits: { distance: number; limit: number; wall: boolean }[]): void {
     const ctrl = this.ctrl;
     const sim = ctrl.sim;
     const u = Math.abs(sim.kinematics().u);
@@ -332,8 +332,7 @@ export class TrimAssist {
     // Submerged and faster than the shoal speed: slowing to 4 knots is not enough there. On the surface
     // and slowly (piloting through a sound, where the shore is often ahead before a turn) the shoal watch's
     // slowing down does.
-    const fast = u > (ASSIST.shoalSpeed + 1) * KNOT && sim.y[2]! >= ASSIST.minDepth;
-    this.wallAhead = fast && limits.some((x) => x.wall && x.distance <= reach);
+    this.wallAhead = u > 1 && this.wallWithin(limits, u, reach);
     if (!this.wallAhead) {
       if (sim.t - this.wallSince > ASSIST.shoalRearm) this.wallArmed = true;
       return;
@@ -349,6 +348,31 @@ export class TrimAssist {
     ctrl.addLog(`Varning: land förut! ${crew ? `Besättningen slår full back. ${turned}` : `Full back. ${turned}`}`, 'error', 'assist');
     if (crew) ctrl.submit({ kind: 'setSpeed', knots: 0 }, 'assist');
     if (turn) ctrl.submit({ kind: 'setHeading', heading: turn.heading }, 'assist');
+  }
+
+  /**
+   * Land within `reach` [m] ahead for a boat going `u` [m/s]: submerged and faster than the shoal speed,
+   * ground no depth passes (`wall`); and at any speed submerged, ground it cannot climb over even at the
+   * shoal speed (`climbRate`): at the end of a canyon the bottom rose 150 m, and slowed to 4 knots the
+   * boat ran into it.
+   */
+  private wallWithin(limits: { distance: number; limit: number; wall: boolean }[], u: number, reach: number): boolean {
+    const depth = this.ctrl.sim.y[2]!;
+    if (depth < ASSIST.minDepth) return false;
+    const fast = u > (ASSIST.shoalSpeed + 1) * KNOT;
+    const shoal = ASSIST.shoalSpeed * KNOT;
+    const unclimbable = (x: { distance: number; limit: number }) => depth - x.limit > ASSIST.climbRate * (x.distance / shoal) + ASSIST.keelMargin;
+    return limits.some((x) => x.distance > 0 && x.distance <= reach && ((fast && x.wall) || unclimbable(x)));
+  }
+
+  /**
+   * True if land is within the stopping distance at `knots` straight ahead (see `wallWithin`): the crew
+   * does not run the engine up for the planes then (conn.ts), it drove a stopped boat into a sound's side.
+   */
+  landAheadAt(knots: number): boolean {
+    const u = knots * KNOT;
+    const reach = ASSIST.wallTime * u + ASSIST.wallMargin;
+    return this.wallWithin(this.limitsAhead(reach), Math.max(u, (ASSIST.shoalSpeed + 1.01) * KNOT), reach);
   }
 
   /**
@@ -425,6 +449,8 @@ export class TrimAssist {
         const back = Math.min(from, limit);
         ctrl.setpoints.depth = back;
         this.limitedTo = back;
+        // The depth integral grew while the target moved down in steps: 5 m past 250 m, and the safety net blew.
+        ctrl.resetDepthLoops();
         if (back === from) {
           this.limitedFrom = null;
           ctrl.addLog(`Assistent: djupare vatten, tillbaka till ${back} m.`, 'info', 'assist');

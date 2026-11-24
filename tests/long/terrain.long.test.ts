@@ -14,7 +14,7 @@ describe('grounding', () => {
     expect(t.depthUnderKeel).toBeLessThan(3);
   });
 
-  it('the crew warns of the shore ahead, slows down, and stops the engine after grounding', () => {
+  it('the crew warns of the shore ahead, slows down, and stops short of the land (or the engine after grounding)', () => {
     // Diving east towards the archipelago at 8 knots: the safety net used to look a fixed 150 m ahead,
     // limited the depth only 29 m above the bottom, and the crew drove on into the land for minutes.
     const c = new Controller(new Simulation({}));
@@ -36,7 +36,9 @@ describe('grounding', () => {
     expect(warnedAt).toBeGreaterThan(0);
     expect(speedAtWarning).toBeLessThanOrEqual(4);
     for (let i = 0; i < 10; i++) c.step();
-    expect(c.log.some((e) => e.text === 'Stopp i maskin efter grundstötningen.')).toBe(true);
+    // Land the boat cannot climb over in time: full astern before it (trimAssist.ts, `watchWall`).
+    expect(c.log.some((e) => /land förut! Besättningen slår full back/.test(e.text))).toBe(true);
+    if (c.sim.groundContacts > 0) expect(c.log.some((e) => e.text === 'Stopp i maskin efter grundstötningen.')).toBe(true);
     expect(c.setpoints.speed).toBe(0);
   });
 

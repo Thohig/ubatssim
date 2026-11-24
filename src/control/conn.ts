@@ -250,24 +250,31 @@ export class Conn {
 
   /** The speed the speed autopilot runs at [knots]: the ordered one, or the crew's own for a while. */
   runSpeed(): number {
-    const c = this.ctrl;
-    let v = c.ascent.speedGoal(c.setpoints.speed) ?? c.setpoints.speed;
-    if (this.depthBoost) v = Math.max(v, this.boostKnots);
-    const cap = this.speedCap();
+    const v = this.uncapped();
+    const cap = this.speedCap(v);
     return cap !== null && v > cap ? cap : v;
   }
 
+  /** The speed before the crew's limits [knots]: the ordered one, the ascent's, or a boost's. */
+  private uncapped(): number {
+    const c = this.ctrl;
+    const v = c.ascent.speedGoal(c.setpoints.speed) ?? c.setpoints.speed;
+    return this.depthBoost ? Math.max(v, this.boostKnots) : v;
+  }
+
   /** The crew's speed limit [knots]: ground ahead (`TrimAssist.shoalAhead`), or near periscope depth; or null. */
-  private speedCap(): number | null {
-    // Ground ahead (the safety net): whatever speed is ordered, full ahead too.
-    if (this.shoalCapped()) return ASSIST.shoalSpeed;
+  private speedCap(v: number): number | null {
+    // Ground ahead (the safety net): whatever speed is ordered or the crew runs on its own, full ahead too.
+    if (this.shoalCapped(v)) return ASSIST.shoalSpeed;
     return this.periscopeCap();
   }
 
   /** True while the safety net's limit for ground ahead holds the speed down. */
-  private shoalCapped(): boolean {
+  private shoalCapped(v: number): boolean {
     const c = this.ctrl;
-    return c.ap.speed && c.options.crew.safetyNet && c.assist.shoalAhead && c.setpoints.speed > ASSIST.shoalSpeed;
+    // `v`: the speed before the limit, the crew's own included (a boost for a depth change ran 8 knots
+    // into a canyon's side while the ordered 4 knots were under the limit).
+    return c.ap.speed && c.options.crew.safetyNet && c.assist.shoalAhead && v > ASSIST.shoalSpeed;
   }
 
   /** The crew's speed limit near periscope depth [knots], or null. */
@@ -297,7 +304,7 @@ export class Conn {
     if (v === c.setpoints.speed) return null;
     const phase = c.ascent.phase;
     const reason =
-      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= this.boostKnots ? (this.changeBoost ? 'djupbyte' : 'för djuprodren') : this.shoalCapped() ? 'grunt förut' : 'periskopdjup';
+      phase === 'listen' ? 'lyssnar' : phase === 'hold' ? 'håller djupet' : phase ? 'stiger' : this.depthBoost && v >= this.boostKnots ? (this.changeBoost ? 'djupbyte' : 'för djuprodren') : this.shoalCapped(this.uncapped()) ? 'grunt förut' : 'periskopdjup';
     return { knots: v, reason };
   }
 
@@ -345,6 +352,7 @@ export class Conn {
     // From the deep to near the surface the ascent has its own steps (ascent.ts).
     if (target < ASCENT.levelDepth && depth > ASCENT.startBelow) return;
     if (c.mainBallastEmpty()) return;
+    if (c.options.crew.safetyNet && c.assist.landAheadAt(CONN.changeSpeed)) return;
     this.depthBoost = true;
     this.changeBoost = true;
     this.boostKnots = CONN.changeSpeed;
@@ -474,7 +482,8 @@ export class Conn {
     const stuck = c.ap.depth && !this.surfaceHold && !filling && Math.abs(err) > CONN.stallMinError && hardOver && Math.abs(k.depthRate) < 0.05 && k.u >= 0;
     // On or near the bottom the planes are not what holds the boat: no engine boost into the ground.
     const nearBottom = sim.t - lastGroundedAt < CONN.groundedQuiet || sim.ground(sim.y[0]!, sim.y[1]!) - (k.depth + sim.cfg.hull.radius) < CONN.nearBottom;
-    this.stalled = stuck && !nearBottom ? this.stalled + DT : 0;
+    // Land ahead: the crew has stopped for it (trimAssist.ts, `watchWall`); a boost would end at once.
+    this.stalled = stuck && !nearBottom && !c.assist.wallAhead ? this.stalled + DT : 0;
     if (this.stalled < CONN.stallTime || this.depthBoost || c.ascent.active || this.hovering) return;
     // Stopped on purpose (quiet): the crew hovers if it has the trim (returned above once it does); a player
     // handling the trim is told how. Where hovering is not possible (shallow, ballast not full) the engine helps.
@@ -489,6 +498,7 @@ export class Conn {
         c.addLog('Ubåten har ingen fart, så djuprodren verkar inte. Ändra djupet med In och Ut i panelen Trim, eller öka farten.', 'error');
       }
     } else if (c.ap.speed && sp.speed >= 0 && sp.speed < CONN.planesSpeed) {
+      if (c.options.crew.safetyNet && c.assist.landAheadAt(CONN.planesSpeed)) return;
       this.depthBoost = true;
       this.boostKnots = CONN.planesSpeed;
       this.boostSpeed = sp.speed;
@@ -508,19 +518,23 @@ export class Conn {
   }
 
   /** See `CONN.sinkPast`. Call once per step, after `watchDepthStall`. */
-  watchSinking(k: Kinematics): void {
+  watchSinking(k: Kinematics, lastGroundedAt: number): void {
     const c = this.ctrl;
     const sim = c.sim;
+    // On or near the bottom the engine would drive it into the ground (as in `watchDepthStall`).
+    const nearBottom = sim.t - lastGroundedAt < CONN.groundedQuiet || sim.ground(sim.y[0]!, sim.y[1]!) - (k.depth + sim.cfg.hull.radius) < CONN.nearBottom;
     const sp = c.setpoints;
     const slow = c.ap.speed ? sp.speed >= 0 && sp.speed < CONN.planesSpeed : Math.abs(k.u) < CONN.planesSpeed * KNOT;
     // A protection like the emergency blow: part of the safety net ("Nödblåsning" locks it off).
     const sinking =
-      c.options.crew.safetyNet && c.ap.depth && slow && !this.depthBoost && !c.ascent.active && !c.blowCommitted && !c.assist.wallAhead &&
+      c.options.crew.safetyNet && !nearBottom && c.ap.depth && slow && !this.depthBoost && !c.ascent.active && !c.blowCommitted && !c.assist.wallAhead &&
       k.depth > this.depthGoal + CONN.sinkPast && k.depthRate > CONN.sinkRate && !sim.tanks.some((t) => t.blowOpen);
     this.sinking = sinking ? this.sinking + DT : 0;
     if (this.sinking < CONN.sinkTime) return;
     this.sinking = 0;
     if (c.ap.speed) {
+      // Land ahead: the engine would drive it there (the flooding watch blows for much water anyway).
+      if (c.assist.landAheadAt(CONN.diveSpeed)) return;
       this.depthBoost = true;
       this.boostKnots = CONN.diveSpeed;
       this.boostSpeed = sp.speed;
