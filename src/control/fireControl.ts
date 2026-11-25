@@ -118,6 +118,14 @@ export function hasSecondLeg(obs: readonly Observation[]): boolean {
   return courses.some((a) => courses.some((b) => diff(a, b) >= LEG_CHANGE));
 }
 
+/** A bearings-only solution closer than this [m] is the degenerate one along the boat's own track. */
+const BEARINGS_MIN_RANGE = 500;
+/** Two legs (`twoLegs`): each at least this long [s], courses this far apart [rad]. */
+const LEG_TIME = 120;
+const LEG_TURN = 30 * DEG;
+/** …and the farthest range searched [m] (beyond what a sonar hears a ship). */
+const BEARINGS_MAX_RANGE = 30000;
+
 /** A fixed pseudo-random value in −1…1 from a time and a key (deterministic measurement noise). */
 const noise = (t: number, key: number) => Math.sin(t * 1.31 + key * 2.17) * Math.cos(t * 0.53 + key);
 
@@ -178,20 +186,112 @@ export function fitSolution(obs: readonly Observation[], rangeGuess: number): So
   add([0, 0, 1, 0], 0, 8);
   add([0, 0, 0, 1], 0, 8);
   const last = obs[obs.length - 1]!;
-  if (!obs.some((o) => o.range !== undefined)) {
+  const ranged = obs.some((o) => o.range !== undefined);
+  if (!ranged) {
     add([1, 0, 0, 0], last.own[0] + 5000 * Math.cos(last.bearing), 6000);
     add([0, 1, 0, 0], last.own[1] + 5000 * Math.sin(last.bearing), 6000);
   }
-  const x = solve(N, y);
+  const bo = ranged ? null : alongBearing(obs, tr);
+  const x = ranged ? solve(N, y) : bo;
   if (!x) return null;
   // The covariance's diagonal: solve N·c = e_i for each axis.
   const cov = [0, 1, 2, 3].map((i) => solve(N, [0, 1, 2, 3].map((j) => (i === j ? 1 : 0)))?.[i] ?? Infinity);
   const positionError = Math.sqrt(cov[0]! + cov[1]!);
   const speedError = Math.sqrt(cov[2]! + cov[3]!);
   const range = Math.hypot(x[0]! - last.own[0], x[1]! - last.own[1]);
-  const quality: Quality =
-    positionError < Math.max(150, 0.1 * range) && speedError < 1 ? 'bra' : positionError < Math.max(400, 0.25 * range) && speedError < 2.5 ? 'ok' : 'dålig';
+  // Bearings alone are also met by a target that follows the boat's own track: after a turn the fit put it
+  // 13–60 m away (true 4–7 km) and called that ok, with a running time of 1 s. No such solution is usable.
+  const collapsed = !ranged && range < BEARINGS_MIN_RANGE * 1.1;
+  const quality: Quality = collapsed
+    ? 'dålig'
+    : positionError < Math.max(150, 0.1 * range) && speedError < 1 ? 'bra' : positionError < Math.max(400, 0.25 * range) && speedError < 2.5 ? 'ok' : 'dålig';
   return { t: tr, position: [x[0]!, x[1]!], velocity: [x[2]!, x[3]!], positionError, speedError, quality };
+}
+
+/** The bearings-only fit with the target at range `r` [m] on the latest bearing: its state and its cost. */
+function bearingFit(obs: readonly Observation[], tr: number, r: number): { x: number[]; J: number } | null {
+  const last = obs[obs.length - 1]!;
+  const c = Math.cos(last.bearing);
+  const s = Math.sin(last.bearing);
+  const p = [last.own[0] + r * c, last.own[1] + r * s];
+  let v = [0, 0];
+  // The velocity from the rows across the bearing lines, each weighted by the candidate's range there
+  // (so that they are angles), twice: the ranges depend on the velocity.
+  for (let pass = 0; pass < 3; pass++) {
+    const A = [
+      [1 / (8 * 8), 0],
+      [0, 1 / (8 * 8)],
+    ]; // weak prior: ships go at most ~10 m/s
+    const b = [0, 0];
+    for (const o of obs) {
+      const dt = o.t - tr;
+      const sb = Math.sin(o.bearing);
+      const cb = Math.cos(o.bearing);
+      const rn = p[0]! + v[0]! * dt - o.own[0];
+      const re = p[1]! + v[1]! * dt - o.own[1];
+      const range = Math.max(50, Math.hypot(rn, re));
+      const w = 1 / (range * o.sigma) ** 2;
+      // Offset across the bearing line: sb·(n) − cb·(e) with n = p + v·dt − own.
+      const row = [sb * dt, -cb * dt];
+      const rhs = -(sb * (p[0]! - o.own[0]) - cb * (p[1]! - o.own[1]));
+      for (let i = 0; i < 2; i++) {
+        b[i]! += w * row[i]! * rhs;
+        for (let j = 0; j < 2; j++) A[i]![j]! += w * row[i]! * row[j]!;
+      }
+    }
+    const nv = solve(A, b);
+    if (!nv) return null;
+    v = nv;
+  }
+  let J = (v[0]! * v[0]! + v[1]! * v[1]!) / 64;
+  for (const o of obs) {
+    const dt = o.t - tr;
+    const pred = Math.atan2(p[1]! + v[1]! * dt - o.own[1], p[0]! + v[0]! * dt - o.own[0]);
+    J += (wrapPi(pred - o.bearing) / o.sigma) ** 2;
+  }
+  return { x: [p[0]!, p[1]!, v[0]!, v[1]!], J };
+}
+
+/**
+ * Bearings alone: the target on the latest bearing line at a range searched from `BEARINGS_MIN_RANGE` out
+ * (geometric steps, then refined), with the best velocity for each range, judged by the bearing errors as
+ * angles. Solved freely in metres across the bearing lines, the fit favours near ranges (the same angle is
+ * fewer metres there) and is met by a target that follows the boat's own track, 13–60 m away.
+ */
+function alongBearing(obs: readonly Observation[], tr: number): number[] | null {
+  const at = (r: number) => bearingFit(obs, tr, r);
+  let best: { r: number; x: number[]; J: number } | null = null;
+  for (let r = BEARINGS_MIN_RANGE; r <= BEARINGS_MAX_RANGE; r *= 1.06) {
+    const f = at(r);
+    if (f && (!best || f.J < best.J)) best = { r, ...f };
+  }
+  if (!best) return null;
+  // Refine between the neighbouring steps (golden section).
+  let lo = Math.max(BEARINGS_MIN_RANGE, best.r / 1.06);
+  let hi = best.r * 1.06;
+  for (let i = 0; i < 25; i++) {
+    const m1 = hi - (hi - lo) * 0.618;
+    const m2 = lo + (hi - lo) * 0.618;
+    if ((at(m1)?.J ?? Infinity) < (at(m2)?.J ?? Infinity)) hi = m2;
+    else lo = m1;
+  }
+  return at((lo + hi) / 2)?.x ?? best.x;
+}
+
+/**
+ * Bearings from two legs: the boat's own track over the observations has two stretches of at least
+ * `LEG_TIME` s whose courses differ by at least `LEG_TURN`, which is what gives bearings alone a range at all.
+ */
+export function twoLegs(obs: readonly Observation[]): boolean {
+  const course = (a: Observation, b: Observation) => Math.atan2(b.own[1] - a.own[1], b.own[0] - a.own[0]);
+  const legs: number[] = [];
+  for (let i = 0, j = 0; i < obs.length; i++) {
+    while (j < obs.length && obs[j]!.t - obs[i]!.t < LEG_TIME) j++;
+    if (j >= obs.length) break;
+    if (Math.hypot(obs[j]!.own[0] - obs[i]!.own[0], obs[j]!.own[1] - obs[i]!.own[1]) < 50) continue;
+    legs.push(course(obs[i]!, obs[j]!));
+  }
+  return legs.some((a) => legs.some((b) => Math.abs(wrapPi(a - b)) >= LEG_TURN));
 }
 
 /** A solution moved on to time `t`. */

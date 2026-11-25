@@ -232,3 +232,24 @@ describe('the conn: plan line', () => {
     expect(c.conn.plan().mode).toBe('hand');
   });
 });
+
+describe('the conn: diving from the surface', () => {
+  it('D (the dive order) gets the same speed for the planes as a depth target: it took twice as long', async () => {
+    const { submitDive, submitPeriscopeDepth } = await import('../src/ui/keyboard');
+    const reach = (order: (c: Controller) => void) => {
+      const c = game({});
+      order(c);
+      run(c, 1);
+      expect(c.conn.depthBoost).toBe(true);
+      for (let t = 1; t < 400; t++) {
+        run(c, 1);
+        if (c.sim.y[2]! > PERISCOPE_DEPTH - 0.5) return t;
+      }
+      return Infinity;
+    };
+    const byKey = reach((c) => submitDive(c, 'keyboard'));
+    const byButton = reach((c) => submitPeriscopeDepth(c, 'touch'));
+    expect(byKey).toBeLessThan(200);
+    expect(Math.abs(byKey - byButton)).toBeLessThan(10);
+  });
+});

@@ -67,7 +67,7 @@ export interface HelmContext {
  * call with fresh telemetry ~10 times a second.
  */
 /** Updates the screen controls (~10 times a second); `open` shows a panel (a tap on a screen in the control room). */
-export type HelmUpdate = ((t: Telemetry, ctx: HelmContext) => void) & { open(p: Panel): void };
+export type HelmUpdate = ((t: Telemetry, ctx: HelmContext) => void) & { open(p: Panel): void; close(): boolean };
 
 export function createHelm(
   root: HTMLElement,
@@ -450,6 +450,12 @@ export function createHelm(
   return Object.assign(update, {
     open(p: Panel) {
       if (open !== p) toggle(p);
+    },
+    /** Closes the open panel (Esc); false when none was open. */
+    close(): boolean {
+      if (open === null) return false;
+      toggle(null);
+      return true;
     },
   });
 }

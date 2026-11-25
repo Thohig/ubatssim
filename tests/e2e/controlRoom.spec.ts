@@ -33,6 +33,10 @@ test('the control room: V goes in, ←/→ go round the stations, a click on the
       if (a && b) expect(overlaps(a, b), `${parts[i]} and ${parts[j]}`).toBe(false);
     }
   }
+  // Esc closes the open panel first, then leaves the view.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.helm-panel')).toBeHidden();
+  await expect(page.locator('body')).toHaveClass(/\bcontrol\b/);
   await page.keyboard.press('Escape');
   await expect(page.locator('body')).not.toHaveClass(/\bcontrol\b/);
   errors.check();

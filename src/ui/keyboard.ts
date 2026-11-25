@@ -146,11 +146,11 @@ export function bindKeyboard(getCtrl: () => Controller | null, views: ViewState)
         break;
       case 't':
         if (views.mode !== 'bridge' && views.mode !== 'periscope') return;
-        markOrder(ctrl, views);
+        markOrder(ctrl, views, 'keyboard');
         break;
       case 'r':
         if (views.mode !== 'bridge' && views.mode !== 'periscope') return;
-        rangeOrder(ctrl, views);
+        rangeOrder(ctrl, views, 'keyboard');
         break;
       case 'f':
         ctrl.submit({ kind: 'fireTorpedo' }, 'keyboard');

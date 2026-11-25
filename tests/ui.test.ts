@@ -159,6 +159,15 @@ describe('menu screens', () => {
     expect(div.textContent).toMatch(/Du skötte själv trimmet, utan skyddsnät/);
   });
 
+  it('free play ends when the boat is lost: its own result, with Fritt spel instead of Scenarier', () => {
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.result(state({ result: { scenario: null, completed: false, message: 'Skrovet kollapsade under krossdjupet.', time: 559, selfHandled: ['safetyNet'] } })).value;
+    expect(div.textContent).toMatch(/Ubåten förlorad/);
+    expect(div.textContent).toMatch(/Fritt spel/);
+    expect(div.querySelector('[data-arg="scenarios"]')).toBeNull();
+    expect(div.querySelector('[data-arg="free"]')).not.toBeNull();
+  });
+
   it('the Menu calls back on clicks and keeps its own choices', () => {
     const root = document.createElement('div');
     const calls: string[] = [];
@@ -422,6 +431,21 @@ describe('the periscope eyepiece and its bearing band', () => {
       expect(bandY + 30 <= cy - r || bandY - 44 >= cy + r, `${w}×${h}`).toBe(true);
       expect(bandY - 44).toBeGreaterThanOrEqual(0);
       if (bandY > cy) expect(bandY + 30).toBeLessThanOrEqual(clear);
+    }
+  });
+
+  it('on an ordinary desktop window the band stays clear of the log and the mode label at the top', async () => {
+    const { periscopeLayout } = await import('../src/ui/viewOverlay');
+    // 1280 × 800 and 1280 × 720 with the screen controls ~100 px high: the band lay under the log at the top.
+    for (const [w, h, clear] of [
+      [1280, 800, 700],
+      [1280, 720, 620],
+      [1024, 768, 670],
+    ] as const) {
+      const { r, bandY } = periscopeLayout(w, h, clear);
+      expect(r).toBeGreaterThan(Math.min(w, h) * 0.25);
+      if (bandY < h / 2) expect(bandY - 44, `${w}×${h}`).toBeGreaterThanOrEqual(108);
+      else expect(bandY + 30, `${w}×${h}`).toBeLessThanOrEqual(clear);
     }
   });
 

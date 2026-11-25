@@ -565,7 +565,8 @@ body.cutaway #log { display: none; }
   .helm-course { grid-area: course; }
   .helm-depth-scale { height: 116px; }
   .helm-depth-side .touch-btn:not(.helm-small) { height: 34px; }
-  #status { max-width: 300px; }
+  /* 300 px before the objective: smaller, so that the battery's last digit is not cut off ("Ytläge bat 10"). */
+  #status { max-width: 300px; gap: 6px; padding: 0 8px; font-size: 11.5px; }
   /* Low screens: the panel takes the height under the status bar, over the controls' middle (✕ closes it). */
   .helm-panel {
     position: fixed; top: calc(max(8px, env(safe-area-inset-top)) + 46px); bottom: max(8px, env(safe-area-inset-bottom)); margin: 0;

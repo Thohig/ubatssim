@@ -6,6 +6,18 @@
  */
 import type { Controller } from './controller';
 
+/** The log line when the hull collapses (free play ends on it). */
+export const HULL_COLLAPSED = 'Skrovet kollapsade!';
+
+const KNOT = 1852 / 3600;
+/** A raised mast faster than this [knots] (periscope view shakes from 6) or deeper than this [m] is told. */
+const MAST_FAST = 8;
+const MAST_DEEP = 25;
+
+const capital = (s: string): string => s[0]!.toUpperCase() + s.slice(1);
+/** "a", "a och b", "a, b och c". */
+const listText = (xs: string[]): string => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} och ${xs[xs.length - 1]}`);
+
 /** The crew stops the diesels at this state of charge (controller.ts starts them). */
 export const CHARGE_STOP = 0.99;
 /** Battery warnings at these states of charge (the last: empty). */
@@ -25,6 +37,8 @@ export class PlantWatch {
   private dieselWasRunning = false;
   private floodWarned = false;
   private airWarned = false;
+  private mastFastWarned = false;
+  private mastDeepWarned = false;
   /** The compressors ran at the last step, and since when (a full bottle after a short top-up is not news). */
   private compressorWas = false;
   private compressorSince = 0;
@@ -67,6 +81,7 @@ export class PlantWatch {
     }
 
     this.watchAir();
+    this.watchMasts();
 
     const fl = sim.systems.flooding;
     for (const ev of fl.drainEvents()) {
@@ -82,7 +97,7 @@ export class PlantWatch {
       }
       else if (ev.kind === 'sealed') c.addLog(`Läckan i ${name} är tätad.`, 'info');
       else if (ev.kind === 'pumpedOut') c.addLog(`${name[0]!.toUpperCase()}${name.slice(1)} är länsat.`, 'info');
-      else c.addLog('Skrovet kollapsade!', 'error');
+      else c.addLog(HULL_COLLAPSED, 'error');
     }
     // All dry and sealed again: the crew opens the doors it shut.
     if (this.doorsByCrew && sim.commands.doorsShut && fl.water === 0 && fl.compartments.every((x) => x.holeArea === 0)) {
@@ -101,6 +116,27 @@ export class PlantWatch {
         if (c.ap.speed && c.setpoints.speed < 8) c.submit({ kind: 'setSpeed', knots: 8 }, 'assist');
       }
     } else if (water < FLOOD_WARNING / 2) this.floodWarned = false;
+  }
+
+  /**
+   * A mast up where it does no good or harm: fast (an expert at 13.5 knots on periscope depth with all
+   * three up, without a word), or deep (left up on a dive to 60 m). Said once, again after it was put right.
+   */
+  private watchMasts(): void {
+    const c = this.c;
+    const sim = c.sim;
+    const a = sim.actuators;
+    const up = [a.periscope > 0.99 ? 'periskopet' : null, a.snorkel > 0.99 ? 'snorkeln' : null, a.radar > 0.99 ? 'radarmasten' : null].filter((x) => x !== null);
+    const k = sim.kinematics();
+    const knots = k.u / KNOT;
+    if (up.length > 0 && knots > MAST_FAST && !this.mastFastWarned) {
+      this.mastFastWarned = true;
+      c.addLog(`${capital(listText(up))} är uppe i ${Math.round(knots)} knop: ${up.length > 1 ? 'de' : 'den'} vibrerar, syns långt och kan skadas. Sakta in under ${MAST_FAST} knop eller sänk.`, 'error');
+    } else if (this.mastFastWarned && (up.length === 0 || knots < MAST_FAST - 2)) this.mastFastWarned = false;
+    if (up.length > 0 && k.depth > MAST_DEEP && !this.mastDeepWarned) {
+      this.mastDeepWarned = true;
+      c.addLog(`${capital(listText(up))} är uppe på ${Math.round(k.depth)} m och når inte över ytan. Sänk ${up.length > 1 ? 'dem' : 'den'} på djupet.`, 'info');
+    } else if (this.mastDeepWarned && (up.length === 0 || k.depth < MAST_DEEP - 10)) this.mastDeepWarned = false;
   }
 
   /** The HP air running low, and the compressors refilling it (systems/compressor.ts). */

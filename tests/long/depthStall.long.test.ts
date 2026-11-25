@@ -5,7 +5,7 @@ import { Simulation } from '../../src/sim/simulation';
 const KN = 1852 / 3600;
 
 describe('periscope depth at 3 knots with the mast up', () => {
-  it('the crew notices the stall 1–2 m off the target, raises the speed and holds the depth', () => {
+  it('the crew notices the boat hanging 1–2 m off the target and holds the depth (weight or speed)', () => {
     // "Övningsskott": 13 m, 3 knots. With the periscope up the planes cannot hold 13 m at 3 knots;
     // the boat used to hang at 11.5 m with the planes hard down and nobody saying anything.
     const c = new Controller(new Simulation({ area: 'atlantic', depth: 13, speed: 3 * KN, neutral: true, heading: 0 }));
@@ -23,7 +23,11 @@ describe('periscope depth at 3 knots with the mast up', () => {
         hi = Math.max(hi, d);
       }
     }
-    expect(c.log.some((e) => e.text.startsWith('Djuprodren orkar inte vid den här farten. Maskinen ökar till 4 knop'))).toBe(true);
+    // Either the planes stall and the crew raises the speed, or (since the playtest of November 2026) the
+    // compensation makes the boat a little heavy at low speed first (`TrimAssist.slowDepthBias`).
+    const boosted = c.log.some((e) => e.text.startsWith('Djuprodren orkar inte vid den här farten. Maskinen ökar till 4 knop'));
+    const weighted = c.log.some((e) => /^Kompensera in \d+ liter/.test(e.text));
+    expect(boosted || weighted).toBe(true);
     expect(lo).toBeGreaterThan(12);
     expect(hi).toBeLessThan(14);
   });

@@ -63,6 +63,12 @@ describe('world', () => {
     const shallow = at(10);
     expect(shallow.collidedWith).toBe('testfartyget');
     expect(shallow.log.some((e) => /Kollision med testfartyget/.test(e.text))).toBe(true);
-    expect(at(40).collidedWith).toBeNull();
+    // Warned beforehand, with the depth that clears the ship, and before the collision.
+    const warned = shallow.log.findIndex((e) => /^Varning: testfartyget kommer nära, \d+ m i \d{3}°\. Gå djupare än \d+ m/.test(e.text));
+    expect(warned).toBeGreaterThanOrEqual(0);
+    expect(warned).toBeLessThan(shallow.log.findIndex((e) => /Kollision med/.test(e.text)));
+    const deep = at(40);
+    expect(deep.collidedWith).toBeNull();
+    expect(deep.log.some((e) => /kommer nära/.test(e.text))).toBe(false);
   });
 });

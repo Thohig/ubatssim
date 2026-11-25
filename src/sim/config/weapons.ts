@@ -174,6 +174,9 @@ export const WEAPONS = {
      * (`giveUp` counts from then); further off it gives up on the way. APPROX (game balance).
      */
     searchCommit: 6000,
+    /** A torpedo hit is heard by corvettes this far from the boat [m], who search with an estimate this good (0…1). APPROX */
+    hitHeard: 15000,
+    hitQuality: 0.4,
     /** Seconds between attacks, and without contact before giving up. */
     attackInterval: 45,
     /** Depth charges carried. */

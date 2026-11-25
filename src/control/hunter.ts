@@ -101,6 +101,26 @@ export class Hunter {
   }
 
   /**
+   * A torpedo hit a ship: every corvette within `W.hitHeard` with depth charges left hears the explosion and,
+   * knowing a torpedo runs a few kilometres, goes to search where the boat must be, and keeps on until it gets
+   * there (`committed`). Escorts 7–11 km away used to give up on the way, and "Ta dig undan" was done by
+   * staying at periscope depth.
+   */
+  heardHit(): void {
+    const c = this.ctrl;
+    if (!this.enabled) return;
+    for (const v of c.world.vessels) {
+      if (v.def.kind !== 'patrol' || v.state.sinking) continue;
+      const h = this.hunt(v.def.id);
+      if (h.charges <= 0 || Math.hypot(v.state.north - c.sim.y[0]!, v.state.east - c.sim.y[1]!) > W.hitHeard) continue;
+      c.sonar.alert(v.def.id, 0.5);
+      this.estimate(h, v, W.hitQuality);
+      if (h.state === 'patrol' || h.state === 'suspicion') this.enter(v, h, 'search');
+      if (h.state === 'search') h.committed = true;
+    }
+  }
+
+  /**
    * A sound from the boat (a launch, a muzzle door, its own ping) at
    * `level` [dB re 1 µPa at 1 m]: every corvette that hears it gains
    * `alert` awareness and an estimate of the position as good as `quality`

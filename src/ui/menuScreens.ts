@@ -25,7 +25,8 @@ export interface PauseInfo {
 }
 
 export interface ResultInfo {
-  scenario: Scenario;
+  /** Null in free play, which ends only when the boat is lost (the hull collapsed). */
+  scenario: Scenario | null;
   completed: boolean;
   message: string;
   time: number;
@@ -212,7 +213,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Planraden</b> (ovanför telegrafen) säger vad besättningen gör just nu. Tryck på den för detaljerna.</li>
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv, Marsch och Full fram (2 och 4 knop back, 4, 8 och 12 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Nödblåsning</b> i panelen Ballast (eller Shift + S): är ubåten för tung för att stiga, blåses båda tankarna på vilket djup som helst, med full fart och ytan som mål.</li>
-          <li><b>Vyknapparna</b> mellan telegrafen och kompassen: ögat byter vy (också till genomskärningen), sjökortet och sonarbågarna öppnar sjökortet och sonaren, och periskopet, snorkeln och radarn hissar och sänker masterna. Masterna syns när ubåten är grundare än 25 m eller en mast är uppe. På mobil ligger de under <b>Vyer ▾</b>.</li>
+          <li><b>Vyknapparna</b> (på dator i högerkanten, i låga fönster mellan telegrafen och kompassen): ögat byter vy (också till genomskärningen), sjökortet och sonarbågarna öppnar sjökortet och sonaren, och periskopet, snorkeln och radarn hissar och sänker masterna. Masterna syns när ubåten är grundare än 25 m eller en mast är uppe. På mobil ligger de under <b>Vyer ▾</b>.</li>
           <li><b>På mobil</b> visar statusraden överst tid, fart, vatten under kölen och trim. Tryck på den för hela instrumentpanelen.</li>
           <li><b>Loggboken</b> ligger överst i mitten och visar högst två rader. Varje rad tonas bort efter några sekunder (fel efter 6 s), och fönstret med den. Tryck på den för de senaste raderna, och tryck igen eller Esc för att stänga.</li>
         </ul>
@@ -231,7 +232,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>C, + / −</td><td colspan="2">Genomskärning på / av, och zoom</td></tr>
           <tr><td>← / → i periskopet</td><td colspan="2">Vrid periskopet. Shift + ← / → styr.</td></tr>
           <tr><td>B</td><td colspan="2">Rapportera bäringen dit periskopet eller blicken från bryggan pekar</td></tr>
-          <tr><td>Esc</td><td colspan="2">Stäng loggens historik, lämna en vy, eller pausa</td></tr>
+          <tr><td>Esc</td><td colspan="2">Stäng loggens historik, en öppen panel, sjökortet eller sonaren, lämna en vy, eller pausa</td></tr>
           <tr><td>T / R / F</td><td colspan="2">Markera fartyget i hårkorset / mät avståndet / skjut (periskopet eller bryggan)</td></tr>
           <tr><td>N</td><td colspan="2">Snorkel upp / ned</td></tr>
           <tr><td>Y / X</td><td colspan="2">Radarmast upp / ned, radarn sänd / tyst</td></tr>
@@ -244,7 +245,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         </table>
         <h3>Vyer</h3>
         <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan i panelen Ballast.</p>
-        <p><b>Periskopet:</b> hissa med P eller <code>periskop upp</code>. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
+        <p><b>Periskopet:</b> hissa med P eller periskopknappen. Det tar 8 s. Huvudet når över vattnet ner till ungefär 14 m djup. Över 6 knop vibrerar bilden.</p>
         <p><b>Genomskärningen</b> (Vy eller C) visar ubåten uppskuren med alla avdelningar, tankarna med vattnet, pumparna och maskinerna. Dra för att vrida, scrolla eller nyp för att zooma, och tryck på ett rum eller en tank för att se vad som finns där. Ovan byter till snittet ovanifrån och Hela visar hela ubåten.</p>
         <p>Vyknapparna och Zoom och Brg uppe till höger (på mobil under Vyer ▾) gör samma sak som tangenterna. Esc går tillbaka till den yttre vyn.</p>
         <h3>Batteri och snorkling</h3>
@@ -288,7 +289,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li>Under språngskiktet (40–70 m) är vattnet tätare. Ubåten blir då lättare och behöver ta in vatten.</li>
           <li>Skrovet trycks ihop mer än vattnet på djupet, så ubåten blir långsamt tyngre ju djupare den går.</li>
           <li>Tryckluften räcker inte till hur många blåsningar som helst. Håll koll på HP-luften.</li>
-          <li><b>Back</b> (telegrafen eller <code>back halv</code>): propellern ger mindre kraft bakåt, och farten blir högst ungefär 6,8 knop (Full back). Rodren verkar omvänt: roder styrbord vrider fören åt babord, och djuprodren likaså. Djupstyraren och rorsmannen tar hänsyn till det. Ubåten glider länge, så slå stopp i god tid.</li>
+          <li><b>Back</b> (telegrafen: Sakta, Halv eller Full back): propellern ger mindre kraft bakåt, och farten blir högst ungefär 6,8 knop (Full back). Rodren verkar omvänt: roder styrbord vrider fören åt babord, och djuprodren likaså. Djupstyraren och rorsmannen tar hänsyn till det. Ubåten glider länge, så slå stopp i god tid.</li>
         </ul>
       </div>
       ${back}`;
@@ -398,14 +399,14 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
   result: (m) => {
     const r = m.result!;
     return html`
-      <h2 class="menu-title small ${r.completed ? 'ok' : 'fail'}">${r.completed ? 'Uppdrag slutfört' : 'Uppdraget misslyckades'}</h2>
-      <p class="menu-sub">${r.scenario.title}</p>
+      <h2 class="menu-title small ${r.completed ? 'ok' : 'fail'}">${!r.scenario ? 'Ubåten förlorad' : r.completed ? 'Uppdrag slutfört' : 'Uppdraget misslyckades'}</h2>
+      <p class="menu-sub">${r.scenario?.title ?? 'Fritt spel'}</p>
       <p>${r.message}</p>
       ${r.completed ? html`<p>Tid: <b>${formatSimTime(r.time)}</b></p>` : ''}
       <p class="menu-note">${handledText(r.selfHandled)}</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="restart">Spela igen</button>
-        <button class="menu-btn" data-action="nav" data-arg="scenarios">Scenarier</button>
+        ${r.scenario ? html`<button class="menu-btn" data-action="nav" data-arg="scenarios">Scenarier</button>` : html`<button class="menu-btn" data-action="nav" data-arg="free">Fritt spel</button>`}
         <button class="menu-btn secondary" data-action="main">Huvudmeny</button>
       </div>`;
   },

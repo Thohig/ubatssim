@@ -25,6 +25,7 @@ import { Hunter } from './hunter';
 import { ACOUSTICS } from '../sim/config/acoustics';
 import { WEAPONS } from '../sim/config/weapons';
 import { World } from '../sim/world';
+import { LIMITS } from './parser';
 
 const DEG = Math.PI / 180;
 /** Depth targets from this depth [m] need flooded main ballast. */
@@ -36,7 +37,11 @@ const DIVE_TARGET_DEPTH = CONN.diveTargetDepth;
  * lift ahead of the centre the boat pitched bow down to 40–60° and came up
  * stern first. Forward first gives the bow-up angle of a real blow.
  */
-const STAGED_BLOW_DEPTH = 20;
+export const STAGED_BLOW_DEPTH = 20;
+/** Closing ships (`watchCollision`): closest approach [m] beyond half the ship's length, within [s], and margin under its keel [m]. */
+const COLLISION = { cpa: 60, time: 90, clearance: 5 };
+/** A torpedo this far [m] past its intercept point without a target is said to have missed (`watchTorpedoes`). */
+const TORPEDO_PAST = 400;
 const STAGED_BLOW_DELAY = 15;
 /**
  * The delay is shorter nearer the surface [s per m of depth, at least `STAGED_BLOW_DELAY_MIN`]: there
@@ -296,7 +301,14 @@ export class Controller {
   }
 
   step(): void {
-    for (const { order, source } of this.queue.drain()) {
+    for (const queued of this.queue.drain()) {
+      const { source } = queued;
+      // A number that is not a number would poison the whole simulation (setDepth NaN grounded it at once).
+      if (Object.values(queued.order).some((v) => typeof v === 'number' && !Number.isFinite(v))) {
+        this.addLog('Ogiltig order: värdet är inte ett tal.', 'error', source);
+        continue;
+      }
+      const order = normalizeOrder(queued.order);
       const refused = this.refusal(order, source);
       if (refused) {
         this.addLog(refused, 'error', source);
@@ -407,15 +419,76 @@ export class Controller {
   /** The speed target when the boat caught a trawl, to go back to once free (the crew backing out). */
   private speedBeforeSnag: number | null = null;
 
+  /** Torpedoes already said to have run past their intercept point without hearing anything. */
+  private torpedoesPast = new Set<number>();
+
+  /**
+   * A torpedo `TORPEDO_PAST` m past its intercept point (seekAfter + seekBefore) without having heard a
+   * target: said at once, instead of only "missade" when its range runs out minutes later. A silent target
+   * (a sailing boat) gives the seeker nothing to hear.
+   */
+  private watchTorpedoes(): void {
+    for (const t of this.world.torpedoes) {
+      const s = t.state;
+      if (s.phase !== 'seek' || this.torpedoesPast.has(s.id)) continue;
+      if (s.run < t.orders.seekAfter + WEAPONS.torpedo.seekBefore + TORPEDO_PAST) continue;
+      this.torpedoesPast.add(s.id);
+      this.addLog(`Torped ${s.id} har passerat träffpunkten utan att höra målet. Den söker vidare, men har troligen missat (ett tyst mål eller en dålig lösning).`, 'info');
+    }
+  }
+
+  /** Vessels warned of as closing (`watchCollision`), until they are clear again. */
+  private closingWarned = new Set<string>();
+  private collisionCheckAt = 0;
+
+  /**
+   * A ship on a course to pass within `COLLISION.cpa` m in the next `COLLISION.time` s while the sail reaches
+   * above its keel: the officer of the watch says so, with the depth that clears it (Fartyget: the ship ran
+   * the boat down at 13 m without a word). Once a second; again only after it has drawn clear.
+   */
+  private watchCollision(): void {
+    const sim = this.sim;
+    if (sim.t < this.collisionCheckAt) return;
+    this.collisionCheckAt = sim.t + 1;
+    const k = sim.kinematics();
+    const vn = k.u * Math.cos(k.heading);
+    const ve = k.u * Math.sin(k.heading);
+    const sailTop = sim.y[2]! + sim.cfg.hull.sail.position[2] - sim.cfg.hull.sail.height / 2;
+    for (const v of this.world.vessels) {
+      if (v.state.sinking) continue;
+      const id = v.def.id;
+      const dn = v.state.north - sim.y[0]!;
+      const de = v.state.east - sim.y[1]!;
+      const rn = v.state.speed * Math.cos(v.state.heading) - vn;
+      const re = v.state.speed * Math.sin(v.state.heading) - ve;
+      const rv2 = rn * rn + re * re;
+      const tc = rv2 > 1e-6 ? Math.max(0, -(dn * rn + de * re) / rv2) : 0;
+      const cpa = Math.hypot(dn + rn * tc, de + re * tc);
+      const close = cpa < COLLISION.cpa + v.def.length / 2 && tc < COLLISION.time && sailTop < v.def.draft + COLLISION.clearance;
+      if (close && !this.closingWarned.has(id)) {
+        this.closingWarned.add(id);
+        const range = Math.round(Math.hypot(dn, de) / 10) * 10;
+        const bearing = String(Math.round(((Math.atan2(de, dn) / DEG) % 360 + 360) % 360)).padStart(3, '0');
+        const clear = Math.ceil(v.def.draft + COLLISION.clearance - (sim.cfg.hull.sail.position[2] - sim.cfg.hull.sail.height / 2));
+        this.addLog(`Varning: ${v.def.name} kommer nära, ${range} m i ${bearing}°. Gå djupare än ${clear} m eller gir undan.`, 'error');
+      } else if (!close && this.closingWarned.has(id) && (tc <= 0 || cpa > 2 * COLLISION.cpa + v.def.length)) {
+        this.closingWarned.delete(id);
+      }
+    }
+  }
+
   /** Torpedo hits, ships sinking and depth charges, for the log; a launch is heard by the corvettes. */
   private watchWorld(): void {
+    this.watchTorpedoes();
+    this.watchCollision();
     for (const e of this.world.drainEvents()) {
       if (e.kind === 'launch') this.hunter.heardLaunch();
       else if (e.kind === 'hit') {
         this.hits++;
         this.addBlast('hit', e.at);
+        this.hunter.heardHit();
         this.addLog(`Träff! Torped ${e.torpedo} träffade ${e.vessel}.`, 'info');
-      } else if (e.kind === 'miss') this.addLog(`Torped ${e.torpedo} missade och har gått ut sin räckvidd.`, 'info');
+      } else if (e.kind === 'miss') this.addLog(`Torped ${e.torpedo} har gått ut sin räckvidd.`, 'info');
       else if (e.kind === 'sunk') this.addLog(`${e.vessel[0]!.toUpperCase()}${e.vessel.slice(1)} har sjunkit.`, 'info');
       else if (e.kind === 'drop') this.addLog(`Sjunkbomber i vattnet från ${e.by}!`, 'error');
       else if (e.kind === 'snagged') {
@@ -560,6 +633,13 @@ export class Controller {
       const s = sim.tanks[i]!;
       return d.kind !== 'mainBallast' || (s.water / d.volume <= 0.5 && !s.ventOpen && !s.blowOpen);
     });
+  }
+
+  /** @internal Air in the main ballast that stays there: blowing, or not full with the vents shut (not a dive). */
+  mainBallastHoldsAir(): boolean {
+    const sim = this.sim;
+    const main = sim.tankDefs.map((d, i) => ({ d, s: sim.tanks[i]! })).filter((x) => x.d.kind === 'mainBallast');
+    return main.some((x) => x.s.blowOpen) || (main.some((x) => x.s.water / x.d.volume <= 0.98) && main.every((x) => !x.s.ventOpen));
   }
 
   /** @internal Main ballast flooded (over 98 %), not blowing: the boat dives on its planes and compensation. */
@@ -747,3 +827,12 @@ export class Controller {
   }
 }
 
+/**
+ * Courses to 0–359° and depth targets to 0–400 m (the parser's limits), before the acknowledgement:
+ * "Kurs -10, ja", "Kurs 360, ja" and "Djup -5, ja" were taken as given.
+ */
+export function normalizeOrder(o: Order): Order {
+  if (o.kind === 'setHeading') return { ...o, heading: ((o.heading % 360) + 360) % 360 };
+  if (o.kind === 'setDepth') return { ...o, depth: Math.max(0, Math.min(LIMITS.maxDepth, o.depth)) };
+  return o;
+}

@@ -6,6 +6,9 @@
  */
 import type { StationPanel } from './controlRoom.data';
 
+/** A decimal number with the Swedish decimal comma, as in the rest of the game. */
+const dec = (x: number, digits: number): string => x.toFixed(digits).replace('.', ',');
+
 export interface ControlScreensState {
   /** Simulation time [s]. */
   t: number;
@@ -134,8 +137,8 @@ export class ControlScreens {
       g.font = '600 18px monospace';
       g.fillText(goal, x, 96);
     };
-    cell(14, 'DJUP m', m.depth.toFixed(1), `→ ${m.depthGoal.toFixed(0)}`, m.underKeel < 15);
-    cell(196, 'FART kn', m.speed.toFixed(1), m.speedGoal === null ? 'varv' : `→ ${m.speedGoal.toFixed(0)}`);
+    cell(14, 'DJUP m', dec(m.depth, 1), `→ ${m.depthGoal.toFixed(0)}`, m.underKeel < 15);
+    cell(196, 'FART kn', dec(m.speed, 1), m.speedGoal === null ? 'varv' : `→ ${m.speedGoal.toFixed(0)}`);
     cell(370, 'KURS °', String(Math.round(m.heading) % 360).padStart(3, '0'), `→ ${String(Math.round(m.headingGoal) % 360).padStart(3, '0')}`);
     // Rudder and stern planes: the ordered angle (outline) and the real one (bar).
     const gauge = (y: number, label: string, angle: number, cmd: number, max: number) => {
@@ -177,8 +180,8 @@ export class ControlScreens {
     g.fill();
     g.fillStyle = DIM;
     g.font = '600 14px monospace';
-    g.fillText(`STAMP ${m.pitch >= 0 ? '+' : ''}${m.pitch.toFixed(1)}°`, 14, h - 20);
-    g.fillText(`KRÄNG ${m.roll >= 0 ? '+' : ''}${m.roll.toFixed(1)}°`, 190, h - 20);
+    g.fillText(`STAMP ${m.pitch >= 0 ? '+' : ''}${dec(m.pitch, 1)}°`, 14, h - 20);
+    g.fillText(`KRÄNG ${m.roll >= 0 ? '+' : ''}${dec(m.roll, 1)}°`, 190, h - 20);
     g.fillText(`UNDER KÖL ${m.underKeel > 999 ? '>999' : m.underKeel.toFixed(0)} m`, 340, h - 20);
   }
 

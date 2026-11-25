@@ -113,7 +113,7 @@ describe('the active sonar', () => {
     const e = c.sonar.echoes.find((x) => x.vesselId === 'f')!;
     expect(Math.abs(e.range - 4000)).toBeLessThan(4000 * WEAPONS.ping.rangeError + 5);
     expect(c.fire.target!.obs.some((o) => o.range !== undefined)).toBe(true);
-    expect(c.log.some((x) => /^Sonar: ekon från S\d+ (00[0-9]|35[0-9])° (3,9|4,0) km/.test(x.text))).toBe(true);
+    expect(c.log.some((x) => /^Sonar: (ett eko|\d+ ekon): S\d+ (00[0-9]|35[0-9])° (3,9|4,0) km/.test(x.text))).toBe(true);
     expect(c.sonar.awareness.k).toBeGreaterThan(0.5);
     expect(c.hunter.state('k')).toBe('search');
   });

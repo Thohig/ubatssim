@@ -7,6 +7,7 @@ import { AudioDirector } from '../audio/director';
 import { SCENARIOS } from '../control/scenarios';
 import { AREA_INFO } from '../control/areas';
 import { isReady } from '../control/torpedoRoom';
+import { HULL_COLLAPSED } from '../control/plantWatch';
 import { createScene } from '../render/scene';
 import type { CutawayState } from '../render/cutaway';
 import { quatToMat3 } from '../sim/math/quat';
@@ -106,6 +107,16 @@ export function startApp(): void {
       audio.onScenarioEnd(p.status === 'completed');
       window.setTimeout(() => endScenario(), 1500);
     });
+    // Free play has no end but this: the hull collapsed (it went on sinking to 1400 m behind the HUD).
+    if (!runner) {
+      let lost = false;
+      ctrl.onLog((e) => {
+        if (lost || e.text !== HULL_COLLAPSED) return;
+        lost = true;
+        audio.onScenarioEnd(false);
+        window.setTimeout(() => endFreePlay(s), 1500);
+      });
+    }
     audio.reset(sim.y[2]!, sim.actuators.periscope);
     view.resetCamera();
     view.setWaypoint(s.scenario?.waypoint ?? null);
@@ -235,6 +246,12 @@ export function startApp(): void {
       time: r.endTime ?? session.sim.t,
       selfHandled: [...session.ctrl.selfHandled],
     });
+  }
+
+  function endFreePlay(s: GameSession): void {
+    if (session !== s || flow.state !== 'playing') return;
+    flow.go('ended');
+    menu.showResult({ scenario: null, completed: false, message: 'Skrovet kollapsade under krossdjupet.', time: s.sim.t, selfHandled: [...s.ctrl.selfHandled] });
   }
 
   /** The start page's music plays on the start page and under a scenario's briefing and the introduction. */
@@ -410,6 +427,16 @@ export function startApp(): void {
     if (logEl.classList.contains('expanded')) {
       e.preventDefault();
       logEl.classList.remove('expanded');
+      return;
+    }
+    // Then the open panel under the plan line, then the chart or the sonar, then the view.
+    if (state === 'playing' && updateHelm.close()) {
+      e.preventDefault();
+      return;
+    }
+    if (state === 'playing' && nav.mode !== null) {
+      e.preventDefault();
+      nav.close();
       return;
     }
     if (state === 'playing' && views.mode !== 'external') {

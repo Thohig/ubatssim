@@ -15,6 +15,7 @@
  * T, R and F on the keyboard do the same.
  */
 import type { Controller } from '../control/controller';
+import type { OrderSource } from '../control/orders';
 import { solutionAt } from '../control/fireControl';
 import { isReady, tubeState } from '../control/torpedoRoom';
 import { h } from './dom';
@@ -26,10 +27,10 @@ const deg3 = (rad: number) => `${String(Math.round(((rad * 180) / Math.PI + 360)
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 /** The text of the solution line for the current target (pure, for the tests). */
-export function solutionText(ctrl: Controller): string {
+export function solutionText(ctrl: Controller, lookout = true): string {
   const f = ctrl.fire;
   const t = f.target;
-  if (!t) return 'Inget mål. Sätt hårkorset på ett fartyg och tryck Mål.';
+  if (!t) return lookout ? 'Inget mål. Sätt hårkorset på ett fartyg och tryck Mål.' : 'Inget mål. Tryck på en kontakt i sonarlistan (H) för att göra den till mål.';
   const s = t.solution;
   if (!s) return `${t.label} ${t.name}: ingen lösning än.`;
   const p = solutionAt(s, ctrl.sim.t);
@@ -42,11 +43,11 @@ export function solutionText(ctrl: Controller): string {
 }
 
 /** Fires-control order helpers, shared with the keyboard. */
-export function markOrder(ctrl: Controller, views: ViewState): void {
-  ctrl.submit({ kind: 'markTarget', bearing: Math.round(viewBearing(ctrl, views) * 10) / 10 }, 'touch');
+export function markOrder(ctrl: Controller, views: ViewState, source: OrderSource = 'touch'): void {
+  ctrl.submit({ kind: 'markTarget', bearing: Math.round(viewBearing(ctrl, views) * 10) / 10 }, source);
 }
-export function rangeOrder(ctrl: Controller, views: ViewState): void {
-  ctrl.submit({ kind: 'rangeTarget', bearing: viewBearing(ctrl, views), magnification: views.mode === 'periscope' ? views.zoom : null }, 'touch');
+export function rangeOrder(ctrl: Controller, views: ViewState, source: OrderSource = 'touch'): void {
+  ctrl.submit({ kind: 'rangeTarget', bearing: viewBearing(ctrl, views), magnification: views.mode === 'periscope' ? views.zoom : null }, source);
 }
 
 /** Shown in the periscope view and on the bridge, and while the chart or the sonar is open (`navOpen`). */
@@ -118,7 +119,7 @@ export function createFirePanel(root: HTMLElement, getCtrl: () => Controller | n
     document.body.classList.toggle('fire-open', show);
     if (!show) return;
     const f = c.fire;
-    set(solution, solutionText(c));
+    set(solution, solutionText(c, lookout));
     solution.dataset.quality = f.target?.solution?.quality ?? '';
     set(spread, f.spread === 1 ? '1 torped' : `${f.spread} torpeder`);
     const solved = !!f.target?.solution;

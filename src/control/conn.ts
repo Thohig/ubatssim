@@ -521,9 +521,15 @@ export class Conn {
           : `Djuprodren orkar inte vid den här farten. Maskinen ökar till ${CONN.planesSpeed} knop tills djupet är nått.`,
         'info',
       );
-    } else if (sim.t - this.lastStallHint > CONN.stallHintEvery) {
+    } else if (!c.ap.speed && k.u < CONN.planesSpeed * KNOT && sim.t - this.lastStallHint > CONN.stallHintEvery) {
+      // Only the player's own speed can be too low here: the crew already has at least 4 knots ordered and
+      // may still be speeding up (or backing off from Stopp), and was told to "increase" it.
       this.lastStallHint = sim.t;
       c.addLog(`Djuprodren orkar inte vid den här farten. Öka till minst ${CONN.planesSpeed} knop.`, 'error');
+    } else if (k.u >= CONN.planesSpeed * KNOT && !c.options.crew.trim && sim.t - this.lastStallHint > CONN.stallHintEvery) {
+      // With way on the planes still do not hold it: the boat is out of trim, and the player has the trim.
+      this.lastStallHint = sim.t;
+      c.addLog('Djuprodren orkar inte trots farten: ubåten är ur trim. Kompensera med In eller Ut i panelen Trim.', 'error');
     }
   }
 
@@ -691,7 +697,8 @@ export class Conn {
       text = 'På periskopdjup.';
     } else {
       mode = 'holding';
-      text = c.ap.depth ? `Håller ${Math.round(goal)} m.` : 'Håller.';
+      // On Hand nobody holds anything: "Håller." stood there while the player drifted 15 m.
+      text = c.ap.depth ? `Håller ${Math.round(goal)} m.` : `Djuprodret för hand, ${Math.round(k.depth)} m.`;
     }
     if (turning && mode !== 'hand' && !(mode === 'ascent' && c.ascent.phase === 'listen')) {
       text = `${text.replace(/\.$/, '')}, girar till ${deg3(c.ascent.headingGoal() ?? sp.heading)}°.`;

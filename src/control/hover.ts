@@ -159,7 +159,7 @@ export class Hover {
       this.settledFor = 0;
       this.lastOrder = -Infinity;
       this.target = null;
-      this.said = null;
+      // `said` stays: hovering that stops and starts again (the way coming and going) said the same target each time.
       this.bias = 0;
       this.wMean = 0;
     }
@@ -198,7 +198,11 @@ export class Hover {
     const heavy = -t.netBuoyancy / ENVIRONMENT.g;
     // Compensating water has surface density: kg → litres.
     const litresPerKg = 1000 / sim.water.rhoSurface;
-    const wantedLitres = (heavyWanted - heavy) * litresPerKg;
+    // No more than the compensating tank holds or has room for.
+    const comp = sim.tankDefs.findIndex((d) => d.kind === 'compensating');
+    const water = comp >= 0 ? sim.tanks[comp]!.water * 1000 : Infinity;
+    const room = comp >= 0 ? sim.tankDefs[comp]!.volume * 1000 - water : Infinity;
+    const wantedLitres = Math.max(-water, Math.min(room, (heavyWanted - heavy) * litresPerKg));
     const pending = sim.compRemaining * 1000;
     if (Math.abs(wantedLitres - pending) > HOVER.orderDeadband && sim.t - this.lastOrder >= HOVER.orderInterval) {
       const litres = Math.round(wantedLitres / 10) * 10;

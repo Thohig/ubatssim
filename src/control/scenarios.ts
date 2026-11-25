@@ -10,6 +10,7 @@ import { canyonAt } from '../sim/terrain';
 import { WEAPONS } from '../sim/config/weapons';
 import type { InitialConditions, Telemetry } from '../sim/simulation';
 import type { Controller } from './controller';
+import { twoLegs } from './fireControl';
 import { CREW_NAME, CREW_SYSTEMS, type CrewLocks, type CrewSystem } from './crew';
 import { AREA_INFO, corvette, freighter, type ConditionsId } from './areas';
 import type { VesselDef } from '../sim/vessel';
@@ -674,9 +675,14 @@ export const SCENARIOS: Scenario[] = [
         check: (_t, c) => c.fire.target?.vesselId === NIGHT_TARGET.id,
       },
       {
-        text: 'Få en lösning som är ok eller bra',
-        hint: 'Byt kurs minst 30° och håll den några minuter. Bäringarna från två ben ger avståndet.',
-        check: (_t, c) => c.fire.target?.solution?.quality === 'ok' || c.fire.target?.solution?.quality === 'bra',
+        text: 'Få en lösning ur två ben',
+        hint: 'Byt kurs minst 30° och håll den minst två minuter. Bäringarna från två ben ger ett avstånd; det är grovt, men torpeden söker själv sista biten.',
+        // Bearings alone over one change of course give the range only roughly ("ok" was an artefact of a fit
+        // that put the target on the boat's own track); two legs are the analysis done.
+        check: (_t, c) => {
+          const t = c.fire.target;
+          return !!t?.solution && (t.solution.quality !== 'dålig' || twoLegs(t.obs));
+        },
       },
       {
         text: 'Skjut och träffa',
@@ -736,7 +742,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Ta dig undan eskorten',
-        hint: 'Sänk periskopet, gå djupt under skiktet, sakta, och byt kurs. Eskorten hörde avfyrningen.',
+        hint: 'Sänk periskopet och gå djupt under skiktet i Halv fram: i Sakta tar det en kvart. Sakta in till 4 knop först där nere, och byt kurs. Eskorten hörde avfyrningen.',
         check: (_t, c) => shaken(c, ESCORT.id),
         holdSeconds: 30,
       },
@@ -820,7 +826,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Ta dig undan eskorten',
-        hint: 'Sänk periskopet, gå djupt under skiktet, sakta, och byt kurs. Konvojen sicksackar och eskorten hörde avfyrningen.',
+        hint: 'Sänk periskopet och gå djupt under skiktet i Halv fram: i Sakta tar det en kvart. Sakta in till 4 knop först där nere, och byt kurs. Konvojen sicksackar och eskorten hörde avfyrningen.',
         check: (_t, c) => shaken(c, BIG_ESCORT.id),
         holdSeconds: 30,
       },
@@ -880,7 +886,8 @@ export const SCENARIOS: Scenario[] = [
       {
         text: 'Pinga och få en bra lösning',
         hint: 'Tryck Ping i sonaren (eller A). Ekot ger avståndet. Pinga igen efter en halv minut, så får eldledningen kurs och fart.',
-        check: (_t, c) => c.sonar.pings > 0 && good(c, ECHO_SHIP.id),
+        // Sunk from bearings alone (or with a ping on the way) is past this too: it stayed here for good.
+        check: (_t, c) => (c.sonar.pings > 0 && good(c, ECHO_SHIP.id)) || sunk(c, ECHO_SHIP.id),
       },
       {
         text: 'Skjut och träffa',
@@ -891,7 +898,7 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         text: 'Ta dig undan korvetten',
-        hint: 'Den hörde pingen och avfyrningen. Gå djupt under skiktet, sakta, och byt kurs.',
+        hint: 'Den hörde pingen och avfyrningen. Gå djupt under skiktet i Halv fram, sakta in till 4 knop där nere, och byt kurs.',
         check: (_t, c) => shaken(c, ECHO_CORVETTE.id),
         holdSeconds: 30,
       },

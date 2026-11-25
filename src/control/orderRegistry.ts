@@ -5,8 +5,8 @@
  */
 import type { Simulation } from '../sim/simulation';
 import { WEAPONS } from '../sim/config/weapons';
-import type { Controller } from './controller';
-import { AXES, CREW_SYSTEMS, MAX_DIVE_DEPTH, type CrewDuties } from './crew';
+import { STAGED_BLOW_DEPTH, type Controller } from './controller';
+import { AXES, CREW_NOUN, CREW_SYSTEMS, MAX_DIVE_DEPTH, swedishList, type CrewDuties } from './crew';
 import type { Target } from './fireControl';
 import { isReady, tubeState } from './torpedoRoom';
 import type { Order, OrderKind, OrderOf, TankGroup } from './orders';
@@ -127,8 +127,20 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       // The player handles the ballast now: an emergency blow is theirs to carry through or stop.
       c.blowCommitted = false;
       const ids = groupIds(o.group);
+      // The crew on the planes follows the blow up: holding the old depth it drove the bow down 17°.
+      if (o.action === 'blow' && c.ap.depth && sim.kinematics().depth > 1 && c.setpoints.depth > 0) {
+        c.setpoints.depth = 0;
+        c.resetDepthLoops();
+        c.afterAck.push('Djupstyraren tar ubåten till ytan.');
+      }
       if (o.action === 'flood') sim.setVents(true, ids);
-      else if (o.action === 'blow') sim.setBlow(true, ids);
+      else if (o.action === 'blow' && ids === undefined && sim.kinematics().depth > STAGED_BLOW_DEPTH) {
+        // Both groups from the deep: forward first, as Ytläge does. Together they tipped the bow down 32°.
+        const delay = Math.round(c.stagedBlowDelay(sim.y[2]!));
+        sim.setBlow(true, groupIds('fwd'));
+        c.aftBlowAt = sim.t + c.stagedBlowDelay(sim.y[2]!);
+        c.afterAck.push(`Huvudballasten för blåses först, så att fören kommer upp. Akter om ${delay} s.`);
+      } else if (o.action === 'blow') sim.setBlow(true, ids);
       else {
         sim.setVents(false, ids);
         sim.setBlow(false, ids);
@@ -155,7 +167,11 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       for (const axis of axes) {
         if (o.on && !c.ap[axis]) {
           if (axis === 'depth') {
-            c.setpoints.depth = Math.round(k.depth);
+            // With the main ballast blown or blowing (the player's own Blås) the boat goes up whatever the
+            // planes do: the surface is the target, not the depth it happens to pass (it stayed at "200 m").
+            const rising = c.mainBallastHoldsAir() && k.depth > 1;
+            c.setpoints.depth = rising ? 0 : Math.round(k.depth);
+            if (rising) c.afterAck.push('Huvudballasten är blåst: besättningen tar ubåten till ytan.');
             c.resetDepthLoops();
           } else if (axis === 'heading') {
             c.setpoints.heading = Math.round(k.heading / DEG) % 360;
@@ -214,9 +230,13 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
   dive: {
     refuse: (c) => c.refuseUnderBlow(DIVE_REFUSE_DEPTH) ?? c.refuseDiveWithBridgeManned(),
     apply: (c) => {
+      const fromSurface = c.mainBallastEmpty();
       c.sim.setVents(true);
       c.shutVentsWhenFull = true;
       c.aftBlowAt = null;
+      // As for a depth target from the surface (checkBallastForDepth): the crew's speed for the planes.
+      // Without it D took twice as long as Periskop to periscope depth, first with "Djuprodren orkar inte".
+      if (fromSurface) c.conn.onDive();
     },
   },
   surface: {
@@ -229,6 +249,9 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
   periscope: {
     apply: (c, o) => {
       c.sim.commands.periscopeUp = o.up;
+      // The head reaches over the water down to ~14 m: deeper, raising it shows nothing.
+      const depth = c.sim.kinematics().depth;
+      if (o.up && depth > PERISCOPE_REACH) c.afterAck.push(`På ${Math.round(depth)} m når periskopet inte över ytan. Gå till periskopdjup, 13 m.`);
     },
   },
   snorkel: {
@@ -427,20 +450,31 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
     apply: (c, o) => {
       const systems = o.system === 'all' ? CREW_SYSTEMS.filter((x) => c.options.locks[x] === undefined) : [o.system];
       for (const x of systems) c.setDuty(x, o.crew);
+      // "Besättningen sköter allt, ja" with the depth and the trim locked to the player said too much.
+      const locked = o.system === 'all' ? CREW_SYSTEMS.filter((x) => c.options.locks[x] !== undefined) : [];
+      if (locked.length) c.afterAck.push(`Utom ${swedishList(locked.map((x) => (x === 'safetyNet' ? 'skyddsnätet' : CREW_NOUN[x])))}, som scenariot låser.`);
     },
   },
   reportBearing: {
+    // Nothing to see: refused, instead of the error and then "Bäring 063, ja".
+    refuse: (c) => (bearingLookout(c) ? null : 'Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.'),
     apply: (c, o) => {
       const sim = c.sim;
-      // Something can be seen from a raised periscope above the water or from the bridge.
-      const lookout = c.bridgeManned || (sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0);
       const contacts: Record<string, number> = {};
       for (const k of c.world.contacts()) contacts[k.vessel.def.id] = (k.bearing * 180) / Math.PI;
-      c.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout, contacts };
-      if (!lookout) c.addLog('Ingen utkik: hissa periskopet eller bemanna bryggan för att se något.', 'error');
+      c.lastBearing = { bearing: o.bearing, t: sim.t, position: [sim.y[0]!, sim.y[1]!], lookout: true, contacts };
     },
   },
 };
+
+/** Something can be seen from a raised periscope above the water or from the bridge. */
+function bearingLookout(c: Controller): boolean {
+  const sim = c.sim;
+  return c.bridgeManned || (sim.actuators.periscope > 0.99 && sim.bodyPointDepth(sim.periscopeHead()) < 0);
+}
+
+/** Deeper than this [m] the raised periscope's head stays under water (help: about 14 m). */
+const PERISCOPE_REACH = 15;
 
 function groupIds(g: TankGroup): string[] | undefined {
   return g === 'fwd' ? ['mbt_fwd'] : g === 'aft' ? ['mbt_aft'] : undefined;

@@ -29,7 +29,9 @@ export interface OverlayState {
 const BAND_ABOVE = 44;
 const BAND_BELOW = 30;
 /** Kept free at the top for the objective and the log [px]. */
-const TOP_CLEAR = 96;
+const TOP_CLEAR = 108;
+/** A circle this part of the screen's smaller side is good enough to keep the band clear of the log [–]. */
+const FAIR = 0.25;
 /** Gap between the eyepiece and a panel beside it [px]. */
 const SIDE_GAP = 6;
 /** The eyepiece is never smaller than this part of the screen's smaller side, panel or not. */
@@ -38,22 +40,26 @@ const LEAST_BESIDE = 0.15;
 /**
  * The eyepiece (centred on the screen, where the camera looks) and the
  * bearing band outside it: below the circle if a circle of at least 30 % of
- * the screen still fits above the screen controls, else above it (under the
+ * the screen (or 25 %, and larger than above) still fits above the screen controls, else above it (under the
  * objective and the log, or on a low screen at the very top). A panel beside
  * it at the horizon's height (`clearRight`, its left edge) makes the circle
  * smaller, so that the horizon in it stays clear. Pure.
  */
 export function periscopeLayout(w: number, h: number, clearBottom: number, clearRight = w): { r: number; bandY: number } {
   const cy = h / 2;
+  const side = Math.min(w, h);
   // A panel beside the eyepiece (the fire panel in a small window) must not cover the horizon in it.
-  const max = Math.min(Math.min(w, h) * 0.44, Math.max(Math.min(w, h) * LEAST_BESIDE, clearRight - w / 2 - SIDE_GAP));
+  const max = Math.min(side * 0.44, Math.max(side * LEAST_BESIDE, clearRight - w / 2 - SIDE_GAP));
   const below = Math.min(max, clearBottom - BAND_BELOW - BAND_ABOVE - cy);
-  const least = Math.min(Math.min(w, h) * 0.3, max);
-  if (below >= least) return { r: below, bandY: cy + below + BAND_ABOVE };
-  // Above, under the objective and the log; on a low screen (a phone on its side) right at the top.
-  const top = cy - TOP_CLEAR - BAND_ABOVE - BAND_BELOW >= least ? TOP_CLEAR : 8;
-  const above = Math.max(40, Math.min(max, cy - top - BAND_ABOVE - BAND_BELOW));
-  return { r: above, bandY: cy - above - BAND_BELOW };
+  const above = Math.min(max, cy - TOP_CLEAR - BAND_ABOVE - BAND_BELOW);
+  const least = Math.min(side * 0.3, max);
+  const fair = Math.min(side * FAIR, max);
+  if (below >= least || (below >= fair && below >= above)) return { r: below, bandY: cy + below + BAND_ABOVE };
+  // Above, under the objective and the log; only on a low screen (a phone on its side) right at the top,
+  // where the band lay under the log and the mode label on an ordinary desktop window (1280 × 800).
+  if (above >= fair) return { r: above, bandY: cy - above - BAND_BELOW };
+  const r = Math.max(40, Math.min(max, cy - 8 - BAND_ABOVE - BAND_BELOW));
+  return { r, bandY: cy - r - BAND_BELOW };
 }
 
 const ACCENT = '#5fd3ff';

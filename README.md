@@ -90,7 +90,7 @@ Under ☰ → **Besättning** kan du slå på **Expertläge**. Då väljer du f�
 - **Instrumentpanelen** följer valen: tar du över kursen visas rodret, trimmet flytkraft och tankar, ballasten HP-luften, laddningen dieslarna, snorkeln och elförbrukningen.
 - **Första gången** visas en kort introduktion.
 - **Trimassistenten** ger vanliga order, och varje order kvitteras i loggen, till exempel `Kompensera ut 150 liter, ja`. Den är begränsad av pumparnas kapacitet (5–6 l/s), så den hinner inte rädda allt.
-  - **Kompensering:** när ubåten är nedsänkt med full huvudballast och har legat stilla på sitt djup en stund, pumpar assistenten bort flytkraftsöverskottet i portioner om högst 200 l (500 l när felet är över ett ton). Små avvikelser (±50 kg) lämnas.
+  - **Kompensering:** när ubåten är nedsänkt med full huvudballast och har legat stilla på sitt djup en stund, pumpar assistenten bort flytkraftsöverskottet i portioner om högst 200 l (500 l när felet är över ett ton). Små avvikelser (±50 kg) lämnas. Under 4 knop och mer än 1 m från djupmålet siktar den på 150 kg tung eller lätt per meter (högst 450 kg) i stället för neutral.
   - **Trim:** behöver djuprodret hela tiden ligga i samma riktning för att hålla djupet, flyttas vatten mellan trimtankarna.
 - **Skyddsnätet:**
   - Nödblåsning under 255 m (85 % av krossdjupet 300 m), eller om ubåten sjunker fortare än 2 m/s under 250 m.
@@ -163,7 +163,7 @@ Piltangenterna följer Auto / Hand (Hand bara i expertläge).
 | + / − | Zooma genomskärningen | Samma |
 | B | Rapportera bäringen dit periskopet eller blicken pekar | Samma |
 | ← / → i periskopet | Vrid periskopet (Shift + ← / → styr) | Samma |
-| Esc | Stäng loggens historik, lämna en vy, eller pausa | Samma |
+| Esc | Stäng loggens historik, en öppen panel, sjökortet eller sonaren, lämna en vy, eller pausa | Samma |
 | T / R / F | Markera fartyget i hårkorset / mät avståndet / skjut (periskopet eller bryggan) | Samma |
 | N | Snorkel upp / ned | Samma |
 | Y | Radarmast upp / ned | Samma |
@@ -261,7 +261,7 @@ Under vattnet går ubåten på batteriet. Det rymmer 6 MWh och är fulladdat nä
 
 Vatten kan tränga in i tryckskrovets avdelningar genom hål. Inflödet är Q = Cd·A·√(2Δp/ρ), så det växer med djupet.
 
-- **Hål uppstår** vid en hård grundstötning (över ~2 knop: fören, aktern eller kölen efter rörelseriktningen), vid kollision med ett fartyg (manöverrummet under tornet) och under krossdjupet 300 m (maskinrummet, mer ju djupare). På 360 m kollapsar skrovet.
+- **Hål uppstår** vid en hård grundstötning (över ~2 knop: fören, aktern eller kölen efter rörelseriktningen), vid kollision med ett fartyg (manöverrummet under tornet) och under krossdjupet 300 m (maskinrummet, mer ju djupare). På 360 m kollapsar skrovet: ett scenario misslyckas, och fritt spel slutar med Ubåten förlorad.
 - **Besättningen tätar** varje hål med en tidskonstant på 150 s, utom under krossdjupet. **Länspumpen** tar 20 l/s vid ytan och allt mindre ju djupare. På 250 m orkar den inte alls. Gå alltså grundare, så tätar besättningen fortare än vattnet kommer in.
 - **Vattnet väger:** det ligger i avdelningens botten och gör ubåten tyngre där. Över 15 ton varnar loggen, och skyddsnätet blåser huvudballasten.
 - **Följder:** ett maskinrum som är vattenfyllt till 30 % stoppar dieslarna, och ett elmotorrum till 30 % stoppar motorn.
@@ -305,7 +305,7 @@ Periskopet är eldledningens öga. I periskopvyn (och på bryggan) ligger eldled
 
 1. **Mål** (T): sätt hårkorset på ett fartyg och tryck Mål. Det blir ett mål (M1, M2 …) med en exakt bäring. En sonarkontakt blir mål med ett tryck på den i sonarlistan. Med flera mål visar panelen en rad med dem (M1, M2 …), och ett tryck väljer vilket tuberna siktar på. Då följer eldledningen dess bäringar var tionde sekund.
 2. **Avst** (R): stadimetern mäter avståndet med fartyget i hårkorset. Felet är ~8 % vid 1,5× och ~3 % vid 6×, och på bryggan ~12 % (ögonmått). Sköter besättningen eldledningen mäter eldledaren själv var 30:e sekund medan målet syns.
-3. **Lösningen** är målets position, kurs och fart, räknad med minsta kvadrat ur alla bäringar och avstånd (målrörelseanalys). Kvaliteten är dålig, ok eller bra. Bäringar från sonaren ger avståndet först när ubåten har bytt kurs: två ben med minst 30° emellan. Håll sedan kursen några minuter: eldledaren säger till. Panelen visar avstånd, kurs, fart, kvalitet, skjutkurs och gångtid.
+3. **Lösningen** är målets position, kurs och fart, räknad med minsta kvadrat ur alla bäringar och avstånd (målrörelseanalys). Kvaliteten är dålig, ok eller bra. Bäringar från sonaren ger avståndet först när ubåten har bytt kurs: två ben med minst 30° emellan. Håll sedan kursen några minuter: eldledaren säger till. Avståndet ur bara bäringar är grovt (lösningen söks längs den senaste bäringen från 500 m och utåt), men torpeden söker själv sista biten. Panelen visar avstånd, kurs, fart, kvalitet, skjutkurs och gångtid.
 4. **Fyr** (F): torpeden går mot träffpunkten, där den och målet möts. Den går 40 knop, räcker 10 km och söker passivt de sista 600 m inom ±30°, med samma akustik som sonaren. Den träffar under målets vattenlinje, och fartyget sjunker. **Spridning** 2 eller 3 skjuter flera torpeder med 3° emellan, för en sämre lösning.
 5. **Tuberna:** fyra förtuber och åtta torpeder i stället (se [Torpedrummet](#torpedrummet)). Fyr skjuter från de klara tuberna (gröna). Ett tryck på en klar tub skjuter från just den, på en laddad tub gör det den klar och på en tom tub laddar det om den.
 6. **Tråden:** torpeden är trådstyrd. I eldledningspanelen har varje torped med tråd en rad: **Styr** riktar den mot målets lösning som den är nu (ny gyrokurs från där torpeden är, och sökaren vaknar 600 m före den nya träffpunkten), **Sök** väcker sökaren direkt och **Kapa** kapar tråden. Skjut tidigt på en sämre lösning och styr när den blivit bättre. Tråden går av om ubåten går fortare än 8 knop i mer än 5 s eller svänger mer än 120° från kursen vid avfyrningen. Sjökortet ritar tråden som en tunn streckad linje.
@@ -327,7 +327,7 @@ En tub skjuter bara när den är **klar**: torpeden i, tuben vattenfylld och myn
 
 Sköter torpedrummet tuberna (besättningen) gör det de laddade tuberna klara när ett mål är markerat, och säkrar och laddar om tomma tuber. Sköter du dem själv gör du det i panelen **Torped** eller med ett tryck på en tub i eldledningspanelen. En tub-order tar över torpedrummet.
 
-**Torpederna väger.** En torped väger 1,6 ton. Vattnet runt en torped i tuben kommer från och går tillbaka till tanken runt tuberna och väger lika mycket. En avfyrad torped ersätts av havsvatten, så ubåten blir 150 kg lättare förut per skott, och en omladdning flyttar 1,6 ton från stället till tuben. Skillnaden mot konstruktionsläget går till fysiken som punktmassor (`Simulation.payload`), så trimmet märker en salva.
+**Torpederna väger.** En torped väger 1,6 ton. Vattnet runt en torped i tuben kommer från och går tillbaka till tanken runt tuberna och väger lika mycket. En avfyrad torped ersätts av havsvatten, så ubåten blir 150 kg lättare förut per skott, och en omladdning flyttar 1,6 ton från stället till tuben. Skillnaden mot konstruktionsläget går till fysiken som punktmassor (`Simulation.payload`), så trimmet märker en salva. Sköter besättningen trimmet kompenserar och trimmar den för torpedernas vikt direkt efter skottet, och i låg fart (under 4 knop, där djuprodren knappt flyttar ubåten) gör den ubåten lite tung eller lätt för att komma tillbaka till djupet. En torped som passerat träffpunkten utan att höra målet sägs ha missat direkt.
 
 ## Korvetter som jagar
 
@@ -343,7 +343,7 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 - **Passivt hör den bäringen men inte avståndet**, så positionen den tror på har ett fel på 10–50 % av avståndet.
 - **Aktiv sonar** når 3 km, men skiktet dämpar ekot kraftigt (20 dB per väg), och den egna farten gör korvetten döv. Under skiktet hittar en sökande korvett dig inom några hundra meter. Akterut ser sonaren inget.
 - **Sjunkbomberna** ger ett stort hål inom 8 m och ett mindre ut till 40 m, i avdelningen närmast explosionen (se [Läckage och skador](#läckage-och-skador)). Korvetten har 24.
-- **Den ger upp** när den inte haft kontakt på fem minuter, eller när sjunkbomberna är slut. Har den hört en avfyrning inom 6 km går den dit först och räknar de fem minuterna därifrån.
+- **Den ger upp** när den inte haft kontakt på fem minuter, eller när sjunkbomberna är slut. Har den hört en avfyrning inom 6 km går den dit först och räknar de fem minuterna därifrån. En träff hörs av alla korvetter inom 15 km med sjunkbomber kvar: de söker där ubåten måste vara och ger inte upp på vägen.
 - **Så kommer du undan:** gå djupt under skiktet, sakta (4 knop), byt kurs och byt djup när den går över dig. Ett lockmål drar korvetten åt ett annat håll.
 - **Två som samarbetar:** korvetter i samma grupp jagar tillsammans. Den som börjar söka eller anfalla ropar på de andra, och ett eko delas av alla. När två anfaller går den ena in och fäller medan den andra står 1,5 km bort i låg fart, lyssnar och pingar, och efter varje mönster byter de plats (krypande anfall). Den som står still hör dig mycket bättre än den som kör: håll avståndet till den.
 - **Konvojer:** när ett fartyg i en konvoj träffas ökar de andra farten med 30 % och sicksackar ±30° kring kursen i ett fast mönster, två minuter per ben. Eskorten söker där avfyrningen hördes.
@@ -419,7 +419,7 @@ Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, ta
 | **Atlanten** | Djuphav, ~1 800 m. Ingen botten inom räckhåll. | Salt och kallt (1 027 kg/m³). | Nordatlantiska strömmen, 0,3 m/s mot nordost, ända ner till djupet. |
 | **Eggakanten** | Norska kontinentalsockeln: sockeln på ~150 m med sanddyner, branten ned mot djuphavet (1 600 m), en undervattenskanjon som skär 150–300 m ner i sockeln, tre undervattensberg (ett med flat topp på 190 m), två vrak och en klippig kust 9 km österut. | Atlantvatten (1 027 kg/m³), språngskikt på 25–60 m och kallt djupvatten under 500 m. | Sluttningsströmmen, 0,3 m/s norrut längs kanten. |
 
-- **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor, fiskebåtar, trålare och segelbåtar (nästan tysta, utan propeller), i Östersjön en patrullerande korvett och över Eggakanten ett spaningsplan. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Kollision med ett fartyg loggas. Torpederna fungerar också i fritt spel, och korvetten i Östersjön jagar den som avslöjar sig.
+- **Trafik:** i fritt spel går fartyg i varje område: lastfartyg, färjor, fiskebåtar, trålare och segelbåtar (nästan tysta, utan propeller), i Östersjön en patrullerande korvett och över Eggakanten ett spaningsplan. De följer sina rutter, har lanternor i mörker och dimma och hörs genom skrovet när de är nära. Ett fartyg på väg att gå över ubåten varnas för med djupet som går fri ("kommer nära … Gå djupare än … m"), och en kollision loggas. Torpederna fungerar också i fritt spel, och korvetten i Östersjön jagar den som avslöjar sig.
 - **Barlast:** ubåtens fasta barlast är anpassad för området, som när en marin flyttar en ubåt mellan hav. Den är alltså neutral på konstruktionsdjupet i alla områden. Skillnaden märks i skikten, till exempel att ubåten blir flera ton lättare under Östersjöns saltsprångskikt, och att den flyter något djupare i fjordens sötvatten.
 - **Ljusstrålar** faller ner från ytan på dagen och tonas ut mot 70 m. De kan stängas av i Inställningar.
 - **Under vattnet:** varje område har sitt vatten. Östersjön är grönt och grumligt, fjorden grönbrun och Atlanten klar och blå. Det mörknar med djupet. Underifrån syns himlen bara genom **Snells fönster**, en ljus skiva rakt ovanför inom 48,6° från lodlinjen. Utanför den speglar ytan det mörka vattnet (totalreflektion).

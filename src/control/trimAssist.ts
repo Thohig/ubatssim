@@ -18,7 +18,7 @@
  *    depth, a shallow-water limit on the depth setpoint and a keel warning.
  */
 import { ENVIRONMENT } from '../sim/config/environment';
-import { DT } from '../sim/simulation';
+import { DT, type PayloadMass } from '../sim/simulation';
 import type { Controller } from './controller';
 import { MAX_DIVE_DEPTH } from './crew';
 import { HOVER, Hover } from './hover';
@@ -136,14 +136,32 @@ export const ASSIST = {
    * under the keel. Stopped in a sound the boat drifted onto the rocks at 0.2 knots and nobody said a word.
    */
   driftSpeed: 1,
+  /** Under this speed [m/s] off the depth target by more than `slowBand` [m] the compensation aims for some weight (`slowDepthBias`). */
+  slowSpeed: 1.9,
+  slowBand: 1,
+  slowKgPerM: 150,
+  slowMaxKg: 450,
   driftTime: 120,
   driftLook: 50,
   /** The crew goes ahead or astern away from the drift at this speed [knots] if it handles the speed and has it stopped. */
   driftStem: 2,
   /** …for this long [s], then stops again (re-armed at once: it drifts back, it goes again). */
   driftAway: 60,
+  /** …only where the way it goes is clear this far beyond the distance [m], on a path this far to each side of the centre line [m]. */
+  driftClear: 40,
+  driftSide: 8,
+  /** …and at least this far clear [m] (the crew stops again before ground, checking every second). */
+  driftMinClear: 30,
+  /** With neither way clear the crew looks again after this [s]. */
+  driftRetry: 10,
+  /** …and stops when less than this is clear ahead of it [m] (it glides on). */
+  driftStop: 30,
   /** The crew turns away from it this much [deg], to the side with the deeper water (`turnAway`). */
   wallTurn: 60,
+  /** …but not to a side where the stern, swinging the other way, has ground within this beyond the hull [m]. */
+  sternSwing: 15,
+  /** Stopped for land below this speed [m/s] before the turn is done, the crew puts the rudder midships. */
+  wallTurnSpeed: 0.3,
   /** Seconds without danger before the shoal warning re-arms (and the crew's speed limit for it ends). */
   shoalRearm: 30,
   /** On the surface: ground ahead with less than this under the keel [m] is dangerous. */
@@ -190,9 +208,14 @@ export class TrimAssist {
   private wallArmed = true;
   private driftArmed = true;
   private driftSince = -Infinity;
+  /** Neither ahead nor astern was clear: looks again at `driftRetryAt` [s]. */
+  private driftBlocked = false;
+  private driftRetryAt = 0;
   /** The speed the drift watch ordered and when, to stop again after `ASSIST.driftAway` s. */
-  private driftOrder: { knots: number; at: number } | null = null;
+  private driftOrder: { knots: number; at: number; lastCheck: number } | null = null;
   private wallSince = -Infinity;
+  /** The course the crew turned to for land ahead (`watchWall`), until it is reached or changed. */
+  private wallTurnTo: number | null = null;
   private shoalSince = -Infinity;
   private limiting = false;
   /**
@@ -227,6 +250,8 @@ export class TrimAssist {
   step(): void {
     const ctrl = this.ctrl;
     const sim = ctrl.sim;
+    // The boat is lost: nobody trims or hovers a collapsed hull (it ordered 786 m³ out of a 5 m³ tank).
+    if (sim.systems.flooding.collapsed) return;
     // Pump timers and the stern-plane average are sampled every step (cheap).
     if (sim.compRemaining !== 0) this.compIdleSince = sim.t;
     if (sim.trimRemaining !== 0) this.trimIdleSince = sim.t;
@@ -256,6 +281,7 @@ export class TrimAssist {
       // off, faster than the pump could make it heavy again.
       else if (this.divingToStop()) this.netFiltered = null;
       else if (this.compensateOnTheWay()) this.netFiltered = null;
+      else if (this.compensatePayload()) this.netFiltered = null;
       else this.compensate();
       this.trim(k.u);
     } else if (this.hover.active) {
@@ -315,7 +341,15 @@ export class TrimAssist {
     this.shoalArmed = false;
     const slow = ctrl.ap.speed && ctrl.setpoints.speed > ASSIST.shoalSpeed;
     const surface = depth < ASSIST.minDepth;
-    const what = slow ? `Besättningen saktar in till ${ASSIST.shoalSpeed} knop.${surface ? ' Gir undan.' : ''}` : surface ? 'Sakta in och gir undan.' : 'Sakta in eller gå upp.';
+    // The crew's own speed (a boost for the planes or a depth change) is kept under the shoal speed by the
+    // conn (`shoalAhead`): telling the player to slow down then was advice for something they do not handle.
+    const what = slow
+      ? `Besättningen saktar in till ${ASSIST.shoalSpeed} knop.${surface ? ' Gir undan.' : ''}`
+      : ctrl.ap.speed
+        ? `Besättningen håller farten under ${ASSIST.shoalSpeed} knop.${surface ? ' Gir undan.' : ' Gir undan eller gå upp.'}`
+        : surface
+          ? 'Sakta in och gir undan.'
+          : 'Sakta in eller gå upp.';
     ctrl.addLog(`Varning: grunt förut! ${what}`, 'error', 'assist');
     if (slow) ctrl.submit({ kind: 'setSpeed', knots: ASSIST.shoalSpeed }, 'assist');
   }
@@ -352,6 +386,13 @@ export class TrimAssist {
     // and slowly (piloting through a sound, where the shore is often ahead before a turn) the shoal watch's
     // slowing down does.
     this.wallAhead = u > 1 && this.wallWithin(limits, u, reach);
+    // Stopped before the turn is done, the rudder only swings the stern sideways (into a fjord's side): midships.
+    if (this.wallTurnTo !== null && (!ctrl.ap.heading || ctrl.setpoints.heading !== this.wallTurnTo)) this.wallTurnTo = null;
+    if (this.wallTurnTo !== null && u < ASSIST.wallTurnSpeed && ctrl.ap.speed && ctrl.setpoints.speed === 0) {
+      this.wallTurnTo = null;
+      const here = Math.round(sim.kinematics().heading / (Math.PI / 180));
+      ctrl.submit({ kind: 'setHeading', heading: ((here % 360) + 360) % 360 }, 'assist');
+    }
     if (!this.wallAhead) {
       if (sim.t - this.wallSince > ASSIST.shoalRearm) this.wallArmed = true;
       return;
@@ -363,10 +404,11 @@ export class TrimAssist {
     this.shoalArmed = false;
     const crew = ctrl.ap.speed && ctrl.setpoints.speed !== 0;
     const turn = ctrl.ap.heading ? this.turnAway(reach) : null;
-    const turned = turn === null ? 'Gir undan.' : `Gir ${turn.side} mot djupare vatten, kurs ${String(turn.heading).padStart(3, '0')}°.`;
+    const turned = turn !== null ? `Gir ${turn.side} mot djupare vatten, kurs ${String(turn.heading).padStart(3, '0')}°.` : ctrl.ap.heading ? 'Ingen plats att gira: ubåten stannar.' : 'Gir undan.';
     ctrl.addLog(`Varning: land förut! ${crew ? `Besättningen slår full back. ${turned}` : `Full back. ${turned}`}`, 'error', 'assist');
     if (crew) ctrl.submit({ kind: 'setSpeed', knots: 0 }, 'assist');
     if (turn) ctrl.submit({ kind: 'setHeading', heading: turn.heading }, 'assist');
+    this.wallTurnTo = turn?.heading ?? null;
   }
 
   /**
@@ -414,14 +456,47 @@ export class TrimAssist {
       }
       return m;
     };
+    // A turn swings the stern the other way: towards a fjord's side close aboard it ran the stern into it.
+    const keel = sim.y[2]! + sim.cfg.hull.radius;
+    const sternFree = (toStarboard: boolean): boolean => {
+      const side = (toStarboard ? -1 : 1) * (sim.cfg.hull.radius + ASSIST.sternSwing);
+      for (let x = -sim.cfg.hull.length / 2; x <= 0; x += 10) {
+        const seabed = sim.ground(n + x * Math.cos(k.heading) - side * Math.sin(k.heading), e + x * Math.sin(k.heading) + side * Math.cos(k.heading));
+        if (seabed - keel < ASSIST.keelMargin / 2) return false;
+      }
+      return true;
+    };
     const turn = ASSIST.wallTurn * (Math.PI / 180);
     const ahead = shallowest(0);
-    const port = shallowest(-turn);
-    const starboard = shallowest(turn);
+    const port = sternFree(false) ? shallowest(-turn) : -Infinity;
+    const starboard = sternFree(true) ? shallowest(turn) : -Infinity;
     if (Math.max(port, starboard) <= ahead) return null;
     const right = starboard >= port;
     const deg = Math.round(k.heading / (Math.PI / 180) + (right ? 1 : -1) * ASSIST.wallTurn);
     return { side: right ? 'styrbord' : 'babord', heading: ((deg % 360) + 360) % 360 };
+  }
+
+  /**
+   * How far [m] the water is clear for the boat to go ahead (`sign` 1) or astern (−1), up to `reach`: from
+   * the end that leads, keeping `ASSIST.driftClear` m beyond it free, along the centre line and `driftSide` m
+   * to each side of it; free means no less than half `keelMargin` under the keel (under water), or no shore (on the surface).
+   */
+  private clearDistance(sign: number, depth: number, reach: number): number {
+    const sim = this.ctrl.sim;
+    const heading = sim.kinematics().heading + (sign < 0 ? Math.PI : 0);
+    const keel = depth + sim.cfg.hull.radius;
+    const shore = this.shoreDepth();
+    const from = sim.cfg.hull.length / 2;
+    const c = Math.cos(heading);
+    const sn = Math.sin(heading);
+    for (let d = 0; d <= reach + ASSIST.driftClear + 1e-9; d += 10) {
+      for (const off of [0, -ASSIST.driftSide, ASSIST.driftSide]) {
+        const r = from + d;
+        const seabed = sim.ground(sim.y[0]! + r * c - off * sn, sim.y[1]! + r * sn + off * c);
+        if (depth >= ASSIST.minDepth ? seabed - keel < ASSIST.keelMargin / 2 : seabed < shore) return Math.max(0, d - ASSIST.driftClear);
+      }
+    }
+    return reach;
   }
 
   /** See `ASSIST.driftSpeed`. Once per drift (re-armed `shoalRearm` s after the danger is gone). */
@@ -437,11 +512,24 @@ export class TrimAssist {
       ctrl.addLog('Ubåten är fri från grundet. Stopp i maskin.', 'info', 'assist');
       ctrl.submit({ kind: 'setSpeed', knots: 0 }, 'assist');
       return;
+    } else if (o && sim.t - o.lastCheck >= 1) {
+      // Going ahead or astern away from the drift: stop before the end that leads meets ground.
+      o.lastCheck = sim.t;
+      if (this.clearDistance(Math.sign(o.knots), depth, ASSIST.driftStop) < ASSIST.driftStop) {
+        this.driftOrder = null;
+        this.driftArmed = true;
+        this.driftSince = sim.t;
+        ctrl.addLog(`Grund ${o.knots < 0 ? 'akter' : 'för'} om ubåten. Stopp i maskin.`, 'error', 'assist');
+        ctrl.submit({ kind: 'setSpeed', knots: 0 }, 'assist');
+        return;
+      }
     }
     if (Math.abs(k.u) > ASSIST.driftSpeed) {
       if (sim.t - this.driftSince > ASSIST.shoalRearm) this.driftArmed = true;
       return;
     }
+    // Still stopping (full back for land ahead): the boat's own way, not the drift. Decide once it is off.
+    if (Math.abs(k.u) > ASSIST.wallTurnSpeed && !o) return;
     const t = sim.telemetry();
     const sog = t.speedOverGround;
     let danger = false;
@@ -455,22 +543,40 @@ export class TrimAssist {
       }
     }
     if (!danger) {
-      if (sim.t - this.driftSince > ASSIST.shoalRearm) this.driftArmed = true;
+      if (sim.t - this.driftSince > ASSIST.shoalRearm) {
+        this.driftArmed = true;
+        this.driftBlocked = false;
+      }
       return;
     }
     this.driftSince = sim.t;
-    if (!this.driftArmed) return;
+    if (!this.driftArmed && !(this.driftBlocked && !o && sim.t >= this.driftRetryAt)) return;
     this.driftArmed = false;
     const drift = String(Math.round(t.courseOverGround / (Math.PI / 180)) % 360).padStart(3, '0');
     const stopped = ctrl.ap.speed && ctrl.setpoints.speed >= 0 && ctrl.setpoints.speed <= HOVER.maxOrderedSpeed;
     if (stopped) {
       // Ahead or astern, away from the ground it drifts onto, without turning: turned into the current in a
       // narrow sound the boat swept onto the other shore.
+      // The way it goes must be clear itself: astern into a wall the boat ran aground at 0.8 knots (Kanjonen).
       const rel = Math.cos(t.courseOverGround - k.heading);
-      const knots = rel > 0 ? -ASSIST.driftStem : ASSIST.driftStem;
+      const away = rel > 0 ? -1 : 1;
+      const reach = ASSIST.driftStem * KNOT * ASSIST.driftAway;
+      const awayClear = this.clearDistance(away, depth, reach);
+      // Towards the drift only when it drifts mostly sideways; the other way only as far as it is clear.
+      const otherClear = Math.abs(rel) < 0.7 ? this.clearDistance(-away, depth, reach) : 0;
+      const dir = awayClear >= Math.min(reach, ASSIST.driftMinClear) && awayClear >= otherClear ? away : otherClear >= ASSIST.driftMinClear ? -away : 0;
+      if (dir === 0) {
+        // Looks again shortly: the drift turns as the way comes off. The warning only once.
+        if (!this.driftBlocked) ctrl.addLog(`Varning: ubåten driver mot grundet i ${drift}°, och det är grunt både för och akter. Gir eller gå upp.`, 'error', 'assist');
+        this.driftBlocked = true;
+        this.driftRetryAt = sim.t + ASSIST.driftRetry;
+        return;
+      }
+      this.driftBlocked = false;
+      const knots = dir * ASSIST.driftStem;
       ctrl.addLog(`Varning: ubåten driver mot grundet i ${drift}°. Besättningen går ${knots < 0 ? 'back' : 'fram'} ${ASSIST.driftStem} knop.`, 'error', 'assist');
       ctrl.submit({ kind: 'setSpeed', knots }, 'assist');
-      this.driftOrder = { knots, at: sim.t };
+      this.driftOrder = { knots, at: sim.t, lastCheck: sim.t };
     } else {
       ctrl.addLog(`Varning: ubåten driver mot grundet i ${drift}°. Ge fart bort från det.`, 'error', 'assist');
     }
@@ -507,7 +613,9 @@ export class TrimAssist {
       this.limitedTo = limit;
       ctrl.setpoints.depth = limit;
       // Surfaced (or aiming for the surface) the limit changes nothing worth a line.
+      // Submerged, a limit up to the surface says so too: the target went to 0 m without a word.
       if (!this.limiting && limit >= DIVE_LIMIT_NOTICE) ctrl.addLog(`Assistent: grunt vatten, djupet begränsas till ${limit} m.`, 'info', 'assist');
+      else if (!this.limiting && depth >= ASSIST.minDepth) ctrl.addLog(`Assistent: grunt vatten, ubåten måste upp till ${limit < 1 ? 'ytan' : `${limit} m`}.`, 'error', 'assist');
       this.limiting = true;
     } else if (!ctrl.ap.depth || ctrl.setpoints.depth < limit - 5) {
       this.limiting = false;
@@ -654,6 +762,65 @@ export class TrimAssist {
     return true;
   }
 
+  /**
+   * A torpedo fired, loaded or moved (`Simulation.payload`): the trimming officer knows its weight and where
+   * it was, and pumps for it at once, as compensation and a trim transfer. Left to the slow watches, the boat
+   * rose from 13 m to 8 m after a salvo at 3 knots, too slow for the planes' sampling (`k.u > 2`), with the
+   * planes hard over to hold it. False when there was nothing to do.
+   */
+  private compensatePayload(): boolean {
+    const sim = this.ctrl.sim;
+    const payload = sim.payload;
+    if (payload === this.lastPayload) return false;
+    const before = this.lastPayload;
+    this.lastPayload = payload;
+    // The start (the torpedo room setting up its tubes) is the design trim, not a change.
+    if (before === null) return false;
+    const sum = (ps: readonly PayloadMass[]) => ps.reduce((a, x) => ({ m: a.m + x.m, mx: a.mx + x.m * x.r[0] }), { m: 0, mx: 0 });
+    const a = sum(before);
+    const b = sum(payload);
+    const dm = b.m - a.m;
+    const dmx = b.mx - a.mx;
+    const t = sim.telemetry();
+    const mbtFull = t.tanks.every((x) => x.kind !== 'mainBallast' || (x.fill > 0.98 && !x.blowOpen));
+    if (t.depth < ASSIST.minDepth || !mbtFull || (Math.abs(dm) < 1 && Math.abs(dmx) < 1)) return false;
+    const rho = sim.water.rhoSurface;
+    const comp = sim.tankDefs.find((d) => d.kind === 'compensating');
+    const fwd = sim.tankDefs.find((d) => d.id === 'trim_fwd');
+    const aft = sim.tankDefs.find((d) => d.id === 'trim_aft');
+    if (!comp || !fwd || !aft) return false;
+    // Lighter by dm → as much water in; the moment that leaves goes forward or aft with the trim pump.
+    const compKg = -dm;
+    const litres = Math.round(compKg / (rho / 1000) / 10) * 10;
+    const trimLitres = Math.round(-(dmx + compKg * comp.position[0]) / (rho * (fwd.position[0] - aft.position[0])) * 1000 / 10) * 10;
+    if (litres !== 0) {
+      this.ctrl.submit({ kind: 'compensate', litres: Math.round(sim.compRemaining * 1000) + litres }, 'assist');
+      this.compIdleSince = sim.t;
+    }
+    if (trimLitres !== 0) {
+      this.ctrl.submit({ kind: 'trim', litres: Math.round(sim.trimRemaining * 1000) + trimLitres }, 'assist');
+      this.trimIdleSince = sim.t;
+    }
+    return litres !== 0 || trimLitres !== 0;
+  }
+
+  /**
+   * The net buoyancy [kg, positive light] to aim for: neutral, except slowly (under `slowSpeed`) and off the
+   * depth target by more than `slowBand`, where the stern planes are near their reversal speed and hardly move
+   * the boat up or down (at 3 knots on periscope depth it rose 3 m with the planes hard over to dive): a little
+   * heavy to go down, light to go up, `slowKgPerM` per metre, at most `slowMaxKg`.
+   */
+  private slowDepthBias(depth: number, u: number): number {
+    const ctrl = this.ctrl;
+    if (!ctrl.ap.depth || u <= 0.3 || u >= ASSIST.slowSpeed) return 0;
+    const err = ctrl.setpoints.depth - depth; // positive: should go deeper
+    if (Math.abs(err) < ASSIST.slowBand) return 0;
+    return -Math.sign(err) * Math.min(ASSIST.slowMaxKg, ASSIST.slowKgPerM * (Math.abs(err) - ASSIST.slowBand / 2));
+  }
+
+  /** The payload the trim was last made for (`compensatePayload`). */
+  private lastPayload: readonly PayloadMass[] | null = null;
+
   private compensate(): void {
     const ctrl = this.ctrl;
     const sim = ctrl.sim;
@@ -670,10 +837,12 @@ export class TrimAssist {
       return;
     }
     if (sim.compRemaining !== 0 || sim.t - this.compIdleSince < ASSIST.settleTime) return;
-    if (Math.abs(this.netFiltered) < ASSIST.deadbandKg) return;
+    const want = this.slowDepthBias(t.depth, t.u);
+    const off = this.netFiltered - want;
+    if (Math.abs(off) < ASSIST.deadbandKg) return;
     // Light (positive) → take water in. Compensating water has surface density.
-    const litres = this.netFiltered / (sim.water.rhoSurface / 1000);
-    const most = Math.abs(this.netFiltered) > ASSIST.largeErrorKg ? ASSIST.largePortionLitres : ASSIST.maxPortionLitres;
+    const litres = off / (sim.water.rhoSurface / 1000);
+    const most = Math.abs(off) > ASSIST.largeErrorKg ? ASSIST.largePortionLitres : ASSIST.maxPortionLitres;
     const portion = Math.sign(litres) * Math.min(most, Math.round(Math.abs(litres) / 10) * 10);
     if (portion === 0) return;
     ctrl.submit({ kind: 'compensate', litres: portion }, 'assist');

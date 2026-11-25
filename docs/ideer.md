@@ -112,3 +112,22 @@ Allt som provspelningen hittade är rättat:
 - **Gränssnitt:** surfplattor på höjden får mobillayouten, mellanstora skärmar och liggande telefon utan överlapp, eldledningspanelen inte i genomskärningen, inget larm när snorkeln sänks.
 
 Simuleringen fortsätter bakom resultatskärmen med avsikt (`GameFlow.simRunning`).
+
+## Från provspelningen (november 2026, andra omgången)
+
+Alla scenarier spelades, med besättningen på allt och med egna order, och fritt spel i alla områden från alla startlägen. Rättat:
+
+- **Navigering:** drivvakten backade in i kanjonens vägg (Kanjonen misslyckades utan order) och girade aktern in i fjordens sida. Den går nu bara åt ett fritt håll, och giren för land förut tittar på akterns sving. Skyddsnätets gräns till ytan loggas.
+- **Dykning och blåsning:** D dök utan besättningens 6 knop (dubbelt så lång tid som Periskop). Spelarens Blås från djupet gav −32° och 9 knop back; nu blåses för först och djupstyraren följer med upp. Ett djupmål från en blåsning stod kvar på 200 m.
+- **Periskopdjup efter skott:** ubåten steg till 8 m efter en salva i 3 knop. Besättningen kompenserar för torpederna direkt och gör ubåten lite tung i låg fart.
+- **Eldledning:** en lösning ur bäringar kollapsade till 13–60 m och kallades ok (Nattanfall klarades bara tack vare det, med gångtiden 0 s). Nu söks den längs bäringen, och Nattanfall godkänner två ben. Korvetter längre bort än 6 km gav upp efter en träff, så "Ta dig undan" klarades utan att man undvek något. Ekot fastnade utan ping. En miss sägs direkt.
+- **Besked:** "Öka till minst 4 knop" när besättningen redan körde 4 knop, råd om farten till spelaren när besättningen körde, "kan ha hört" efter "går in för anfall", "Håller." på Hand, "Bäring …, ja" utan utkik, "sköter allt" med låsningar, varning för master i fart och på djupet, och för fartyg som kommer nära.
+- **Fritt spel** slutar med "Ubåten förlorad" när skrovet kollapsar (förut sjönk ubåten vidare till 1400 m och besättningen beställde 786 m³ ur kompenseringstanken).
+- **Gränssnitt:** Esc stänger panelerna och sjökortet, periskopets bäringsband låg under loggen på 1280 px, statusraden klipptes på liggande mobil, T och R loggades som pek, hjälpen nämnde kommandon som inte finns, decimalkomma i manöverrummet, pingens text och eldledningens text bredvid sonaren.
+
+Kvar att pröva:
+
+- **Drift utan styrning i trånga farvatten:** står ubåten still med strömmen tvärs mot en vägg (Fjordinloppet utan kursorder) räcker inte fram och back; då återstår varningen. En gir med fart bort från väggen svänger aktern in i den.
+- **Radar i dimman:** marginalen är ungefär 40 s sändning. Hissar man masten och sänder innan målet är markerat misslyckas det.
+- **Nödblåsning från djupet:** fören går fortfarande ned ~17° i slutet av stigningen.
+- **Målrörelseanalys ur bäringar:** med ett kursbyte i 5 knop mot ett mål 6 km bort är avståndet nästan obestämt (kostnaden ändras knappt mellan 2 och 12 km). Fler ben, högre egen fart under benen eller operatörens varvräkning (målets fart ur propellern) skulle ge ett verkligt avstånd; prövat utan framgång med varvräkningen ensam.

@@ -234,7 +234,9 @@ export class Sonar {
     this.awareness[id] = now;
     if (now >= 0.5 && !this.warned.has(id)) {
       this.warned.add(id);
-      c.addLog(`Varning: ${name} kan ha hört eller sett något. Gå djupare och saktare, och sänk masterna.`, 'error');
+      // Already searching for or attacking the boat: "may have heard something" came right after "går in för anfall".
+      const hunting = c.hunter.state(id) === 'search' || c.hunter.state(id) === 'attack';
+      if (!hunting) c.addLog(`Varning: ${name} kan ha hört eller sett något. Gå djupare och saktare, och sänk masterna.`, 'error');
     } else if (now < 0.3) this.warned.delete(id);
     if (now >= 1) this.found(name);
   }
@@ -310,9 +312,9 @@ export class Sonar {
     this.echoes = echoes;
     const text = echoes
       .slice(0, 4)
-      .map((e) => `${e.label ?? (e.what ? `eko (${e.what})` : 'eko')} ${deg3(e.bearing)} ${e.range >= 1000 ? `${(e.range / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(e.range)} m`}`)
+      .map((e) => `${e.label ?? (e.what ? `okänt (${e.what})` : 'okänt')} ${deg3(e.bearing)} ${e.range >= 1000 ? `${(e.range / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(e.range)} m`}`)
       .join(', ');
-    c.afterAck.push(echoes.length ? `Sonar: ekon från ${text}.` : 'Sonar: inget eko.');
+    c.afterAck.push(echoes.length ? `Sonar: ${echoes.length === 1 ? 'ett eko' : `${echoes.length} ekon`}: ${text}.` : 'Sonar: inget eko.');
     const layer = this.scatteringLayer();
     if (layer !== null) c.afterAck.push(`Sonar: diffust eko från spridningsskiktet på ${Math.round(layer)} m.`);
     c.hunter.heard(P.level, 0.6, 0.9, true);
