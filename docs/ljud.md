@@ -61,8 +61,7 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Ubåtens egen ping | En kraftig ping genom skrovet (2,4 kHz) och två svagare ekon utifrån, vid varje ping (`ownPing`) |
 | Huvudballasten full | Ett klonk när ventilerna stängs |
 | Ny fartorder (telegrafen, `fart`, `back`) | Maskintelegrafens klocka, två slag |
-| Mål klart | Två stigande toner |
-| Uppdraget slutfört / misslyckat | Ett stigande ackord / tre fallande toner |
+| Ubåten förlorad (skrovet kollapsade) | Tre fallande toner |
 
 ## Omgivningen
 
@@ -85,7 +84,7 @@ Ljud från omgivningen hörs bara när kameran är ovanför vattnet.
 
 ## Rösten
 
-Rösten läser upp spelarens egna order ("Djup 32, ja"), larm och misslyckanden (första meningen) och "Mål klart". Assistentens kompenseringar, felskrivna kommandon och hjälptexter läses inte upp. En ny uppläsning avbryter den förra, så den senaste ordern hörs alltid. Saknar enheten en svensk röst är rösten tyst.
+Rösten läser upp spelarens egna order ("Djup 32, ja"), larm och misslyckanden (första meningen). Radiomeddelanden, uppdragen och besättningens tips visas men läses inte upp. Assistentens kompenseringar, felskrivna kommandon och hjälptexter läses inte upp. En ny uppläsning avbryter den förra, så den senaste ordern hörs alltid. Saknar enheten en svensk röst är rösten tyst.
 
 ## Inställningar och regler
 

@@ -38,8 +38,9 @@ const DEG = Math.PI / 180;
 export class Lookouts {
   stations: readonly RadarStation[] = [];
   /**
-   * They look for the boat (a scenario). Off in free play: the aircraft fly
-   * and the radar warner hears their radars, but nobody hunts the boat.
+   * They look for the boat (threat tension or war, and the test situations).
+   * Off at peace: the aircraft fly and the radar warner hears their radars,
+   * but nobody hunts the boat.
    */
   watching = true;
   /** Lookouts that have reported the boat (once each). */

@@ -183,6 +183,17 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
     return html`
       <h2 class="menu-title small">Hjälp</h2>
       <div class="help">
+        <h3>Patrullen</h3>
+        <p>Du väljer område, ljus, sjögång, <b>hot</b> och om du vill ha <b>uppdrag</b>. Patrullen går tills du avslutar den (☰ → Avsluta patrullen) eller ubåten går förlorad. Ingenting sparas mellan besök.</p>
+        <ul>
+          <li><b>Fred</b>: bara civil trafik. <b>Spänt</b>: en korvett patrullerar, och flyg och kustradar spanar efter masterna. <b>Krig</b>: två korvetter jagar tillsammans, och en konvoj med eskort går förbi.</li>
+          <li><b>Förstärkning:</b> när korvetterna jagar dig anropar de förstärkning. Tio minuter senare kommer en ny korvett in från kanten och söker där de tror att du är.</li>
+          <li><b>Klockan går:</b> två timmar dag, skymning, två timmar natt och gryning. Dimman står kvar. Nya lastfartyg kommer in på farlederna då och då.</li>
+          <li><b>Depåfartyget:</b> bojen visar var det ligger när inget uppdrag pågår, och <b>Mot bojen</b> styr dit. Ligg stilla i ytläge intill det i fem minuter, så lastas torpeder och lockmål över.</li>
+          <li><b>Uppdrag</b> kommer över radion när en mast är över vattnet, och står överst med bojen och tiden kvar: spana i en farled med periskopet, sänk ett fartyg i konvojen (Krig), gå till en mötespunkt utan att bli jagad, eller ladda batteriet. De är valfria: ett som går ut ger inget straff.</li>
+          <li><b>Tips:</b> första gången något händer tipsar besättningen i loggen. Under Inställningar slår du av dem eller visar dem igen.</li>
+          <li><b>Resultatet</b> visar tiden till sjöss, distansen, sänkta fartyg med tonnage, jakterna och uppdragen.</li>
+        </ul>
         <h3>Besättningen och du</h3>
         <p>Du väljer fart på telegrafen, kurs på kompassen och djup: <b>Yta</b>, <b>Periskop</b> eller <b>Djup</b> (vilket djup som helst på djupskalan). Besättningen bestämmer själv hur det ska gå till: roder, djuproder, ballast, trim, fart, inbromsning och back. Planraden ovanför telegrafen säger vad den gör, och ett tryck på den visar varför.</p>
         <ul>
@@ -201,7 +212,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Kontrollerna</h3>
         <ul>
           <li><b>Djup</b> (vänster): <b>Yta</b>, <b>Periskop</b> (13 m, i ytläge dyker ubåten dit) och <b>Djup</b> (tillbaka till ditt senaste djupa djupmål, först 50 m). Djupskalan visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. I expertläge på Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
-          <li><b>Kompassen</b> (höger) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. I expertläge på Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
+          <li><b>Kompassen</b> (höger) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. Bojen (depåfartyget eller uppdragets punkt) syns som en gul prick, och <b>Mot bojen</b> styr mot den. I expertläge på Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
           <li><b>Planraden</b> (ovanför telegrafen) säger vad besättningen gör just nu. Tryck på den för detaljerna.</li>
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv, Marsch och Full fram (2 och 4 knop back, 4, 8 och 12 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Nödblåsning</b> i panelen Ballast (eller Shift + S): är ubåten för tung för att stiga, blåses båda tankarna på vilket djup som helst, med full fart och ytan som mål.</li>
@@ -244,7 +255,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Läckage</h3>
         <p>En hård grundstötning, en kollision eller ett djup under krossdjupet (300 m) ger en läcka i en avdelning. Vattnet strömmar in fortare ju djupare ubåten är. Besättningen tätar hålet och länspumpen länsar, men pumpen orkar mindre på djupet. Gå alltså grundare. Statusraden och panelen El visar vattnet. På 360 m kollapsar skrovet.</p>
         <h3>Sonar och sjökort</h3>
-        <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, fyrarna och sonarens bäringar.</p>
+        <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, bojen, fyrarna och sonarens bäringar.</p>
         <p>En <b>korvett</b> lyssnar efter ubåten och spanar efter master. Den hör dig bättre ju fortare du går (och när propellern kaviterar) och om dieslarna går, och den ser periskopet, snorkeln och tornet. Språngskiktet mellan er dämpar ljudet. Gå sakta, djupt och med masterna nere.</p>
         <h3>Aktiv sonar och radar</h3>
         <p><b>Ping</b> i sonaren (A) sänder en ping med den aktiva sonaren. Ekona ger avstånd och bäring till fartygen inom räckhåll, och ett mål får dem direkt: några pingar ger en bra lösning utan kursbyten. Men pingen hörs långt, och en korvett som hör den vet ungefär var du är och kommer. Mellan två pingar går minst 10 s.</p>
@@ -256,13 +267,13 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <p><b>Tråden:</b> torpeden är trådstyrd. I eldledningspanelen riktar <b>Styr</b> den mot målets lösning som den är nu, <b>Sök</b> väcker sökaren och <b>Kapa</b> kapar tråden. Skjut tidigt och styr när lösningen blivit bättre. Tråden går av över 8 knop eller om du svänger mer än 120°.</p>
         <p><b>Lockmål</b> (Lock eller L) låter som ubåten i fem minuter och går akterut. En korvett som hör det bättre än dig jagar det. Fyra finns.</p>
         <h3>Korvetter som jagar</h3>
-        <p>En korvett som hört eller sett dig saktar in och svänger mot dig. Sedan söker den med aktiv sonar (pingar som hörs i skrovet) och anfaller med sjunkbomber inställda på djupet den mätte. Avfyrningar hörs. Kom undan genom att gå djupt under skiktet, sakta, byta kurs och byta djup när den går över dig. Den ger upp efter fem minuter utan kontakt, eller när bomberna är slut.</p>
+        <p>En korvett som hört eller sett dig saktar in och svänger mot dig. Sedan söker den med aktiv sonar (pingar som hörs i skrovet) och anfaller med sjunkbomber inställda på djupet den mätte. Avfyrningar hörs. Kom undan genom att gå djupt under skiktet, sakta, byta kurs och byta djup när den går över dig. Den ger upp efter fem minuter utan kontakt, eller när bomberna är slut. Under en jakt kan en ny korvett komma som förstärkning.</p>
         <h3>Ljud</h3>
         <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar. På startsidan spelar mörk musik, som slås av eller sänks under Inställningar.</p>
         <h3>Om något går fel</h3>
         <p>Vid ett fel pausas spelet och en ruta visar en felrapport som går att kopiera. Starta om eller ladda om sidan. Tar webbläsaren tillbaka grafiken, till exempel när fliken legat i bakgrunden, väntar spelet tills den är tillbaka.</p>
         <h3>Havsområden och väder</h3>
-        <p>Du väljer havsområde, ljus och sikt (dag, natt, dimma) och sjögång. Ubåtens fasta barlast är anpassad för området, men skikten i vattnet skiljer sig:</p>
+        <p>Du väljer havsområde, ljus och sikt (dag, skymning, natt, dimma) och sjögång. Ljuset ändras sedan med klockan. Ubåtens fasta barlast är anpassad för området, men skikten i vattnet skiljer sig:</p>
         <ul>
           <li><b>Västerhavet:</b> språngskikt på 40–70 m. Ström norrut längs kusten.</li>
           <li><b>Östersjön:</b> bräckt vatten och ett saltsprångskikt på 60–80 m. Under det blir ubåten flera ton lättare.</li>
