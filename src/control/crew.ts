@@ -40,10 +40,6 @@ export const MANOEUVRE_SYSTEMS: readonly CrewSystem[] = ['depth', 'heading', 'sp
 /** Refusal of a hand order outside expert mode. */
 export const EXPERT_TEXT = 'Besättningen sköter manövern. Slå på Expertläge under ☰ → Besättning för att styra själv.';
 
-/** True if a scenario's locks make the player handle part of the manoeuvre (it is then played in expert mode). */
-export const needsExpert = (locks: CrewLocks | undefined): boolean =>
-  MANOEUVRE_SYSTEMS.some((s) => s !== 'safetyNet' && locks?.[s] === false);
-
 /** Systems that are an autopilot axis (crew = autopilot on). */
 export const AXES = ['depth', 'heading', 'speed'] as const;
 export type Axis = (typeof AXES)[number];

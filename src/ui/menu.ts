@@ -5,7 +5,6 @@
  * game state.
  */
 import type { CrewSystem } from '../control/crew';
-import { SCENARIO_GROUPS, type Scenario, type ScenarioGroup } from '../control/scenarios';
 import type { Settings } from './settings';
 import type { ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
@@ -18,7 +17,6 @@ export type { PauseInfo, ResultInfo } from './menuScreens';
 export interface MenuHandlers {
   /** `patrols`: the area's corvettes patrol (false: free play without them). */
   startFree(area: AreaId, start: string, conditions: ConditionsId, sea: SeaStateId, patrols: boolean): void;
-  startScenario(id: string): void;
   resume(): void;
   restart(): void;
   toMainMenu(): void;
@@ -29,8 +27,6 @@ export interface MenuHandlers {
   expertChange(on: boolean): void;
   /** The introduction was dismissed. */
   introDone(): void;
-  /** The scenario briefing was dismissed ("Till sjöss"). */
-  briefingDone(): void;
   /** Load the page again (after an error, or when the graphics did not come back). */
   reload(): void;
   /** The graphics came back and the player continues. */
@@ -40,21 +36,18 @@ export interface MenuHandlers {
 
 export class Menu {
   private screen: Screen = 'main';
-  /** Where "Tillbaka" goes from settings/help/crew: the main or the pause menu, or the briefing. */
-  private base: 'main' | 'pause' | 'briefing' = 'main';
+  /** Where "Tillbaka" goes from settings/help/crew: the main or the pause menu. */
+  private base: 'main' | 'pause' = 'main';
   private result: ResultInfo | null = null;
-  private briefing: Scenario | null = null;
   private error: string | null = null;
   private logLines: MenuState['logLines'] = [];
   private graphicsBack = false;
-  private pauseInfo: PauseInfo = { duties: null, locks: {}, expert: false, expertForced: false };
+  private pauseInfo: PauseInfo = { duties: null, expert: false };
   /** Free play: chosen area and light/visibility. */
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
   private sea: SeaStateId = 'calm';
   private patrols = true;
-  /** The scenario list's tab, kept while the page is open. */
-  private scenarioGroup: ScenarioGroup = 'basics';
   /** The start page's order, picked once per visit (fictional). */
   private readonly order = { text: ORDERS[Math.floor(Math.random() * ORDERS.length)]!, no: 100 + Math.floor(Math.random() * 900) };
 
@@ -85,7 +78,7 @@ export class Menu {
   }
 
   show(screen: Screen): void {
-    if (screen === 'main' || screen === 'pause' || screen === 'briefing') this.base = screen;
+    if (screen === 'main' || screen === 'pause') this.base = screen;
     this.screen = screen;
     this.root.hidden = false;
     this.root.dataset.screen = screen;
@@ -94,7 +87,6 @@ export class Menu {
       pauseInfo: this.pauseInfo,
       result: this.result,
       order: this.order,
-      briefing: this.briefing,
       error: this.error,
       logLines: this.logLines,
       graphicsBack: this.graphicsBack,
@@ -102,7 +94,6 @@ export class Menu {
       conditions: this.conditions,
       sea: this.sea,
       patrols: this.patrols,
-      scenarioGroup: this.scenarioGroup,
     };
     mount(this.root, html`<div class="menu-card">${SCREENS[screen](state)}</div>`);
     this.root.querySelector<HTMLElement>('button, input')?.focus({ preventScroll: true });
@@ -115,12 +106,6 @@ export class Menu {
     this.result = r;
     this.show('result');
     this.base = 'main';
-  }
-
-  /** The scenario's briefing before it starts (call `setPauseInfo` first: it shows who handles what). */
-  showBriefing(s: Scenario): void {
-    this.briefing = s;
-    this.show('briefing');
   }
 
   /** After an unexpected error: what happened, with the report to copy. */
@@ -174,14 +159,6 @@ export class Menu {
       case 'free':
         this.h.startFree(this.area, arg!, this.conditions, this.sea, this.patrols);
         break;
-      case 'scenario':
-        this.h.startScenario(arg!);
-        break;
-      case 'group':
-        if (SCENARIO_GROUPS.some((g) => g.id === arg)) this.scenarioGroup = arg as ScenarioGroup;
-        this.show('scenarios');
-        this.root.querySelector<HTMLElement>(`[data-action="group"][data-arg="${this.scenarioGroup}"]`)?.focus({ preventScroll: true });
-        break;
       case 'resume':
         this.h.resume();
         break;
@@ -201,9 +178,6 @@ export class Menu {
         break;
       case 'introDone':
         this.h.introDone();
-        break;
-      case 'briefingDone':
-        this.h.briefingDone();
         break;
       case 'reload':
         this.h.reload();

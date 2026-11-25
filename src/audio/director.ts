@@ -23,7 +23,6 @@ export function cueFor(text: string): Cue | null {
   if (/^Sjunkbomb \d+ m från skrovet/.test(text)) return 'depthCharge';
   // A new speed order rings the engine-order telegraph (not "Fart öka 1 knop").
   if (/^(Back|Fart) \d[\d,]* knop, ja/.test(text)) return 'telegraph';
-  if (/^Mål klart/.test(text)) return 'objective';
   return null;
 }
 
@@ -50,7 +49,7 @@ export class AudioDirector {
     if (!on) this.voice.stop();
   }
 
-  /** The start page (or a scenario's briefing) shows: its music plays (menuMusic.ts). */
+  /** The start page (or the introduction) shows: its music plays (menuMusic.ts). */
   setMenu(on: boolean): void {
     this.engine.setMenu(on);
   }
@@ -82,7 +81,8 @@ export class AudioDirector {
     if (speech) this.voice.say(speech);
   }
 
-  onScenarioEnd(completed: boolean): void {
-    this.engine.cue(completed ? 'success' : 'failure');
+  /** The boat is lost (the hull collapsed). */
+  onLost(): void {
+    this.engine.cue('failure');
   }
 }

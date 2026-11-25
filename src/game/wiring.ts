@@ -85,7 +85,7 @@ export interface OverlayInput {
 export function overlayState(s: GameSession, v: OverlayInput) {
   const sim = s.sim;
   const k = sim.kinematics();
-  const wp = s.runner?.scenario.waypoint;
+  const wp = s.waypoint;
   return {
     mode: v.mode,
     bearing: ((k.heading + v.relative) * 180) / Math.PI,

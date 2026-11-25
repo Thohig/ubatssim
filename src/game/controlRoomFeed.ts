@@ -92,7 +92,7 @@ export class ControlRoomFeed {
         east: t.position[1],
         heading,
         contacts: ctrl.sonar.contacts.filter((k) => !k.bio).map((k) => ({ label: k.label, bearing: k.bearing })),
-        waypoint: s.scenario?.waypoint ?? null,
+        waypoint: s.waypoint,
       },
     };
   }

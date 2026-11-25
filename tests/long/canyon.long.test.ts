@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../../src/control/controller';
 import type { Order } from '../../src/control/orders';
-import { SCENARIOS, ScenarioRunner } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner } from '../scenarios';
 import { AREAS } from '../../src/sim/config/areas';
 import { Simulation } from '../../src/sim/simulation';
 import { canyonAt } from '../../src/sim/terrain';

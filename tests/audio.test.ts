@@ -95,7 +95,6 @@ describe('cues and speech', () => {
     expect(cueFor('Vatten över bryggan! Bryggan är utrymd.')).toBe('splash');
     expect(cueFor('Assistent: nödblåsning! Ubåten närmar sig krossdjupet.')).toBe('alarm');
     expect(cueFor('Huvudballasten är full. Ventilerna stängda.')).toBe('clonk');
-    expect(cueFor('Mål klart: Hissa periskopet')).toBe('objective');
     expect(cueFor('Back 4 knop, ja')).toBe('telegraph');
     expect(cueFor('Fart 8 knop, ja')).toBe('telegraph');
     expect(cueFor('Fart öka 1 knop, ja')).toBeNull();
@@ -107,7 +106,7 @@ describe('cues and speech', () => {
     expect(speechFor('Kompensera in 200 liter, ja', 'ack', 'assist')).toBeNull();
     expect(speechFor('Okänt kommando "djupp". Menade du "djup"?', 'error', 'console')).toBeNull();
     expect(speechFor('Grundstötning! Fart 3,1 knop.', 'error')).toBe('Grundstötning');
-    expect(speechFor('Mål klart: Hissa periskopet', 'info')).toBe('Mål klart');
+    expect(speechFor('Mål klart: Hissa periskopet', 'info')).toBeNull();
     expect(speechFor('Skriv "hjälp" i konsolen för kommandon.', 'info')).toBeNull();
   });
 });

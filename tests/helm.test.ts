@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Controller, SPEED_DUTY } from '../src/control/controller';
 import { LOCK_TEXT, PERISCOPE_DEPTH, TELEGRAPH, telegraphStep } from '../src/control/crew';
 import { LIMITS } from '../src/control/parser';
-import { SCENARIOS } from '../src/control/scenarios';
 import { Simulation, type InitialConditions } from '../src/sim/simulation';
 import { BAND_HALF_WIDTH, bandBearing, bandFraction, createHelm, depthToFraction, fractionToDepth, gaugeAngle, telegraphIndex, type HelmContext } from '../src/ui/helm';
 import { bindLog, bindLogToggle, lineLife, LIVE_LINES } from '../src/ui/log';
@@ -491,15 +490,6 @@ describe('the keys', () => {
     c.step();
     expect(c.manual.rpm).toBe(rpm + 10);
   });
-
-  it('no scenario hint needs the console', () => {
-    for (const sc of SCENARIOS) {
-      for (const o of sc.objectives) {
-        for (const hint of [o.hint, o.hintCrew ?? '']) expect(hint, `${sc.id}: ${o.text}`).not.toMatch(/(^|\. )Skriv|konsol/i);
-        if (o.hintCrew) expect(o.system, `${sc.id}: ${o.text}`).toBeDefined();
-      }
-    }
-  });
 });
 
 describe('view buttons follow the situation', () => {
@@ -629,10 +619,6 @@ describe('the phone layout', () => {
     expect(f.trim).toBe('Neutral');
     expect(statusFields({ ...c.sim.telemetry(), u: -2 * KN }).speed).toBe('back 2,0 kn');
     expect(statusFields({ ...c.sim.telemetry(), grounded: true }).keelAlarm).toBe(true);
-  });
-
-  it('no hint names a panel button: the buttons differ between phone and computer', () => {
-    for (const sc of SCENARIOS) for (const o of sc.objectives) for (const hint of [o.hint, o.hintCrew ?? '']) expect(hint, `${sc.id}: ${o.text}`).not.toMatch(/▾/);
   });
 });
 

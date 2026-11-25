@@ -6,6 +6,15 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng (med kanjon och undervat
 
 ## Rekommenderad ordning
 
+Scenarierna är borttagna ur spelet, och fritt spel byggs ut till en patrull i stället (etapp 1, att ta bort dem, är gjord: de lever kvar som testsituationer i `tests/scenarios.ts`). Etapperna:
+
+1. **Hotnivå och spaning:** startskärmen får hot i stället för Korvetter: Inga, och flyg och kustradar spanar (`Lookouts.watching`). Fred (bara trafik och liv), Spänt (korvetter patrullerar, flyg spanar) och Krig (korvetter i par, konvojer med eskort). En upptäckt höjer hotet i området en tid. Klockan går (dag, skymning, natt) och ny trafik kommer in från kanterna.
+2. **Radioorder och uppdrag:** på periskopdjup med antennen över ytan tar ubåten emot uppdrag, ett i taget och deterministiskt ur ett frö och områdets data: spana, anfalla en konvoj, ta sig osedd genom ett sund, ladda batteriet före gryningen. Ett missat uppdrag är en rad i loggen, inte slutet. Bojen (`SessionSpec.waypoint`) finns kvar för dem.
+3. **Resurser och bas:** torpeder och lockmål räcker en patrull; en bas eller ett depåfartyg fyller på.
+4. **Loggbok, resultat och tips:** sänkt tonnage, sträcka, tid osedd, klara uppdrag; besättningen tipsar första gången något händer (tipsen visade sparas som inställning) i stället för övningarna i Grunderna.
+
+Utöver patrullen:
+
 1. **Manöverrummet: ljud och fler skärmar** (se Grafik): rummets egna ljud och vapenpulpetens skärm. Litet, och vyn känns mer levande.
 2. **Fler rum inifrån** (se Grafik): torpedrummet först, där tubernas steg och omladdningen redan finns i simuleringen.
 
@@ -21,7 +30,7 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng (med kanjon och undervat
 | **Målrörelseanalys och torpeder** | Klar | Se README (Anfall) och `docs/fysikmodell.md`. |
 | **Sväva utan fart** | Klar | Se README (Besättningen och du) och `docs/fysikmodell.md`. |
 | **Välja mål och tub** | Klar | Målraden och tubknapparna i eldledningspanelen. Se README (Anfall). |
-| **Genomgång och målruta** | Klar | Se README (Scenarier) och `docs/grafik.md`. |
+| **Genomgång och målruta** | Borttagen | Med scenarierna. Uppdragen i etapp 2 behöver något liknande. |
 | **Trådstyrda torpeder** | Klar | Styr, Sök och Kapa i eldledningspanelen. Se README (Anfall). |
 | **Motmedel** | Klar | Fyra lockmål som låter som ubåten. Se README (Anfall). |
 | **Fartyg som samarbetar** | Klar | Korvetter i par (en lyssnar, en fäller) och konvojer som sicksackar. Se README (Korvetter som jagar). |
@@ -46,25 +55,25 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng (med kanjon och undervat
 | **Manöverrummet** | Klar | Vyn inifrån med fem platser, skärmar som visar simuleringen, rött ljus, larmlampa, skakningar och vatten. Se README (Vyer) och `docs/grafik.md`. |
 | **Manöverrummet: ljud och fler skärmar** | Förslag | Ljuden inne i rummet (fläktar, reläer, rodermaskinen när rodren slår, klickande ekolod) styrda av samma telemetri. Vapenpulpeten på styrbordssidan visar eldledningens mål och tuberna, och ett tryck öppnar panelen Torped. Kortare övergång (en snabb tonad växling) mellan platserna. |
 | **Fler rum inifrån** | Förslag | Torpedrummet (tuberna, laddrälsen, reservtorpederna) och maskinrummet (dieslarna som skakar vid snorkling) som egna vyer, byggda på samma sätt som manöverrummet ur `interior.ts`. Dörrarna i skotten blir vägen mellan dem. |
-| **Scenariolistan** | Klar | Fem flikar efter vad scenariot övar på och kompakta kort. Se README (Scenarier). |
+| **Scenariolistan** | Borttagen | Med scenarierna. |
 | **Ytan underifrån** | Klar | Snells fönster i havsytans shader. Se `docs/grafik.md`. |
 
 ## Liv i världen
 
 | Förslag | Läge | Innehåll |
 |---|---|---|
-| **Eggakanten** | Klar | Nytt havsområde: sockel, brant, kanjon, undervattensberg, vrak och kust. Scenariot Kanjonen. |
+| **Eggakanten** | Klar | Nytt havsområde: sockel, brant, kanjon, undervattensberg, vrak och kust. Testsituationen Kanjonen. |
 | **Terrängens skugga** | Klar | Botten och land skuggar ljudet; kanjoner och berg gömmer ubåten. |
 | **Bottentyper och bottenekot** | Klar | Lera, sand, grus och berg; nära en klippig botten drunknar ekot. |
 | **Valar och sillstim** | Klar | Biologiska kontakter, ekon och ljud genom skrovet. |
 | **Spridningsskiktet** | Klar | Djupt på dagen, grunt på natten; döljer en ubåt inne i skiktet. |
 | **Civil trafik och trålar** | Klar | Segelbåtar, trålare med trål att fastna i. |
-| **Flyg och kustradar** | Klar | Ser masterna och anropar korvetterna (i scenarier). |
+| **Flyg och kustradar** | Klar | Ser masterna och anropar korvetterna (i dag bara i testsituationerna; i spelet med hotnivån). |
 | **Land och liv i bild** | Klar | Hus, skog, snö, lysbojar, kustradar, vrak, måsar, tång, maneter, mareld. |
 
 Knäppande räkor, som i förslaget skulle ge biologiskt brus på grunt vatten, lever inte i nordiska vatten. Sillens tickande på natten fick ta den platsen.
 
-**Kvar att pröva:** ett scenario med spaningsplanet och snorkling, valar som kan förväxlas med en ubåt av korvetterna, och fler vrak i de andra områdena.
+**Kvar att pröva:** ett uppdrag med spaningsplanet och snorkling, valar som kan förväxlas med en ubåt av korvetterna, och fler vrak i de andra områdena.
 
 ## Tekniskt
 
@@ -78,7 +87,7 @@ Knäppande räkor, som i förslaget skulle ge biologiskt brus på grunt vatten, 
 
 ## Mindre idéer
 
-- **Kortare långa tester:** testerna av tidsgränser körs med en kopia av scenariot med kortare `timeLimit`. Resten kan gå fortare med mål närmare starten.
+- **Kortare långa tester:** testerna av tidsgränser körs med en kopia av testsituationen med kortare `timeLimit`. Resten kan gå fortare med mål närmare starten.
 - **Publiceringen:** testdelarna och e2e-delarna tar 1,5–3 min var på CI och varierar mycket mellan körningar. Fyra testdelar eller tre e2e-delar sparar troligen bara någon halv minut; större maskiner (betalda) mer.
 - **Fysiken i en Web Worker:** frigör huvudtråden, men lönar sig först när fler fartyg och torpeder spräcker fysikbudgeten i `docs/prestanda.md`. Gränssnittet läser i dag `sim` direkt på många ställen och skulle i stället få en tunn kopia av tillståndet per bild.
 

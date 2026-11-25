@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../../src/control/controller';
 import { PERISCOPE_DEPTH } from '../../src/control/crew';
-import { SCENARIOS, ScenarioRunner, waypointInfo } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner, waypointInfo } from '../scenarios';
 import { Simulation } from '../../src/sim/simulation';
 import { submitEmergencyBlow } from '../../src/ui/keyboard';
 

@@ -4,7 +4,7 @@ import { box, open, overlaps, startFree, watchErrors } from './helpers';
 test.describe('phone (375×812)', () => {
   test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
 
-  test('the status bar, the objective and log, the view buttons and the screen controls do not overlap', async ({ page }) => {
+  test('the status bar, the log, the view buttons and the screen controls do not overlap', async ({ page }) => {
     const errors = watchErrors(page);
     await open(page);
     await startFree(page);
@@ -32,7 +32,7 @@ test.describe('phone (375×812)', () => {
 test.describe('tablet, portrait (768×1024)', () => {
   test.use({ viewport: { width: 768, height: 1024 }, hasTouch: true, isMobile: true });
 
-  test('uses the compact layout: the long instrument panel covered the objective and the periscope', async ({ page }) => {
+  test('uses the compact layout: the long instrument panel covered the log and the periscope', async ({ page }) => {
     const errors = watchErrors(page);
     await open(page);
     await startFree(page);
@@ -51,15 +51,12 @@ test.describe('tablet, portrait (768×1024)', () => {
   });
 });
 
-test('desktop: the instrument panel, the objective and the screen controls do not overlap', async ({ page }) => {
+test('desktop: the instrument panel, the log and the screen controls do not overlap', async ({ page }) => {
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 1280, height: 800 });
   await open(page);
-  await page.locator('[data-action="nav"][data-arg="scenarios"]').click();
-  await page.locator('[data-action="group"][data-arg="navigation"]').click();
-  await page.locator('[data-action="scenario"][data-arg="fjord-entry"]').click();
-  await page.locator('[data-action="briefingDone"]').click();
-  await expect(page.locator('#objective')).toBeVisible();
+  await startFree(page);
+  await expect(page.locator('#log')).toBeVisible();
   const parts = ['#instruments', '#top-center', '#view-btns', '#helm', '.helm-views'];
   const boxes = await Promise.all(parts.map((p) => box(page, p)));
   for (let i = 0; i < parts.length; i++) {
@@ -80,7 +77,7 @@ test('desktop: the instrument panel, the objective and the screen controls do no
 });
 
 test('mid-sized screen (1024×700): periscope, fire panel and chart overlap nothing', async ({ page }) => {
-  // The objective ran under the instrument panel and the chart, and the view pill under both.
+  // The log ran under the instrument panel and the chart, and the view pill under both.
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 1024, height: 700 });
   await open(page);

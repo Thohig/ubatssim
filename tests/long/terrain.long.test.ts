@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../../src/control/controller';
-import { SCENARIOS, ScenarioRunner, waypointInfo } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner, waypointInfo } from '../scenarios';
 import { Simulation } from '../../src/sim/simulation';
 
 describe('grounding', () => {

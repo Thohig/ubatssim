@@ -19,7 +19,7 @@ källor ─┬─ inne (ubåtens maskiner) ────────────�
 startsidans musik ───────────────────────────────────────────────────┘
 ```
 
-Spelets ljud hörs medan ett spel pågår, och musiken på startsidan och under ett scenarios genomgång och introduktionen. Annars stängs ljudkontexten av. `<html data-audio>` visar kontextens läge (`running`, `suspended`) för webbläsartesterna.
+Spelets ljud hörs medan ett spel pågår, och musiken på startsidan och under introduktionen. Annars stängs ljudkontexten av. `<html data-audio>` visar kontextens läge (`running`, `suspended`) för webbläsartesterna.
 
 Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vattnet, så att det låter instängt.
 

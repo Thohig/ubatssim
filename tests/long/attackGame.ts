@@ -1,7 +1,7 @@
 import { expect } from 'vitest';
 import { Controller } from '../../src/control/controller';
 import type { Order } from '../../src/control/orders';
-import { SCENARIOS, ScenarioRunner } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner } from '../scenarios';
 import { Simulation } from '../../src/sim/simulation';
 
 /** Shared by the attack tests (attack, hunted and convoy .long.test.ts): a scenario started for the crew or the player. */

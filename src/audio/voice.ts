@@ -45,7 +45,7 @@ export class Voice {
 /**
  * What to say for a log line, or null. Spoken: the player's own orders,
  * alarms (grounding, water over the bridge, emergency blow, the keel
- * warning) and scenario results. Not spoken: the assistant's routine
+ * warning). Not spoken: the assistant's routine
  * orders, typing errors and long help texts.
  */
 export function speechFor(text: string, kind: 'ack' | 'error' | 'info', source?: string): string | null {
@@ -55,7 +55,6 @@ export function speechFor(text: string, kind: 'ack' | 'error' | 'info', source?:
     if (source === 'console' || source === 'keyboard' || source === 'touch') return null;
     return firstSentence(text);
   }
-  if (/^Mål klart|^Uppdraget slutfört/.test(text)) return firstSentence(text.split(':')[0]!);
   return null;
 }
 

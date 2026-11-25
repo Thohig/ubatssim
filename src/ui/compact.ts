@@ -13,15 +13,3 @@ export function isCompact(): boolean {
     return false;
   }
 }
-
-/** A phone on its side: the fire panel and the objective share the top right corner. */
-export const LANDSCAPE_PHONE_QUERY = '(max-height: 500px)';
-
-/** True on a phone on its side (see `LANDSCAPE_PHONE_QUERY`). */
-export function isLandscapePhone(): boolean {
-  try {
-    return typeof window.matchMedia === 'function' && window.matchMedia(LANDSCAPE_PHONE_QUERY).matches;
-  } catch {
-    return false;
-  }
-}

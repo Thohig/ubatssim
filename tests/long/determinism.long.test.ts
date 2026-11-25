@@ -22,8 +22,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { Order } from '../../src/control/orders';
-import { SCENARIOS } from '../../src/control/scenarios';
-import { GameSession, scenarioSpec } from '../../src/game/session';
+import { SCENARIOS, ScenarioSession } from '../scenarios';
 
 /** FNV-1a over the bytes of the numbers and the characters of the strings. */
 function hash(values: readonly (number | string)[]): string {
@@ -48,14 +47,14 @@ function hash(values: readonly (number | string)[]): string {
   return h.toString(16).padStart(8, '0');
 }
 
-function snapshot(s: GameSession): string {
+function snapshot(s: ScenarioSession): string {
   const c = s.ctrl;
   const values: (number | string)[] = [s.sim.t, ...s.sim.y];
   for (const v of c.world.vessels) values.push(v.def.id, v.state.north, v.state.east, v.state.heading, v.state.speed);
   for (const t of c.world.torpedoes) values.push(t.state.north, t.state.east, t.state.depth, t.state.phase);
   values.push(c.sim.systems.flooding.water, c.hunter.pings);
   for (const e of c.log) values.push(e.t, e.kind, e.text);
-  values.push(s.runner?.status ?? '', s.runner?.progress.index ?? -1);
+  values.push(s.runner.status, s.runner.progress.index);
   return hash(values);
 }
 
@@ -76,7 +75,7 @@ const CHECKPOINTS = [60, 120, 180, 240];
 
 function run(): string[] {
   const sc = SCENARIOS.find((s) => s.id === 'hunted')!;
-  const s = new GameSession(scenarioSpec(sc, ''));
+  const s = new ScenarioSession(sc);
   const out: string[] = [];
   let next = 0;
   for (const at of CHECKPOINTS) {

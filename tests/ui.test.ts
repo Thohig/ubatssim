@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../src/control/controller';
 import { HELP_TEXT } from '../src/control/parser';
-import { DIFFICULTY_ORDER, SCENARIOS, SCENARIO_GROUPS, scenariosIn } from '../src/control/scenarios';
 import { Simulation } from '../src/sim/simulation';
 import { h, html, raw } from '../src/ui/dom';
 import { createInstruments, instrumentLayout } from '../src/ui/instruments';
@@ -11,8 +10,6 @@ import { SCREENS, handledText, type MenuState, type Screen } from '../src/ui/men
 import { CREW_SYSTEMS, type CrewDuties } from '../src/control/crew';
 import { DEFAULT_SETTINGS } from '../src/ui/settings';
 import { bindLog } from '../src/ui/log';
-import { OBJECTIVE_SHOW, OBJECTIVE_TAP_SHOW, createObjective } from '../src/ui/objective';
-import { ScenarioRunner } from '../src/control/scenarios';
 
 describe('dom helpers', () => {
   it('html escapes inserted values, but not nested html or raw', () => {
@@ -34,9 +31,8 @@ const allCrew = (over: Partial<CrewDuties> = {}): CrewDuties => ({ ...(Object.fr
 
 const state = (over: Partial<MenuState> = {}): MenuState => ({
   settings: { ...DEFAULT_SETTINGS },
-  pauseInfo: { duties: allCrew(), locks: {}, expert: true, expertForced: false },
-  result: { scenario: SCENARIOS[0]!, completed: true, message: 'Uppdraget slutfört på 312 s.', time: 312, selfHandled: ['trim', 'safetyNet'] },
-  briefing: SCENARIOS.find((s) => s.id === 'trim-drill')!,
+  pauseInfo: { duties: allCrew(), expert: true },
+  result: { message: 'Skrovet kollapsade under krossdjupet.', time: 559, selfHandled: ['trim', 'safetyNet'] },
   order: { text: 'Ta er obemärkt genom sundet.', no: 417 },
   logLines: [{ t: 12, text: 'Djup <80>, ja', kind: 'ack' }],
   error: 'Fel: <test>\n  at frame',
@@ -45,7 +41,6 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   conditions: 'day',
   sea: 'calm',
   patrols: true,
-  scenarioGroup: 'basics',
   ...over,
 });
 
@@ -57,45 +52,6 @@ describe('menu screens', () => {
       expect(div.textContent, screen).not.toMatch(/<\/?(button|label|span|b|p|input|li|div)\b/);
       expect(div.querySelectorAll('button, input').length, screen).toBeGreaterThan(0);
     }
-  });
-
-  it('the scenario list shows what a scenario locks', () => {
-    const div = document.createElement('div');
-    div.innerHTML = SCREENS.scenarios(state()).value;
-    expect(div.querySelector('[data-arg="trim-drill"]')!.textContent).toMatch(/Du sköter djup och trim själv/);
-    expect(div.querySelector('[data-arg="emergency-blow"]')!.textContent).toMatch(/Utan skyddsnät/);
-    expect(div.querySelectorAll('[data-action="scenario"]').length).toBe(SCENARIOS.length);
-  });
-
-  it('the scenario list has a tab per group; only the chosen group shows, easiest first, as compact cards', () => {
-    expect(new Set(SCENARIOS.map((s) => s.group)).size).toBe(SCENARIO_GROUPS.length);
-    for (const s of SCENARIOS) expect(SCENARIO_GROUPS.some((g) => g.id === s.group), s.id).toBe(true);
-    const div = document.createElement('div');
-    div.innerHTML = SCREENS.scenarios(state({ scenarioGroup: 'attack' })).value;
-    expect([...div.querySelectorAll('[data-action="group"]')].map((b) => b.textContent)).toEqual(SCENARIO_GROUPS.map((g) => g.title));
-    expect(div.querySelector('[data-action="group"].on')!.getAttribute('data-arg')).toBe('attack');
-    const shown = [...div.querySelectorAll<HTMLElement>('.scenario-group:not([hidden]) [data-action="scenario"]')];
-    expect(shown.map((b) => b.dataset.arg)).toEqual(scenariosIn('attack').map((s) => s.id));
-    const levels = shown.map((b) => DIFFICULTY_ORDER.indexOf(SCENARIOS.find((s) => s.id === b.dataset.arg)!.difficulty));
-    expect(levels).toEqual([...levels].sort((a, b) => a - b));
-    // Compact: the title, the level and one line of conditions; the description is the button's title (and in the briefing).
-    const card = div.querySelector<HTMLElement>('[data-arg="practice-shot"]')!;
-    expect(card.querySelectorAll('span:not(.badge)')).toHaveLength(1);
-    expect(card.title).toMatch(/målfartyg/);
-  });
-
-  it('a tab chooses the group and is kept when the list is opened again', async () => {
-    const { Menu } = await import('../src/ui/menu');
-    const root = document.createElement('div');
-    const noop = () => {};
-    const menu = new Menu(root, { startFree: noop, startScenario: noop, resume: noop, restart: noop, mainMenu: noop } as never, { ...DEFAULT_SETTINGS });
-    menu.show('scenarios');
-    root.querySelector<HTMLButtonElement>('[data-action="group"][data-arg="recce"]')!.click();
-    const visible = () => [...root.querySelectorAll<HTMLElement>('.scenario-group:not([hidden]) [data-action="scenario"]')].map((b) => b.dataset.arg);
-    expect(visible()).toEqual(scenariosIn('recce').map((s) => s.id));
-    menu.show('main');
-    menu.show('scenarios');
-    expect(visible()).toEqual(scenariosIn('recce').map((s) => s.id));
   });
 
   it('☰ → Loggbok shows the history as text, with the time; the pause menu leads there', () => {
@@ -123,25 +79,23 @@ describe('menu screens', () => {
     expect(a.textContent).toMatch(/Besättningen sköter allt/);
     expect(a.querySelector('[data-arg="crew"]')).not.toBeNull();
     const b = document.createElement('div');
-    b.innerHTML = SCREENS.pause(state({ pauseInfo: { duties: allCrew({ trim: false, depth: false, safetyNet: false }), locks: {}, expert: true, expertForced: false } })).value;
+    b.innerHTML = SCREENS.pause(state({ pauseInfo: { duties: allCrew({ trim: false, depth: false, safetyNet: false }), expert: true } })).value;
     expect(b.textContent).toMatch(/Du sköter djup och trim\. Besättningen sköter resten\. Skyddsnätet är av\./);
   });
 
-  it('☰ → Besättning has a choice per system, with locked choices disabled', () => {
+  it('☰ → Besättning has a choice per system in expert mode', () => {
     const div = document.createElement('div');
-    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew({ depth: false }), locks: { depth: false }, expert: true, expertForced: true } })).value;
+    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew({ depth: false }), expert: true } })).value;
     // The manoeuvre row first, then one per system.
     expect(div.querySelectorAll('.crew-row').length).toBe(CREW_SYSTEMS.length + 1);
-    expect(div.querySelector<HTMLButtonElement>('[data-action="expert"][data-arg="0"]')!.disabled).toBe(true);
-    expect(div.querySelector<HTMLButtonElement>('[data-arg="depth:1"]')!.disabled).toBe(true);
     expect(div.querySelector('[data-arg="depth:0"]')!.getAttribute('aria-pressed')).toBe('true');
-    expect(div.querySelector<HTMLButtonElement>('[data-arg="trim:0"]')!.disabled).toBe(false);
-    expect(div.textContent).toMatch(/Här styr du djupet själv/);
+    expect(div.querySelector<HTMLButtonElement>('[data-arg="depth:1"]')!.disabled).toBe(false);
+    expect(div.querySelector('[data-action="expert"][data-arg="1"]')!.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('outside expert mode ☰ → Besättning shows only what the crew does besides the manoeuvre', () => {
     const div = document.createElement('div');
-    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew(), locks: {}, expert: false, expertForced: false } })).value;
+    div.innerHTML = SCREENS.crew(state({ pauseInfo: { duties: allCrew(), expert: false } })).value;
     expect(div.querySelector('[data-arg="depth:0"]')).toBeNull();
     expect(div.querySelector('[data-arg="charging:0"]')).not.toBeNull();
     expect(div.querySelector('[data-arg="all:0"]')).toBeNull();
@@ -159,13 +113,22 @@ describe('menu screens', () => {
     expect(div.textContent).toMatch(/Du skötte själv trimmet, utan skyddsnät/);
   });
 
-  it('free play ends when the boat is lost: its own result, with Fritt spel instead of Scenarier', () => {
+  it('the game ends when the boat is lost: the time at sea, play again or a new area', () => {
     const div = document.createElement('div');
-    div.innerHTML = SCREENS.result(state({ result: { scenario: null, completed: false, message: 'Skrovet kollapsade under krossdjupet.', time: 559, selfHandled: ['safetyNet'] } })).value;
+    div.innerHTML = SCREENS.result(state()).value;
     expect(div.textContent).toMatch(/Ubåten förlorad/);
-    expect(div.textContent).toMatch(/Fritt spel/);
-    expect(div.querySelector('[data-arg="scenarios"]')).toBeNull();
+    expect(div.textContent).toMatch(/Skrovet kollapsade/);
+    expect(div.textContent).toMatch(/00:09:19/);
+    expect(div.querySelector('[data-action="restart"]')).not.toBeNull();
     expect(div.querySelector('[data-arg="free"]')).not.toBeNull();
+  });
+
+  it('the start page and the help speak of no scenarios', () => {
+    for (const screen of ['main', 'help', 'pause'] as Screen[]) {
+      const div = document.createElement('div');
+      div.innerHTML = SCREENS[screen](state()).value;
+      expect(div.textContent, screen).not.toMatch(/scenari|målrutan/i);
+    }
   });
 
   it('the Menu calls back on clicks and keeps its own choices', () => {
@@ -175,7 +138,6 @@ describe('menu screens', () => {
       root,
       {
         startFree: (area, start, cond, sea, patrols) => calls.push(`free ${area} ${start} ${cond} ${sea}${patrols ? '' : ' fredligt'}`),
-        startScenario: (id) => calls.push(`scenario ${id}`),
         resume: () => calls.push('resume'),
         restart: () => calls.push('restart'),
         toMainMenu: () => calls.push('main'),
@@ -183,7 +145,6 @@ describe('menu screens', () => {
         crewChange: (system, crew) => calls.push(`crew ${system} ${crew}`),
         expertChange: (on) => calls.push(`expert ${on}`),
         introDone: () => calls.push('intro'),
-        briefingDone: () => calls.push('briefing'),
         reload: () => calls.push('reload'),
         graphicsOk: () => calls.push('graphicsOk'),
       },
@@ -205,36 +166,11 @@ describe('menu screens', () => {
     none.checked = true;
     none.dispatchEvent(new Event('change', { bubbles: true }));
     (root.querySelector('[data-action="free"]') as HTMLElement).click();
-    menu.setPauseInfo({ duties: allCrew(), locks: {}, expert: true, expertForced: false });
+    menu.setPauseInfo({ duties: allCrew(), expert: true });
     menu.show('crew');
     (root.querySelector('[data-arg="trim:0"]') as HTMLElement).click();
     (root.querySelector('[data-action="expert"][data-arg="0"]') as HTMLElement).click();
     expect(calls).toEqual(['free fjord sea fog calm', 'free baltic surface fog calm fredligt', 'crew trim false', 'expert false']);
-  });
-
-  it('the briefing lists every objective; Besättning comes back to it, Till sjöss starts', () => {
-    const root = document.createElement('div');
-    const calls: string[] = [];
-    const noop = () => {};
-    const menu = new Menu(
-      root,
-      { startFree: noop, startScenario: noop, resume: noop, restart: noop, toMainMenu: () => calls.push('main'), settingsChanged: noop, crewChange: noop, expertChange: noop, introDone: noop, briefingDone: () => calls.push('briefing'), reload: noop, graphicsOk: noop },
-      { ...DEFAULT_SETTINGS },
-    );
-    const sc = SCENARIOS.find((s) => s.id === 'trim-drill')!;
-    menu.setPauseInfo({ duties: allCrew({ depth: false, trim: false }), locks: sc.locks ?? {}, expert: true, expertForced: true });
-    menu.showBriefing(sc);
-    expect(root.querySelector('h2')!.textContent).toMatch(sc.title);
-    const goals = [...root.querySelectorAll('.briefing-goals li')].map((li) => li.textContent ?? '');
-    expect(goals).toHaveLength(sc.objectives.length);
-    sc.objectives.forEach((o, i) => expect(goals[i]).toMatch(o.text));
-    expect(root.textContent).toMatch(/Du sköter djup och trim själv/);
-    (root.querySelector('[data-arg="crew"]') as HTMLElement).click();
-    expect(menu.current).toBe('crew');
-    (root.querySelector('[data-action="back"]') as HTMLElement).click();
-    expect(menu.current).toBe('briefing');
-    (root.querySelector('[data-action="briefingDone"]') as HTMLElement).click();
-    expect(calls).toEqual(['briefing']);
   });
 });
 
@@ -305,7 +241,6 @@ describe('log history', () => {
 describe('error and lost graphics', () => {
   const handlers = (calls: string[]) => ({
     startFree: () => {},
-    startScenario: () => {},
     resume: () => {},
     restart: () => calls.push('restart'),
     toMainMenu: () => calls.push('main'),
@@ -313,7 +248,6 @@ describe('error and lost graphics', () => {
     crewChange: () => {},
     expertChange: () => {},
     introDone: () => {},
-    briefingDone: () => {},
     reload: () => calls.push('reload'),
     graphicsOk: () => calls.push('graphicsOk'),
   });
@@ -342,75 +276,6 @@ describe('error and lost graphics', () => {
     menu.showGraphics(true);
     (root.querySelector('[data-action="graphicsOk"]') as HTMLElement).click();
     expect(calls).toEqual(['graphicsOk']);
-  });
-});
-
-describe('objective box', () => {
-  const setup = () => {
-    const sc = SCENARIOS.find((s) => s.id === 'first-dive')!;
-    const ctrl = new Controller(new Simulation(sc.initial));
-    ctrl.crewTakesAll();
-    const runner = new ScenarioRunner(sc, ctrl);
-    const box = createObjective(document.createElement('div'));
-    return { sc, ctrl, runner, box };
-  };
-
-  it('opens for a new objective, folds by itself, and opens again on a tap', () => {
-    const { sc, runner, box } = setup();
-    box.update(null, 0);
-    expect(box.el.hidden).toBe(true);
-    box.update(runner, 0);
-    expect(box.el.hidden).toBe(false);
-    expect(box.expanded).toBe(true);
-    expect(box.el.querySelector('.obj-step')!.textContent).toBe(`1/${sc.objectives.length}`);
-    expect(box.el.querySelector('.obj-text')!.textContent).toBe(sc.objectives[0]!.text);
-    expect(box.el.querySelectorAll('.obj-list li')).toHaveLength(sc.objectives.length);
-    // Paused (dt = 0): stays open behind the menu.
-    for (let i = 0; i < 100; i++) box.update(runner, 0);
-    expect(box.expanded).toBe(true);
-    for (let i = 0; i < OBJECTIVE_SHOW * 10 + 1; i++) box.update(runner, 0.1);
-    expect(box.expanded).toBe(false);
-    expect(box.el.classList.contains('expanded')).toBe(false);
-    box.el.querySelector<HTMLButtonElement>('.obj-head')!.click();
-    expect(box.expanded).toBe(true);
-    expect(box.el.querySelector('.obj-head')!.getAttribute('aria-expanded')).toBe('true');
-    for (let i = 0; i < OBJECTIVE_TAP_SHOW * 10 + 1; i++) box.update(runner, 0.1);
-    expect(box.expanded).toBe(false);
-    box.toggle();
-    box.toggle();
-    expect(box.expanded).toBe(false);
-  });
-
-  it('quiet (fire panel on a phone on its side): a new objective marks the head instead of opening', () => {
-    const { runner, box } = setup();
-    box.update(runner, 0, true);
-    expect(box.expanded).toBe(false);
-    expect(box.el.classList.contains('fresh')).toBe(true);
-    for (let i = 0; i < OBJECTIVE_SHOW * 10 + 1; i++) box.update(runner, 0.1, true);
-    expect(box.el.classList.contains('fresh')).toBe(false);
-    box.toggle();
-    expect(box.expanded).toBe(true);
-  });
-
-  it('opens again when the objective changes or its hint does, and marks the done ones', () => {
-    const { sc, ctrl, runner, box } = setup();
-    box.update(runner, 0);
-    box.update(runner, OBJECTIVE_SHOW + 1);
-    expect(box.expanded).toBe(false);
-    // The hint follows who handles the objective's system.
-    // The first objective's hint follows who handles the ballast.
-    ctrl.submit({ kind: 'crew', system: 'ballast', crew: false }, 'touch');
-    ctrl.step();
-    box.update(runner, 0.1);
-    expect(box.expanded).toBe(true);
-    expect(box.el.querySelector('.obj-hint')!.textContent).toBe(sc.objectives[0]!.hint);
-    box.update(runner, OBJECTIVE_SHOW + 1);
-    // Pretend the first objective is met: the runner moves on.
-    (runner as unknown as { index: number }).index = 1;
-    box.update(runner, 0.1);
-    expect(box.expanded).toBe(true);
-    expect(box.el.querySelector('.obj-list li.done')!.textContent).toBe(`✓ ${sc.objectives[0]!.text}`);
-    expect(box.el.querySelector('.obj-list li.current')!.textContent).toBe(sc.objectives[1]!.text);
   });
 });
 

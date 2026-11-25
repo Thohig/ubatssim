@@ -8,7 +8,7 @@
  *   the start page's music (menuMusic.ts) ───────────────────────────────┘
  *
  * The game's sound plays while a game runs; the music while the start page
- * (or a scenario's briefing) shows. Otherwise the context is suspended.
+ * (or the introduction) shows. Otherwise the context is suspended.
  * Browsers only start audio after a user gesture, so the context is
  * created by `unlock()` from a click or key press.
  */
@@ -21,8 +21,6 @@ export type Cue =
   | 'splash'
   | 'clonk'
   | 'telegraph'
-  | 'objective'
-  | 'success'
   | 'failure'
   | 'ping'
   | 'launch'
@@ -100,7 +98,7 @@ export class AudioEngine {
     this.applyState();
   }
 
-  /** The start page (or a briefing) shows: its music plays. */
+  /** The start page (or the introduction) shows: its music plays. */
   setMenu(on: boolean): void {
     this.menu = on;
     this.music.setActive(on);
@@ -278,13 +276,6 @@ export class AudioEngine {
         this.tone(2400, t, 0.9, 0.3, 'sine', this.inside);
         this.tone(2400, t + 1.6, 0.6, 0.06, 'sine', this.outside);
         this.tone(2400, t + 3.1, 0.5, 0.035, 'sine', this.outside);
-        break;
-      case 'objective':
-        this.tone(660, t, 0.15, 0.2, 'sine', this.inside);
-        this.tone(990, t + 0.15, 0.25, 0.2, 'sine', this.inside);
-        break;
-      case 'success':
-        [523, 659, 784, 1047].forEach((f, i) => this.tone(f, t + i * 0.16, 0.3, 0.2, 'triangle', this.inside));
         break;
       case 'failure':
         [392, 330, 262].forEach((f, i) => this.tone(f, t + i * 0.25, 0.4, 0.22, 'sawtooth', this.inside));

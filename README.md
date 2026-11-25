@@ -19,7 +19,6 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 - [Anfall: mål, lösning och torpeder](#anfall-mål-lösning-och-torpeder)
 - [Torpedrummet](#torpedrummet)
 - [Korvetter som jagar](#korvetter-som-jagar)
-- [Scenarier](#scenarier)
 - [Havsområden och väder](#havsområden-och-väder)
 - [Livet i havet och på land](#livet-i-havet-och-på-land)
 - [Ljud](#ljud)
@@ -31,16 +30,15 @@ En ubåtssimulator i 3D som körs i webbläsaren, på dator och mobil. Fokus lig
 
 ## Spelet
 
-Det finns ett spelläge. Varje spel börjar med att **besättningen sköter ubåten**, och du tar över det du vill sköta själv (se [Besättningen och du](#besättningen-och-du)).
+Det finns ett spelläge, fritt spel: du väljer område, väder och start och går till sjöss utan uppdrag. (Scenarierna är borttagna; fritt spel ska byggas ut i stället, se [docs/ideer.md](docs/ideer.md).) Varje spel börjar med att **besättningen sköter ubåten**, och du tar över det du vill sköta själv (se [Besättningen och du](#besättningen-och-du)).
 
-**Startsidan** är utformad som en färdorder, med ordernummer, stämpeln Övning och en fiktiv order som skrivs fram. Bakom menyn glider ubåten förbi på nära håll under vattnet, i dagsljus nära ytan där solstrålarna syns. Lugn, syntetiserad musik spelar (se [Ljud](#ljud)). Fyra val finns:
+**Startsidan** är utformad som en färdorder, med ordernummer, stämpeln Övning och en fiktiv order som skrivs fram. Bakom menyn glider ubåten förbi på nära håll under vattnet, i dagsljus nära ytan där solstrålarna syns. Lugn, syntetiserad musik spelar (se [Ljud](#ljud)). Tre val finns:
 
 | Val | Innehåll |
 |---|---|
 | **Fritt spel** | Välj havsområde (Västerhavet, Östersjön, Fjorden, Atlanten), ljus och sikt (dag, skymning, natt, dimma), sjögång (lugnt, måttlig, grov) och startläge, till exempel ytläge, periskopdjup (13 m, kölen på 16 m) eller djupt vatten. Där en korvett patrullerar (Östersjön) kan du välja **Korvetter: Inga** för ett fredligt spel med bara civil trafik. |
-| **Scenarier** | Uppdrag med mål och ledtrådar. |
 | **Inställningar** | Tidskomprimering ×1/×2/×4/×8/×16, ljud (volym, maskiner och larm, hav och vind, uppläsning av order, musik på startsidan och musikvolym), svävande partiklar och ljusstrålar under ytan. Inställningarna sparas i webbläsaren. |
-| **Hjälp** | Besättningen, kontrollerna, tangenterna, scenarierna, anfallet och tips. |
+| **Hjälp** | Besättningen, kontrollerna, tangenterna, anfallet och tips. |
 
 På iPhone och iPad kan spelet läggas på hemskärmen via Safaris Dela-meny ("Lägg till på hemskärmen"). Då startar det i helskärm med egen ikon.
 
@@ -68,7 +66,7 @@ Valen görs av vakthavande officer (`src/control/conn.ts`), som ensam ger order 
 
 ### Expertläge
 
-Under ☰ → **Besättning** kan du slå på **Expertläge**. Då väljer du för varje system om **besättningen** sköter det eller om du gör det **själv**, när som helst, mitt i ett scenario också. Utan expertläge sköter besättningen alltid manövern (djup, kurs, fart, ballast, trim och skyddsnät), och order som skulle ta över den vägras med ett besked. Laddning, eldledning och torpedrum kan du alltid ta över. Scenarier där du ska styra själv, till exempel Trimövning, spelas alltid i expertläge.
+Under ☰ → **Besättning** kan du slå på **Expertläge**. Då väljer du för varje system om **besättningen** sköter det eller om du gör det **själv**, när som helst. Utan expertläge sköter besättningen alltid manövern (djup, kurs, fart, ballast, trim och skyddsnät), och order som skulle ta över den vägras med ett besked. Laddning, eldledning och torpedrum kan du alltid ta över.
 
 | System | Besättningen sköter (från start) | Du sköter själv (djup, kurs, fart, ballast, trim och skyddsnät bara i expertläge) |
 |---|---|---|
@@ -98,7 +96,7 @@ Under ☰ → **Besättning** kan du slå på **Expertläge**. Då väljer du f�
   - Djupmålet begränsas så att det är minst 10 m under kölen, under ubåten och så långt fram som ubåten går på en minut (minst 150 m). När vattnet blir djupare igen går besättningen tillbaka till ditt djup ("djupare vatten, tillbaka till 150 m").
   - **Grunt förut:** stiger botten fortare än ubåten hinner upp, eller har ubåten i ytläge mindre än 3 m under kölen förut, varnar besättningen och saktar in till 4 knop. Så länge botten stiger (och 30 s efter) håller den farten under 4 knop vad du än beordrar, också Full fram; telegrafen visar din fart och skälet "grunt förut". I ytläge står det "Gir undan.": besättningen bromsar men styr inte runt grundet. **Land förut** neddykt i mer än 5 knop (en strand eller en fjordsida inom stoppsträckan), eller en botten som stiger för brant för att ubåten ska hinna upp (slutet på en kanjon): besättningen slår full back och girar 60° åt det håll där vattnet är djupare, och går inte upp mot ytan. Grunt förut håller också besättningens egen fart (för djuprodren eller ett djupbyte) under 4 knop, och i mer än 5 knop backar maskinen för fullt ned till 4 knop. **Driver mot grund:** står ubåten still och driver med strömmen mot grunt vatten varnar besättningen och går fram eller back 2 knop en minut bort från grundet, och stannar sedan igen.
   - Varning i loggen när det är mindre än 10 m under kölen.
-- **Scenarier** kan låsa ett system: i Trimövning sköter du djupet (Hand) och trimmet själv, och i Nödblåsning finns inget skyddsnät. Resultatskärmen visar vad du skötte själv, till exempel "Du skötte själv trimmet och ballasten".
+- **Resultatskärmen** (när ubåten går förlorad) visar tiden till sjöss och vad du skötte själv, till exempel "Du skötte själv trimmet och ballasten".
 
 ## Styrning
 
@@ -110,7 +108,7 @@ Kontrollerna längst ner visas alltid, på dator och mobil.
 |---|---|---|
 | **Yta / Periskop / Djup** | Vänster | Vilket slags djup du vill ha; det som gäller lyser. **Yta** är en vanlig stigning (se [Hur besättningen väljer](#hur-besättningen-väljer)). **Periskop** är 13 m, och i ytläge dyker ubåten dit. **Djup** går tillbaka till ditt senaste djupa djupmål (först 50 m). |
 | **Djupskala** | Vänster | Visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Skalan är kvadratisk, så de grunda metrarna får plats. Tryck eller dra för att välja djup i steg om 5 m. Målet sätts när du släpper. |
-| **Kompass** | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet och bojen (gul prick). Tryck eller dra för att välja kurs i steg om 5°. **Mot bojen** styr mot bojen i scenarier som har en. |
+| **Kompass** | Höger | Visar 60° åt varje håll från kursen (röd linje), med kursmålet. Tryck eller dra för att välja kurs i steg om 5°. Har spelet en boj att styra mot syns den som en gul prick, och **Mot bojen** styr mot den. |
 | **Planraden** | Mitten, ovanför telegrafen | Vad besättningen gör just nu, till exempel "Går ned till 100 m." eller "Låter farten avta mot 4 knop." Gul text: tyst gång, en korvett är oss på spåren. Ett tryck öppnar detaljerna. |
 | **Auto / Hand** (expertläge) | Vid djupskalan och kompassen | Vem som styr djupet och kursen. På mobil en knapp som visar Auto eller Hand (gul) och växlar vid tryck. |
 | **Djuproder** (expertläge, Hand) | Vänster | Visar djuprodrets order och utslag. Tryck eller dra för en vinkel. **▲ Upp** / **▼ Ned** ändrar 5°, **Noll** lägger det i noll. |
@@ -129,14 +127,14 @@ En flik eller planraden är gul när du sköter något av systemen själv. Håll
 
 Vyknapparna gör samma sak som V, P, N, K och H, och Zoom och Brg uppe till höger samma sak som Z och B. **Ögat** byter mellan yttre vy, brygga, periskop, manöverrum och genomskärning (C går direkt till snittet). Periskopet och snorkeln visas när ubåten är grundare än 25 m eller en mast är uppe. Ögat visas alltid: djupt byter det mellan yttre vy, manöverrum och snitt. **Sjökortet** (K) och **sonaren** (H) öppnar sjökortet och sonaren (se [Sonar, upptäckt och sjökort](#sonar-upptäckt-och-sjökort)).
 
-**Loggboken** visas alltid, överst i mitten under målrutan, och tar liten plats: högst två rader i ett halvgenomskinligt fönster. En ny rad syns en stund och tonas sedan ut: kvitton efter 2,5 s, information efter 4 s och varningar och fel (röda) efter 6 s, långa rader lite längre. Fönstret tonas ut med den sista raden, så när inget händer ligger ingenting över bilden. Tryck på loggen medan den syns för de senaste raderna, och tryck igen eller Esc för att stänga. Hela loggboken finns under ☰ → **Loggbok**.
+**Loggboken** visas alltid, överst i mitten, och tar liten plats: högst två rader i ett halvgenomskinligt fönster. En ny rad syns en stund och tonas sedan ut: kvitton efter 2,5 s, information efter 4 s och varningar och fel (röda) efter 6 s, långa rader lite längre. Fönstret tonas ut med den sista raden, så när inget händer ligger ingenting över bilden. Tryck på loggen medan den syns för de senaste raderna, och tryck igen eller Esc för att stänga. Hela loggboken finns under ☰ → **Loggbok**.
 
 ### Mobil
 
 På skärmar som är smalare än 840 px (också surfplattor på höjden) eller lägre än 500 px är vyn avskalad, så att 3D-bilden får plats:
 
 - **Statusraden** överst visar tid, fart genom vattnet, vatten under kölen (när det är under 300 m), trim, batteriet och, vid en läcka, vattnet som kommit in. Djup, kurs och beordrad fart syns redan på djupskalan, kompassen och telegrafen. Tryck på statusraden för hela instrumentpanelen och igen för att stänga den.
-- **Loggboken** ligger under statusraden och målrutan (liggande: mellan statusraden och Vyer ▾). Varje rad kortas till två textrader, och hela texten finns i historiken.
+- **Loggboken** ligger under statusraden (liggande: mellan statusraden och Vyer ▾). Varje rad kortas till två textrader, och hela texten finns i historiken.
 - **Vyer ▾** uppe till höger fäller ut vyknapparna (ikonerna) och Zoom och Brg. Ett val fäller ihop dem igen.
 - Telegrafen är ett reglage. Mellan två lägen visar reglaget den beordrade farten, och medan besättningen kör en egen fart den farten och varför. I expertläge är **Auto / Hand** en knapp per axel.
 - **Planraden** visar bara texten (inte lägets namn) och bryts på två rader.
@@ -173,7 +171,6 @@ Piltangenterna följer Auto / Hand (Hand bara i expertläge).
 | G | Dieslarna start / stopp (tar över laddningen) | Samma |
 | K / H | Sjökortet / sonaren | Samma |
 | M | Ljud av / på | Samma |
-| O | Visa / fäll ihop målrutan (scenarier) | Samma |
 
 På mobil ersätts instrumentpanelen av statusraden (se [Mobil](#mobil)).
 
@@ -261,15 +258,13 @@ Under vattnet går ubåten på batteriet. Det rymmer 6 MWh och är fulladdat nä
 
 Vatten kan tränga in i tryckskrovets avdelningar genom hål. Inflödet är Q = Cd·A·√(2Δp/ρ), så det växer med djupet.
 
-- **Hål uppstår** vid en hård grundstötning (över ~2 knop: fören, aktern eller kölen efter rörelseriktningen), vid kollision med ett fartyg (manöverrummet under tornet) och under krossdjupet 300 m (maskinrummet, mer ju djupare). På 360 m kollapsar skrovet: ett scenario misslyckas, och fritt spel slutar med Ubåten förlorad.
+- **Hål uppstår** vid en hård grundstötning (över ~2 knop: fören, aktern eller kölen efter rörelseriktningen), vid kollision med ett fartyg (manöverrummet under tornet) och under krossdjupet 300 m (maskinrummet, mer ju djupare). På 360 m kollapsar skrovet, och spelet slutar med Ubåten förlorad.
 - **Besättningen tätar** varje hål med en tidskonstant på 150 s, utom under krossdjupet. **Länspumpen** tar 20 l/s vid ytan och allt mindre ju djupare. På 250 m orkar den inte alls. Gå alltså grundare, så tätar besättningen fortare än vattnet kommer in.
 - **Vattnet väger:** det ligger i avdelningens botten och gör ubåten tyngre där. Över 15 ton varnar loggen, och skyddsnätet blåser huvudballasten.
 - **Följder:** ett maskinrum som är vattenfyllt till 30 % stoppar dieslarna, och ett elmotorrum till 30 % stoppar motorn.
 - **Vattentäta dörrar:** skotten mellan avdelningarna har dörrar. Vid en läcka stänger besättningen dem (10 s), så att vattnet stannar där det kom in, och öppnar dem igen när allt är tätat och länsat. I panelen El stänger och öppnar du dem själv. Står de öppna rinner vattnet över tröskeln till grannavdelningen där ytan står lägre, Q = Cd·A·√(2g·Δh). Lutar ubåten rinner vattnet alltså till den låga änden, och tyngden där gör lutningen värre.
 - **Länsa först:** i panelen El väljer du vilken avdelning länspumpen tar först. Annars tar den den blötaste.
 - **Visas** i statusraden (LÄCKA), i instrumentpanelen, i panelen El och i genomskärningen, och hörs som ett väsande och länspumpens surr.
-
-Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
 
 ## Sonar, upptäckt och sjökort
 
@@ -283,9 +278,9 @@ Grundstötning och kollision gör fortfarande att ett scenario misslyckas.
 **Att bli upptäckt:** en korvett lyssnar med sin skrovsonar och ser med utkik och radar. Den märker ubåten mer ju starkare ubåtens ljud når fram, och när ett periskop (inom 3,5 km), en snorkel (inom 6 km) eller tornet i ytläge (inom 12 km) syns. Annars glömmer den långsamt.
 
 - **Ubåtens ljud** växer med farten (30 log), med kavitation över 6 knop + 1 knop per 10 m djup, och med 24 dB när dieslarna går.
-- **Varning** i loggen när en korvett kan ha hört eller sett något, och ett larm när den har upptäckt ubåten. Då börjar den jaga (se [Korvetter som jagar](#korvetter-som-jagar)). I scenariot Smyg förbi misslyckas uppdraget.
+- **Varning** i loggen när en korvett kan ha hört eller sett något, och ett larm när den har upptäckt ubåten. Då börjar den jaga (se [Korvetter som jagar](#korvetter-som-jagar)).
 - **Så smyger man:** gå sakta, djupt och under språngskiktet, håll masterna nere, och använd terrängen: en kanjon, ett undervattensberg eller en klippig botten. Nära botten drunknar ubåtens eko i bottenekot vid en korvetts ping, mest över berg, minst över lera. På natten stiger det djupa spridningsskiktet (plankton och småfisk) till ~50 m, och en ubåt inne i skiktet är svår att skilja från det.
-- **Flyg och kustradar** (i scenarier): ett spaningsplan ser ett periskop på 9 km, en snorkel på 15 km och ubåten i ytläge på 35 km. En kustradar på en höjd ser masterna inom sin radarhorisont, men inte bakom en ö. När de har sett något anropar de korvetterna, som söker där. Radarvarnaren hör deras radar, också i fritt spel.
+- **Flyg och kustradar:** flygplanen flyger och kustradarn står på sin höjd i fritt spel, men spanar ännu inte efter ubåten (det kommer med hotnivån, se [docs/ideer.md](docs/ideer.md)). När de spanar ser ett spaningsplan ser ett periskop på 9 km, en snorkel på 15 km och ubåten i ytläge på 35 km. En kustradar på en höjd ser masterna inom sin radarhorisont, men inte bakom en ö. När de har sett något anropar de korvetterna, som söker där. Radarvarnaren hör deras radar redan nu.
 
 **Sjökortet** (Karta, K) visar också radarekon (gröna kryss), ekona från den senaste pingen (ringar), bäringen till korvettradar som radarvarnaren hör (röda streck), målen med lösningens position och kurs (romber, färgade efter kvaliteten) och torpederna i vattnet. Det har norr uppåt och ubåten i mitten, med fyra skalor (− / +). Det visar djupet ur samma botten som fysiken använder, spåret, bojen (eller en pil mot den), fyrarna, sonarens bäringar som streckade linjer och fartyg i sikte från periskopet eller bryggan.
 
@@ -348,67 +343,6 @@ En korvett har fyra lägen, som loggen och sonarvyn berättar om:
 - **Två som samarbetar:** korvetter i samma grupp jagar tillsammans. Den som börjar söka eller anfalla ropar på de andra, och ett eko delas av alla. När två anfaller går den ena in och fäller medan den andra står 1,5 km bort i låg fart, lyssnar och pingar, och efter varje mönster byter de plats (krypande anfall). Den som står still hör dig mycket bättre än den som kör: håll avståndet till den.
 - **Konvojer:** när ett fartyg i en konvoj träffas ökar de andra farten med 30 % och sicksackar ±30° kring kursen i ett fast mönster, två minuter per ben. Eskorten söker där avfyrningen hördes.
 
-## Scenarier
-
-Scenarierna ligger under fem flikar efter vad de övar på, de lättaste först i varje. Korten visar titeln, svårigheten och förutsättningarna, och beskrivningen visas i genomgången.
-
-**Grunderna:** Lär känna båten.
-
-| Scenario | Svårighet | Mål |
-|---|---|---|
-| Första dykningen | lätt | Guidad övning: klara bryggan, fyll huvudballasten, dyk till 30 m, trimma neutralt och gå till ytläge igen. |
-| Back | lätt | Backa 450 m till en boj rakt akterut och stanna vid den, utan att vända ubåten. |
-| Trimövning | medel | Håll 50 m ±2 m i tre minuter utan djupautopilot. |
-| Sväva | medel | Från 30 m till 80 m under språngskiktet utan fart (högst 1 knop): bara kompenseringen ändrar djupet. Håll sedan 80 m i två minuter. |
-| Snorkling | medel | Atlanten: batteriet är på 25 %. Gå upp på periskopdjup, hissa snorkeln och ladda till 28 % utan att bryta ytan. |
-
-**Vatten och nöd:** Språngskikten, salthalten och när något går fel.
-
-| Scenario | Svårighet | Mål |
-|---|---|---|
-| Språngskiktet | medel | Dyk genom termoklinen till 90 m och kompensera för att ubåten blir lättare där. |
-| Saltsprånget | svår | Östersjön: dyk genom saltsprångskiktet till 90 m och kompensera för de tonnen ubåten blir lättare. |
-| Nödblåsning | svår | Ubåten är flera ton för tung på 200 m. Nå ytan innan krossdjupet 300 m. |
-| Läckan | svår | Atlanten: maskinrummet läcker på 120 m. Gå upp så att länspumpen hinner med, och vänta tills läckan är tätad och rummet länsat. |
-
-**Navigering:** Terrängen under och omkring dig.
-
-| Scenario | Svårighet | Mål |
-|---|---|---|
-| Genom sundet | medel | Gå i ytläge genom ett smalt sund i skärgården till en gul boj, utan att gå på grund. |
-| Fjordinloppet | svår | Ta dig i undervattensläge över fjordens tröskel (55 m) och in till en boj, utan att gå grundare än 15 m. |
-| Fyrljuset | medel | Natt: gå i ytläge mot en röd fyr tills den är 700 m bort. |
-| Kanjonen | svår | Eggakanten: två korvetter pingar över sockeln. Ta dig genom undervattenskanjonen till en boj utan att bli hittad. Väggarna skyddar nere i kanjonen. |
-
-**Spaning:** Se och mät utan att själv synas eller höras.
-
-| Scenario | Svårighet | Mål |
-|---|---|---|
-| Periskopspaning | medel | Ta ut bäringen till en fyr genom periskopet. Periskopet får inte synas mer än 60 s i taget. |
-| Fartyget | medel | Ta ut bäringen till ett lastfartyg genom periskopet, utan att bli sedd eller komma i vägen för det. |
-| Radar i dimman | medel | Dimma på periskopdjup: gör ett lastfartyg till mål, hissa radarmasten, ta en bra lösning med några svep och gå tyst igen innan en korvett hör radarn. |
-| Smyg förbi | svår | Atlanten: hör en patrullerande korvett på sonaren, gå under språngskiktet och smyg fram till en boj 2,5 km bort utan att bli upptäckt. |
-
-**Anfall:** Torpeder, eldledning och korvetter som jagar.
-
-| Scenario | Svårighet | Mål |
-|---|---|---|
-| Övningsskott | medel | Atlanten: markera ett målfartyg i periskopet, mät avståndet, få en lösning och träffa. |
-| Lockmålet | medel | En korvett jagar dig på nära håll. Skjut ut ett lockmål och smyg åt ett annat håll medan korvetten jagar det. |
-| Klart för eld | medel | Du sköter torpedrummet: gör tuberna klara, sänk två målfartyg och ladda om. |
-| Nattanfall | svår | Natt: gör en sonarkontakt till mål, byt kurs så att bäringarna ger avstånd, och sänk fartyget. |
-| Ekot | svår | Ping ger avståndet till ett lastfartyg direkt. Sänk det och ta dig undan korvetten som hörde pingen. |
-| Konvojen | svår | Sänk ett lastfartyg med en korvett som eskort, och ta dig sedan undan eskorten. |
-| Jagad | svår | En korvett anfaller. Gå djupt och tyst och klara dig tills den tappar dig eller har slut på sjunkbomber. |
-| Två jägare | svår | Två korvetter jagar tillsammans: den ena lyssnar på avstånd, den andra fäller. Skaka av dig båda. |
-| Stora konvojen | svår | Tre lastfartyg med eskort. Sänk ett, se de andra sicksacka, och ta dig undan eskorten. |
-
-Innan ett scenario börjar visar **genomgången** uppdraget, alla mål i ordning (med hålltid), förhållandena, tidsgränsen och vem som sköter vad. Därifrån kan du ändra besättningen innan du trycker **Till sjöss**. Starta om hoppar över genomgången.
-
-Under spelet är **målrutan** överst i mitten en enda rad: målets nummer, målet, hålltiden och bojens avstånd och bäring. Ett tryck på den, eller O, visar tipset och hela listan med avklarade mål (✓). Rutan öppnas också av sig själv i 6 s när ett nytt mål börjar eller tipset ändras (när du tar över eller lämnar systemet målet gäller), och fälls sedan ihop igen. Öppnad med ett tryck fälls den ihop efter 10 s.
-
-Ett scenario misslyckas om ubåten går på grund, kolliderar med ett fartyg, tar in mer än 120 m³ vatten eller skrovet kollapsar. Ledtrådarna anpassas efter vem som sköter systemet målet gäller. I Trimövning sköter du djupet (Hand) och trimmet själv, i Klart för eld torpedrummet, och i Nödblåsning finns inget skyddsnät. Allt annat väljer du.
-
 ## Havsområden och väder
 
 | Område | Terräng | Vatten | Ström |
@@ -453,7 +387,7 @@ Allt ljud syntetiseras i webbläsaren och följer simuleringen:
 
 - **Startsidan:** lugn musik, syntetiserad och utan loopar: en bottenton, långsamma ackord i moll, avlägsna sonarpingar, en mjuk puls som ett hjärtslag, en lång hornsignal och radio med morse. Musiken slås av och dess volym ändras under Inställningar.
 
-Ljudet startar vid första tryck, eftersom webbläsare kräver det, och är tyst i paus. Musiken hörs på startsidan och under ett scenarios genomgång. Mer om ljudet finns i [docs/ljud.md](docs/ljud.md).
+Ljudet startar vid första tryck, eftersom webbläsare kräver det, och är tyst i paus. Musiken hörs på startsidan och under introduktionen. Mer om ljudet finns i [docs/ljud.md](docs/ljud.md).
 
 ## Fysik i korthet
 
@@ -509,11 +443,11 @@ npm run build
 npm run bench
 ```
 
-- `npm test` kör de snabba testerna med Vitest (~30 s). `npm run test:all` kör också de långa scenario- och simuleringstesterna i `tests/long/` (~2,5 min på 4 kärnor), som publiceringen alltid kör. Testerna är processorbundna och körs med en arbetare per kärna (`maxWorkers: '100%'`). Fysiken testas utan grafik.
+- `npm test` kör de snabba testerna med Vitest (~30 s). `npm run test:all` kör också de långa simuleringstesterna i `tests/long/` (~2,5 min på 4 kärnor), som publiceringen alltid kör. Testerna är processorbundna och körs med en arbetare per kärna (`maxWorkers: '100%'`). Fysiken testas utan grafik.
 - `npm run update-durations` mäter varje testfil och skriver tiderna till `tests/durations.json`, som publiceringen använder för att dela testerna jämnt på tre maskiner. Kör det när testfiler läggs till eller delas.
 - `npm run lint` kör ESLint och kontrollerar bland annat att fysiklagret inte importerar Three.js eller DOM.
 - `npm run build` gör typkontroll och produktionsbygge till `dist/`.
-- `npm run test:e2e` bygger och kör spelet i Chromium med Playwright (`tests/e2e/`, ~1 min): genomgången och målrutan, paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, förlorad grafik och felrutan. Första gången: `npx playwright install chromium-headless-shell`.
+- `npm run test:e2e` bygger och kör spelet i Chromium med Playwright (`tests/e2e/`, ~1 min): paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, förlorad grafik och felrutan. Första gången: `npx playwright install chromium-headless-shell`.
 - `npm run bench` mäter fysikens tid per tidssteg. Lägg till `?perf` i adressen för att se tiden per bild i spelet. Budgeten finns i [docs/prestanda.md](docs/prestanda.md).
 
 **Om något går fel** pausas spelet och en ruta visar felet med en felrapport (meddelandet, läget, simuleringstiden och webbläsaren, inget personligt) som kan kopieras. Därifrån går det att starta om, ladda om sidan eller gå till huvudmenyn. Tar webbläsaren tillbaka grafikkortet, till exempel när en flik på mobilen legat i bakgrunden, pausas spelet tills grafiken är tillbaka.
@@ -528,16 +462,15 @@ Testerna täcker bland annat:
 - läckage (inflöde efter trycket, vattnets massa, länspumpen, tätning, grundstötning, kollision, krossdjup och kollaps)
 - akustiken och sonaren (spridning och skikt, ubåtens ljud, kontakter, bäring och klassning) och att en korvett upptäcker en högljudd ubåt men inte en tyst under skiktet
 - målrörelseanalysen (ett ben ger ingen lösning, två ben ger kurs, fart och avstånd, avståndsmätningar), träffpunkten, anfallet genom periskopet (markera, mät, skjut, träffa, ladda om), spridning, en torped som går under en grund båt, sjunkbomber och korvettens lägen
-- trådstyrningen (en torped på fel kurs träffar efter Styr, Sök, Kapa, tråden som går av vid hög fart eller stor sväng), lockmålet (korvetten fäller vid lockmålet), korvetter som samarbetar (ropar, delar ekot, styr och fäller i tur och ordning), konvojens sicksack, skotten (vattnet rinner genom öppna dörrar och till den låga änden, besättningen stänger och öppnar, länsa först) och scenarierna Lockmålet, Två jägare och Stora konvojen
-- torpedrummet (klar, säkra, ladda, laddrälsen, besättningen, vikten, luckan som hörs), den aktiva sonaren (ekon, avstånd, korvetten som hör pingen), radarn (horisonten, antennen över vattnet, mastens motstånd, radarvarnaren) och scenarierna Radar i dimman, Ekot och Klart för eld med besättningen och spelaren
+- trådstyrningen (en torped på fel kurs träffar efter Styr, Sök, Kapa, tråden som går av vid hög fart eller stor sväng), lockmålet (korvetten fäller vid lockmålet), korvetter som samarbetar (ropar, delar ekot, styr och fäller i tur och ordning), konvojens sicksack, skotten (vattnet rinner genom öppna dörrar och till den låga änden, besättningen stänger och öppnar, länsa först) och situationerna Lockmålet, Två jägare och Stora konvojen
+- torpedrummet (klar, säkra, ladda, laddrälsen, besättningen, vikten, luckan som hörs), den aktiva sonaren (ekon, avstånd, korvetten som hör pingen), radarn (horisonten, antennen över vattnet, mastens motstånd, radarvarnaren) och situationerna Radar i dimman, Ekot och Klart för eld med besättningen och spelaren
 - propellern back (svagare dragkraft, varvtalsgräns, kontinuitet genom noll) och att skyddsnätet tittar akterut när ubåten backar
 - besättningen: att besättningen dyker till 50 m och trimmar neutralt utan spelarens hjälp, att nödblåsningen löser ut, att övertagande och lämning sker utan ryck, att en order tar över rätt system, att låsningar vägras och att simuleringen fortfarande är deterministisk
-- att varje scenario går att klara och att det misslyckas när det ska
+- de tidigare scenarierna som testsituationer (`tests/scenarios.ts`): att varje situation går att klara och att den misslyckas när den ska, med besättningen och med spelaren
 - determinismen: "Jagad" körs i 4 minuter med fasta order två gånger och ska ge exakt samma tillstånd, och samma som en sparad referens per plattform
 - svävningen: djupbyten utan fart genom språngskiktet, uppåt och på djupt vatten, att djupet hålls efteråt, att svävningen slutar när farten kommer tillbaka och beskedet till en spelare som sköter trimmet
 - startsidans musik: partiturets delar, att alla toner ligger i D aeolisk, att det inte finns några sjunkbomber, att pulsen är mjuk och att samma frö ger samma partitur; demon på 16 m i dagsljus utan korvett
 - frigörandet på grafikkortet (`disposeTree` och fartygen), felrutan och rutan för förlorad grafik
-- genomgången före ett scenario och målrutan (utfälld vid start, ihopfälld efter en stund, öppen vid tryck, nytt mål och nytt tips)
 - terrängen, grundstötning och navigering genom sundet
 - havsområdena: att trycket är integralen av densiteten, saltsprångskiktet, sötvattnet i fjorden, fjordens tröskel och att alla startlägen och fyrar ligger rätt
 - strömmen (drift, fart genom vattnet och över grund) och vågorna (signifikant våghöjd, rörelser i ytläge, lågtrycksblåsaren)
@@ -545,7 +478,7 @@ Testerna täcker bland annat:
 - genomskärningen: att all inredning ligger inom sin avdelning och tryckskrovet, att vattenytan i en lutande tank fyller rätt volym, att ett tryck hittar rätt utrymme och att informationsrutan har något att säga om varje utrymme
 - ljudnivåerna från telemetrin, vilka händelser som ger larm och vad rösten läser upp
 - fartygen, världen och kollisioner, att vågshadern ger fysikens yta och att genvägen i kontaktmodellen är exakt
-- skärmkontrollerna (djupskala, Yta / Periskop / Djup, kompass, telegraf, planraden och detaljerna med panelen Manöver, expertläget med Auto / Hand, roder och djuproder, vyknapparna som ikoner), att tangenterna följer Auto / Hand och att inget scenariotips nämner en panelknapp
+- skärmkontrollerna (djupskala, Yta / Periskop / Djup, kompass, telegraf, planraden och detaljerna med panelen Manöver, expertläget med Auto / Hand, roder och djuproder, vyknapparna som ikoner), och att tangenterna följer Auto / Hand
 - besättningens val (`tests/conn.test.ts`): att farten glider ned utan back och bromsar med grunt förut, fartgränsen och det mjukare rodret nära periskopdjup, att besättningen väntar på periskopdjup när en korvett jagar, trimmet före ett djupbyte och planraden, och att ett stort djupbyte i Sakta går i 8 knop
 - djupbyten från provspelet (`tests/long/vertical*.long.test.ts`): Stopp med nytt djupmål går inte åt fel håll och skjuter inte över, skyddsnätet ger tillbaka djupmålet på djupare vatten, stigningen väntar på 35 m bara för fartyg inom 3 km och går upp när de passerat, "länsat" sägs en gång per avdelning, land förut (full back och gir mot djupare vatten, också i ytläge över 5 knop och vid kanjonens slut), en läcka utan fart (6 knop tills ubåten är torr), nödblåsning från 50 m (under 15° fören upp), Full fram från djupet utan lyssnande, trimmet på vägen, drivning mot grund och svävning uppåt från 200 m
 - mobilvyn: telegrafreglaget, Auto / Hand-knappen, planraden med flikarna, Vyer ▾ och statusraden
@@ -553,7 +486,7 @@ Testerna täcker bland annat:
 - eldledningspanelen: att välja mellan mål och att skjuta från en viss tub
 - panelen El, sjökortet och sonarvyn, knapparna Karta och Sonar, eldledningspanelen i periskopvyn
 - spelflödet (sessioner, omstart, tillåtna övergångar, tidsstegsloopen) och gränssnittet (menyskärmar, instrumentpanel och escaping, med happy-dom)
-- i en riktig webbläsare (Playwright, `tests/e2e/`): genomgången och målrutan, paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, manöverrummet (platserna och ett klick på en skärm som öppnar panelen), förlorad och återställd grafik, felrutan och hela startsidans musik med ljudet igång.
+- i en riktig webbläsare (Playwright, `tests/e2e/`): paus, att panelerna inte överlappar på dator och mobil, att eldledningspanelen inte täcker hårkorset, manöverrummet (platserna och ett klick på en skärm som öppnar panelen), förlorad och återställd grafik, felrutan och hela startsidans musik med ljudet igång.
 - manöverrummet (`tests/controlRoom.test.ts`): att varje plats står fritt i rummet och tittar på sin skärm, att ett tryck träffar rätt skärm, ljuset, larmet, skakningarna och vattnet
 
 ## Projektstruktur
@@ -570,7 +503,7 @@ src/
   control/    Order, orderkö, svensk kommandoparser, PID-autopilot, controller med orderregistret (orderRegistry) och maskinens händelser (plantWatch), besättningen (crew),
               trimassistent och skyddsnät, sonaren (passiv och aktiv) och upptäckten, radarn och radarvarnaren, flyg och kustradar (lookouts),
               eldledningen (målrörelseanalys), torpedrummet (tubernas steg och torpedernas vikt),
-              korvetternas jakt, havsområdenas startlägen och fyrar, scenarier.
+              korvetternas jakt, havsområdenas startlägen och fyrar.
   render/     Three.js: ubåtsmodell i lager, genomskärning med inredningen som data, manöverrummet inifrån
               (egen scen, skärmar på canvas), terräng, vågor,
               fyrar, ljus och dimma, vattnet per område, bubblor, kölvatten, plym, avgaser och mareld, kameravyer,

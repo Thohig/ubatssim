@@ -4,33 +4,28 @@
  * data-action/data-arg and inputs a name; menu.ts handles the events.
  */
 import { formatSimTime } from '../control/controller';
-import { SCENARIO_GROUPS, lockText, scenariosIn, type Scenario, type ScenarioGroup } from '../control/scenarios';
-import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, LOCK_TEXT, MANOEUVRE_SYSTEMS, swedishList, type CrewDuties, type CrewLocks, type CrewSystem } from '../control/crew';
+import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, MANOEUVRE_SYSTEMS, swedishList, type CrewDuties, type CrewSystem } from '../control/crew';
 import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
 import { html, type SafeHtml } from './dom';
 import { TIME_SCALES, type Settings } from './settings';
 
-export type Screen = 'main' | 'free' | 'free-area' | 'scenarios' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'briefing' | 'graphics' | 'error' | 'logbook';
+export type Screen = 'main' | 'free' | 'free-area' | 'settings' | 'help' | 'pause' | 'crew' | 'result' | 'intro' | 'graphics' | 'error' | 'logbook';
 
 /** What the pause menu and ☰ → Besättning need to know about the running game. */
 export interface PauseInfo {
   /** Who handles what (including orders still waiting in the queue); null outside a game. */
   duties: CrewDuties | null;
-  locks: CrewLocks;
-  /** Expert mode (the player may take the manoeuvre over), and whether the scenario forces it. */
+  /** Expert mode (the player may take the manoeuvre over). */
   expert: boolean;
-  expertForced: boolean;
 }
 
+/** The end of a game: it ends only when the boat is lost (the hull collapsed). */
 export interface ResultInfo {
-  /** Null in free play, which ends only when the boat is lost (the hull collapsed). */
-  scenario: Scenario | null;
-  completed: boolean;
   message: string;
   time: number;
-  /** What the player handled at some time during the scenario. */
+  /** What the player handled at some time during the game. */
   selfHandled: CrewSystem[];
 }
 
@@ -48,8 +43,6 @@ export interface MenuState {
   settings: Settings;
   pauseInfo: PauseInfo;
   result: ResultInfo | null;
-  /** The scenario about to start (the briefing); null otherwise. */
-  briefing: Scenario | null;
   /** The log book's lines for ☰ → Loggbok (oldest first). */
   logLines: readonly { t: number; text: string; kind: string }[];
   /** The error report after an unexpected error; null otherwise. */
@@ -64,8 +57,6 @@ export interface MenuState {
   sea: SeaStateId;
   /** Free play: the area's corvettes patrol (a choice only where there are any). */
   patrols: boolean;
-  /** The scenario list's tab. */
-  scenarioGroup: ScenarioGroup;
 }
 
 /** The start page's sailing orders: fictional and peaceful, short enough for one typed line on a phone. */
@@ -90,7 +81,6 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <p class="menu-note">Besättningen sköter ubåten från start. Ta över det du vill sköta själv, när du vill.</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="nav" data-arg="free">Fritt spel</button>
-        <button class="menu-btn" data-action="nav" data-arg="scenarios">Scenarier</button>
         <button class="menu-btn" data-action="nav" data-arg="settings">Inställningar</button>
         <button class="menu-btn" data-action="nav" data-arg="help">Hjälp</button>
       </div>`;
@@ -140,28 +130,6 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </div>
       <button class="menu-btn secondary" data-action="nav" data-arg="free">‹ Tillbaka</button>`;
   },
-  scenarios: (m) => {
-    // Tabs by what a scenario practises; compact cards (the briefing has the description).
-    const meta = (s: Scenario) => [...scenarioConditions(s), `${s.objectives.length} mål`].join(' · ');
-    const tabs = SCENARIO_GROUPS.map(
-      (g) =>
-        html`<button type="button" class="menu-tab${g.id === m.scenarioGroup ? ' on' : ''}" role="tab" aria-selected="${String(g.id === m.scenarioGroup)}" data-action="group" data-arg="${g.id}">${g.title}</button>`,
-    );
-    const lists = SCENARIO_GROUPS.map(
-      (g) => html`
-      <div class="menu-list scenario-group" role="tabpanel" data-group="${g.id}" ${g.id === m.scenarioGroup ? '' : 'hidden'}>
-        <p class="menu-sub">${g.description}</p>
-        ${scenariosIn(g.id).map(
-          (s) => html`
-          <button class="menu-btn choice scenario compact" data-action="scenario" data-arg="${s.id}" title="${s.description}">
-            <b>${s.title} <span class="badge ${s.difficulty}">${s.difficulty}</span></b>
-            <span class="meta">${meta(s)}</span>
-          </button>`,
-        )}
-      </div>`,
-    );
-    return html`<h2 class="menu-title small">Scenarier</h2><div class="menu-tabs" role="tablist">${tabs}</div>${lists}${back}`;
-  },
   settings: (m) => {
     const s = m.settings;
     const radio = (name: string, value: string, label: string, checked: boolean) =>
@@ -198,7 +166,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <li><b>Från djupet</b> stiger besättningen till 35 m, lyssnar runt och går sedan upp. <b>Yta</b> blåser huvudballasten på 15 m. Misstänker eller jagar en korvett ubåten, stannar besättningen på periskopdjup i stället för att blåsa, eftersom blåsningen hörs långt. Tryck Yta igen för att gå upp ändå.</li>
           <li><b>Nära periskopdjup</b> håller besättningen farten under 6 knop (inte på Full fram) och lägger högst 15° roder, så att tornet inte bryter ytan.</li>
           <li><b>Lägre fart</b>: ubåten glider ned i fart utan att backa, vilket är tystare. Stopp, och grunt vatten förut, backar för fullt.</li>
-          <li><b>Expertläge</b> (☰ → Besättning): du kan ta över djup och kurs (<b>Auto / Hand</b> vid djupskalan och kompassen), farten (propellervarvet i panelen Fart), ballasten, trimmet och skyddsnätet. Panelens övre knapp lämnar det tillbaka. Vissa scenarier, till exempel Trimövning, spelas alltid i expertläge.</li>
+          <li><b>Expertläge</b> (☰ → Besättning): du kan ta över djup och kurs (<b>Auto / Hand</b> vid djupskalan och kompassen), farten (propellervarvet i panelen Fart), ballasten, trimmet och skyddsnätet. Panelens övre knapp lämnar det tillbaka.</li>
           <li><b>Eldledning</b>: eldledaren mäter avståndet till målet genom periskopet och ger råd om kursbyten. Annars mäter du själv med <b>Avst</b>. Att skjuta är alltid din order.</li>
           <li><b>Skott:</b> vid en läcka stänger besättningen de vattentäta dörrarna, så att vattnet stannar i en avdelning. I panelen El stänger och öppnar du dem och väljer vilken avdelning länspumpen tar först. Står dörrarna öppna rinner vattnet till den låga änden när ubåten lutar.</li>
           <li><b>Torpedrum</b>: torpedrummet gör tuberna klara när ett mål är markerat, och säkrar och laddar om tomma tuber. I panelen <b>Torped</b> gör du det själv.</li>
@@ -209,7 +177,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Kontrollerna</h3>
         <ul>
           <li><b>Djup</b> (vänster): <b>Yta</b>, <b>Periskop</b> (13 m, i ytläge dyker ubåten dit) och <b>Djup</b> (tillbaka till ditt senaste djupa djupmål, först 50 m). Djupskalan visar djupet (vit linje), djupmålet (blå pil), periskopdjupet, botten (brun) och skyddsnätets gräns (röd streckad). Tryck eller dra för att välja djup. Målet sätts när du släpper. I expertläge på Hand visar den djuprodret: tryck eller dra, eller Upp / Ned 5° och Noll.</li>
-          <li><b>Kompassen</b> (höger) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. Bojen syns som en gul prick, och <b>Mot bojen</b> styr mot den. I expertläge på Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
+          <li><b>Kompassen</b> (höger) visar 60° åt varje håll från kursen (röd linje). Tryck eller dra för att välja kurs. I expertläge på Hand visar den rodret: tryck eller dra, eller BB / SB 5° och Mitt.</li>
           <li><b>Planraden</b> (ovanför telegrafen) säger vad besättningen gör just nu. Tryck på den för detaljerna.</li>
           <li><b>Telegrafen</b> (mitten, på mobil längst ner): Full, Halv och Sakta back, Stopp, och Sakta, Halv, Marsch och Full fram (2 och 4 knop back, 4, 8 och 12 knop fram, och Full back och Full fram är toppfarterna, 7 och 19 knop). På mobil är den ett reglage: tryck eller dra längs det.</li>
           <li><b>Nödblåsning</b> i panelen Ballast (eller Shift + S): är ubåten för tung för att stiga, blåses båda tankarna på vilket djup som helst, med full fart och ytan som mål.</li>
@@ -241,7 +209,6 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
           <tr><td>G</td><td colspan="2">Dieslarna start / stopp (du tar över laddningen)</td></tr>
           <tr><td>K / H</td><td colspan="2">Sjökortet / sonaren</td></tr>
           <tr><td>M</td><td colspan="2">Ljud av / på</td></tr>
-          <tr><td>O</td><td colspan="2">Visa / fäll ihop målrutan i ett scenario (tipset och alla mål)</td></tr>
         </table>
         <h3>Vyer</h3>
         <p><b>Bryggan:</b> i ytläge står du överst i tornet. Dra för att titta runt. Bryggan måste utrymmas innan ubåten dyker. Det gör besättningen, eller du med Klart bryggan i panelen Ballast.</p>
@@ -253,7 +220,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <h3>Läckage</h3>
         <p>En hård grundstötning, en kollision eller ett djup under krossdjupet (300 m) ger en läcka i en avdelning. Vattnet strömmar in fortare ju djupare ubåten är. Besättningen tätar hålet och länspumpen länsar, men pumpen orkar mindre på djupet. Gå alltså grundare. Statusraden och panelen El visar vattnet. På 360 m kollapsar skrovet.</p>
         <h3>Sonar och sjökort</h3>
-        <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, bojen, fyrarna och sonarens bäringar.</p>
+        <p><b>Sonaren</b> (H) hör fartyg och visar deras bäring som ett vattenfall: bäringen från fören tvärs över, tiden nedåt. Efter 20 s klassar operatören kontakten efter propellern. <b>Sjökortet</b> (K) visar djupet, spåret, fyrarna och sonarens bäringar.</p>
         <p>En <b>korvett</b> lyssnar efter ubåten och spanar efter master. Den hör dig bättre ju fortare du går (och när propellern kaviterar) och om dieslarna går, och den ser periskopet, snorkeln och tornet. Språngskiktet mellan er dämpar ljudet. Gå sakta, djupt och med masterna nere.</p>
         <h3>Aktiv sonar och radar</h3>
         <p><b>Ping</b> i sonaren (A) sänder en ping med den aktiva sonaren. Ekona ger avstånd och bäring till fartygen inom räckhåll, och ett mål får dem direkt: några pingar ger en bra lösning utan kursbyten. Men pingen hörs långt, och en korvett som hör den vet ungefär var du är och kommer. Mellan två pingar går minst 10 s.</p>
@@ -266,21 +233,19 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <p><b>Lockmål</b> (Lock eller L) låter som ubåten i fem minuter och går akterut. En korvett som hör det bättre än dig jagar det. Fyra finns.</p>
         <h3>Korvetter som jagar</h3>
         <p>En korvett som hört eller sett dig saktar in och svänger mot dig. Sedan söker den med aktiv sonar (pingar som hörs i skrovet) och anfaller med sjunkbomber inställda på djupet den mätte. Avfyrningar hörs. Kom undan genom att gå djupt under skiktet, sakta, byta kurs och byta djup när den går över dig. Den ger upp efter fem minuter utan kontakt, eller när bomberna är slut.</p>
-        <h3>Scenarier</h3>
-        <p>Ett scenario börjar med en genomgång: uppdraget, alla mål i ordning, förhållandena och vem som sköter vad. Där kan du ändra besättningen innan du trycker <b>Till sjöss</b>. Under spelet visar målrutan överst det aktuella målet på en rad. Tryck på den, eller O, för tipset och hela listan. Den öppnas också själv en stund när ett nytt mål börjar.</p>
         <h3>Ljud</h3>
         <p>Motorn, propellern, strömningen, ballasten och skrovet låter efter vad ubåten gör. Larm hörs vid grundstötning, grunt vatten, krossdjup och vatten över bryggan. M stänger av ljudet. Uppläsning av order slås på under Inställningar. På startsidan spelar mörk musik, som slås av eller sänks under Inställningar.</p>
         <h3>Om något går fel</h3>
         <p>Vid ett fel pausas spelet och en ruta visar en felrapport som går att kopiera. Starta om eller ladda om sidan. Tar webbläsaren tillbaka grafiken, till exempel när fliken legat i bakgrunden, väntar spelet tills den är tillbaka.</p>
         <h3>Havsområden och väder</h3>
-        <p>I fritt spel väljer du havsområde, ljus och sikt (dag, natt, dimma) och sjögång. Ubåtens fasta barlast är anpassad för området, men skikten i vattnet skiljer sig:</p>
+        <p>Du väljer havsområde, ljus och sikt (dag, natt, dimma) och sjögång. Ubåtens fasta barlast är anpassad för området, men skikten i vattnet skiljer sig:</p>
         <ul>
           <li><b>Västerhavet:</b> språngskikt på 40–70 m. Ström norrut längs kusten.</li>
           <li><b>Östersjön:</b> bräckt vatten och ett saltsprångskikt på 60–80 m. Under det blir ubåten flera ton lättare.</li>
           <li><b>Fjorden:</b> sötvatten i ytan som strömmar ut ur fjorden, en grund tröskel vid mynningen och 380 m djupt innanför.</li>
           <li><b>Atlanten:</b> ingen botten inom räckhåll. Krossdjupet 300 m är gränsen.</li>
         </ul>
-        <p>I fritt spel går fartyg i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision loggas, och i ett scenario misslyckas uppdraget.</p>
+        <p>Fartyg går i varje område. De följer sina rutter, har lanternor i mörker och hörs genom skrovet när de är nära. Kom inte i vägen: en kollision ger läckor.</p>
         <p>Instrumentpanelen visar farten genom vattnet, och längre ner fart och kurs över grund och strömmen (på mobil: tryck på statusraden). I grov sjö rör sig ubåten i ytläge, och vågtopparna kan skölja över ett lågt periskop.</p>
         <h3>Att tänka på</h3>
         <ul>
@@ -314,25 +279,22 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
     const d = m.pauseInfo.duties;
     if (!d) return html`<h2 class="menu-title small">Besättning</h2>${back}`;
     const row = (x: CrewSystem) => {
-      const lock = m.pauseInfo.locks[x];
       const crew = d[x];
       const choice = (value: boolean, label: string) =>
-        html`<button class="menu-btn seg ${crew === value ? 'on' : ''}" data-action="crew" data-arg="${x}:${value ? '1' : '0'}" ${lock !== undefined && lock !== value ? 'disabled' : ''} aria-pressed="${String(crew === value)}">${label}</button>`;
+        html`<button class="menu-btn seg ${crew === value ? 'on' : ''}" data-action="crew" data-arg="${x}:${value ? '1' : '0'}" aria-pressed="${String(crew === value)}">${label}</button>`;
       return html`<div class="crew-row">
-        <div><b>${CREW_NAME[x]}</b><small>${lock !== undefined ? LOCK_TEXT[x][lock ? 0 : 1] : CREW_ROLE[x][crew ? 0 : 1]}</small></div>
+        <div><b>${CREW_NAME[x]}</b><small>${CREW_ROLE[x][crew ? 0 : 1]}</small></div>
         <div class="crew-choice">${choice(true, x === 'safetyNet' ? 'På' : 'Besättningen')}${choice(false, x === 'safetyNet' ? 'Av' : 'Du')}</div>
       </div>`;
     };
-    const { expert, expertForced } = m.pauseInfo;
+    const { expert } = m.pauseInfo;
     const mode = (on: boolean, label: string) =>
-      html`<button class="menu-btn seg ${expert === on ? 'on' : ''}" data-action="expert" data-arg="${on ? '1' : '0'}" ${expertForced ? 'disabled' : ''} aria-pressed="${String(expert === on)}">${label}</button>`;
+      html`<button class="menu-btn seg ${expert === on ? 'on' : ''}" data-action="expert" data-arg="${on ? '1' : '0'}" aria-pressed="${String(expert === on)}">${label}</button>`;
     const modeRow = html`<div class="crew-row crew-expert">
         <div><b>Manövern</b><small>${
-          expertForced
-            ? 'Här styr du själv delar av manövern (expertläge).'
-            : expert
-              ? 'Expertläge: du kan ta över roder, djuproder, varvtal, ballast, trim och skyddsnät.'
-              : 'Du väljer fart, kurs och djup. Besättningen sköter roder, ballast, trim och fart och väljer själv hur.'
+          expert
+            ? 'Expertläge: du kan ta över roder, djuproder, varvtal, ballast, trim och skyddsnät.'
+            : 'Du väljer fart, kurs och djup. Besättningen sköter roder, ballast, trim och fart och väljer själv hur.'
         }</small></div>
         <div class="crew-choice">${mode(false, 'Besättningen')}${mode(true, 'Expert')}</div>
       </div>`;
@@ -346,27 +308,6 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         ${expert ? html`<button class="menu-btn" data-action="crew" data-arg="all:0">Du sköter allt</button>` : ''}
       </div>
       ${back}`;
-  },
-  briefing: (m) => {
-    const s = m.briefing;
-    if (!s) return html`<h2 class="menu-title small">Uppdrag</h2>${back}`;
-    const limit = s.timeLimit !== undefined ? `Tidsgräns ${Math.round(s.timeLimit / 60)} min` : null;
-    const meta = [...scenarioConditions(s), ...(limit ? [limit] : [])].join(' · ');
-    const goals = s.objectives.map(
-      (o) => html`<li>${o.text}${o.holdSeconds ? html` <span class="hold">(håll ${o.holdSeconds} s)</span>` : ''}</li>`,
-    );
-    return html`
-      <h2 class="menu-title small">${s.title} <span class="badge ${s.difficulty}">${s.difficulty}</span></h2>
-      <p class="menu-sub">${s.description}</p>
-      <h3 class="briefing-head">Mål</h3>
-      <ol class="briefing-goals">${goals}</ol>
-      ${meta ? html`<p class="menu-note">${meta}</p>` : ''}
-      <p class="menu-note">${crewSummary(m.pauseInfo.duties)} Målen finns överst på skärmen under spelet: tryck på dem för tipsen och hela listan.</p>
-      <div class="menu-list">
-        <button class="menu-btn primary" data-action="briefingDone">Till sjöss</button>
-        <button class="menu-btn" data-action="nav" data-arg="crew">Besättning</button>
-        <button class="menu-btn secondary" data-action="main">Avbryt</button>
-      </div>`;
   },
   logbook: (m) => {
     const lines = m.logLines.map((e) => html`<div class="log-entry ${e.kind}"><span class="time">[${formatSimTime(e.t)}]</span>${e.text}</div>`);
@@ -399,31 +340,17 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
   result: (m) => {
     const r = m.result!;
     return html`
-      <h2 class="menu-title small ${r.completed ? 'ok' : 'fail'}">${!r.scenario ? 'Ubåten förlorad' : r.completed ? 'Uppdrag slutfört' : 'Uppdraget misslyckades'}</h2>
-      <p class="menu-sub">${r.scenario?.title ?? 'Fritt spel'}</p>
+      <h2 class="menu-title small fail">Ubåten förlorad</h2>
       <p>${r.message}</p>
-      ${r.completed ? html`<p>Tid: <b>${formatSimTime(r.time)}</b></p>` : ''}
+      <p>Tid till sjöss: <b>${formatSimTime(r.time)}</b></p>
       <p class="menu-note">${handledText(r.selfHandled)}</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="restart">Spela igen</button>
-        ${r.scenario ? html`<button class="menu-btn" data-action="nav" data-arg="scenarios">Scenarier</button>` : html`<button class="menu-btn" data-action="nav" data-arg="free">Fritt spel</button>`}
+        <button class="menu-btn" data-action="nav" data-arg="free">Nytt område</button>
         <button class="menu-btn secondary" data-action="main">Huvudmeny</button>
       </div>`;
   },
 };
-
-/** Area, light, sea state and locks of a scenario, for the list and the briefing. */
-function scenarioConditions(s: Scenario): string[] {
-  const parts: string[] = lockText(s.locks);
-  const area = s.initial.area ?? 'westCoast';
-  if (area !== 'westCoast') parts.unshift(AREA_INFO[area].title);
-  if (s.conditions === 'night') parts.unshift('Natt');
-  if (s.conditions === 'dusk') parts.unshift('Skymning');
-  if (s.conditions === 'fog') parts.unshift('Dimma');
-  if (s.initial.sea === 'rough') parts.unshift('Grov sjö');
-  if (s.initial.sea === 'moderate') parts.unshift('Måttlig sjö');
-  return parts;
-}
 
 /** The pause menu's line on who handles what. */
 function crewSummary(d: CrewDuties | null): string {

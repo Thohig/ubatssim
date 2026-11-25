@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SCENARIOS } from '../src/control/scenarios';
 import { GameFlow } from '../src/game/flow';
 import { FixedStepLoop } from '../src/game/loop';
-import { DEMO_DEPTH, GameSession, demoSession, freePlaySpec, scenarioSpec } from '../src/game/session';
+import { DEMO_DEPTH, GameSession, demoSession, freePlaySpec } from '../src/game/session';
 import { audioInput, overlayState } from '../src/game/wiring';
 import { AREA_INFO } from '../src/control/areas';
 
@@ -10,12 +9,12 @@ const free = (area: 'westCoast' | 'atlantic' = 'westCoast', start = 'periscope')
   new GameSession(freePlaySpec(area, start, 'day', 'calm', 'Styr med kontrollerna.')!);
 
 describe('game session', () => {
-  it('free play has the area\'s traffic; a scenario only its own', () => {
+  it('a game has the area\'s traffic, life and coastal radar', () => {
     expect(free().ctrl.world.vessels.map((v) => v.def.id)).toEqual(AREA_INFO.westCoast.traffic.map((d) => d.id));
-    const recce = SCENARIOS.find((s) => s.id === 'ship-recce')!;
-    expect(new GameSession(scenarioSpec(recce, '')).ctrl.world.vessels.map((v) => v.def.id)).toEqual(['skagerack']);
-    const dive = SCENARIOS.find((s) => s.id === 'first-dive')!;
-    expect(new GameSession(scenarioSpec(dive, '')).ctrl.world.vessels).toHaveLength(0);
+    const g = free();
+    expect(g.ctrl.world.creatures.map((c) => c.def.id)).toEqual((AREA_INFO.westCoast.life ?? []).map((c) => c.id));
+    expect(g.ctrl.lookouts.stations).toEqual(AREA_INFO.westCoast.stations ?? []);
+    expect(g.waypoint).toBeNull();
   });
 
   it('free play without corvettes has only the civil traffic', () => {
@@ -44,13 +43,6 @@ describe('game session', () => {
     expect(Object.values(again.ctrl.duties()).every((d) => d)).toBe(true);
     expect(Array.from(again.sim.y)).toEqual(Array.from(free().sim.y));
     expect(again.sim.t).toBe(0);
-  });
-
-  it('a scenario\'s locks apply from the start and are logged', () => {
-    const trim = SCENARIOS.find((s) => s.id === 'trim-drill')!;
-    const g = new GameSession(scenarioSpec(trim, ''));
-    expect(g.ctrl.duties()).toMatchObject({ depth: false, trim: false, heading: true });
-    expect(g.ctrl.log.some((e) => /Du sköter djup och trim själv/.test(e.text))).toBe(true);
   });
 
   it('the demo cruises north at 5 knots on autopilot', () => {
@@ -117,11 +109,11 @@ describe('wiring', () => {
   });
 
   it('gives the overlay the true bearing of the look and the buoy', () => {
-    const sound = SCENARIOS.find((s) => s.id === 'sound-transit')!;
-    const s = new GameSession(scenarioSpec(sound, ''));
+    const s = new GameSession({ initial: { heading: (20 * Math.PI) / 180 }, intro: '', conditions: 'day', helpHint: '', waypoint: [1000, 1000] });
     const o = overlayState(s, { mode: 'bridge', relative: Math.PI / 2, zoom: 0, fov: 70 });
     expect(o.bearing).toBeCloseTo(20 + 90, 0); // heading 020 + 90° to starboard
-    expect(o.waypointBearing).not.toBeNull();
+    expect(o.waypointBearing).toBeCloseTo(45, 0);
+    expect(overlayState(free(), { mode: 'bridge', relative: 0, zoom: 0, fov: 70 }).waypointBearing).toBeNull();
   });
 });
 
@@ -129,7 +121,7 @@ describe('effects input', () => {
   it('the main ballast tanks, the propeller, and mast heads only when raised', async () => {
     const { effectsInput } = await import('../src/game/wiring');
     const { GameSession } = await import('../src/game/session');
-    const s = new GameSession({ initial: { depth: 13, neutral: true }, scenario: null, intro: '', conditions: 'day', helpHint: '' });
+    const s = new GameSession({ initial: { depth: 13, neutral: true }, intro: '', conditions: 'day', helpHint: '' });
     let e = effectsInput(s);
     expect(e.tanks).toHaveLength(2);
     expect(e.periscopeHead).toBeNull();
@@ -180,15 +172,5 @@ describe('expert mode', () => {
     g.setExpert(false);
     g.step();
     expect(g.ctrl.ap.heading).toBe(true);
-  });
-
-  it('a scenario that makes the player steer is played in expert mode', () => {
-    const trim = SCENARIOS.find((s) => s.id === 'trim-drill')!;
-    const g = new GameSession(scenarioSpec(trim, ''));
-    expect(g.expertForced).toBe(true);
-    g.setExpert(false);
-    expect(g.ctrl.options.expert).toBe(true);
-    const dive = SCENARIOS.find((s) => s.id === 'first-dive')!;
-    expect(new GameSession(scenarioSpec(dive, '')).expertForced).toBe(false);
   });
 });

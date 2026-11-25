@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../../src/control/controller';
-import { SCENARIOS, ScenarioRunner } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner } from '../scenarios';
 import { Simulation, type InitialConditions } from '../../src/sim/simulation';
 
 /** The crew handles everything; stopped; a new depth target. */

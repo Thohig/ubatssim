@@ -4,7 +4,6 @@
  * lives in session.ts, flow.ts and loop.ts; this file wires them to the DOM.
  */
 import { AudioDirector } from '../audio/director';
-import { SCENARIOS } from '../control/scenarios';
 import { AREA_INFO } from '../control/areas';
 import { isReady } from '../control/torpedoRoom';
 import { HULL_COLLAPSED } from '../control/plantWatch';
@@ -22,8 +21,6 @@ import { createInstruments, layoutKey } from '../ui/instruments';
 import { bindKeyboard, submitRadarToggle } from '../ui/keyboard';
 import { bindLog, bindLogToggle } from '../ui/log';
 import { Menu } from '../ui/menu';
-import { isLandscapePhone } from '../ui/compact';
-import { createObjective } from '../ui/objective';
 import { createPerfMeter } from '../ui/perfMeter';
 import { createStatusBar } from '../ui/statusBar';
 import { createNavPanel } from '../ui/navPanel';
@@ -34,7 +31,7 @@ import { createViewOverlay } from '../ui/viewOverlay';
 import { ViewState, availableViews, bindViewButtons, bindViewPointer } from '../ui/views';
 import { GameFlow, type GameState } from './flow';
 import { FixedStepLoop } from './loop';
-import { GameSession, demoSession, freePlaySpec, scenarioSpec } from './session';
+import { GameSession, demoSession, freePlaySpec } from './session';
 import { audioInput, effectsInput, overlayState } from './wiring';
 import { ControlRoomFeed } from './controlRoomFeed';
 import { STATION_ORDER, controlStations } from '../render/controlRoom.data';
@@ -59,7 +56,6 @@ export function startApp(): void {
   const hud = el('hud');
   const logEl = el('log');
   const instrumentsEl = el('instruments');
-  const objective = createObjective(el('objective'));
   // Phones: the status bar replaces the instrument panel; a tap shows the whole panel (style.css, body.inst-open).
   const statusEl = el<HTMLButtonElement>('status');
   const setInstrumentsOpen = (open: boolean) => {
@@ -93,7 +89,7 @@ export function startApp(): void {
 
   /** Shows a session: log, instruments, sound, camera, buoy, ships and the area. */
   const attach = (s: GameSession): GameSession => {
-    const { sim, ctrl, runner } = s;
+    const { sim, ctrl } = s;
     s.setExpert(settings.expert);
     bindLog(logEl, ctrl);
     setInstrumentsOpen(false);
@@ -102,24 +98,17 @@ export function startApp(): void {
     ctrl.onLog((e) => audio.onLog(e.text, e.kind, e.source));
     controlFeed.reset();
     ctrl.onLog((e) => controlFeed.onLog(e.text, sim.t));
-    runner?.onChange((p) => {
-      if (p.status === 'running') return;
-      audio.onScenarioEnd(p.status === 'completed');
-      window.setTimeout(() => endScenario(), 1500);
+    // The game has no end but this: the hull collapsed (it went on sinking to 1400 m behind the HUD).
+    let lost = false;
+    ctrl.onLog((e) => {
+      if (lost || e.text !== HULL_COLLAPSED) return;
+      lost = true;
+      audio.onLost();
+      window.setTimeout(() => endGame(s), 1500);
     });
-    // Free play has no end but this: the hull collapsed (it went on sinking to 1400 m behind the HUD).
-    if (!runner) {
-      let lost = false;
-      ctrl.onLog((e) => {
-        if (lost || e.text !== HULL_COLLAPSED) return;
-        lost = true;
-        audio.onScenarioEnd(false);
-        window.setTimeout(() => endFreePlay(s), 1500);
-      });
-    }
     audio.reset(sim.y[2]!, sim.actuators.periscope);
     view.resetCamera();
-    view.setWaypoint(s.scenario?.waypoint ?? null);
+    view.setWaypoint(s.waypoint);
     view.setVessels(ctrl.world.vessels.map((v) => v.def));
     view.setLife(
       ctrl.world.creatures.map((c) => c.def),
@@ -127,8 +116,7 @@ export function startApp(): void {
       AREA_INFO[sim.areaId].lighthouses.map((l) => l.position),
     );
     const info = AREA_INFO[sim.areaId];
-    // A scenario's own radar stations, or the area's in free play.
-    view.setArea(sim.areaId, { lighthouses: info.lighthouses, buoys: info.buoys, stations: s.scenario ? s.scenario.stations : info.stations }, s.conditions, sim.waves);
+    view.setArea(sim.areaId, { lighthouses: info.lighthouses, buoys: info.buoys, stations: info.stations }, s.conditions, sim.waves);
     views.set('external');
     lastPeriscope = sim.actuators.periscope;
     return s;
@@ -142,10 +130,6 @@ export function startApp(): void {
       startFree(area, start, conditions, sea, patrols) {
         const spec = freePlaySpec(area, start, conditions, sea, HELP_HINT, patrols);
         if (spec) startGame(new GameSession(spec));
-      },
-      startScenario(id) {
-        const sc = SCENARIOS.find((s) => s.id === id);
-        if (sc) startGame(new GameSession(scenarioSpec(sc, HELP_HINT)), true);
       },
       resume() {
         flow.go('playing');
@@ -185,7 +169,6 @@ export function startApp(): void {
         menu.show('crew');
       },
       introDone: finishIntro,
-      briefingDone: afterBriefing,
       reload: () => location.reload(),
       graphicsOk() {
         if (flow.state === 'menu') menu.show('main');
@@ -196,21 +179,9 @@ export function startApp(): void {
     settings,
   );
 
-  /** Starts a session; a new scenario first shows its briefing (not on "Starta om"). */
-  function startGame(s: GameSession, briefing = false): void {
+  /** Starts a session: the introduction the first time, then the game. */
+  function startGame(s: GameSession): void {
     session = attach(s);
-    if (briefing && s.scenario) {
-      flow.go('paused');
-      menu.setPauseInfo(pauseInfo());
-      menu.showBriefing(s.scenario);
-      updateMusic();
-      return;
-    }
-    afterBriefing();
-  }
-
-  /** After the briefing (or without one): the introduction the first time, then the game. */
-  function afterBriefing(): void {
     if (!settings.crewIntroSeen) {
       flow.go('paused');
       menu.show('intro');
@@ -227,7 +198,7 @@ export function startApp(): void {
     flow.go('playing');
   }
 
-  const pauseInfo = () => ({ duties: session.ctrl.pendingDuties(), locks: session.ctrl.options.locks, expert: session.ctrl.options.expert, expertForced: session.expertForced });
+  const pauseInfo = () => ({ duties: session.ctrl.pendingDuties(), expert: session.ctrl.options.expert });
 
   function showPause(): void {
     menu.setPauseInfo(pauseInfo());
@@ -235,29 +206,16 @@ export function startApp(): void {
     menu.show('pause');
   }
 
-  function endScenario(): void {
-    const r = session.runner;
-    if (!r || flow.state !== 'playing' || r.status === 'running') return;
-    flow.go('ended');
-    menu.showResult({
-      scenario: r.scenario,
-      completed: r.status === 'completed',
-      message: r.message ?? '',
-      time: r.endTime ?? session.sim.t,
-      selfHandled: [...session.ctrl.selfHandled],
-    });
-  }
-
-  function endFreePlay(s: GameSession): void {
+  function endGame(s: GameSession): void {
     if (session !== s || flow.state !== 'playing') return;
     flow.go('ended');
-    menu.showResult({ scenario: null, completed: false, message: 'Skrovet kollapsade under krossdjupet.', time: s.sim.t, selfHandled: [...s.ctrl.selfHandled] });
+    menu.showResult({ message: 'Skrovet kollapsade under krossdjupet.', time: s.sim.t, selfHandled: [...s.ctrl.selfHandled] });
   }
 
-  /** The start page's music plays on the start page and under a scenario's briefing and the introduction. */
+  /** The start page's music plays on the start page and under the introduction. */
   function updateMusic(): void {
-    const briefing = flow.state === 'paused' && menu.visible && (menu.current === 'briefing' || menu.current === 'intro');
-    audio.setMenu(flow.state === 'menu' || briefing);
+    const intro = flow.state === 'paused' && menu.visible && menu.current === 'intro';
+    audio.setMenu(flow.state === 'menu' || intro);
   }
 
   flow.onChange((s: GameState) => {
@@ -290,7 +248,7 @@ export function startApp(): void {
     failed = true;
     repeated = 0;
     const e = err instanceof Error ? err : new Error(String(err));
-    const where = session?.scenario ? `scenario ${session.scenario.id}` : flow.state === 'menu' ? 'menyn' : 'fritt spel';
+    const where = flow.state === 'menu' ? 'menyn' : 'fritt spel';
     const report = [
       `Fel: ${e.message}`,
       `Läge: ${flow.state}, ${where}, simuleringstid ${session ? session.sim.t.toFixed(2) : '–'} s`,
@@ -394,7 +352,7 @@ export function startApp(): void {
   const viewDock = h('div', { class: 'helm-views' });
   const updateViewButtons = bindViewButtons(el('view-btns'), activeCtrl, views, navSwitch, viewDock);
   const helmEl = el('helm');
-  const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.scenario?.waypoint ?? null } : null), viewDock);
+  const updateHelm = createHelm(helmEl, () => (flow.state === 'playing' ? { ctrl: session.ctrl, waypoint: session.waypoint } : null), viewDock);
   // The log and the instrument panel stay above the screen controls (style.css, --helm-h).
   new ResizeObserver(() => document.body.style.setProperty('--helm-h', `${helmEl.offsetHeight}px`)).observe(helmEl);
   const drawOverlay = createViewOverlay(el<HTMLCanvasElement>('view-overlay'));
@@ -414,10 +372,6 @@ export function startApp(): void {
     }
     if ((e.key === 'k' || e.key === 'K' || e.key === 'h' || e.key === 'H') && state === 'playing' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       nav.toggle(e.key.toLowerCase() === 'k' ? 'chart' : 'sonar');
-      return;
-    }
-    if ((e.key === 'o' || e.key === 'O') && state === 'playing' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      if (session.runner) objective.toggle();
       return;
     }
     if (e.key !== 'Escape') return;
@@ -448,9 +402,6 @@ export function startApp(): void {
     } else if (state === 'paused' && menu.current === 'intro') {
       e.preventDefault();
       finishIntro();
-    } else if (state === 'paused' && menu.current === 'briefing') {
-      e.preventDefault();
-      afterBriefing();
     } else if (state === 'paused' && (menu.current === 'pause' || !menu.visible)) {
       e.preventDefault();
       flow.go('playing');
@@ -610,7 +561,7 @@ export function startApp(): void {
       updateInstruments(tel);
       statusBar.update(tel);
       updateViewButtons(s.ctrl);
-      updateHelm(tel, { ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null });
+      updateHelm(tel, { ctrl: s.ctrl, waypoint: s.waypoint });
       updateCutawayInfo(s);
       updateFire(s.ctrl);
       // A corvette's active sonar: one ping sound per new ping (heard only while playing).
@@ -623,14 +574,11 @@ export function startApp(): void {
         if (flow.state === 'playing' && s.ctrl.sonar.pings > lastOwnPings) audio.engine.cue('ownPing');
         lastOwnPings = s.ctrl.sonar.pings;
       }
-      nav.update({ ctrl: s.ctrl, waypoint: s.scenario?.waypoint ?? null, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
+      nav.update({ ctrl: s.ctrl, waypoint: s.waypoint, lighthouses: AREA_INFO[s.sim.areaId].lighthouses });
       if (views.mode === 'cutaway') sampleCutaway(s);
       // The control room ten times a second, its screens five.
       if (views.mode === 'control') controlFeed.sample(s, controlTick++ % 2 === 0);
       audio.update(audioInput(s, views.mode, view.cameraDepth() > 0));
-      // On a phone on its side the opened objective would cover the fire panel in the top right corner.
-      const quietObjective = isLandscapePhone() && document.body.classList.contains('fire-open');
-      objective.update(s.runner, flow.state === 'playing' ? Math.min(1, (now - lastUi) / 1000) : 0, quietObjective);
       lastUi = now;
     }
     perf.mark('ui');

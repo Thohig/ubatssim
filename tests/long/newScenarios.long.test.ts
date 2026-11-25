@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AREA_INFO } from '../../src/control/areas';
 import { Controller } from '../../src/control/controller';
 import type { Order } from '../../src/control/orders';
-import { SCENARIOS, ScenarioRunner, waypointInfo } from '../../src/control/scenarios';
+import { SCENARIOS, ScenarioRunner, waypointInfo } from '../scenarios';
 import { Simulation } from '../../src/sim/simulation';
 
 const G = 9.80665;
