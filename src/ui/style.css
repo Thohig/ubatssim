@@ -85,7 +85,7 @@ body.touch .mode { top: max(8px, env(safe-area-inset-top)); }
 body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); }
 
 /* ------------------------------------------------------------- menu / hud */
-#hud[hidden], #menu[hidden] { display: none !important; }
+#hud[hidden], #menu[hidden], #mission[hidden] { display: none !important; }
 #menu-btn {
   position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
   width: 40px; height: 40px; border-radius: 8px; pointer-events: auto;
@@ -142,6 +142,11 @@ body.touch #instruments { top: max(8px, env(safe-area-inset-top)); left: max(8px
 fieldset { border: 1px solid var(--panel-border); border-radius: 8px; margin: 10px 0; padding: 8px 12px; }
 legend { color: var(--muted); padding: 0 4px; }
 .opt { display: inline-flex; align-items: center; gap: 6px; margin: 4px 14px 4px 0; cursor: pointer; }
+/* The patrol's tally on the result screen. */
+.tally { border-collapse: collapse; margin: 8px 0 12px; }
+.tally td { padding: 2px 12px 2px 0; vertical-align: top; }
+.tally td:first-child { color: var(--muted); }
+.tally tr.sub td { font-size: 12px; color: var(--muted); }
 .help h3 { margin: 14px 0 6px; color: var(--accent); font-size: 14px; }
 .help table { border-collapse: collapse; }
 .help td { padding: 2px 12px 2px 0; vertical-align: top; }
@@ -633,6 +638,12 @@ body.nav-open #fire { z-index: 5; }
 }
 
 /* ------------------------------------------------------------ log book: top centre */
+/* The mission by radio: one line above the log. */
+#mission {
+  position: static; transform: none; width: auto; pointer-events: none;
+  border-color: var(--accent); padding: 3px 10px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 #top-center {
   position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
   width: min(560px, calc(100% - 720px)); min-width: min(360px, calc(100% - 24px));
@@ -688,7 +699,7 @@ body.nav-open #fire { z-index: 5; }
     top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px;
     width: auto; min-width: 0; transform: none;
   }
-  #log { font-size: 12px; }
+  #log, #mission { font-size: 12px; }
   #log:not(.expanded) .log-entry .src { display: none; }
   /* At most two rows of text per floating line on a phone; the history has it all. */
   #log:not(.expanded) .log-entry.live { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }

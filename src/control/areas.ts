@@ -40,16 +40,30 @@ export interface AreaInfo {
   description: string;
   starts: FreeStart[];
   lighthouses: Lighthouse[];
-  /** Ships in free play (scenarios bring their own). */
+  /** The area's own ships (at peace without its corvettes). */
   traffic: VesselDef[];
   /** Whales and fish schools in free play. */
   life?: CreatureDef[];
   /** Patrol aircraft in free play. */
   aircraft?: AircraftDef[];
-  /** Coastal radar stations (free play; a scenario lists its own). */
+  /** Coastal radar stations. */
   stations?: RadarStation[];
   /** Lit buoys marking the leads [north, east] [m], and their colour. Graphics only. */
   buoys?: { position: [number, number]; color: 'red' | 'green' | 'yellow' }[];
+  /** Where the patrol's ships go (control/patrol.ts). */
+  patrol: PatrolRoutes;
+}
+
+/** The patrol's routes in an area, all in water deep enough for a freighter (tests/life.test.ts). */
+export interface PatrolRoutes {
+  /** The corvettes' patrol line (tension: one; war: two hunting together). */
+  line: [number, number][];
+  /** The convoy's route at war: two freighters and an escort, offset to the side of it. */
+  convoy: [number, number][];
+  /** Lanes the new traffic comes in on, from the edge of the area; reinforcements come in on the first. */
+  lanes: [number, number][][];
+  /** The depot ship at anchor, where the boat takes on torpedoes and decoys. */
+  depot: { name: string; position: [number, number] };
 }
 
 const KNOTS = (kn: number) => (kn * 1852) / 3600;
@@ -146,6 +160,12 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
         initial: { depth: 100, speed: 8 * KN, neutral: true },
       },
     ],
+    patrol: {
+      line: [[-5500, -6000], [5500, -6000]],
+      convoy: [[8000, -9000], [-8000, -9000]],
+      lanes: [[[10000, -7000], [-10000, -7000]], [[-10000, -2500], [10000, -2500]]],
+      depot: { name: 'depåfartyget Vega', position: [-3000, -800] },
+    },
     lighthouses: [
       { name: 'Västra fyren', position: [800, 2300], color: 'white', period: 5, lit: 0.6 },
       { name: 'Södra fyren', position: [-800, 2580], color: 'red', period: 3, lit: 1 },
@@ -186,6 +206,12 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
         initial: { area: 'baltic', depth: 50, speed: 5 * KN, neutral: true },
       },
     ],
+    patrol: {
+      line: [[-4000, -6000], [-4000, 0]],
+      convoy: [[6000, -8000], [6000, 0]],
+      lanes: [[[5000, -9000], [5000, 1000]], [[-8000, -4000], [8000, -4000]]],
+      depot: { name: 'depåfartyget Belos', position: [0, -3000] },
+    },
     lighthouses: [
       { name: 'Ytterskärs fyr', position: [0, 2980], color: 'white', period: 6, lit: 1 },
       { name: 'Norra prickens fyr', position: [1600, 2630], color: 'green', period: 4, lit: 0.5 },
@@ -225,6 +251,12 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
         initial: { area: 'fjord', north: -1500, depth: 13, speed: 4 * KN, neutral: true },
       },
     ],
+    patrol: {
+      line: [[-4500, -2000], [-4500, 2000]],
+      convoy: [[-6000, -4000], [-6000, 4000]],
+      lanes: [[[-7000, -5000], [-7000, 5000]], [[-8000, 3000], [-8000, -3000]]],
+      depot: { name: 'depåfartyget Fjordvakt', position: [-3500, 0] },
+    },
     lighthouses: [
       { name: 'Västra mynningsfyren', position: [-480, -510], color: 'red', period: 4, lit: 1 },
       { name: 'Östra mynningsfyren', position: [-480, 480], color: 'green', period: 4, lit: 1 },
@@ -262,6 +294,12 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
         initial: { area: 'atlantic', depth: 200, speed: 8 * KN, neutral: true },
       },
     ],
+    patrol: {
+      line: [[-5000, -6000], [5000, -6000]],
+      convoy: [[10000, -3000], [-10000, -3000]],
+      lanes: [[[6000, -10000], [6000, 10000]], [[-10000, 4000], [10000, 4000]]],
+      depot: { name: 'depåfartyget Thule', position: [0, 6000] },
+    },
     lighthouses: [],
     traffic: [freighter('atlantica', 'M/S Atlantica', [[-8000, 3000], [8000, 3000]], 200)],
     life: [
@@ -304,6 +342,12 @@ export const AREA_INFO: Record<AreaId, AreaInfo> = {
         initial: { area: 'shelf', north: -7000, east: -11000, depth: 120, speed: 5 * KN, neutral: true, heading: 0 },
       },
     ],
+    patrol: {
+      line: [[-8000, -6000], [8000, -6000]],
+      convoy: [[-14000, -9000], [14000, -9000]],
+      lanes: [[[14000, -12000], [-14000, -12000]], [[-12000, -4500], [12000, -4500]]],
+      depot: { name: 'depåfartyget Skarv', position: [-2000, -1500] },
+    },
     lighthouses: [
       { name: 'Eggøy fyr', position: [2000, 9400], color: 'white', period: 10, lit: 1 },
       { name: 'Sørskjær fyr', position: [-3000, 10000], color: 'red', period: 6, lit: 2 },

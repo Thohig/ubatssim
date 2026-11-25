@@ -13,7 +13,7 @@ import type { VesselDef } from '../../src/sim/vessel';
 
 /** A free-play start without corvettes, five seconds in, as the player finds it. */
 function play(area: AreaId, start: string) {
-  const s = new GameSession(freePlaySpec(area, start, 'day', 'calm', '', false)!);
+  const s = new GameSession(freePlaySpec(area, start, 'day', 'calm', '', 'peace')!);
   const c = s.ctrl;
   const run = (seconds: number, each?: () => boolean | void) => {
     for (let i = 0; i < seconds * 100; i++) {

@@ -6,6 +6,7 @@
 import { formatSimTime } from '../control/controller';
 import { CREW_NAME, CREW_NOUN, CREW_ROLE, CREW_SYSTEMS, MANOEUVRE_SYSTEMS, swedishList, type CrewDuties, type CrewSystem } from '../control/crew';
 import { AREA_INFO, AREA_ORDER, CONDITIONS, SEA_CHOICES, type ConditionsId } from '../control/areas';
+import { THREATS, type ThreatId } from '../control/patrol';
 import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
 import { html, type SafeHtml } from './dom';
@@ -21,10 +22,25 @@ export interface PauseInfo {
   expert: boolean;
 }
 
-/** The end of a game: it ends only when the boat is lost (the hull collapsed). */
+/** The patrol's tally for the result screen. */
+export interface PatrolTally {
+  sunk: readonly { name: string; tonnage: number }[];
+  tonnage: number;
+  /** Distance over the ground [m]. */
+  distance: number;
+  /** Hunts, and seconds hunted. */
+  hunts: number;
+  hunted: number;
+  missionsDone: number;
+  missionsMissed: number;
+}
+
+/** The end of a patrol: the player ended it, or the boat was lost (the hull collapsed). */
 export interface ResultInfo {
+  lost: boolean;
   message: string;
   time: number;
+  tally: PatrolTally;
   /** What the player handled at some time during the game. */
   selfHandled: CrewSystem[];
 }
@@ -55,8 +71,9 @@ export interface MenuState {
   area: AreaId;
   conditions: ConditionsId;
   sea: SeaStateId;
-  /** Free play: the area's corvettes patrol (a choice only where there are any). */
-  patrols: boolean;
+  /** The patrol: who is at sea, and whether missions come by radio. */
+  threat: ThreatId;
+  missions: boolean;
 }
 
 /** The start page's sailing orders: fictional and peaceful, short enough for one typed line on a phone. */
@@ -94,6 +111,7 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <button class="menu-btn" data-action="nav" data-arg="crew">Besättning</button>
         <button class="menu-btn" data-action="nav" data-arg="logbook">Loggbok</button>
         <button class="menu-btn" data-action="restart">Starta om</button>
+        <button class="menu-btn" data-action="endPatrol">Avsluta patrullen</button>
         <button class="menu-btn" data-action="nav" data-arg="settings">Inställningar</button>
         <button class="menu-btn" data-action="nav" data-arg="help">Hjälp</button>
         <button class="menu-btn secondary" data-action="main">Huvudmeny</button>
@@ -118,12 +136,14 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       <fieldset><legend>Sjögång</legend>
         ${SEA_CHOICES.map((c) => html`<label class="opt" title="${c.description}"><input type="radio" name="sea" value="${c.id}" ${m.sea === c.id ? 'checked' : ''}/> ${c.title}</label>`)}
       </fieldset>
-      ${a.traffic.some((v) => v.kind === 'patrol')
-        ? html`<fieldset><legend>Korvetter</legend>
-        <label class="opt" title="Korvetterna lyssnar och jagar en ubåt de upptäcker."><input type="radio" name="patrols" value="on" ${m.patrols ? 'checked' : ''}/> Patrullerar</label>
-        <label class="opt" title="Fredligt: bara civil trafik."><input type="radio" name="patrols" value="off" ${m.patrols ? '' : 'checked'}/> Inga</label>
-      </fieldset>`
-        : ''}
+      <fieldset><legend>Hot</legend>
+        ${THREATS.map((c) => html`<label class="opt" title="${c.description}"><input type="radio" name="threat" value="${c.id}" ${m.threat === c.id ? 'checked' : ''}/> ${c.title}</label>`)}
+        <p class="menu-note">${THREATS.find((c) => c.id === m.threat)?.description ?? ''}</p>
+      </fieldset>
+      <fieldset><legend>Uppdrag</legend>
+        <label class="opt" title="Order kommer över radion när en mast är över vattnet. Valfria: ett missat uppdrag går bara ut."><input type="radio" name="missions" value="on" ${m.missions ? 'checked' : ''}/> Med uppdrag</label>
+        <label class="opt" title="Fritt, utan order."><input type="radio" name="missions" value="off" ${m.missions ? '' : 'checked'}/> Utan</label>
+      </fieldset>
       <p class="menu-sub">Välj var du vill börja.</p>
       <div class="menu-list">
         ${a.starts.map((st) => html`<button class="menu-btn choice" data-action="free" data-arg="${st.id}"><b>${st.title}</b><span>${st.description}</span></button>`)}
@@ -147,6 +167,10 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
         <label class="opt"><input type="checkbox" name="music" ${s.music ? 'checked' : ''}/> Musik på startsidan</label>
         <label class="opt">Musikvolym <input type="range" name="musicVolume" min="0" max="100" step="5" value="${Math.round(s.musicVolume * 100)}"/></label>
         <p class="menu-note">M stänger av och sätter på ljudet, också på startsidan.</p>
+      </fieldset>
+      <fieldset><legend>Tips</legend>
+        <label class="opt"><input type="checkbox" name="tips" ${s.tips ? 'checked' : ''}/> Besättningen tipsar första gången något händer</label>
+        ${s.tipsSeen.length ? html`<button class="menu-btn secondary" data-action="tipsReset">Visa de ${s.tipsSeen.length} tipsen igen</button>` : ''}
       </fieldset>
       <fieldset><legend>Grafik</legend>
         <label class="opt"><input type="checkbox" name="particles" ${s.particles ? 'checked' : ''}/> Svävande partiklar</label>
@@ -340,9 +364,9 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
   result: (m) => {
     const r = m.result!;
     return html`
-      <h2 class="menu-title small fail">Ubåten förlorad</h2>
-      <p>${r.message}</p>
-      <p>Tid till sjöss: <b>${formatSimTime(r.time)}</b></p>
+      <h2 class="menu-title small ${r.lost ? 'fail' : 'ok'}">${r.lost ? 'Ubåten förlorad' : 'Patrullen avslutad'}</h2>
+      ${r.message ? html`<p>${r.message}</p>` : ''}
+      ${tallyTable(r.time, r.tally)}
       <p class="menu-note">${handledText(r.selfHandled)}</p>
       <div class="menu-list">
         <button class="menu-btn primary" data-action="restart">Spela igen</button>
@@ -351,6 +375,21 @@ export const SCREENS: Record<Screen, (m: MenuState) => SafeHtml> = {
       </div>`;
   },
 };
+
+const km = (m: number) => `${(m / 1852).toFixed(1).replace('.', ',')} M`;
+const tons = (t: number) => `${t.toLocaleString('sv-SE')} ton`;
+
+/** The patrol's tally: time, distance, ships sunk, hunts and missions. */
+function tallyTable(time: number, t: PatrolTally): SafeHtml {
+  return html`<table class="tally">
+    <tr><td>Tid till sjöss</td><td>${formatSimTime(time)}</td></tr>
+    <tr><td>Distans</td><td>${km(t.distance)}</td></tr>
+    <tr><td>Sänkt</td><td>${t.sunk.length ? `${t.sunk.length} fartyg, ${tons(t.tonnage)}` : 'inget'}</td></tr>
+    ${t.sunk.map((x) => html`<tr class="sub"><td></td><td>${x.name} (${tons(x.tonnage)})</td></tr>`)}
+    <tr><td>Jagad</td><td>${t.hunts ? `${t.hunts} ${t.hunts === 1 ? 'gång' : 'gånger'}, ${formatSimTime(t.hunted)}` : 'aldrig'}</td></tr>
+    ${t.missionsDone || t.missionsMissed ? html`<tr><td>Uppdrag</td><td>${t.missionsDone} utförda, ${t.missionsMissed} missade</td></tr>` : ''}
+  </table>`;
+}
 
 /** The pause menu's line on who handles what. */
 function crewSummary(d: CrewDuties | null): string {

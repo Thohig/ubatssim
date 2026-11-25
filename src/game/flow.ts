@@ -3,7 +3,7 @@
  *
  *   menu ──start──▶ playing ◀──resume── paused
  *     ▲               │  └──pause──────────▲
- *     │               └──scenario over──▶ ended
+ *     │               └──boat lost──▶ ended ◀──end patrol── paused
  *     └──── main menu (from paused or ended)
  *
  * `paused` also shows the introduction to the crew and the controls before a game,
@@ -14,7 +14,7 @@ export type GameState = 'menu' | 'playing' | 'paused' | 'ended';
 const ALLOWED: Record<GameState, readonly GameState[]> = {
   menu: ['menu', 'playing', 'paused'],
   playing: ['paused', 'ended', 'playing'],
-  paused: ['playing', 'paused', 'menu'],
+  paused: ['playing', 'paused', 'menu', 'ended'],
   ended: ['menu', 'playing', 'paused'],
 };
 
@@ -26,7 +26,7 @@ export class GameFlow {
     return this.s;
   }
 
-  /** The simulation runs (the demo behind the menu, the game, and after a scenario has ended). */
+  /** The simulation runs (the demo behind the menu, the game, and after the patrol has ended). */
   get simRunning(): boolean {
     return this.s !== 'paused';
   }

@@ -6,12 +6,12 @@ Spelet har nu detaljerad fysik, ballast, trim, terräng (med kanjon och undervat
 
 ## Rekommenderad ordning
 
-Scenarierna är borttagna ur spelet, och fritt spel byggs ut till en patrull i stället (etapp 1, att ta bort dem, är gjord: de lever kvar som testsituationer i `tests/scenarios.ts`). Etapperna:
+Scenarierna är borttagna ur spelet (de lever kvar som testsituationer i `tests/scenarios.ts`), och fritt spel är nu en patrull: hotnivå, spaning, förstärkning, klockan, ny trafik, depåfartyget, valfria uppdrag över radion, resultatet och tipsen (README, Patrullen). Kvar att pröva för patrullen:
 
-1. **Hotnivå och spaning:** startskärmen får hot i stället för Korvetter: Inga, och flyg och kustradar spanar (`Lookouts.watching`). Fred (bara trafik och liv), Spänt (korvetter patrullerar, flyg spanar) och Krig (korvetter i par, konvojer med eskort). En upptäckt höjer hotet i området en tid. Klockan går (dag, skymning, natt) och ny trafik kommer in från kanterna.
-2. **Radioorder och uppdrag:** på periskopdjup med antennen över ytan tar ubåten emot uppdrag, ett i taget och deterministiskt ur ett frö och områdets data: spana, anfalla en konvoj, ta sig osedd genom ett sund, ladda batteriet före gryningen. Ett missat uppdrag är en rad i loggen, inte slutet. Bojen (`SessionSpec.waypoint`) finns kvar för dem.
-3. **Resurser och bas:** torpeder och lockmål räcker en patrull; en bas eller ett depåfartyg fyller på.
-4. **Loggbok, resultat och tips:** sänkt tonnage, sträcka, tid osedd, klara uppdrag; besättningen tipsar första gången något händer (tipsen visade sparas som inställning) i stället för övningarna i Grunderna.
+- **Fler uppdragstyper:** eskortera, minera, landsätta, följa ett fartyg utan att synas; uppdrag som bygger på varandra.
+- **Ljuset glider:** klockan byter ljus i steg (dag, skymning, natt). En mjuk övergång kräver att paletterna i `environment.ts` interpoleras.
+- **Trafiken lämnar området:** de nya fartygen går fram och tillbaka på farleden i stället för att försvinna vid kanten.
+- **En målruta igen** för uppdragets steg och tips, om uppdragen får flera steg.
 
 Utöver patrullen:
 
@@ -30,7 +30,7 @@ Utöver patrullen:
 | **Målrörelseanalys och torpeder** | Klar | Se README (Anfall) och `docs/fysikmodell.md`. |
 | **Sväva utan fart** | Klar | Se README (Besättningen och du) och `docs/fysikmodell.md`. |
 | **Välja mål och tub** | Klar | Målraden och tubknapparna i eldledningspanelen. Se README (Anfall). |
-| **Genomgång och målruta** | Borttagen | Med scenarierna. Uppdragen i etapp 2 behöver något liknande. |
+| **Genomgång och målruta** | Borttagen | Med scenarierna. Uppdragen har en rad överst i stället. |
 | **Trådstyrda torpeder** | Klar | Styr, Sök och Kapa i eldledningspanelen. Se README (Anfall). |
 | **Motmedel** | Klar | Fyra lockmål som låter som ubåten. Se README (Anfall). |
 | **Fartyg som samarbetar** | Klar | Korvetter i par (en lyssnar, en fäller) och konvojer som sicksackar. Se README (Korvetter som jagar). |
@@ -68,7 +68,7 @@ Utöver patrullen:
 | **Valar och sillstim** | Klar | Biologiska kontakter, ekon och ljud genom skrovet. |
 | **Spridningsskiktet** | Klar | Djupt på dagen, grunt på natten; döljer en ubåt inne i skiktet. |
 | **Civil trafik och trålar** | Klar | Segelbåtar, trålare med trål att fastna i. |
-| **Flyg och kustradar** | Klar | Ser masterna och anropar korvetterna (i dag bara i testsituationerna; i spelet med hotnivån). |
+| **Flyg och kustradar** | Klar | Ser masterna och anropar korvetterna (Spänt och Krig). |
 | **Land och liv i bild** | Klar | Hus, skog, snö, lysbojar, kustradar, vrak, måsar, tång, maneter, mareld. |
 
 Knäppande räkor, som i förslaget skulle ge biologiskt brus på grunt vatten, lever inte i nordiska vatten. Sillens tickande på natten fick ta den platsen.

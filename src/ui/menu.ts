@@ -9,14 +9,17 @@ import type { Settings } from './settings';
 import type { ConditionsId } from '../control/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
 import type { AreaId } from '../sim/config/areas';
+import type { ThreatId } from '../control/patrol';
 import { html, mount } from './dom';
 import { ORDERS, SCREENS, type MenuState, type PauseInfo, type ResultInfo, type Screen } from './menuScreens';
 
 export type { PauseInfo, ResultInfo } from './menuScreens';
 
 export interface MenuHandlers {
-  /** `patrols`: the area's corvettes patrol (false: free play without them). */
-  startFree(area: AreaId, start: string, conditions: ConditionsId, sea: SeaStateId, patrols: boolean): void;
+  /** A patrol: who is at sea (`threat`) and whether missions come by radio. */
+  startFree(area: AreaId, start: string, conditions: ConditionsId, sea: SeaStateId, threat: ThreatId, missions: boolean): void;
+  /** Pause menu: end the patrol and show its tally. */
+  endPatrol(): void;
   resume(): void;
   restart(): void;
   toMainMenu(): void;
@@ -47,7 +50,8 @@ export class Menu {
   private area: AreaId = 'westCoast';
   private conditions: ConditionsId = 'day';
   private sea: SeaStateId = 'calm';
-  private patrols = true;
+  private threat: ThreatId = 'tension';
+  private missions = true;
   /** The start page's order, picked once per visit (fictional). */
   private readonly order = { text: ORDERS[Math.floor(Math.random() * ORDERS.length)]!, no: 100 + Math.floor(Math.random() * 900) };
 
@@ -64,7 +68,13 @@ export class Menu {
       const input = e.target as HTMLInputElement;
       if (input.name === 'conditions') this.conditions = input.value as ConditionsId;
       else if (input.name === 'sea') this.sea = input.value as SeaStateId;
-      else if (input.name === 'patrols') this.patrols = input.value === 'on';
+      else if (input.name === 'threat') {
+        this.threat = input.value as ThreatId;
+        // The line under the choice says what the threat means.
+        this.show('free-area');
+        this.root.querySelector<HTMLInputElement>(`input[name=threat][value=${this.threat}]`)?.focus({ preventScroll: true });
+      }
+      else if (input.name === 'missions') this.missions = input.value === 'on';
       else if (input.name) this.onSetting(input.name, input.type === 'checkbox' ? String(input.checked) : input.value);
     });
   }
@@ -93,7 +103,8 @@ export class Menu {
       area: this.area,
       conditions: this.conditions,
       sea: this.sea,
-      patrols: this.patrols,
+      threat: this.threat,
+      missions: this.missions,
     };
     mount(this.root, html`<div class="menu-card">${SCREENS[screen](state)}</div>`);
     this.root.querySelector<HTMLElement>('button, input')?.focus({ preventScroll: true });
@@ -157,7 +168,15 @@ export class Menu {
         this.show('free-area');
         break;
       case 'free':
-        this.h.startFree(this.area, arg!, this.conditions, this.sea, this.patrols);
+        this.h.startFree(this.area, arg!, this.conditions, this.sea, this.threat, this.missions);
+        break;
+      case 'tipsReset':
+        this.settings = { ...this.settings, tipsSeen: [] };
+        this.h.settingsChanged(this.settings);
+        this.show('settings');
+        break;
+      case 'endPatrol':
+        this.h.endPatrol();
         break;
       case 'resume':
         this.h.resume();
@@ -211,6 +230,7 @@ export class Menu {
     if (name === 'timeScale') s.timeScale = Number(value) as Settings['timeScale'];
     if (name === 'particles') s.particles = value === 'true';
     if (name === 'lightRays') s.lightRays = value === 'true';
+    if (name === 'tips') s.tips = value === 'true';
     if (name === 'volume') s.volume = Number(value) / 100;
     if (name === 'soundEffects') s.soundEffects = value === 'true';
     if (name === 'soundAmbience') s.soundAmbience = value === 'true';

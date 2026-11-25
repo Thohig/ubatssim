@@ -6,6 +6,8 @@
 import { AREA_INFO, type ConditionsId } from '../control/areas';
 import { Controller } from '../control/controller';
 import { MANOEUVRE_SYSTEMS } from '../control/crew';
+import { Missions } from '../control/missions';
+import { Patrol, patrolShips, type ThreatId } from '../control/patrol';
 import type { AreaId } from '../sim/config/areas';
 import type { SeaStateId } from '../sim/config/seaStates';
 import { DT, IDX_SHAFT, Simulation, type InitialConditions } from '../sim/simulation';
@@ -20,15 +22,21 @@ export interface SessionSpec {
   conditions: ConditionsId;
   /** Log line on where the controls are. */
   helpHint: string;
-  /** Free play without the area's corvettes (peaceful). */
-  noPatrols?: boolean;
-  /** A buoy to steer for [north, east] [m] (on the compass, the chart and in the view). */
+  /** Who is at sea (control/patrol.ts); default tension. */
+  threat?: ThreatId;
+  /** Optional missions by radio (control/missions.ts). */
+  missions?: boolean;
+  /** The demo behind the start page: no new ships or reinforcements. */
+  demo?: boolean;
+  /** A buoy to steer for [north, east] [m] (on the compass, the chart and in the view); default the depot ship. */
   waypoint?: [number, number];
 }
 
 export class GameSession {
   readonly sim: Simulation;
   readonly ctrl: Controller;
+  readonly patrol: Patrol;
+  readonly missions: Missions;
   /** Accumulated propeller angle for the 3D model [rad]. */
   propellerAngle = 0;
 
@@ -39,26 +47,33 @@ export class GameSession {
     this.ctrl.crewTakesAll();
     if (spec.intro) this.ctrl.addLog(spec.intro, 'info');
     if (spec.helpHint) this.ctrl.addLog(spec.helpHint, 'info');
-    // The area's traffic, life, aircraft and coastal radar.
+    // The area's traffic, life, aircraft and coastal radar, and the patrol's ships by the threat.
+    const threat = spec.threat ?? 'tension';
     const area = AREA_INFO[this.sim.areaId];
-    this.ctrl.world.add(spec.noPatrols ? area.traffic.filter((v) => v.kind !== 'patrol') : area.traffic);
+    this.ctrl.world.add(threat === 'peace' ? area.traffic.filter((v) => v.kind !== 'patrol') : area.traffic);
+    this.ctrl.world.add(patrolShips(this.sim.areaId, threat));
     this.ctrl.world.addLife(area.life ?? []);
     this.ctrl.world.addAircraft(area.aircraft ?? []);
     this.ctrl.lookouts.stations = area.stations ?? [];
-    this.ctrl.lookouts.watching = false;
+    this.ctrl.lookouts.watching = threat !== 'peace';
+    this.patrol = new Patrol(this.ctrl, this.sim.areaId, threat, spec.conditions, !spec.demo);
+    this.missions = new Missions(this.ctrl, this.sim.areaId, threat, spec.missions === true && !spec.demo);
   }
 
   get waypoint(): [number, number] | null {
-    return this.spec.waypoint ?? null;
+    return this.spec.waypoint ?? this.missions.current?.waypoint ?? this.patrol.depot;
   }
 
+  /** The light now: it changes with the clock. */
   get conditions(): ConditionsId {
-    return this.spec.conditions;
+    return this.patrol.conditions;
   }
 
   /** One fixed time step of the whole game (controller and world). */
   step(): void {
     this.ctrl.step();
+    this.patrol.update();
+    this.missions.update();
     this.propellerAngle += 2 * Math.PI * this.sim.y[IDX_SHAFT]! * DT;
   }
 
@@ -79,18 +94,19 @@ export class GameSession {
   }
 }
 
-/** Free play: an area's start position with light, visibility and sea state, with or without the area's corvettes. */
+/** A patrol: an area's start position with light, visibility, sea state, threat and whether missions come by radio. */
 export function freePlaySpec(
   area: AreaId,
   startId: string,
   conditions: ConditionsId,
   sea: SeaStateId,
   helpHint: string,
-  patrols = true,
+  threat: ThreatId = 'tension',
+  missions = false,
 ): SessionSpec | null {
   const f = AREA_INFO[area].starts.find((s) => s.id === startId);
   if (!f) return null;
-  return { initial: { ...f.initial, sea }, intro: f.text, conditions, helpHint, ...(patrols ? {} : { noPatrols: true }) };
+  return { initial: { ...f.initial, sea }, intro: f.text, conditions, helpHint, threat, missions };
 }
 
 /** Depth of the demo behind the start page [m]: shallow enough for the daylight's rays to show around it. */
@@ -107,6 +123,8 @@ export function demoSession(): GameSession {
     intro: '',
     conditions: 'day',
     helpHint: '',
+    threat: 'peace',
+    demo: true,
   });
   s.ctrl.hunter.enabled = false;
   s.ctrl.submit({ kind: 'setHeading', heading: 0 }, 'console');

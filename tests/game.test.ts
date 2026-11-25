@@ -10,21 +10,26 @@ const free = (area: 'westCoast' | 'atlantic' = 'westCoast', start = 'periscope')
 
 describe('game session', () => {
   it('a game has the area\'s traffic, life and coastal radar', () => {
-    expect(free().ctrl.world.vessels.map((v) => v.def.id)).toEqual(AREA_INFO.westCoast.traffic.map((d) => d.id));
+    expect(free().ctrl.world.vessels.map((v) => v.def.id).slice(0, AREA_INFO.westCoast.traffic.length)).toEqual(AREA_INFO.westCoast.traffic.map((d) => d.id));
     const g = free();
     expect(g.ctrl.world.creatures.map((c) => c.def.id)).toEqual((AREA_INFO.westCoast.life ?? []).map((c) => c.id));
     expect(g.ctrl.lookouts.stations).toEqual(AREA_INFO.westCoast.stations ?? []);
-    expect(g.waypoint).toBeNull();
+    // Without a mission the buoy marks the depot ship.
+    expect(g.waypoint).toEqual(AREA_INFO.westCoast.patrol.depot.position);
   });
 
-  it('free play without corvettes has only the civil traffic', () => {
-    const baltic = (patrols: boolean) => new GameSession(freePlaySpec('baltic', 'periscope', 'day', 'calm', '', patrols)!);
-    expect(baltic(true).ctrl.world.vessels.some((v) => v.def.kind === 'patrol')).toBe(true);
-    const peaceful = baltic(false).ctrl.world.vessels;
-    expect(peaceful.some((v) => v.def.kind === 'patrol')).toBe(false);
-    expect(peaceful.length).toBe(AREA_INFO.baltic.traffic.length - 1);
+  it('at peace only the civil traffic; in tension a corvette, and aircraft and coastal radar look', () => {
+    const baltic = (threat: 'peace' | 'tension') => new GameSession(freePlaySpec('baltic', 'periscope', 'day', 'calm', '', threat)!);
+    const tense = baltic('tension');
+    expect(tense.ctrl.world.vessels.filter((v) => v.def.kind === 'patrol').length).toBe(2);
+    expect(tense.ctrl.lookouts.watching).toBe(true);
+    const peaceful = baltic('peace');
+    expect(peaceful.ctrl.world.vessels.some((v) => v.def.kind === 'patrol')).toBe(false);
+    expect(peaceful.ctrl.lookouts.watching).toBe(false);
+    // The civil traffic and the depot ship.
+    expect(peaceful.ctrl.world.vessels.length).toBe(AREA_INFO.baltic.traffic.length - 1 + 1);
     // "Starta om" keeps the choice.
-    expect(baltic(false).restart().ctrl.world.vessels.some((v) => v.def.kind === 'patrol')).toBe(false);
+    expect(peaceful.restart().ctrl.world.vessels.some((v) => v.def.kind === 'patrol')).toBe(false);
   });
 
   it('logs the start and where the controls are, in that order', () => {
@@ -113,7 +118,7 @@ describe('wiring', () => {
     const o = overlayState(s, { mode: 'bridge', relative: Math.PI / 2, zoom: 0, fov: 70 });
     expect(o.bearing).toBeCloseTo(20 + 90, 0); // heading 020 + 90° to starboard
     expect(o.waypointBearing).toBeCloseTo(45, 0);
-    expect(overlayState(free(), { mode: 'bridge', relative: 0, zoom: 0, fov: 70 }).waypointBearing).toBeNull();
+    expect(overlayState(free(), { mode: 'bridge', relative: 0, zoom: 0, fov: 70 }).waypointBearing).not.toBeNull();
   });
 });
 

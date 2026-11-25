@@ -98,6 +98,19 @@ export class TorpedoRoom {
     t.left = plan[0] ? TIME[plan[0]] : 0;
   }
 
+  /**
+   * Torpedoes taken over from a depot ship: the racks are filled, with one
+   * more for each empty tube (the crew loads those from the racks). Returns
+   * how many came aboard.
+   */
+  restock(): number {
+    const empty = this.tubes.filter((t) => !t.loaded && !t.plan.includes('load')).length;
+    const full = W.reserve + empty;
+    const n = Math.max(0, full - this.reserve);
+    this.reserve += n;
+    return n;
+  }
+
   /** A torpedo left tube `i`: it stays flooded with the door open. */
   fired(i: number): void {
     const t = this.tubes[i];

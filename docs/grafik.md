@@ -60,7 +60,7 @@ Fysiken räknar i NED (norr, öster, nedåt) och FRD i kroppen. Three.js har Y u
   - Ett vitt torn med rött band står på marken.
   - Lampan blinkar efter simuleringstiden, med fyrens period.
   - Skenet ritas som en glödande sprite utan dimma, så att det syns långt innan land syns på natten.
-- **Bojen** (`SessionSpec.waypoint`, ingen i spelet ännu) är en gul spirboj med toppmärke.
+- **Bojen** (`GameSession.waypoint`: uppdragets punkt, annars depåfartyget) är en gul spirboj med toppmärke. Ljuset byter med patrullens klocka: `app.ts` anropar `setArea` igen med det nya ljuset (terrängen byggs inte om för samma område).
 - **Lysbojar** (`AreaInfo.buoys`) är röda och gröna pricker med lampor som blinkar var 4:e s i mörker. **Kustradarstationer** (`AreaInfo.stations`) är ett hus, en mast med snurrande antenn och en radom. **Vrak** (`SHELF_TERRAIN.wrecks`) ligger på botten med slagsida, med skrov, överbyggnad och en knäckt mast, där fysiken har dem.
 - **Fartygen** (`vessels.ts`) är enkla modeller med skrov, överbyggnad och lastluckor. De följer vågytan i höjd och har lanternor i mörker och dimma: topplanterna, babord rött, styrbord grönt och akterlanterna.
 
@@ -115,7 +115,7 @@ Bakom menyn går ubåten neddykt på 16 m norrut i 4 knop i dagsljus (`demoSessi
 
 ## Loggboken (`src/ui/log.ts`)
 
-Loggboken ligger i `#top-center`, överst i mitten (på mobil under statusraden, liggande mellan statusraden och Vyer ▾). Loggen är ett halvgenomskinligt fönster som bara syns medan någon rad lever. På mellanstora skärmar (841–1179 px) ligger `#top-center` mellan instrumentpanelen och vyknapparna, och med sjökortet öppet mellan instrumentpanelen och sjökortet, vars bredd (`--nav-w`) krymper till minst 260 px. Vyns namnrad (`.mode`) står på en rad och kortas med … i stället för att löpa in under panelerna.
+Uppdragsraden (`#mission`, en rad med målet, avståndet och bäringen till bojen och tiden kvar; dold utan uppdrag) och loggboken ligger i `#top-center`, överst i mitten (på mobil under statusraden, liggande mellan statusraden och Vyer ▾). Loggen är ett halvgenomskinligt fönster som bara syns medan någon rad lever. På mellanstora skärmar (841–1179 px) ligger `#top-center` mellan instrumentpanelen och vyknapparna, och med sjökortet öppet mellan instrumentpanelen och sjökortet, vars bredd (`--nav-w`) krymper till minst 260 px. Vyns namnrad (`.mode`) står på en rad och kortas med … i stället för att löpa in under panelerna.
 
 - **En ny rad** får klassen `live` och lever enligt `lineLife(kind, text)`: kvitton 2,5 s, information 4 s, varningar och fel 6 s, plus lästid för långa rader (25 tecken per sekund över 60). Då får den `fading`, och opaciteten går till 0 med en CSS-övergång (0,8 s, fel 1,5 s). Därefter tas `live` bort och raden döljs. Högst `LIVE_LINES` (2) rader är levande: en ny skjuter ut den äldsta. När alla levande rader tonas ut får `#log` klassen `idle`: fönstret tonas ut (0,6 s) och tar inga tryck. Tiderna går på väggklockan, eftersom loggen är gränssnitt.
 - **Historiken:** ett tryck på loggen medan den syns visar `#log.expanded` (de senaste raderna, rullad till den nyaste). Ett tryck till eller Esc stänger. Esc stänger i tur och ordning loggens historik, panelen under planraden, sjökortet eller sonaren och vyn, och pausar först sist. ☰ → Loggbok (menyskärmen `logbook`) visar de 100 senaste raderna också när loggen är tom.

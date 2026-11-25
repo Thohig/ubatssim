@@ -22,6 +22,8 @@ import { bindKeyboard, submitRadarToggle } from '../ui/keyboard';
 import { bindLog, bindLogToggle } from '../ui/log';
 import { Menu } from '../ui/menu';
 import { createPerfMeter } from '../ui/perfMeter';
+import { createMissionBar } from '../ui/missionBar';
+import { Tips } from './tips';
 import { createStatusBar } from '../ui/statusBar';
 import { createNavPanel } from '../ui/navPanel';
 import { createFirePanel } from '../ui/firePanel';
@@ -32,6 +34,7 @@ import { ViewState, availableViews, bindViewButtons, bindViewPointer } from '../
 import { GameFlow, type GameState } from './flow';
 import { FixedStepLoop } from './loop';
 import { GameSession, demoSession, freePlaySpec } from './session';
+import type { PatrolTally } from '../ui/menuScreens';
 import { audioInput, effectsInput, overlayState } from './wiring';
 import { ControlRoomFeed } from './controlRoomFeed';
 import { STATION_ORDER, controlStations } from '../render/controlRoom.data';
@@ -56,6 +59,7 @@ export function startApp(): void {
   const hud = el('hud');
   const logEl = el('log');
   const instrumentsEl = el('instruments');
+  const updateMission = createMissionBar(el('mission'));
   // Phones: the status bar replaces the instrument panel; a tap shows the whole panel (style.css, body.inst-open).
   const statusEl = el<HTMLButtonElement>('status');
   const setInstrumentsOpen = (open: boolean) => {
@@ -80,6 +84,12 @@ export function startApp(): void {
   let lastPeriscope = 0;
   let session: GameSession;
   let updateInstruments: ReturnType<typeof createInstruments>;
+  /** What the 3D view shows of the patrol, redrawn when it changes: the light, the ships, the buoy. */
+  let shownConditions = '';
+  let shownVessels = 0;
+  let shownWaypoint = '';
+  /** The crew's tips (none behind the start page). */
+  let tips = new Tips([], false);
   /** The instrument layout follows who handles what: rebuilt when that changes. */
   let instrumentsKey = '';
 
@@ -109,7 +119,11 @@ export function startApp(): void {
     audio.reset(sim.y[2]!, sim.actuators.periscope);
     view.resetCamera();
     view.setWaypoint(s.waypoint);
+    shownWaypoint = String(s.waypoint);
     view.setVessels(ctrl.world.vessels.map((v) => v.def));
+    shownVessels = ctrl.world.vessels.length;
+    shownConditions = s.conditions;
+    tips = new Tips(settings.tipsSeen, settings.tips && !s.spec.demo);
     view.setLife(
       ctrl.world.creatures.map((c) => c.def),
       ctrl.world.aircraft.map((a) => a.def),
@@ -127,9 +141,12 @@ export function startApp(): void {
   const menu = new Menu(
     el('menu'),
     {
-      startFree(area, start, conditions, sea, patrols) {
-        const spec = freePlaySpec(area, start, conditions, sea, HELP_HINT, patrols);
+      startFree(area, start, conditions, sea, threat, missions) {
+        const spec = freePlaySpec(area, start, conditions, sea, HELP_HINT, threat, missions);
         if (spec) startGame(new GameSession(spec));
+      },
+      endPatrol() {
+        endGame(session, false);
       },
       resume() {
         flow.go('playing');
@@ -206,11 +223,28 @@ export function startApp(): void {
     menu.show('pause');
   }
 
-  function endGame(s: GameSession): void {
-    if (session !== s || flow.state !== 'playing') return;
+  /** The patrol ends: the player ended it from the pause menu, or the boat was lost. */
+  function endGame(s: GameSession, lost = true): void {
+    if (session !== s || (flow.state !== 'playing' && flow.state !== 'paused')) return;
     flow.go('ended');
-    menu.showResult({ message: 'Skrovet kollapsade under krossdjupet.', time: s.sim.t, selfHandled: [...s.ctrl.selfHandled] });
+    menu.showResult({
+      lost,
+      message: lost ? 'Skrovet kollapsade under krossdjupet.' : '',
+      time: s.sim.t,
+      tally: tally(s),
+      selfHandled: [...s.ctrl.selfHandled],
+    });
   }
+
+  const tally = (s: GameSession): PatrolTally => ({
+    sunk: s.patrol.sunk,
+    tonnage: s.patrol.tonnage,
+    distance: s.patrol.distance,
+    hunts: s.patrol.hunts,
+    hunted: s.patrol.hunted,
+    missionsDone: s.missions.done,
+    missionsMissed: s.missions.missed,
+  });
 
   /** The start page's music plays on the start page and under the introduction. */
   function updateMusic(): void {
@@ -552,6 +586,29 @@ export function startApp(): void {
 
     if (now - lastUi > 100 && !hud.hidden) {
       const tel = sim.telemetry();
+      // The patrol changes the world as it goes: the light with the clock, new ships, the buoy of a mission.
+      if (s.conditions !== shownConditions) {
+        shownConditions = s.conditions;
+        const info = AREA_INFO[sim.areaId];
+        view.setArea(sim.areaId, { lighthouses: info.lighthouses, buoys: info.buoys, stations: info.stations }, s.conditions, sim.waves);
+      }
+      if (s.ctrl.world.vessels.length !== shownVessels) {
+        shownVessels = s.ctrl.world.vessels.length;
+        view.setVessels(s.ctrl.world.vessels.map((v) => v.def));
+      }
+      if (String(s.waypoint) !== shownWaypoint) {
+        shownWaypoint = String(s.waypoint);
+        view.setWaypoint(s.waypoint);
+      }
+      updateMission(s.missions.current, tel.position, sim.t);
+      if (flow.state === 'playing') {
+        const shown = tips.update(s);
+        if (shown) {
+          settings = { ...settings, tipsSeen: [...settings.tipsSeen, shown] };
+          saveSettings(settings);
+          menu.setSettings(settings);
+        }
+      }
       const flooded = tel.compartments.some((x) => x.water > 0.05 || x.holeArea > 0);
       const key = layoutKey(s.ctrl.duties(), flooded);
       if (key !== instrumentsKey) {

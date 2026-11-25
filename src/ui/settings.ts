@@ -25,6 +25,9 @@ export interface Settings {
   musicVolume: number;
   /** Expert mode: the player may take the manoeuvre over by hand (☰ → Besättning; Controller.options.expert). */
   expert: boolean;
+  /** The crew's tips the first time something happens (game/tips.ts), and those already shown. */
+  tips: boolean;
+  tipsSeen: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +42,8 @@ export const DEFAULT_SETTINGS: Settings = {
   music: true,
   musicVolume: 0.7,
   expert: false,
+  tips: true,
+  tipsSeen: [],
 };
 
 const KEY = 'ubatssim.settings';
@@ -61,6 +66,8 @@ export function loadSettings(): Settings {
       voice: s.voice === true,
       music: s.music !== false,
       expert: s.expert === true,
+      tips: s.tips !== false,
+      tipsSeen: Array.isArray(s.tipsSeen) ? s.tipsSeen.filter((x): x is string => typeof x === 'string') : [],
       musicVolume: typeof s.musicVolume === 'number' && s.musicVolume >= 0 && s.musicVolume <= 1 ? s.musicVolume : DEFAULT_SETTINGS.musicVolume,
     };
   } catch {

@@ -32,7 +32,13 @@ const allCrew = (over: Partial<CrewDuties> = {}): CrewDuties => ({ ...(Object.fr
 const state = (over: Partial<MenuState> = {}): MenuState => ({
   settings: { ...DEFAULT_SETTINGS },
   pauseInfo: { duties: allCrew(), expert: true },
-  result: { message: 'Skrovet kollapsade under krossdjupet.', time: 559, selfHandled: ['trim', 'safetyNet'] },
+  result: {
+    lost: true,
+    message: 'Skrovet kollapsade under krossdjupet.',
+    time: 559,
+    tally: { sunk: [{ name: 'M/S Lastaren', tonnage: 10985 }], tonnage: 10985, distance: 9260, hunts: 2, hunted: 600, missionsDone: 1, missionsMissed: 1 },
+    selfHandled: ['trim', 'safetyNet'],
+  },
   order: { text: 'Ta er obemärkt genom sundet.', no: 417 },
   logLines: [{ t: 12, text: 'Djup <80>, ja', kind: 'ack' }],
   error: 'Fel: <test>\n  at frame',
@@ -40,7 +46,8 @@ const state = (over: Partial<MenuState> = {}): MenuState => ({
   area: 'westCoast',
   conditions: 'day',
   sea: 'calm',
-  patrols: true,
+  threat: 'tension',
+  missions: true,
   ...over,
 });
 
@@ -123,6 +130,32 @@ describe('menu screens', () => {
     expect(div.querySelector('[data-arg="free"]')).not.toBeNull();
   });
 
+  it('the result shows the patrol\'s tally; an ended patrol is not a loss', () => {
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.result(state()).value;
+    const text = div.querySelector('.tally')!.textContent!;
+    expect(text).toMatch(/5,0 M/);
+    expect(text).toMatch(/1 fartyg/);
+    expect(text).toMatch(/M\/S Lastaren/);
+    expect(text).toMatch(/2 gånger, 00:10:00/);
+    expect(text).toMatch(/1 utförda, 1 missade/);
+    const r = state().result!;
+    div.innerHTML = SCREENS.result(state({ result: { ...r, lost: false, message: '' } })).value;
+    expect(div.textContent).toMatch(/Patrullen avslutad/);
+    expect(div.textContent).not.toMatch(/förlorad/);
+  });
+
+  it('the pause menu ends the patrol; the settings turn the tips off or show them again', () => {
+    const div = document.createElement('div');
+    div.innerHTML = SCREENS.pause(state()).value;
+    expect(div.querySelector('[data-action="endPatrol"]')).not.toBeNull();
+    div.innerHTML = SCREENS.settings(state()).value;
+    expect(div.querySelector<HTMLInputElement>('input[name=tips]')!.checked).toBe(true);
+    expect(div.querySelector('[data-action="tipsReset"]')).toBeNull();
+    div.innerHTML = SCREENS.settings(state({ settings: { ...DEFAULT_SETTINGS, tipsSeen: ['deep', 'night'] } })).value;
+    expect(div.querySelector('[data-action="tipsReset"]')!.textContent).toMatch(/2 tipsen/);
+  });
+
   it('the start page and the help speak of no scenarios', () => {
     for (const screen of ['main', 'help', 'pause'] as Screen[]) {
       const div = document.createElement('div');
@@ -137,7 +170,8 @@ describe('menu screens', () => {
     const menu = new Menu(
       root,
       {
-        startFree: (area, start, cond, sea, patrols) => calls.push(`free ${area} ${start} ${cond} ${sea}${patrols ? '' : ' fredligt'}`),
+        startFree: (area, start, cond, sea, threat, missions) => calls.push(`free ${area} ${start} ${cond} ${sea} ${threat}${missions ? ' uppdrag' : ''}`),
+        endPatrol: () => calls.push('end'),
         resume: () => calls.push('resume'),
         restart: () => calls.push('restart'),
         toMainMenu: () => calls.push('main'),
@@ -156,21 +190,24 @@ describe('menu screens', () => {
     const fog = root.querySelector('input[name=conditions][value=fog]') as HTMLInputElement;
     fog.checked = true;
     fog.dispatchEvent(new Event('change', { bubbles: true }));
-    // Fjorden has no corvettes in free play: no choice there.
-    expect(root.querySelector('input[name=patrols]')).toBeNull();
     (root.querySelector('[data-action="free"]') as HTMLElement).click();
-    // Östersjön has one: free play without it.
+    // Every area has the threat and the missions to choose: at peace, without missions.
     menu.show('free');
     (root.querySelector('[data-arg="baltic"]') as HTMLElement).click();
-    const none = root.querySelector('input[name=patrols][value=off]') as HTMLInputElement;
-    none.checked = true;
-    none.dispatchEvent(new Event('change', { bubbles: true }));
+    for (const [name, value] of [['threat', 'peace'], ['missions', 'off']]) {
+      const input = root.querySelector(`input[name=${name}][value=${value}]`) as HTMLInputElement;
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     (root.querySelector('[data-action="free"]') as HTMLElement).click();
+    menu.setPauseInfo({ duties: allCrew(), expert: true });
+    menu.show('pause');
+    (root.querySelector('[data-action="endPatrol"]') as HTMLElement).click();
     menu.setPauseInfo({ duties: allCrew(), expert: true });
     menu.show('crew');
     (root.querySelector('[data-arg="trim:0"]') as HTMLElement).click();
     (root.querySelector('[data-action="expert"][data-arg="0"]') as HTMLElement).click();
-    expect(calls).toEqual(['free fjord sea fog calm', 'free baltic surface fog calm fredligt', 'crew trim false', 'expert false']);
+    expect(calls).toEqual(['free fjord sea fog calm tension uppdrag', 'free baltic surface fog calm peace', 'end', 'crew trim false', 'expert false']);
   });
 });
 
@@ -241,6 +278,7 @@ describe('log history', () => {
 describe('error and lost graphics', () => {
   const handlers = (calls: string[]) => ({
     startFree: () => {},
+    endPatrol: () => {},
     resume: () => {},
     restart: () => calls.push('restart'),
     toMainMenu: () => calls.push('main'),
