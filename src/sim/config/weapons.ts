@@ -165,8 +165,20 @@ export const WEAPONS = {
     /** Active sonar reaches no further than this [m], and hears nothing in its baffles astern (beyond ± this from the bow). */
     pingRange: 3000,
     baffles: (135 * Math.PI) / 180,
-    /** It drops its pattern when this close to where it believes the boat is [m]. */
+    /**
+     * It drops its pattern when this close to where it believes the boat is [m], and only once over it
+     * (`dropAhead`: the position at most this far ahead along its track). Dropping as soon as it was within
+     * `dropDistance` put the pattern ~140 m short: 24 charges at a boat lying still at 60 m, the nearest 68 m off.
+     */
     dropDistance: 150,
+    dropAhead: 15,
+    /**
+     * Closer than this [m] the hull sonar loses the boat under the ship: the run in ends on the last echo (or a
+     * partner's), and a boat that turns or speeds up then may get away. APPROX [U83].
+     */
+    deadZone: 250,
+    /** Range error of an echo (fraction of the range, deterministic). APPROX. */
+    echoRangeError: 0.03,
     /** Expanding-square search: first leg [m]. */
     searchLeg: 500,
     /**

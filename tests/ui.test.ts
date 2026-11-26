@@ -330,15 +330,15 @@ describe('the periscope eyepiece and its bearing band', () => {
       const { r, bandY } = periscopeLayout(w, h, clear);
       const cy = h / 2;
       expect(r).toBeGreaterThan(Math.min(w, h) * 0.25);
-      // The band (its label 44 px above the line, the buoy mark 30 px below) does not reach into the circle.
-      expect(bandY + 30 <= cy - r || bandY - 44 >= cy + r, `${w}×${h}`).toBe(true);
-      expect(bandY - 44).toBeGreaterThanOrEqual(0);
+      // The band (its box 20 px above the line, with the readout inside it; the buoy mark 30 px below) does not reach into the circle.
+      expect(bandY + 30 <= cy - r || bandY - 20 >= cy + r, `${w}×${h}`).toBe(true);
+      expect(bandY - 20).toBeGreaterThanOrEqual(0);
       if (bandY > cy) expect(bandY + 30).toBeLessThanOrEqual(clear);
     }
   });
 
   it('on an ordinary desktop window the band stays clear of the log and the mode label at the top', async () => {
-    const { periscopeLayout } = await import('../src/ui/viewOverlay');
+    const { periscopeLayout, TOP_CLEAR } = await import('../src/ui/viewOverlay');
     // 1280 × 800 and 1280 × 720 with the screen controls ~100 px high: the band lay under the log at the top.
     for (const [w, h, clear] of [
       [1280, 800, 700],
@@ -347,7 +347,8 @@ describe('the periscope eyepiece and its bearing band', () => {
     ] as const) {
       const { r, bandY } = periscopeLayout(w, h, clear);
       expect(r).toBeGreaterThan(Math.min(w, h) * 0.25);
-      if (bandY < h / 2) expect(bandY - 44, `${w}×${h}`).toBeGreaterThanOrEqual(108);
+      // Below the log even with both its lines wrapped (TOP_CLEAR): the readout went under it.
+      if (bandY < h / 2) expect(bandY - 20, `${w}×${h}`).toBeGreaterThanOrEqual(TOP_CLEAR);
       else expect(bandY + 30, `${w}×${h}`).toBeLessThanOrEqual(clear);
     }
   });
@@ -360,5 +361,15 @@ describe('the periscope eyepiece and its bearing band', () => {
     expect(r).toBeGreaterThan(600 * 0.15);
     // A large window: the panel is far to the right and changes nothing.
     expect(periscopeLayout(1280, 800, 700, 986).r).toBe(periscopeLayout(1280, 800, 700).r);
+  });
+});
+
+describe('the chart labels', () => {
+  it('a label that would overlap one already placed goes a row down', async () => {
+    const { placeLabel } = await import('../src/ui/navPanel');
+    const placed: { x: number; y: number; w: number; h: number }[] = [];
+    expect(placeLabel(placed, 100, 50, 20)).toBe(50);
+    expect(placeLabel(placed, 110, 52, 60)).toBe(64);
+    expect(placeLabel(placed, 300, 50, 20)).toBe(50);
   });
 });

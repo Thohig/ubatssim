@@ -71,4 +71,13 @@ describe('world', () => {
     expect(deep.collidedWith).toBeNull();
     expect(deep.log.some((e) => /kommer nära/.test(e.text))).toBe(false);
   });
+
+  it('heading for a ship lying still, the warning says that we go near it', () => {
+    const c = new Controller(new Simulation({ depth: 10, neutral: true, speed: 3, current: { speed: 0, toward: 0, decay: 1 } }));
+    c.submit({ kind: 'setDepth', depth: 10 }, 'console');
+    c.submit({ kind: 'setHeading', heading: 0 }, 'console');
+    c.world.add([ship({ route: [[250, 0]], speed: 0, propellerRps: 0 })]);
+    for (let i = 0; i < 30 * 100; i++) c.step();
+    expect(c.log.some((e) => /^Varning: vi går nära testfartyget, som ligger still, \d+ m i \d{3}°\./.test(e.text))).toBe(true);
+  });
 });

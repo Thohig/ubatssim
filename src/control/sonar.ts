@@ -45,6 +45,14 @@ import type { Controller } from './controller';
 /** Seconds of listening before a contact is classified, and without signal before it is lost. */
 export const CLASSIFY_AFTER = 20;
 export const LOSE_AFTER = 20;
+/**
+ * A whale calls in bouts with minutes of silence between them (a minke 1 min of every 4): its contact is
+ * kept this long without signal [s]. It used to be lost and found again as a new contact, with a new label
+ * and a new classification, every few minutes.
+ */
+export const BIO_LOSE_AFTER = 320;
+/** A lost contact heard again within this time [s] gets its old label and classification back. */
+export const REMEMBER = 1800;
 /** Seconds of waterfall history kept. */
 export const HISTORY = 180;
 /** A patrol vessel's sonar sits this deep [m]. */
@@ -53,7 +61,12 @@ const PATROL_SONAR_DEPTH = 5;
 const AWARE_RATE = 0.04;
 const AWARE_DECAY = 0.005;
 /** Awareness gained per second while a mast or the hull shows within sight. */
-const SIGHT_RATE = { periscope: 0.03, snorkel: 0.06, surfaced: 0.3, bubble: 0.08 } as const;
+const SIGHT_RATE = { periscope: 0.03, snorkel: 0.06, surfaced: 0.08, bubble: 0.08 } as const;
+/**
+ * A sighting is surer close by: the rate falls linearly to nothing at the sight range. A surfaced boat used to
+ * be suspected in 2 s at 6 km (0,3 per second to 12 km), before a dive at the start of a game could begin.
+ */
+const sighted = (rate: number, range: number, sight: number): number => rate * Math.max(0, 1 - range / sight);
 /** Air vented from the main ballast shallower than this [m] comes up as a big bubble on the surface. */
 export const BUBBLE_DEPTH = 30;
 
@@ -132,6 +145,8 @@ export class Sonar {
   ownNoise = 0;
   private steps = 0;
   private nextLabel = 1;
+  /** Lost contacts by vessel or creature id: label, classification and when lost. */
+  private readonly lost = new Map<string, { label: string; classified: string | null; at: number }>();
   private warned = new Set<string>();
 
   constructor(private readonly ctrl: Controller) {}
@@ -170,36 +185,27 @@ export class Sonar {
       // A deterministic wander of the measured bearing, smaller for a stronger signal [deg].
       const spread = 4 / (1 + excess / 4);
       const bearing = (((truth + spread * Math.sin(now * 0.37 + hash(v.def.id))) % 360) + 360) % 360;
-      let contact = this.contacts.find((x) => x.vesselId === v.def.id);
-      if (!contact) {
-        contact = {
-          label: `S${this.nextLabel++}`,
-          vesselId: v.def.id,
-          bearing,
-          excess,
-          firstHeard: now,
-          lastHeard: now,
-          classified: null,
-          blades: v.def.blades,
-          rpm: Math.round(v.def.propellerRps * 60),
-        };
-        this.contacts.push(contact);
-        c.addLog(`Sonar: ny kontakt ${contact.label}, bäring ${deg3(bearing)}.`, 'info');
-      }
+      const contact = this.contacts.find((x) => x.vesselId === v.def.id) ?? this.newContact(v.def.id, false, bearing, excess, now, v.def.blades, Math.round(v.def.propellerRps * 60));
       contact.bearing = bearing;
       contact.excess = excess;
       contact.lastHeard = now;
       if (!contact.classified && now - contact.firstHeard >= CLASSIFY_AFTER) {
         contact.classified = CLASS_NAME[v.def.kind];
-        c.addLog(`Sonar: ${contact.label} är troligen ${article(contact.classified)} (${contact.blades ? `${contact.blades} blad, ${contact.rpm} rpm` : 'inget propellerljud, bara skrovet i vattnet'}).`, 'info');
+        // A ship lying stopped (the depot ship) has no propeller to count: it used to be "4 blad, 0 rpm".
+        const propeller = contact.blades && contact.rpm ? `${contact.blades} blad, ${contact.rpm} rpm` : contact.blades ? 'propellern står still, bara maskinljud' : 'inget propellerljud, bara skrovet i vattnet';
+        c.addLog(`Sonar: ${contact.label} är troligen ${article(contact.classified)} (${propeller}).`, 'info');
       }
       marks.push({ relative: wrap180(bearing - heading), excess });
     }
 
     for (const k of c.world.bioContacts()) this.hearCreature(k.creature, k.range, k.bearing, here, heading, marks);
 
-    for (const x of this.contacts.filter((x) => now - x.lastHeard > LOSE_AFTER)) c.addLog(`Sonar: ${x.label} tappad.`, 'info');
-    this.contacts = this.contacts.filter((x) => now - x.lastHeard <= LOSE_AFTER);
+    const gone = (x: SonarContact) => now - x.lastHeard > (x.bio ? BIO_LOSE_AFTER : LOSE_AFTER);
+    for (const x of this.contacts.filter(gone)) {
+      c.addLog(`Sonar: ${x.label} tappad.`, 'info');
+      this.lost.set(x.vesselId, { label: x.label, classified: x.classified, at: now });
+    }
+    this.contacts = this.contacts.filter((x) => !gone(x));
     this.history.push({ t: now, marks });
     if (this.history.length > HISTORY) this.history.shift();
   }
@@ -223,10 +229,10 @@ export class Sonar {
     this.heardFrom[id] = from;
     let rate = excess > 0 ? AWARE_RATE * (1 + excess / 5) : 0;
     const A = ACOUSTICS;
-    if (t.periscope > 0.99 && t.periscopeHeadDepth < 0 && range < A.sightPeriscope) rate += SIGHT_RATE.periscope;
-    if (t.snorkel > 0.99 && t.snorkelHeadDepth < 0 && range < A.sightSnorkel) rate += SIGHT_RATE.snorkel;
-    if (t.bridgeDeckDepth < 0 && range < A.sightSurfaced) rate += SIGHT_RATE.surfaced;
-    if (this.venting(t) && range < A.sightPeriscope) rate += SIGHT_RATE.bubble;
+    if (t.periscope > 0.99 && t.periscopeHeadDepth < 0 && range < A.sightPeriscope) rate += sighted(SIGHT_RATE.periscope, range, A.sightPeriscope);
+    if (t.snorkel > 0.99 && t.snorkelHeadDepth < 0 && range < A.sightSnorkel) rate += sighted(SIGHT_RATE.snorkel, range, A.sightSnorkel);
+    if (t.bridgeDeckDepth < 0 && range < A.sightSurfaced) rate += sighted(SIGHT_RATE.surfaced, range, A.sightSurfaced);
+    if (this.venting(t) && range < A.sightPeriscope) rate += sighted(SIGHT_RATE.bubble, range, A.sightPeriscope);
     if (c.radar.heardAt(range)) rate += WEAPONS.radar.esmAware;
     this.noticed[id] = rate > 0;
     const before = this.awareness[id] ?? 0;
@@ -320,6 +326,28 @@ export class Sonar {
     c.hunter.heard(P.level, 0.6, 0.9, true);
   }
 
+  /** A new contact, or a lost one heard again (its old label and classification). */
+  private newContact(id: string, bio: boolean, bearing: number, excess: number, now: number, blades: number, rpm: number): SonarContact {
+    const old = this.lost.get(id);
+    const again = old !== undefined && now - old.at <= REMEMBER;
+    this.lost.delete(id);
+    const contact: SonarContact = {
+      label: again ? old.label : `S${this.nextLabel++}`,
+      vesselId: id,
+      ...(bio ? { bio: true } : {}),
+      bearing,
+      excess,
+      firstHeard: now,
+      lastHeard: now,
+      classified: again ? old.classified : null,
+      blades,
+      rpm,
+    };
+    this.contacts.push(contact);
+    this.ctrl.addLog(again ? `Sonar: ${contact.label} hörs igen, bäring ${deg3(bearing)}.` : `Sonar: ny kontakt ${contact.label}, bäring ${deg3(bearing)}.`, 'info');
+    return contact;
+  }
+
   /** One creature heard (or not) by the bow array: a contact like a ship's, classified as biological. */
   private hearCreature(cr: Creature, range: number, bearingRad: number, here: [number, number, number], heading: number, marks: SonarSample['marks']): void {
     const c = this.ctrl;
@@ -332,12 +360,7 @@ export class Sonar {
     if (excess <= 0) return;
     const spread = 4 / (1 + excess / 4);
     const bearing = ((((bearingRad * 180) / Math.PI + spread * Math.sin(now * 0.37 + hash(cr.def.id))) % 360) + 360) % 360;
-    let contact = this.contacts.find((x) => x.vesselId === cr.def.id);
-    if (!contact) {
-      contact = { label: `S${this.nextLabel++}`, vesselId: cr.def.id, bio: true, bearing, excess, firstHeard: now, lastHeard: now, classified: null, blades: 0, rpm: 0 };
-      this.contacts.push(contact);
-      c.addLog(`Sonar: ny kontakt ${contact.label}, bäring ${deg3(bearing)}.`, 'info');
-    }
+    const contact = this.contacts.find((x) => x.vesselId === cr.def.id) ?? this.newContact(cr.def.id, true, bearing, excess, now, 0, 0);
     contact.bearing = bearing;
     contact.excess = excess;
     contact.lastHeard = now;

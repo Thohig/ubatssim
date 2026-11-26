@@ -179,3 +179,35 @@ describe('expert mode', () => {
     expect(g.ctrl.ap.heading).toBe(true);
   });
 });
+
+describe('the periscope cross hair', () => {
+  it('says when it is on a ship, and on which target', () => {
+    const s = new GameSession({ initial: { area: 'atlantic', depth: 13, neutral: true }, intro: '', conditions: 'day', helpHint: '', threat: 'peace' });
+    s.ctrl.world.add([{ ...freighterDef(), route: [[800, -50], [800, 6000]], speed: 3 }]);
+    s.ctrl.submit({ kind: 'periscope', up: true }, 'keyboard');
+    for (let i = 0; i < 1000; i++) s.step();
+    const v = s.ctrl.world.vessels.find((x) => x.def.id === 'x')!;
+    const rel = Math.atan2(v.state.east - s.sim.y[1]!, v.state.north - s.sim.y[0]!) - s.sim.kinematics().heading;
+    const at = (relative: number) => overlayState(s, { mode: 'periscope', relative, zoom: 0, fov: 32 }).inCross;
+    expect(at(rel)).toBe('Fartyg i hårkorset · Mål markerar det');
+    expect(at(rel + 0.5)).toBeNull();
+    s.ctrl.submit({ kind: 'markTarget', bearing: (((rel + s.sim.kinematics().heading) * 180) / Math.PI + 360) % 360 }, 'keyboard');
+    s.step();
+    expect(at(rel)).toBe('M1 i hårkorset');
+  });
+});
+
+function freighterDef() {
+  return { id: 'x', name: 'M/S X', kind: 'freighter' as const, length: 130, beam: 20, draft: 8, speed: 3, turnRate: 0.01, route: [] as [number, number][], repeat: 'shuttle' as const, propellerRps: 2, blades: 4 };
+}
+
+describe('a boat that cannot come up again', () => {
+  it('more water inside than the main ballast can lift is said once: the game ends on it', async () => {
+    const { BOAT_LOST } = await import('../src/control/plantWatch');
+    const s = new GameSession({ initial: { area: 'baltic', depth: 40, neutral: true, leaks: { engine: 0.4, torpedo: 0.4 } }, intro: '', conditions: 'day', helpHint: '', threat: 'peace' });
+    for (let i = 0; i < 600 * 100 && !s.ctrl.log.some((e) => e.text === BOAT_LOST); i++) s.step();
+    expect(s.sim.systems.flooding.water).toBeGreaterThan(220);
+    for (let i = 0; i < 30 * 100; i++) s.step();
+    expect(s.ctrl.log.filter((e) => e.text === BOAT_LOST)).toHaveLength(1);
+  });
+});

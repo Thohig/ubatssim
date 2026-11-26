@@ -39,6 +39,22 @@ export const VIEW_NAME: Record<ViewMode, string> = { external: 'Yttre vy', bridg
 
 const CUT_YAW_LIMIT = 60 * DEG;
 const CUT_PITCH_LIMIT = 45 * DEG;
+/**
+ * How far from the cross hair a ship still counts as in it [deg]: a quarter of the periscope's field of view
+ * (8° at 1,5×, 2° at 6×), 5° from the bridge. A small ship 3–5 km off is a few pixels wide at 1,5×.
+ */
+export function markField(views: { mode: ViewMode; zoom: number }): number {
+  return views.mode === 'periscope' ? PERISCOPE_ZOOM[views.zoom]!.fov / 4 : 5;
+}
+
+/**
+ * Held-key training starts slow and speeds up: a tap turns the periscope about half a degree (at 40°/s from the
+ * start, the shortest tap turned it 4°, more than a ship 3 km off is wide), held a second it turns at full rate.
+ */
+export function trainRateFactor(held: number): number {
+  return held < 0.3 ? 0.1 : Math.min(1, 0.1 + (held - 0.3) * 1.3);
+}
+
 /** Cutaway zoom: 1 = the whole boat. */
 export const CUT_ZOOM_MAX = 6;
 
@@ -51,6 +67,8 @@ export class ViewState {
   zoom = 0;
   /** −1, 0 or +1 while a training key is held. */
   trainDir = 0;
+  /** Seconds the training key has been held (`trainRateFactor`). */
+  private trainHeld = 0;
   /** Cutaway: side or top, turned by yaw/pitch, zoomed, centred on `cutPan` [m] along the boat. */
   cutPlan: CutPlan = 'side';
   cutYaw = 0;
@@ -174,8 +192,12 @@ export class ViewState {
 
   /** Advances held-key training by dt [s] of real time. */
   update(dt: number): void {
-    if (this.mode !== 'periscope' || this.trainDir === 0) return;
-    const rate = TRAIN_RATE * (PERISCOPE_ZOOM[this.zoom]!.fov / 32);
+    if (this.mode !== 'periscope' || this.trainDir === 0) {
+      this.trainHeld = 0;
+      return;
+    }
+    const rate = TRAIN_RATE * (PERISCOPE_ZOOM[this.zoom]!.fov / 32) * trainRateFactor(this.trainHeld);
+    this.trainHeld += dt;
     this.periscopeBearing = wrap(this.periscopeBearing + this.trainDir * rate * dt);
   }
 

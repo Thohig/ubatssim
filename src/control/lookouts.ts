@@ -80,7 +80,7 @@ export class Lookouts {
       const clear = (h: number) => r < Math.min(L.stationRange, radarHorizon(s.height, h)) && !terrainBlocks(sim.acousticGround, [s.position[0], s.position[1], -s.height], [here[0], here[1], -h], 100);
       if (this.watching) {
         let rate = 0;
-        for (const w of shows) if (clear(TARGET_HEIGHT[w])) rate = Math.max(rate, L.stationRate[w]);
+        for (const w of shows) if (clear(TARGET_HEIGHT[w])) rate = Math.max(rate, L.stationRate[w] * Math.max(0, 1 - r / L.stationSight[w]));
         this.aware(s.id, s.name, rate, here);
       }
       if (antenna > 0 && clear(antenna)) this.heard(s.id, 'kustradar', s.position[0], s.position[1], r, L.stationRange);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../src/control/controller';
 import { Simulation } from '../src/sim/simulation';
-import { PERISCOPE_RISING, ViewState, availableViews, cycleView } from '../src/ui/views';
+import { PERISCOPE_RISING, ViewState, availableViews, cycleView, trainRateFactor } from '../src/ui/views';
 
 describe('views', () => {
   it('cycles only through available views', () => {
@@ -49,8 +49,12 @@ describe('views', () => {
     expect(v.bridgePitch).toBeCloseTo((40 * Math.PI) / 180);
     v.set('periscope');
     v.trainDir = 1;
-    for (let i = 0; i < 100; i++) v.update(0.1); // 10 s at 40°/s = 400°
-    expect(v.periscopeBearing).toBeCloseTo((40 * Math.PI) / 180, 5);
+    for (let i = 0; i < 100; i++) v.update(0.1); // past the slow start (trainRateFactor)
+    const before = v.periscopeBearing;
+    for (let i = 0; i < 90; i++) v.update(0.1); // 9 s at the full 40°/s = 360°, wrapped
+    expect(v.periscopeBearing).toBeCloseTo(before, 5);
+    expect(v.periscopeBearing).toBeGreaterThanOrEqual(0);
+    expect(v.periscopeBearing).toBeLessThan(2 * Math.PI);
     v.toggleZoom();
     const cam = v.camera(0, 3);
     expect(cam.mode === 'periscope' && cam.fov).toBe(8);
@@ -86,5 +90,18 @@ describe('Vy while the periscope is raised', () => {
     cycleView(c, v, 'keyboard');
     expect(v.mode).toBe('control');
     expect(c.log.some((e) => e.text === PERISCOPE_RISING)).toBe(true);
+  });
+});
+
+describe('training the periscope with the keys', () => {
+  it('a tap turns it about half a degree; held, it speeds up to the full rate', () => {
+    expect(trainRateFactor(0)).toBeCloseTo(0.1);
+    expect(trainRateFactor(2)).toBe(1);
+    const v = new ViewState();
+    v.set('periscope');
+    v.trainDir = 1;
+    for (let i = 0; i < 6; i++) v.update(1 / 60); // a 0,1 s tap
+    expect((v.periscopeBearing * 180) / Math.PI).toBeGreaterThan(0.2);
+    expect((v.periscopeBearing * 180) / Math.PI).toBeLessThan(0.6);
   });
 });

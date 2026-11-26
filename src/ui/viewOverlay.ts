@@ -21,17 +21,21 @@ export interface OverlayState {
   fov: number;
   /** Top of the panels at the bottom of the screen [CSS px]: the periscope's bearing band stays above it. */
   clearBottom?: number;
+  /** What the cross hair is on (`inCross` in wiring.ts), or null. */
+  inCross?: string | null;
   /** Left edge of a panel beside the eyepiece at the horizon's height [CSS px] (the fire panel): the circle stays left of it. */
   clearRight?: number;
 }
 
-/** Room the bearing band needs above and below its line [px] (the bearing label above, the buoy mark below). */
-const BAND_ABOVE = 44;
+/** Room the periscope's bearing band needs above and below its line [px] (its box above, the buoy mark below). */
+const BAND_ABOVE = 20;
 const BAND_BELOW = 30;
-/** Kept free at the top for the objective and the log [px]. */
-const TOP_CLEAR = 108;
+/** Kept free at the top for the mission bar and the log, two lines that each may wrap once [px]. */
+export const TOP_CLEAR = 144;
 /** A circle this part of the screen's smaller side is good enough to keep the band clear of the log [–]. */
 const FAIR = 0.25;
+/** Half the gap in the middle of the cross hair, as a part of the eyepiece's radius. */
+export const CROSS_GAP = 0.16;
 /** Gap between the eyepiece and a panel beside it [px]. */
 const SIDE_GAP = 6;
 /** The eyepiece is never smaller than this part of the screen's smaller side, panel or not. */
@@ -90,7 +94,7 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
   window.addEventListener('resize', resize);
 
   /** Horizontal compass band centred at (cx, y), `span` degrees across `width` px. */
-  const band = (cx: number, y: number, width: number, span: number, bearing: number, wp: number | null) => {
+  const band = (cx: number, y: number, width: number, span: number, bearing: number, wp: number | null, inside = false) => {
     const pxPerDeg = width / span;
     ctx.save();
     ctx.fillStyle = 'rgba(4, 16, 24, 0.6)';
@@ -122,14 +126,30 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
       ctx.lineTo(x + 6, y + 28);
       ctx.fill();
     }
-    ctx.fillStyle = ACCENT;
-    ctx.beginPath();
-    ctx.moveTo(cx, y - 16);
-    ctx.lineTo(cx - 6, y - 24);
-    ctx.lineTo(cx + 6, y - 24);
-    ctx.fill();
+    const readout = String(((Math.round(bearing) % 360) + 360) % 360).padStart(3, '0') + '°';
     ctx.font = 'bold 13px ui-monospace, Menlo, monospace';
-    ctx.fillText(String(((Math.round(bearing) % 360) + 360) % 360).padStart(3, '0') + '°', cx, y - 28);
+    if (inside) {
+      // The periscope: the bearing on a plate in the band, over its middle, and nothing above the band. Above it,
+      // the readout went under the log when a log line wrapped (1280 × 800).
+      const pw = ctx.measureText(readout).width + 12;
+      ctx.fillStyle = 'rgba(4, 16, 24, 0.95)';
+      ctx.fillRect(cx - pw / 2, y - 16, pw, 18);
+      ctx.fillStyle = ACCENT;
+      ctx.fillText(readout, cx, y - 2);
+      ctx.beginPath();
+      ctx.moveTo(cx, y + 9);
+      ctx.lineTo(cx - 5, y + 3);
+      ctx.lineTo(cx + 5, y + 3);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = ACCENT;
+      ctx.beginPath();
+      ctx.moveTo(cx, y - 16);
+      ctx.lineTo(cx - 6, y - 24);
+      ctx.lineTo(cx + 6, y - 24);
+      ctx.fill();
+      ctx.fillText(readout, cx, y - 28);
+    }
     ctx.restore();
   };
 
@@ -162,10 +182,11 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
-    // Cross hair with a gap in the middle and stadia ticks on the horizontal line.
+    // Cross hair with a gap in the middle and stadia ticks on the horizontal line. The gap is wide (`CROSS_GAP`):
+    // a ship on the horizon sits in it, where a narrow one put the line and its ticks right through a small ship.
     ctx.strokeStyle = 'rgba(20, 20, 20, 0.85)';
     ctx.lineWidth = 1.5;
-    const gap = r * 0.06;
+    const gap = r * CROSS_GAP;
     ctx.beginPath();
     ctx.moveTo(cx - r, cy);
     ctx.lineTo(cx - gap, cy);
@@ -177,6 +198,7 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     ctx.lineTo(cx, cy + r);
     for (let i = 1; i <= 8; i++) {
       const dx = (i * r) / 9;
+      if (dx < gap) continue;
       for (const sx of [-1, 1]) {
         ctx.moveTo(cx + sx * dx, cy - 5);
         ctx.lineTo(cx + sx * dx, cy + 5);
@@ -188,7 +210,7 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     // The bearing band, outside the eyepiece, spans the field of view of the circle's width.
     const hFov = (2 * Math.atan(Math.tan((s.fov * Math.PI) / 360) * (w / h)) * 180) / Math.PI;
     const width = Math.min(2 * r, w - 32);
-    band(cx, bandY, width, (hFov * width) / w, s.bearing, s.waypointBearing);
+    band(cx, bandY, width, (hFov * width) / w, s.bearing, s.waypointBearing, true);
 
     ctx.save();
     ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
@@ -198,6 +220,14 @@ export function createViewOverlay(canvas: HTMLCanvasElement): (s: OverlayState |
     if (s.underwater) {
       ctx.fillStyle = WARN;
       ctx.fillText('PERISKOPET ÄR UNDER VATTEN', cx, cy - r * 0.5);
+    } else if (s.inCross) {
+      // Aiming: the cross hair is on a ship (a mark would take it). Under the horizon, on a dark plate.
+      const y = cy + Math.min(r * 0.35, 60);
+      const tw = ctx.measureText(s.inCross).width + 16;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.fillRect(cx - tw / 2, y - 15, tw, 22);
+      ctx.fillStyle = ACCENT;
+      ctx.fillText(s.inCross, cx, y);
     }
     ctx.restore();
   };

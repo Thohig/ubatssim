@@ -28,6 +28,12 @@ import { TorpedoRoom, type Tube } from './torpedoRoom';
 export type { Tube } from './torpedoRoom';
 
 const DEG = Math.PI / 180;
+/** The cross hair is on a ship within half the angle it fills, and never less than this [rad]. */
+export const MARK_TOLERANCE = 2 * DEG;
+/** A ship this close beside the cross hair [rad] is pointed out when a mark finds nothing. */
+const NEAR_MISS = 15 * DEG;
+/** Half the angle a ship of `length` [m] fills at `range` [m], plus half a degree, at least `MARK_TOLERANCE` [rad]. */
+export const onShip = (length: number, range: number): number => Math.max(MARK_TOLERANCE, Math.atan2(length / 2, Math.max(1, range)) + 0.5 * DEG);
 /** Seconds between sonar bearings added to a target. */
 const SONAR_EVERY = 10;
 /** Bearing errors [rad]: periscope or bridge, and sonar. */
@@ -436,23 +442,41 @@ export class FireControl {
     }
   }
 
-  /** The vessel in sight nearest a bearing [rad] (within 2°), or why there is none. */
-  findInSight(bearing: number): Vessel | string {
+  /**
+   * The vessel in the cross hair at a bearing [rad], or why there is none. The cross hair is on a ship anywhere
+   * along its length (half the angle it fills, at least `MARK_TOLERANCE`): a fixed 2° from its middle refused a
+   * long ship close by when aimed at its bow. `field` [rad] widens it (the screen: a quarter of the periscope's
+   * field of view, as a small ship far off was hard to hit). Of several, the one nearest (relative to the tolerance).
+   */
+  findInSight(bearing: number, field = 0): Vessel | string {
     if (!this.lookout()) return 'Ingen utkik: hissa periskopet eller bemanna bryggan för att markera ett mål.';
-    let best: { vessel: Vessel; off: number } | null = null;
+    let best: { vessel: Vessel; score: number } | null = null;
+    let nearest: { off: number; signed: number } | null = null;
     for (const s of this.inSight()) {
-      const off = Math.abs(wrapPi(s.bearing - bearing));
-      if (off < 2 * DEG && (!best || off < best.off)) best = { vessel: s.vessel, off };
+      const signed = wrapPi(s.bearing - bearing);
+      const off = Math.abs(signed);
+      const tolerance = Math.max(onShip(s.vessel.def.length, s.range), field);
+      if (off < tolerance && (!best || off / tolerance < best.score)) best = { vessel: s.vessel, score: off / tolerance };
+      if (!nearest || off < nearest.off) nearest = { off, signed };
     }
-    return best ? best.vessel : 'Inget fartyg i hårkorset.';
+    if (best) return best.vessel;
+    // Something seen but too far to mark, or a ship just beside the cross hair: say so.
+    const far = this.ctrl.world.contacts().some((k) => k.range >= SIGHT_RANGE && !k.vessel.state.sinking && Math.abs(wrapPi(k.bearing - bearing)) < Math.max(onShip(k.vessel.def.length, k.range), field));
+    if (far) return `Fartyget är för långt bort för att markera, över ${SIGHT_RANGE / 1000} km. Gå närmare, eller gör sonarkontakten till mål.`;
+    if (nearest && nearest.off < NEAR_MISS) return `Inget fartyg i hårkorset. Närmaste fartyg ${Math.max(1, Math.round(nearest.off / DEG))}° till ${nearest.signed > 0 ? 'höger' : 'vänster'}.`;
+    return 'Inget fartyg i hårkorset.';
   }
 
-  /** Marks the vessel at a bearing seen through the periscope or from the bridge [rad] (check with `findInSight` first). */
-  markInSight(bearing: number): Target | null {
-    const v = this.findInSight(bearing);
+  /**
+   * Marks the vessel in the cross hair at a bearing [rad] (check with `findInSight` first). The observation is
+   * the ship's bearing (as the later sightings): aimed at its bow, the cross hair is off its middle.
+   */
+  markInSight(bearing: number, field = 0): Target | null {
+    const v = this.findInSight(bearing, field);
     if (typeof v === 'string') return null;
     const t = this.targetFor(v);
-    this.observe(t, { bearing, sigma: SIGMA_PERISCOPE });
+    const seen = this.inSight().find((x) => x.vessel === v);
+    this.observe(t, { bearing: seen ? seen.bearing : bearing, sigma: SIGMA_PERISCOPE });
     return t;
   }
 

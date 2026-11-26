@@ -8,7 +8,7 @@ import { quatToMat3 } from '../sim/math/quat';
 import { getQuat } from '../sim/rigidBody';
 import { IDX_SHAFT } from '../sim/simulation';
 import type { World } from '../sim/world';
-import type { ViewMode } from '../ui/views';
+import { markField, type ViewMode } from '../ui/views';
 import type { GameSession } from './session';
 
 /** The nearest other vessel, for the sound. */
@@ -81,6 +81,18 @@ export interface OverlayInput {
   fov: number;
 }
 
+/**
+ * What the cross hair is on at a true bearing [rad], for the line under it: a target's label, or that Mål marks it.
+ * Null with nothing there (or no lookout).
+ */
+export function inCross(s: GameSession, bearing: number, field = 0): string | null {
+  const f = s.ctrl.fire;
+  const v = f.findInSight(bearing, field);
+  if (typeof v === 'string') return null;
+  const t = f.targets.find((x) => x.vesselId === v.def.id);
+  return t ? `${t.label} i hårkorset${f.current === t.label ? '' : ' · Mål väljer det'}` : 'Fartyg i hårkorset · Mål markerar det';
+}
+
 /** The overlay's state: true bearing of the look, the buoy, magnification, periscope under water. */
 export function overlayState(s: GameSession, v: OverlayInput) {
   const sim = s.sim;
@@ -93,5 +105,6 @@ export function overlayState(s: GameSession, v: OverlayInput) {
     zoom: v.zoom,
     underwater: v.mode === 'periscope' && sim.bodyPointDepth(sim.periscopeHead()) > 0,
     fov: v.fov,
+    inCross: inCross(s, k.heading + v.relative, (markField(v) * Math.PI) / 180),
   };
 }

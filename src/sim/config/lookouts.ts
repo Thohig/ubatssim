@@ -15,9 +15,14 @@ export const LOOKOUTS = {
   esmRate: 0.04,
   /** How far the boat's radar warner hears an aircraft's radar [m]. */
   aircraftRadarReach: 70000,
-  /** A coastal station: largest range [m] and awareness per second. */
+  /**
+   * A coastal station: largest range [m], and awareness per second close by, falling to nothing at
+   * `stationSight` [m] (a small echo weakens with the range and drowns in the sea clutter). The same rate at
+   * 2,5 and 30 km put a corvette on the boat half a minute after the periscope came up at the start of a game.
+   */
   stationRange: 40000,
-  stationRate: { periscope: 0.02, snorkel: 0.05, surfaced: 0.25 },
+  stationRate: { periscope: 0.014, snorkel: 0.03, surfaced: 0.05 },
+  stationSight: { periscope: 10000, snorkel: 18000, surfaced: 40000 },
   /** Awareness lost per second when nothing shows. */
   decay: 0.005,
   /** A report's position error [m], and the awareness it gives each corvette. */

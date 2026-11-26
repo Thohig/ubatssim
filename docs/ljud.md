@@ -53,7 +53,7 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Djupare än 250 m | En larmsignal när gränsen passeras |
 | Vatten över bryggan | Ett plask och en larmsignal |
 | Nödblåsning | En larmsignal |
-| Läckage, skrovet kollapsar | En larmsignal |
+| Läckage, skrovet kollapsar, ubåten förlorad (för mycket vatten inne) | En larmsignal |
 | Torped avfyrad (`Torped n gick från tub …`) | Tryckluft som rusar och en duns |
 | Träff | En låg, rullande smäll långt bort |
 | Sjunkbomb inom 120 m | Ett hårt knäpp, en tung smäll och skrovet som klingar |
@@ -61,7 +61,7 @@ Ljud utifrån går genom ett lågpassfilter (700 Hz) när kameran är under vatt
 | Ubåtens egen ping | En kraftig ping genom skrovet (2,4 kHz) och två svagare ekon utifrån, vid varje ping (`ownPing`) |
 | Huvudballasten full | Ett klonk när ventilerna stängs |
 | Ny fartorder (telegrafen, `fart`, `back`) | Maskintelegrafens klocka, två slag |
-| Ubåten förlorad (skrovet kollapsade) | Tre fallande toner |
+| Ubåten förlorad (skrovet kollapsade, eller mer vatten inne än huvudballasten bär) | Tre fallande toner |
 
 ## Omgivningen
 

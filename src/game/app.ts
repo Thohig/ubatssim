@@ -6,7 +6,7 @@
 import { AudioDirector } from '../audio/director';
 import { AREA_INFO } from '../control/areas';
 import { isReady } from '../control/torpedoRoom';
-import { HULL_COLLAPSED } from '../control/plantWatch';
+import { BOAT_LOST, HULL_COLLAPSED } from '../control/plantWatch';
 import { createScene } from '../render/scene';
 import type { CutawayState } from '../render/cutaway';
 import { quatToMat3 } from '../sim/math/quat';
@@ -75,6 +75,7 @@ export function startApp(): void {
     document.body.classList.toggle('onboard', m === 'bridge' || m === 'periscope');
     document.body.classList.toggle('cutaway', m === 'cutaway');
     document.body.classList.toggle('control', m === 'control');
+    document.body.classList.toggle('periscope', m === 'periscope');
     // Into the control room: its screens at once, not at the next tenth of a second.
     if (m === 'control' && session) controlFeed.sample(session, true);
   });
@@ -111,10 +112,11 @@ export function startApp(): void {
     // The game has no end but this: the hull collapsed (it went on sinking to 1400 m behind the HUD).
     let lost = false;
     ctrl.onLog((e) => {
-      if (lost || e.text !== HULL_COLLAPSED) return;
+      if (lost || (e.text !== HULL_COLLAPSED && e.text !== BOAT_LOST)) return;
       lost = true;
       audio.onLost();
-      window.setTimeout(() => endGame(s), 1500);
+      const message = e.text === HULL_COLLAPSED ? 'Skrovet kollapsade under krossdjupet.' : 'Ubåten tog in mer vatten än huvudballasten kan bära upp och sjönk.';
+      window.setTimeout(() => endGame(s, true, message), 1500);
     });
     audio.reset(sim.y[2]!, sim.actuators.periscope);
     view.resetCamera();
@@ -224,12 +226,12 @@ export function startApp(): void {
   }
 
   /** The patrol ends: the player ended it from the pause menu, or the boat was lost. */
-  function endGame(s: GameSession, lost = true): void {
+  function endGame(s: GameSession, lost = true, message = 'Skrovet kollapsade under krossdjupet.'): void {
     if (session !== s || (flow.state !== 'playing' && flow.state !== 'paused')) return;
     flow.go('ended');
     menu.showResult({
       lost,
-      message: lost ? 'Skrovet kollapsade under krossdjupet.' : '',
+      message: lost ? message : '',
       time: s.sim.t,
       tally: tally(s),
       selfHandled: [...s.ctrl.selfHandled],

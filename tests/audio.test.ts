@@ -93,6 +93,7 @@ describe('cues and speech', () => {
   it('log lines give the right cues', () => {
     expect(cueFor('Grundstötning! Fart 3,1 knop.')).toBe('grounding');
     expect(cueFor('Vatten över bryggan! Bryggan är utrymd.')).toBe('splash');
+    expect(cueFor('Ubåten är förlorad: mer vatten inne än huvudballasten kan bära upp.')).toBe('alarm');
     expect(cueFor('Assistent: nödblåsning! Ubåten närmar sig krossdjupet.')).toBe('alarm');
     expect(cueFor('Huvudballasten är full. Ventilerna stängda.')).toBe('clonk');
     expect(cueFor('Back 4 knop, ja')).toBe('telegraph');

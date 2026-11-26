@@ -217,7 +217,8 @@ describe('patrol aircraft and coastal radar', () => {
     const seen = (north: number, east: number) => {
       const c = new Controller(new Simulation({ area: 'shelf', north, east }));
       c.lookouts.stations = [st];
-      run(c, 5);
+      // Some sweeps to plot and judge it (stationRate), more the further off.
+      run(c, 30);
       return c.sonar.awareness[st.id] ?? 0;
     };
     expect(seen(st.position[0], 3000)).toBeGreaterThan(0.5);

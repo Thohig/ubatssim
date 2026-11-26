@@ -20,7 +20,7 @@ import { solutionAt } from '../control/fireControl';
 import { isReady, tubeState } from '../control/torpedoRoom';
 import { h } from './dom';
 import type { ViewState } from './views';
-import { viewBearing } from './views';
+import { markField, viewBearing } from './views';
 
 const KN = 1852 / 3600;
 const deg3 = (rad: number) => `${String(Math.round(((rad * 180) / Math.PI + 360) % 360) % 360).padStart(3, '0')}°`;
@@ -44,10 +44,10 @@ export function solutionText(ctrl: Controller, lookout = true): string {
 
 /** Fires-control order helpers, shared with the keyboard. */
 export function markOrder(ctrl: Controller, views: ViewState, source: OrderSource = 'touch'): void {
-  ctrl.submit({ kind: 'markTarget', bearing: Math.round(viewBearing(ctrl, views) * 10) / 10 }, source);
+  ctrl.submit({ kind: 'markTarget', bearing: Math.round(viewBearing(ctrl, views) * 10) / 10, field: markField(views) }, source);
 }
 export function rangeOrder(ctrl: Controller, views: ViewState, source: OrderSource = 'touch'): void {
-  ctrl.submit({ kind: 'rangeTarget', bearing: viewBearing(ctrl, views), magnification: views.mode === 'periscope' ? views.zoom : null }, source);
+  ctrl.submit({ kind: 'rangeTarget', bearing: viewBearing(ctrl, views), magnification: views.mode === 'periscope' ? views.zoom : null, field: markField(views) }, source);
 }
 
 /** Shown in the periscope view and on the bridge, and while the chart or the sonar is open (`navOpen`). */

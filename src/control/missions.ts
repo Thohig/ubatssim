@@ -45,9 +45,12 @@ export const MISSIONS = {
   recceHold: 30,
   /** Transit: within this distance [m] of the point. */
   transitRange: 500,
-  /** Charge: to this state of charge, or this much more than at the start, whichever is lower. */
-  chargeTo: 0.9,
+  /** Charge: to this state of charge, or this much more than at the start, whichever is lower; not above `chargeSkip`. */
+  chargeTo: 0.98,
   chargeGain: 0.2,
+  chargeSkip: 0.93,
+  /** Attack: the convoy's position comes by radio this often [s] (the buoy), while an antenna is up. */
+  convoyReport: 600,
 };
 
 const ORDER: Record<ThreatId, MissionKind[]> = {
@@ -104,7 +107,8 @@ export class Missions {
     const t = c.sim.telemetry();
     const m = this.current;
     if (!m) {
-      if (now < this.nextAt) return;
+      // Not in the middle of a hunt: a transit came in and was called off in the same second.
+      if (now < this.nextAt || c.hunter.hunting) return;
       if (!Missions.hearsRadio(t, c)) {
         if (!this.waitingLogged) c.addLog('Radio: ett meddelande väntar. Gå upp till periskopdjup och hissa en mast för att ta emot det.', 'info');
         this.waitingLogged = true;
@@ -114,6 +118,14 @@ export class Missions {
       return;
     }
     if (c.hunter.hunting) this.hunted = true;
+    if (m.kind === 'attack' && now - this.reportedAt >= MISSIONS.convoyReport && Missions.hearsRadio(t, c)) {
+      this.reportedAt = now;
+      const at = this.convoyAt();
+      if (at) {
+        m.waypoint = at;
+        c.addLog(`Radio: konvojen är nu ${km(Math.hypot(at[0] - t.position[0], at[1] - t.position[1]))} km ${bearingName([t.position[0], t.position[1]], at)} om dig. Bojen flyttad.`, 'info');
+      }
+    }
     if (this.met(m, t)) return this.end(`Uppdrag utfört: ${m.goal}.`, true);
     if (m.kind === 'transit' && this.hunted) return this.end('Uppdraget avbrutet: korvetterna jagar dig. Inget straff, ett nytt kommer senare.', false);
     if (now > m.deadline) this.end(`Uppdraget gick ut: ${m.goal}. Inget straff, ett nytt kommer senare.`, false);
@@ -138,6 +150,13 @@ export class Missions {
   }
 
   private sunkBefore = new Set<string>();
+  private reportedAt = 0;
+
+  /** Where the convoy's first ship afloat is (the radio's report), or null. */
+  private convoyAt(): [number, number] | null {
+    const v = this.ctrl.world.vessels.find((x) => CONVOY.includes(x.def.id) && !x.state.sinking);
+    return v ? [v.state.north, v.state.east] : null;
+  }
 
   private issue(now: number, t: Telemetry): void {
     const c = this.ctrl;
@@ -147,21 +166,29 @@ export class Missions {
     let kind = order[this.issued % order.length]!;
     const convoyLeft = c.world.vessels.some((v) => CONVOY.includes(v.def.id) && !v.state.sinking);
     if (kind === 'attack' && !convoyLeft) kind = 'recce';
-    if (kind === 'charge' && t.battery > 0.85) kind = 'recce';
+    // With the battery nearly full there is nothing to charge (above 0,85 it came almost never: a patrol at 6 knots uses ~4 % an hour).
+    if (kind === 'charge' && t.battery > MISSIONS.chargeSkip) kind = 'recce';
     const n = this.issued++;
     let waypoint: [number, number] | null = null;
     let text: string;
     let goal: string;
     const limit = `${Math.round(MISSIONS.limit / 3600)} timmar`;
     if (kind === 'recce') {
-      waypoint = mid(p.lanes[n % p.lanes.length]!);
-      const d = Math.hypot(waypoint[0] - here[0], waypoint[1] - here[1]);
-      text = `Spana efter trafik i farleden ${km(d)} km ${bearingName(here, waypoint)} om dig: gå dit och titta med periskopet en halv minut. Inom ${limit}.`;
+      // A lane the boat is not already watching: one within range was done in half a minute.
+      const lanes = p.lanes.map((_, i) => mid(p.lanes[(n + i) % p.lanes.length]!));
+      const far = (w: [number, number]) => Math.hypot(w[0] - here[0], w[1] - here[1]);
+      waypoint = lanes.find((w) => far(w) > MISSIONS.recceRange) ?? lanes.reduce((a, b) => (far(b) > far(a) ? b : a));
+      const d = far(waypoint);
+      text = `Spana efter trafik i farleden ${km(d)} km ${bearingName(here, waypoint)} om dig: gå inom ${km(MISSIONS.recceRange)} km från bojen och titta med periskopet en halv minut. Inom ${limit}.`;
       goal = 'spana i farleden (bojen)';
     } else if (kind === 'attack') {
       this.sunkBefore = new Set(c.world.vessels.filter((v) => v.state.sinking).map((v) => v.def.id));
-      text = `Konvojen går ${bearingName(here, mid(p.convoy))} om dig. Sänk ett av lastfartygen. Inom ${limit}.`;
-      goal = 'sänk ett fartyg i konvojen';
+      // The buoy at the convoy's position as reported, again every `convoyReport` s while an antenna is up.
+      waypoint = this.convoyAt() ?? mid(p.convoy);
+      this.reportedAt = now;
+      const d = Math.hypot(waypoint[0] - here[0], waypoint[1] - here[1]);
+      text = `Konvojen är ${km(d)} km ${bearingName(here, waypoint)} om dig (bojen). Sänk ett av lastfartygen. Inom ${limit}.`;
+      goal = 'sänk ett fartyg i konvojen (bojen: senaste läget)';
     } else if (kind === 'transit') {
       waypoint = mid(p.convoy);
       const d = Math.hypot(waypoint[0] - here[0], waypoint[1] - here[1]);

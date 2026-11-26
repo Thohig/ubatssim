@@ -118,6 +118,46 @@ describe('the attack', () => {
     expect(said(/^Inget mål/)).toBe(true);
   });
 
+  it('the cross hair is on a ship anywhere along its length; beside it, the nearest is pointed out', () => {
+    // A 150 m freighter broadside on, 600 m north: it fills some 14°. Aimed at its bow (5° off its middle), a
+    // fixed 2° from the middle refused it.
+    const near = { ...freighter('n', 'närfartyget', [[600, -100], [600, 6000]], 150), speed: 3 };
+    const c = game({ depth: 13, neutral: true, heading: 0 }, [near]);
+    c.submit({ kind: 'periscope', up: true }, 'keyboard');
+    run(c, 10);
+    const b = trueBearing(c);
+    expect(c.fire.findInSight(((b + 5) * Math.PI) / 180)).toBe(c.world.vessels[0]);
+    c.submit({ kind: 'markTarget', bearing: (b + 5) % 360 }, 'keyboard');
+    run(c, 0.1);
+    expect(c.fire.target?.label).toBe('M1');
+    // The observation is the ship's bearing, not the cross hair's.
+    expect(Math.abs(c.fire.target!.obs[0]!.bearing - (b * Math.PI) / 180)).toBeLessThan(0.5 * DEG);
+    expect(c.fire.findInSight(((b + 12) * Math.PI) / 180)).toBe('Inget fartyg i hårkorset. Närmaste fartyg 12° till vänster.');
+    expect(c.fire.findInSight(((b - 12) * Math.PI) / 180)).toBe('Inget fartyg i hårkorset. Närmaste fartyg 12° till höger.');
+  });
+
+  it('from the screen, a ship within a quarter of the periscope\'s field counts as in the cross hair, and can be ranged', () => {
+    const c = game({ depth: 13, neutral: true, speed: 3 * KN, heading: 0 }, [ship()]);
+    c.submit({ kind: 'periscope', up: true }, 'keyboard');
+    run(c, 10);
+    const b = trueBearing(c);
+    // 6° off a ship 3 km away: refused without the field, taken with the 8° of the 1,5× periscope.
+    expect(typeof c.fire.findInSight(((b + 6) * Math.PI) / 180)).toBe('string');
+    c.submit({ kind: 'markTarget', bearing: (b + 6) % 360, field: 8 }, 'touch');
+    c.submit({ kind: 'rangeTarget', bearing: (b + 6) % 360, magnification: 0, field: 8 }, 'touch');
+    run(c, 0.1);
+    expect(c.fire.target?.label).toBe('M1');
+    expect(c.fire.target!.obs.some((o) => o.range !== undefined)).toBe(true);
+  });
+
+  it('a ship seen but too far to mark says so', () => {
+    const far = { ...freighter('f', 'fjärran', [[10000, -100], [10000, 6000]]), speed: 3 };
+    const c = game({ depth: 13, neutral: true, heading: 0 }, [far]);
+    c.submit({ kind: 'periscope', up: true }, 'keyboard');
+    run(c, 10);
+    expect(c.fire.findInSight((trueBearing(c) * Math.PI) / 180)).toMatch(/^Fartyget är för långt bort för att markera, över 8 km\./);
+  });
+
   it('a sonar contact can be a target; its bearings feed the solution', () => {
     const c = game({ depth: 40, designTrim: true, speed: 4 * KN, heading: 0 }, [ship()]);
     run(c, 3);

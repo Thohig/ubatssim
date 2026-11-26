@@ -470,7 +470,9 @@ export class Controller {
         const range = Math.round(Math.hypot(dn, de) / 10) * 10;
         const bearing = String(Math.round(((Math.atan2(de, dn) / DEG) % 360 + 360) % 360)).padStart(3, '0');
         const clear = Math.ceil(v.def.draft + COLLISION.clearance - (sim.cfg.hull.sail.position[2] - sim.cfg.hull.sail.height / 2));
-        this.addLog(`Varning: ${v.def.name} kommer nära, ${range} m i ${bearing}°. Gå djupare än ${clear} m eller gir undan.`, 'error');
+        // A ship lying still (the depot ship) does not come near: we do.
+        const what = v.state.speed < 0.3 ? `vi går nära ${v.def.name}, som ligger still,` : `${v.def.name} kommer nära,`;
+        this.addLog(`Varning: ${what} ${range} m i ${bearing}°. Gå djupare än ${clear} m eller gir undan.`, 'error');
       } else if (!close && this.closingWarned.has(id) && (tc <= 0 || cpa > 2 * COLLISION.cpa + v.def.length)) {
         this.closingWarned.delete(id);
       }

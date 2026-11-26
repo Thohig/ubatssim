@@ -8,6 +8,11 @@ import type { Controller } from './controller';
 
 /** The log line when the hull collapses (free play ends on it). */
 export const HULL_COLLAPSED = 'Skrovet kollapsade!';
+/**
+ * More water inside than the main ballast can lift, blown dry: the boat cannot come up again. Said once; the
+ * game ends on it as on a collapse. A boat sunk in shallow water used to lie on the bottom with no end.
+ */
+export const BOAT_LOST = 'Ubåten är förlorad: mer vatten inne än huvudballasten kan bära upp.';
 
 const KNOT = 1852 / 3600;
 /** A raised mast faster than this [knots] (periscope view shakes from 6) or deeper than this [m] is told. */
@@ -36,6 +41,7 @@ export class PlantWatch {
   private batteryWarned = new Set<number>();
   private dieselWasRunning = false;
   private floodWarned = false;
+  private lostSaid = false;
   private airWarned = false;
   private mastFastWarned = false;
   private mastDeepWarned = false;
@@ -116,6 +122,15 @@ export class PlantWatch {
         if (c.ap.speed && c.setpoints.speed < 8) c.submit({ kind: 'setSpeed', knots: 8 }, 'assist');
       }
     } else if (water < FLOOD_WARNING / 2) this.floodWarned = false;
+    if (!this.lostSaid && !fl.collapsed && water > this.reserve()) {
+      this.lostSaid = true;
+      c.addLog(BOAT_LOST, 'error');
+    }
+  }
+
+  /** The main ballast's volume [m³]: the most water inside the boat can carry and still come up. */
+  private reserve(): number {
+    return this.c.sim.cfg.tanks.filter((t) => t.kind === 'mainBallast').reduce((s, t) => s + t.volume, 0);
   }
 
   /**

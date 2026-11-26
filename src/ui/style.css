@@ -694,6 +694,9 @@ body.nav-open #fire { z-index: 5; }
   padding: 8px 10px; max-height: 45vh; overflow-y: auto;
 }
 #log.expanded .log-entry { opacity: 1; text-shadow: none; }
+/* In the periscope one row per floating line: wrapped lines under the mission bar covered the bearing band
+   (TOP_CLEAR in viewOverlay.ts). A tap shows the history. */
+body.periscope #log:not(.expanded) .log-entry.live { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 840px), (max-height: 500px) {
   #top-center {
     top: calc(max(8px, env(safe-area-inset-top)) + 46px); left: max(8px, env(safe-area-inset-left)); right: 76px;

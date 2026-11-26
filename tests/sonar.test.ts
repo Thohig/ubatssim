@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { corvette, freighter } from '../src/control/areas';
 import { Controller } from '../src/control/controller';
-import { CLASSIFY_AFTER } from '../src/control/sonar';
+import { BIO_LOSE_AFTER, CLASSIFY_AFTER, LOSE_AFTER } from '../src/control/sonar';
 import { cavitationSpeed, subSourceLevel, transmissionLoss } from '../src/sim/acoustics';
 import { ACOUSTICS } from '../src/sim/config/acoustics';
+import { WEAPONS } from '../src/sim/config/weapons';
 import { WATERS } from '../src/sim/config/waters';
 import { Simulation, type InitialConditions } from '../src/sim/simulation';
 import type { VesselDef } from '../src/sim/vessel';
@@ -53,6 +54,39 @@ describe('passive sonar', () => {
     expect(c.sonar.history.at(-1)!.marks[0]!.relative).toBeCloseTo(90, -1);
   });
 
+  it('a ship lying stopped is classified without a propeller count', () => {
+    const ship = { ...freighter('d', 'M/S D', [[0, 3000]]), speed: 0, propellerRps: 0 };
+    const c = game({ depth: 40, designTrim: true, speed: 4 * KN }, [ship]);
+    run(c, CLASSIFY_AFTER + 2);
+    expect(c.log.some((e) => e.text === 'Sonar: S1 är troligen ett lastfartyg (propellern står still, bara maskinljud).')).toBe(true);
+  });
+
+  it('a whale between its calls keeps its contact, and a ship heard again gets its old label back', () => {
+    // A minke whale calls 60 s of every 240: it used to be a new contact (S2, S3 …) and a new classification every 4 min.
+    const c = game({ depth: 40, designTrim: true, speed: 2 * KN }, []);
+    c.world.addLife([{ id: 'w', name: 'en vikval', kind: 'whale', sound: 'pulse', route: [[0, 1500]], speed: 0, depth: 30, dive: 300, surface: 60, callPeriod: 240, callOn: 60, size: 8 }]);
+    run(c, 600);
+    expect(c.sonar.contacts.filter((k) => k.bio).map((k) => k.label)).toEqual(['S1']);
+    expect(c.log.filter((e) => /^Sonar: ny kontakt/.test(e.text))).toHaveLength(1);
+    expect(c.log.filter((e) => /är biologisk/.test(e.text))).toHaveLength(1);
+    expect(BIO_LOSE_AFTER).toBeGreaterThan(240 - 60);
+
+    const ship = freighter('f', 'M/S F', [[0, 4000], [1, 4000]]);
+    ship.speed = 3;
+    const d = game({ depth: 40, designTrim: true, speed: 4 * KN }, [ship]);
+    run(d, CLASSIFY_AFTER + 2);
+    const v = d.world.vessels[0]!;
+    const east = v.state.east;
+    v.state.east = 80000; // out of hearing
+    run(d, LOSE_AFTER + 2);
+    expect(d.sonar.contacts).toHaveLength(0);
+    v.state.east = east;
+    run(d, 2);
+    expect(d.sonar.contacts[0]?.label).toBe('S1');
+    expect(d.sonar.contacts[0]?.classified).toBe('lastfartyg');
+    expect(d.log.some((e) => /^Sonar: S1 hörs igen, bäring/.test(e.text))).toBe(true);
+  });
+
   it('does not hear a quiet boat far away', () => {
     const boat: VesselDef = { ...freighter('x', 'X', [[60000, 0], [60001, 0]]), kind: 'fishing' };
     const c = game({ depth: 200, designTrim: true, speed: 4 * KN }, [boat]);
@@ -78,6 +112,31 @@ describe('being found', () => {
     run(c, 120);
     expect(c.sonar.detectedBy).toBeNull();
     expect(c.sonar.risk).toBeLessThan(0.5);
+  });
+
+  it('a spent corvette is not put back into the attack by its partner\'s echoes', () => {
+    // At war a spent corvette went "in to attack", "no depth charges left" and "back to patrol" every ping, for an hour.
+    const a = { ...corvette('a', 'korvetten A', [[800, -3000], [800, 3000]]), group: 'paret' };
+    const b = { ...corvette('b', 'korvetten B', [[1200, 3000], [1200, -3000]]), group: 'paret' };
+    const c = game({ depth: 20, designTrim: true, speed: 4 * KN }, [a, b]);
+    const hunts = (c.hunter as unknown as { hunt(id: string): { charges: number } });
+    hunts.hunt('b').charges = 0;
+    c.hunter.cue(c.world.vessels[0]!, [c.sim.y[0]!, c.sim.y[1]!]);
+    run(c, 120);
+    expect(c.hunter.state('a')).toBe('attack');
+    expect(c.hunter.state('b')).toBe('patrol');
+    expect(c.log.some((e) => e.text === 'Sonar: korvetten B går in för anfall!')).toBe(false);
+  });
+
+  it('a corvette drops its pattern over where it believes the boat is, not 150 m short', () => {
+    // Dropping as soon as it was within 150 m put the pattern ~140 m short: 24 charges at a boat lying still, none closer than 68 m.
+    const c = game({ depth: 60, designTrim: true }, [corvette('k', 'korvetten K', [[3000, 0], [3000, 1]])]);
+    c.submit({ kind: 'setSpeed', knots: 0 }, 'keyboard');
+    c.hunter.cue(c.world.vessels[0]!, [c.sim.y[0]!, c.sim.y[1]!]);
+    for (let i = 0; i < 600 && c.world.charges.length === 0; i++) run(c, 1);
+    expect(c.world.charges.length).toBeGreaterThan(0);
+    const nearest = Math.min(...c.world.charges.map((ch) => Math.hypot(ch.state.north - c.sim.y[0]!, ch.state.east - c.sim.y[1]!)));
+    expect(nearest).toBeLessThan(WEAPONS.depthCharge.damage);
   });
 
   it('a raised snorkel within sight gives the boat away, slowly', () => {

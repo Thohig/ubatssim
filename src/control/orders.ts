@@ -52,15 +52,16 @@ export type Order =
   /**
    * Mark a target: a vessel at a true bearing [deg] seen through the
    * periscope or from the bridge, a sonar contact ("S1"), or an existing
-   * target ("M2") to aim at.
+   * target ("M2") to aim at. `field` [deg]: a ship this far from the cross hair still counts as in it
+   * (the screen sends a quarter of the periscope's field of view).
    */
-  | { kind: 'markTarget'; bearing?: number; label?: string }
+  | { kind: 'markTarget'; bearing?: number; label?: string; field?: number }
   /**
    * Range the current target: with the stadimeter at the periscope's
    * bearing [deg] and magnification (index, null = by eye from the bridge),
    * or a range [m] typed in.
    */
-  | { kind: 'rangeTarget'; bearing?: number; magnification?: number | null; range?: number }
+  | { kind: 'rangeTarget'; bearing?: number; magnification?: number | null; range?: number; field?: number }
   /** Fire at the current target from a tube (1–4; default the first loaded), as a salvo of `spread`. */
   | { kind: 'fireTorpedo'; tube?: number }
   /** Torpedoes per salvo, 1–3. */

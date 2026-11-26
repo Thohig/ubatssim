@@ -7,7 +7,7 @@ import type { Simulation } from '../sim/simulation';
 import { WEAPONS } from '../sim/config/weapons';
 import { STAGED_BLOW_DEPTH, type Controller } from './controller';
 import { AXES, CREW_NOUN, CREW_SYSTEMS, MAX_DIVE_DEPTH, swedishList, type CrewDuties } from './crew';
-import type { Target } from './fireControl';
+import { onShip, type Target } from './fireControl';
 import { isReady, tubeState } from './torpedoRoom';
 import type { Order, OrderKind, OrderOf, TankGroup } from './orders';
 import { LIMITS } from './parser';
@@ -326,12 +326,12 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
         return k.bio ? `${label} är biologisk${k.classified ? ` (${k.classified})` : ''}, inget mål.` : null;
       }
       // Through the periscope or from the bridge: a vessel in the cross hair.
-      const r = c.fire.findInSight(((o.bearing ?? 0) * Math.PI) / 180);
+      const r = c.fire.findInSight(((o.bearing ?? 0) * Math.PI) / 180, ((o.field ?? 0) * Math.PI) / 180);
       return typeof r === 'string' ? r : null;
     },
     apply: (c, o) => {
       if (!o.label) {
-        const t = c.fire.markInSight(((o.bearing ?? 0) * Math.PI) / 180);
+        const t = c.fire.markInSight(((o.bearing ?? 0) * Math.PI) / 180, ((o.field ?? 0) * Math.PI) / 180);
         if (t) c.afterAck.push(`${t.label} är ${t.name}.`);
         return;
       }
@@ -355,7 +355,9 @@ export const ORDERS: { [K in OrderKind]: OrderRule<OrderOf<K>> } = {
       const v = c.fire.vessel(t);
       const seen = c.fire.inSight().find((x) => x.vessel === v);
       if (!seen) return 'Målet syns inte: hissa periskopet eller bemanna bryggan.';
-      if (o.bearing !== undefined && Math.abs(((((o.bearing * Math.PI) / 180 - seen.bearing) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) > (3 * Math.PI) / 180) {
+      // Anywhere on the ship, or within the field the screen sends (a fixed 3° from its middle refused its bow).
+      const tolerance = Math.max((3 * Math.PI) / 180, onShip(v!.def.length, seen.range), ((o.field ?? 0) * Math.PI) / 180);
+      if (o.bearing !== undefined && Math.abs(((((o.bearing * Math.PI) / 180 - seen.bearing) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) > tolerance) {
         return 'Målet är inte i hårkorset.';
       }
       return null;

@@ -213,7 +213,8 @@ export class Hunter {
       oh.lkp = [h.lkp[0], h.lkp[1]];
       oh.lkpDepth = h.lkpDepth;
       oh.lastContact = h.lastContact;
-      if (attack) {
+      // A spent partner stays on patrol: put back into the attack it broke off again each ping, three log lines every 12 s.
+      if (attack && oh.charges > 0) {
         this.ctrl.sonar.alert(o.def.id, 1);
         this.enter(o, oh, 'attack');
       }
@@ -294,7 +295,7 @@ export class Hunter {
     const dn = n - v.state.north;
     const de = e - v.state.east;
     const range = Math.hypot(dn, de);
-    if (range > W.pingRange) return -Infinity;
+    if (range > W.pingRange || range < W.deadZone) return -Infinity;
     // The hull sonar is blind astern, in its own wake (the baffles).
     const rel = Math.atan2(de, dn) - v.state.heading;
     if (Math.abs(Math.atan2(Math.sin(rel), Math.cos(rel))) > W.baffles) return -Infinity;
@@ -331,7 +332,9 @@ export class Hunter {
     }
     if (best <= 0) return;
     const at = decoy ? { n: decoy.north, e: decoy.east, depth: decoy.depth } : { n: sim.y[0]!, e: sim.y[1]!, depth };
-    h.lkp = [at.n, at.e];
+    // The echo's range is a little off along the line of sight.
+    const err = 1 + W.echoRangeError * noise(sim.t, v.def.id.length + 7);
+    h.lkp = [v.state.north + (at.n - v.state.north) * err, v.state.east + (at.e - v.state.east) * err];
     h.lkpDepth = Math.max(10, at.depth + 8 * noise(sim.t, v.def.id.length + 3));
     h.lastContact = sim.t;
     c.sonar.alert(v.def.id, 1);
@@ -362,7 +365,9 @@ export class Hunter {
       v.goal = h.lkp;
       v.goalSpeed = W.attack;
       const d = Math.hypot(h.lkp[0] - v.state.north, h.lkp[1] - v.state.east);
-      if (d < W.dropDistance && now - h.lastAttack >= W.attackInterval && h.charges > 0) {
+      // Over it: the position no more than `dropAhead` ahead along the track (abeam or just passed).
+      const ahead = (h.lkp[0] - v.state.north) * Math.cos(v.state.heading) + (h.lkp[1] - v.state.east) * Math.sin(v.state.heading);
+      if (d < W.dropDistance && ahead < W.dropAhead && now - h.lastAttack >= W.attackInterval && h.charges > 0) {
         h.lastAttack = now;
         h.charges -= WEAPONS.depthCharge.pattern;
         this.ctrl.world.dropCharges(v, h.lkpDepth ?? 50);

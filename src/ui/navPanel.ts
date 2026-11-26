@@ -53,6 +53,21 @@ export function chartPoint(p: [number, number], centre: [number, number], half: 
 }
 
 const DEG = Math.PI / 180;
+
+/** A label's box on the chart [px]: left, top (of the text), width, height. */
+export type LabelBox = { x: number; y: number; w: number; h: number };
+
+/**
+ * Where a label of size w × h wanted at (x, y) (its baseline) goes so that it does not overlap one already
+ * placed: moved down a row at a time, at most a few rows. Adds its box to `placed` and returns the baseline y.
+ * Sonar bearings and ships close together wrote on top of each other ("S1skebåten Maja").
+ */
+export function placeLabel(placed: LabelBox[], x: number, y: number, w: number, h = 12): number {
+  let top = y - h + 2;
+  for (let i = 0; i < 6 && placed.some((p) => x < p.x + p.w && p.x < x + w && top < p.y + p.h && p.y < top + h); i++) top += h;
+  placed.push({ x, y: top, w, h });
+  return top + h - 2;
+}
 const KN = 1852 / 3600;
 /** Samples across the depth shading (each direction). */
 const GRID = 72;
@@ -217,6 +232,7 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
       const [bx, by] = pt(pos);
       g.lineWidth = 1;
       g.font = '11px system-ui, sans-serif';
+      const labels: LabelBox[] = [];
       for (const k of c.sonar.contacts) {
         const a = k.bearing * DEG;
         const len = Math.hypot(w, H);
@@ -232,7 +248,7 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
         const lx = bx + Math.sin(a) * Math.min(w, H) * 0.42;
         const ly = by - Math.cos(a) * Math.min(w, H) * 0.42;
         g.fillStyle = '#ffd08a';
-        g.fillText(k.label, lx + 3, ly - 3);
+        g.fillText(k.label, lx + 3, placeLabel(labels, lx + 3, ly - 3, g.measureText(k.label).width));
       }
       // Targets: the solution's position now and two minutes of its course (fire control).
       for (const tg of c.fire.targets) {
@@ -357,7 +373,7 @@ export function createNavPanel(root: HTMLElement, onMark?: (label: string) => vo
           const [x, y] = pt([k.vessel.state.north, k.vessel.state.east]);
           g.fillStyle = '#ffd08a';
           g.fillRect(x - 3, y - 3, 6, 6);
-          g.fillText(k.vessel.def.name, x + 5, y - 4);
+          g.fillText(k.vessel.def.name, x + 5, placeLabel(labels, x + 5, y - 4, g.measureText(k.vessel.def.name).width));
         }
       }
       // The buoy, or an arrow at the edge towards it.

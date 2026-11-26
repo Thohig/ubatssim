@@ -128,6 +128,8 @@ export class Patrol {
   private lastAlert = -Infinity;
   private reinforceAt: number | null = null;
   private alongsideFor = 0;
+  /** "Full" said once per stay alongside (it came every five minutes). */
+  private saidFull = false;
   private last: [number, number];
   private steps = 0;
 
@@ -228,6 +230,7 @@ export class Patrol {
     const alongside = near && c.sim.telemetry().bridgeDeckDepth < 0 && Math.abs(k.u) < 0.5;
     if (!alongside) {
       this.alongsideFor = 0;
+      this.saidFull = false;
       return;
     }
     if (this.alongsideFor === 0) c.addLog(`Långsides ${AREA_INFO[this.area].patrol.depot.name}. Lastningen tar ${PATROL.restockTime / 60} min.`, 'info');
@@ -238,6 +241,9 @@ export class Patrol {
     c.decoys = WEAPONS.decoy.count;
     this.restocked += torpedoes + decoys;
     const what = [torpedoes ? `${torpedoes} ${torpedoes === 1 ? 'torped' : 'torpeder'}` : '', decoys ? `${decoys} lockmål` : ''].filter(Boolean);
-    c.addLog(what.length ? `Lastat från depåfartyget: ${what.join(' och ')}.` : 'Fullt med torpeder och lockmål.', 'info');
+    // Again every `restockTime` while alongside: the tubes take from the racks as they are loaded.
+    if (what.length) c.addLog(`Lastat från depåfartyget: ${what.join(' och ')}.`, 'info');
+    else if (!this.saidFull) c.addLog('Fullt med torpeder och lockmål.', 'info');
+    this.saidFull = what.length === 0;
   }
 }
